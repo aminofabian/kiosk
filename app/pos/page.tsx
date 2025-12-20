@@ -30,6 +30,8 @@ import Link from 'next/link';
 import type { Item } from '@/lib/db/types';
 import type { Category } from '@/lib/db/types';
 import { getItemImage } from '@/lib/utils/item-images';
+import { InstallApp } from '@/components/InstallApp';
+import { DownloadButton } from '@/components/DownloadButton';
 
 const CATEGORY_IMAGE_MAP: Record<string, string> = {
   Vegetables: '/images/vegetables.jpeg',
@@ -639,29 +641,36 @@ export default function POSPage() {
                   </Button>
                 )}
               </div>
-              <Link href="/pos/cart">
-                <Button
+              <div className="flex items-center gap-2">
+                <DownloadButton
                   variant="outline"
-                  size="touch"
-                  className="relative bg-white hover:bg-[#4bee2b]/10 border-gray-200 hover:border-[#4bee2b] transition-smooth shadow-sm hover:shadow-md"
-                >
-                  <ShoppingCart className="mr-2" />
-                  <span className="hidden sm:inline">Cart</span>
-                  {cartItemCount > 0 && (
-                    <>
-                      <Badge
-                        variant="destructive"
-                        className="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center p-0 animate-pulse"
-                      >
-                        {cartItemCount}
-                      </Badge>
-                      <span className="hidden md:inline ml-2 font-semibold text-[#4bee2b]">
-                        KES {cartTotal.toFixed(0)}
-                      </span>
-                    </>
-                  )}
-                </Button>
-              </Link>
+                  size="sm"
+                  className="hidden md:flex bg-white hover:bg-[#4bee2b]/10 border-gray-200 hover:border-[#4bee2b]"
+                />
+                <Link href="/pos/cart">
+                  <Button
+                    variant="outline"
+                    size="touch"
+                    className="relative bg-white hover:bg-[#4bee2b]/10 border-gray-200 hover:border-[#4bee2b] transition-smooth shadow-sm hover:shadow-md"
+                  >
+                    <ShoppingCart className="mr-2" />
+                    <span className="hidden sm:inline">Cart</span>
+                    {cartItemCount > 0 && (
+                      <>
+                        <Badge
+                          variant="destructive"
+                          className="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center p-0 animate-pulse"
+                        >
+                          {cartItemCount}
+                        </Badge>
+                        <span className="hidden md:inline ml-2 font-semibold text-[#4bee2b]">
+                          KES {cartTotal.toFixed(0)}
+                        </span>
+                      </>
+                    )}
+                  </Button>
+                </Link>
+              </div>
             </div>
           }
         >
@@ -699,6 +708,8 @@ export default function POSPage() {
         onOpenChange={setVariantSelectorOpen}
         onSelectVariant={handleVariantSelected}
       />
+
+      <InstallApp />
     </>
   );
 }

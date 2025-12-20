@@ -710,9 +710,14 @@ middleware.ts
 
 ### Environment Variables Required
 ```env
-# NextAuth.js (add to .env.local)
+# NextAuth.js (add to .env.local for development)
 NEXTAUTH_SECRET=your-secret-here
 NEXTAUTH_URL=http://localhost:3000
+
+# For production, use your production domain:
+# NEXTAUTH_URL=https://your-domain.com
+# or if using Vercel:
+# NEXTAUTH_URL=https://your-app.vercel.app
 ```
 
 ---

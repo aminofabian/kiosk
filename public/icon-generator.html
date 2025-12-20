@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Icon Generator</title>
+</head>
+<body>
+  <h1>Generate App Icons</h1>
+  <p>Open this file, right-click each canvas, and "Save image as" to save the icons.</p>
+  
+  <h2>192x192 Icon</h2>
+  <canvas id="icon192" width="192" height="192"></canvas>
+  <a id="download192" download="icon-192.png">Download 192x192</a>
+  
+  <h2>512x512 Icon</h2>
+  <canvas id="icon512" width="512" height="512"></canvas>
+  <a id="download512" download="icon-512.png">Download 512x512</a>
+
+  <script>
+    function drawIcon(canvas, size) {
+      const ctx = canvas.getContext('2d');
+      
+      // Background: green gradient
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#4bee2b');
+      gradient.addColorStop(1, '#10b981');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+      
+      // Shopping cart icon
+      ctx.fillStyle = 'white';
+      ctx.font = `bold ${size * 0.6}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🛒', size / 2, size / 2);
+      
+      return canvas.toDataURL('image/png');
+    }
+    
+    const canvas192 = document.getElementById('icon192');
+    const canvas512 = document.getElementById('icon512');
+    
+    const data192 = drawIcon(canvas192, 192);
+    const data512 = drawIcon(canvas512, 512);
+    
+    document.getElementById('download192').href = data192;
+    document.getElementById('download512').href = data512;
+  </script>
+</body>
+</html>
