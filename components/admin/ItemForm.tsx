@@ -12,6 +12,21 @@ import type { UnitType } from '@/lib/constants';
 
 type FormMode = 'standalone' | 'parent' | 'variant';
 
+const CATEGORY_ITEM_SUGGESTIONS: Record<string, string[]> = {
+  'Vegetables': ['Tomatoes', 'Onions', 'Potatoes', 'Carrots', 'Cabbage', 'Bell Peppers', 'Eggplant', 'Okra', 'Green Beans', 'Cauliflower', 'Broccoli', 'Spinach', 'Lettuce', 'Cucumber', 'Zucchini'],
+  'Fruits': ['Bananas', 'Apples', 'Oranges', 'Mangoes', 'Grapes', 'Strawberries', 'Watermelon', 'Pineapple', 'Papaya', 'Avocado', 'Pears', 'Cherries', 'Peaches', 'Plums', 'Berries'],
+  'Grains & Cereals': ['Rice', 'Wheat', 'Maize', 'Oats', 'Barley', 'Quinoa', 'Millet', 'Sorghum', 'Flour', 'Pasta', 'Noodles'],
+  'Spices': ['Salt', 'Black Pepper', 'Turmeric', 'Cumin', 'Coriander', 'Garlic', 'Ginger', 'Chili Powder', 'Paprika', 'Cinnamon', 'Cardamom', 'Cloves'],
+  'Beverages': ['Water', 'Juice', 'Soda', 'Tea', 'Coffee', 'Milk', 'Yogurt Drink', 'Energy Drink', 'Soft Drink', 'Mineral Water'],
+  'Snacks': ['Chips', 'Biscuits', 'Cookies', 'Crackers', 'Nuts', 'Popcorn', 'Chocolate', 'Candy', 'Cakes', 'Pastries'],
+  'Green Grocery': ['Spinach', 'Kale', 'Lettuce', 'Coriander', 'Parsley', 'Mint', 'Basil', 'Arugula', 'Spring Onions', 'Dill', 'Chives'],
+  'Dairy': ['Milk', 'Cheese', 'Yogurt', 'Butter', 'Eggs', 'Cream', 'Sour Cream', 'Cottage Cheese', 'Mozzarella'],
+  'Meat': ['Beef', 'Chicken', 'Pork', 'Lamb', 'Fish', 'Turkey', 'Bacon', 'Sausages', 'Ham', 'Mince'],
+  'Bakery': ['Bread', 'White Bread', 'Brown Bread', 'Baguette', 'Croissant', 'Donuts', 'Muffins', 'Cookies', 'Cakes', 'Pastries'],
+  'Frozen Foods': ['Ice Cream', 'Frozen Vegetables', 'Frozen Fruits', 'Frozen Meat', 'Frozen Fish', 'Frozen Pizza'],
+  'Canned Goods': ['Canned Tomatoes', 'Canned Beans', 'Canned Corn', 'Canned Peas', 'Canned Fish', 'Canned Fruits'],
+};
+
 interface ItemFormProps {
   itemId?: string;
   initialData?: {
@@ -48,6 +63,8 @@ export function ItemForm({
     defaultMode
   );
   const [name, setName] = useState<string>(initialData?.name || '');
+  const [selectedItemSuggestion, setSelectedItemSuggestion] = useState<string>('');
+  const [isCustomItemName, setIsCustomItemName] = useState(true);
   const [variantName, setVariantName] = useState<string>(initialData?.variant_name || '');
   const [selectedParentId, setSelectedParentId] = useState<string>(parentItemId || initialData?.parent_item_id || '');
   const [categoryId, setCategoryId] = useState<string>(initialData?.category_id || '');
@@ -370,72 +387,130 @@ export function ItemForm({
           </div>
         )}
 
-        {/* Item Name (for standalone and parent modes) */}
+        {/* Category Selection - show first */}
+        <div className="space-y-2">
+          <Label htmlFor="category">Category *</Label>
+          <Select 
+            value={isCustomCategory ? 'custom' : categoryId} 
+            onValueChange={(value) => {
+              if (value === 'custom') {
+                setIsCustomCategory(true);
+                setCategoryId('');
+                setCustomCategoryName('');
+              } else {
+                setIsCustomCategory(false);
+                setCategoryId(value);
+                // Reset item name selection when category changes
+                setSelectedItemSuggestion('');
+                setIsCustomItemName(true);
+                setName('');
+              }
+            }}
+            disabled={mode === 'variant' && !!parentItemId}
+          >
+            <SelectTrigger className="h-12 touch-target">
+              <SelectValue placeholder="Select category" />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((category) => (
+                <SelectItem key={category.id} value={category.id}>
+                  {category.name}
+                </SelectItem>
+              ))}
+              <SelectItem value="custom">+ Add New Category</SelectItem>
+            </SelectContent>
+          </Select>
+          {isCustomCategory && (
+            <div className="mt-2">
+              <Input
+                value={customCategoryName}
+                onChange={(e) => setCustomCategoryName(e.target.value)}
+                placeholder="Enter new category name"
+                className="h-12 touch-target"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                A new category will be created with this name
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Item Name (for standalone and parent modes) - show after category */}
         {mode !== 'variant' && (
           <div className="space-y-2">
             <Label htmlFor="name">
               {mode === 'parent' ? 'Product Name *' : 'Item Name *'}
             </Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={mode === 'parent' ? 'e.g., Tomatoes (will have variants)' : 'e.g., Tomatoes'}
-              required
-              className="h-12 touch-target"
-            />
-            {mode === 'parent' && (
-              <p className="text-xs text-muted-foreground">
-                This is a container for variants. Add variants after creating.
-              </p>
+            
+            {/* Show dropdown if category is selected and we have suggestions (only for new items) */}
+            {!itemId && categoryId && categoryId !== '' && !isCustomCategory && (() => {
+              const categoryName = categories.find(c => c.id === categoryId)?.name || '';
+              const suggestions = CATEGORY_ITEM_SUGGESTIONS[categoryName];
+              return suggestions && suggestions.length > 0;
+            })() && (
+              <div className="space-y-2">
+                <Select
+                  value={selectedItemSuggestion || ''}
+                  onValueChange={(value) => {
+                    if (value === 'custom') {
+                      setIsCustomItemName(true);
+                      setSelectedItemSuggestion('');
+                    } else {
+                      setIsCustomItemName(false);
+                      setSelectedItemSuggestion(value);
+                      setName(value);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-12 touch-target">
+                    <SelectValue placeholder="Select common item name or choose custom" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORY_ITEM_SUGGESTIONS[categories.find(c => c.id === categoryId)?.name || '']?.map((itemName) => (
+                      <SelectItem key={itemName} value={itemName}>
+                        {itemName}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="custom">Custom (Enter new name)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            
+            {/* Always show input field, but show selected value if a suggestion was chosen */}
+            {selectedItemSuggestion && !isCustomItemName ? (
+              <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                <p className="text-sm">
+                  <span className="text-muted-foreground">Selected:</span>{' '}
+                  <strong>{selectedItemSuggestion}</strong>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCustomItemName(true);
+                    setSelectedItemSuggestion('');
+                    setName('');
+                  }}
+                  className="text-xs text-primary hover:underline mt-1"
+                >
+                  Change to custom name
+                </button>
+              </div>
+            ) : (
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., Tomatoes"
+                required
+                className="h-12 touch-target"
+                disabled={!!selectedItemSuggestion && !isCustomItemName}
+              />
             )}
           </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="category">Category *</Label>
-            <Select 
-              value={isCustomCategory ? 'custom' : categoryId} 
-              onValueChange={(value) => {
-                if (value === 'custom') {
-                  setIsCustomCategory(true);
-                  setCategoryId('');
-                  setCustomCategoryName('');
-                } else {
-                  setIsCustomCategory(false);
-                  setCategoryId(value);
-                }
-              }}
-              disabled={mode === 'variant' && !!parentItemId}
-            >
-              <SelectTrigger className="h-12 touch-target">
-                <SelectValue placeholder="Select category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-                <SelectItem value="custom">+ Add New Category</SelectItem>
-              </SelectContent>
-            </Select>
-            {isCustomCategory && (
-              <div className="mt-2">
-                <Input
-                  value={customCategoryName}
-                  onChange={(e) => setCustomCategoryName(e.target.value)}
-                  placeholder="Enter new category name"
-                  className="h-12 touch-target"
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  A new category will be created with this name
-                </p>
-              </div>
-            )}
-          </div>
-
           {/* Unit Type - only for non-parent items */}
           {mode !== 'parent' && (
             <div className="space-y-2">

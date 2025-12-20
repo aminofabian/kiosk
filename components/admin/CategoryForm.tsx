@@ -30,6 +30,21 @@ const COMMON_CATEGORIES = [
   'Canned Goods',
 ];
 
+const CATEGORY_EMOJIS: Record<string, string[]> = {
+  'Vegetables': ['🥬', '🥕', '🥦', '🥒', '🌶️', '🫑', '🍅', '🥔', '🧅', '🥑', '🫒', '🌽'],
+  'Fruits': ['🍎', '🍌', '🍊', '🍇', '🍓', '🥭', '🍑', '🥝', '🍍', '🍉', '🍐', '🍒'],
+  'Grains & Cereals': ['🌾', '🌽', '🍞', '🥖', '🍚', '🌾', '🌾', '🥐', '🫘', '🫘', '🥨'],
+  'Spices': ['🌶️', '🧄', '🧅', '🧂', '🌿', '🫚', '🫒', '🌶️'],
+  'Beverages': ['🥤', '🧃', '☕', '🍵', '🧊', '🥛', '🧉', '🥤', '🍺', '🍷'],
+  'Snacks': ['🍪', '🍫', '🍬', '🍭', '🥜', '🍿', '🍩', '🥨', '🍰', '🧁'],
+  'Green Grocery': ['🥬', '🌿', '🥗', '🥒', '🥦', '🫑', '🫛'],
+  'Dairy': ['🥛', '🧀', '🥚', '🧈', '🥛', '🍼', '🧈'],
+  'Meat': ['🥩', '🍖', '🍗', '🥓', '🌭', '🍖', '🍗'],
+  'Bakery': ['🍞', '🥖', '🥐', '🥨', '🥯', '🧁', '🍰', '🥧', '🧇', '🥞'],
+  'Frozen Foods': ['🧊', '❄️', '🧊', '🍦', '🍧', '🧊'],
+  'Canned Goods': ['🥫', '🥫', '🥫', '🍯', '🥫'],
+};
+
 export function CategoryForm({ category, onClose, onSuccess }: CategoryFormProps) {
   const isEditing = !!category;
   const [selectedCategory, setSelectedCategory] = useState<string>(
@@ -57,10 +72,12 @@ export function CategoryForm({ category, onClose, onSuccess }: CategoryFormProps
     setSelectedCategory(value);
     if (value === 'custom') {
       setIsCustom(true);
-      setFormData((prev) => ({ ...prev, name: '' }));
+      setFormData((prev) => ({ ...prev, name: '', icon: '' }));
     } else {
       setIsCustom(false);
-      setFormData((prev) => ({ ...prev, name: value }));
+      // Auto-select first emoji for the category if available
+      const suggestedEmoji = CATEGORY_EMOJIS[value]?.[0] || '';
+      setFormData((prev) => ({ ...prev, name: value, icon: suggestedEmoji }));
     }
   };
 
@@ -165,8 +182,31 @@ export function CategoryForm({ category, onClose, onSuccess }: CategoryFormProps
               maxLength={2}
               disabled={isLoading}
             />
+            {formData.name && CATEGORY_EMOJIS[formData.name] && (
+              <div className="mt-2">
+                <p className="text-xs text-muted-foreground mb-2">
+                  Suggested emojis for {formData.name}:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {CATEGORY_EMOJIS[formData.name].map((emoji, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, icon: emoji }))}
+                      className="text-2xl hover:scale-125 transition-transform cursor-pointer p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800"
+                      disabled={isLoading}
+                      title={`Use ${emoji}`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <p className="text-xs text-muted-foreground">
-              Use an emoji or leave empty
+              {!formData.name || !CATEGORY_EMOJIS[formData.name] 
+                ? 'Use an emoji or leave empty. Select a category above to see suggestions.'
+                : 'Click an emoji above to use it, or type your own'}
             </p>
           </div>
 

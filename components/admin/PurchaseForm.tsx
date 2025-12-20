@@ -12,6 +12,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Plus, Loader2, Trash2, Check, X } from 'lucide-react';
 import type { Item } from '@/lib/db/types';
 
+const COMMON_ITEM_NAMES = [
+  'Tomatoes', 'Onions', 'Potatoes', 'Carrots', 'Cabbage', 'Bell Peppers', 'Eggplant', 'Okra',
+  'Green Beans', 'Cauliflower', 'Broccoli', 'Spinach', 'Lettuce', 'Cucumber', 'Zucchini',
+  'Bananas', 'Apples', 'Oranges', 'Mangoes', 'Grapes', 'Strawberries', 'Watermelon', 'Pineapple',
+  'Papaya', 'Avocado', 'Pears', 'Cherries', 'Peaches', 'Plums', 'Berries',
+  'Rice', 'Wheat', 'Maize', 'Oats', 'Barley', 'Quinoa', 'Millet', 'Sorghum', 'Flour', 'Pasta', 'Noodles',
+  'Salt', 'Black Pepper', 'Turmeric', 'Cumin', 'Coriander', 'Garlic', 'Ginger', 'Chili Powder', 'Paprika',
+  'Cinnamon', 'Cardamom', 'Cloves',
+  'Water', 'Juice', 'Soda', 'Tea', 'Coffee', 'Milk', 'Yogurt Drink', 'Energy Drink', 'Soft Drink',
+  'Chips', 'Biscuits', 'Cookies', 'Crackers', 'Nuts', 'Popcorn', 'Chocolate', 'Candy', 'Cakes', 'Pastries',
+  'Kale', 'Coriander', 'Parsley', 'Mint', 'Basil', 'Arugula', 'Spring Onions', 'Dill', 'Chives',
+  'Cheese', 'Yogurt', 'Butter', 'Eggs', 'Cream', 'Sour Cream', 'Cottage Cheese', 'Mozzarella',
+  'Beef', 'Chicken', 'Pork', 'Lamb', 'Fish', 'Turkey', 'Bacon', 'Sausages', 'Ham', 'Mince',
+  'Bread', 'White Bread', 'Brown Bread', 'Baguette', 'Croissant', 'Donuts', 'Muffins',
+  'Ice Cream', 'Frozen Vegetables', 'Frozen Fruits', 'Frozen Meat', 'Frozen Fish', 'Frozen Pizza',
+  'Canned Tomatoes', 'Canned Beans', 'Canned Corn', 'Canned Peas', 'Canned Fish', 'Canned Fruits',
+].sort();
+
 interface PurchaseItem {
   id: string;
   itemName: string;
@@ -66,6 +84,7 @@ export function PurchaseForm({ onSuccess, onCancel, initialData, onDataChange }:
   });
   const [availableItems, setAvailableItems] = useState<Item[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
+  const [isCustomItemName, setIsCustomItemName] = useState(false);
   const isInitialMount = useRef(true);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const onDataChangeRef = useRef(onDataChange);
@@ -174,6 +193,7 @@ export function PurchaseForm({ onSuccess, onCancel, initialData, onDataChange }:
       itemId: null,
       notes: '',
     });
+    setIsCustomItemName(false);
     setShowAddItemForm(false);
     setError(null);
   };
@@ -188,6 +208,7 @@ export function PurchaseForm({ onSuccess, onCancel, initialData, onDataChange }:
       itemId: null,
       notes: '',
     });
+    setIsCustomItemName(false);
     setError(null);
   };
 
@@ -372,13 +393,58 @@ export function PurchaseForm({ onSuccess, onCancel, initialData, onDataChange }:
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Item Name *</Label>
-                  <Input
-                    value={currentItem.itemName}
-                    onChange={(e) =>
-                      setCurrentItem({ ...currentItem, itemName: e.target.value })
-                    }
-                    placeholder="e.g., Tomatoes"
-                  />
+                  {!isCustomItemName ? (
+                    <Select
+                      value={currentItem.itemName || ''}
+                      onValueChange={(value) => {
+                        if (value === '__custom__') {
+                          setIsCustomItemName(true);
+                          setCurrentItem({ ...currentItem, itemName: '', itemId: null });
+                        } else {
+                          // Try to find matching item from DB to auto-link
+                          const selectedItem = availableItems.find(item => item.name === value);
+                          setCurrentItem({ 
+                            ...currentItem, 
+                            itemName: value,
+                            itemId: selectedItem?.id || null,
+                          });
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select item or enter custom" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {COMMON_ITEM_NAMES.map((itemName) => (
+                          <SelectItem key={itemName} value={itemName}>
+                            {itemName}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="__custom__">+ Custom Name</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="space-y-2">
+                      <Input
+                        value={currentItem.itemName}
+                        onChange={(e) => {
+                          setCurrentItem({ ...currentItem, itemName: e.target.value });
+                        }}
+                        placeholder="e.g., Tomatoes"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsCustomItemName(false);
+                          setCurrentItem({ ...currentItem, itemName: '' });
+                        }}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        ← Select from suggestions
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>Link to Item</Label>
@@ -448,19 +514,21 @@ export function PurchaseForm({ onSuccess, onCancel, initialData, onDataChange }:
               <div className="flex gap-2 pt-2">
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={handleCancelAddItem}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
                   onClick={handleSaveItem}
-                  className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600"
+                  className="gap-2 flex-1"
+                  disabled={isSubmitting}
                 >
-                  <Check className="mr-2 h-4 w-4" />
-                  Add Item
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Save Item
+                    </>
+                  )}
                 </Button>
               </div>
             </CardContent>
