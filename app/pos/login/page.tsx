@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { PINLogin } from '@/components/pos/PINLogin';
 import { Loader2 } from 'lucide-react';
@@ -10,7 +10,15 @@ interface BusinessInfo {
   name: string;
 }
 
-export default function POSLoginPage() {
+function LoadingSpinner() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
+      <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
+    </div>
+  );
+}
+
+function POSLoginContent() {
   const searchParams = useSearchParams();
   const businessIdParam = searchParams.get('business');
   
@@ -20,7 +28,6 @@ export default function POSLoginPage() {
 
   useEffect(() => {
     const loadBusiness = async () => {
-      // Try to get business from query param or localStorage
       const storedBusinessId = localStorage.getItem('pos_business_id');
       const businessId = businessIdParam || storedBusinessId;
 
@@ -31,7 +38,6 @@ export default function POSLoginPage() {
       }
 
       try {
-        // Fetch business info
         const response = await fetch(`/api/businesses/${businessId}`);
         const result = await response.json();
 
@@ -40,7 +46,6 @@ export default function POSLoginPage() {
             id: result.data.id,
             name: result.data.name,
           });
-          // Store for future visits
           localStorage.setItem('pos_business_id', result.data.id);
         } else {
           setError('Business not found');
@@ -56,11 +61,7 @@ export default function POSLoginPage() {
   }, [businessIdParam]);
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
-      </div>
-    );
+    return <LoadingSpinner />;
   }
 
   if (error || !business) {
@@ -93,5 +94,13 @@ export default function POSLoginPage() {
         <PINLogin businessId={business.id} businessName={business.name} />
       </div>
     </div>
+  );
+}
+
+export default function POSLoginPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <POSLoginContent />
+    </Suspense>
   );
 }
