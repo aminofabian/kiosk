@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, X } from 'lucide-react';
 import type { Category } from '@/lib/db/types';
@@ -14,8 +15,27 @@ interface CategoryFormProps {
   onSuccess: () => void;
 }
 
+const COMMON_CATEGORIES = [
+  'Vegetables',
+  'Fruits',
+  'Grains & Cereals',
+  'Spices',
+  'Beverages',
+  'Snacks',
+  'Green Grocery',
+  'Dairy',
+  'Meat',
+  'Bakery',
+  'Frozen Foods',
+  'Canned Goods',
+];
+
 export function CategoryForm({ category, onClose, onSuccess }: CategoryFormProps) {
   const isEditing = !!category;
+  const [selectedCategory, setSelectedCategory] = useState<string>(
+    category?.name || 'custom'
+  );
+  const [isCustom, setIsCustom] = useState(!category || !COMMON_CATEGORIES.includes(category.name));
   
   const [formData, setFormData] = useState({
     name: category?.name || '',
@@ -31,6 +51,17 @@ export function CategoryForm({ category, onClose, onSuccess }: CategoryFormProps
       ...prev,
       [e.target.name]: e.target.value,
     }));
+  };
+
+  const handleCategorySelect = (value: string) => {
+    setSelectedCategory(value);
+    if (value === 'custom') {
+      setIsCustom(true);
+      setFormData((prev) => ({ ...prev, name: '' }));
+    } else {
+      setIsCustom(false);
+      setFormData((prev) => ({ ...prev, name: value }));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -86,17 +117,41 @@ export function CategoryForm({ category, onClose, onSuccess }: CategoryFormProps
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {!isEditing && (
+            <div className="space-y-2">
+              <Label htmlFor="category-select">Select Category</Label>
+              <Select value={selectedCategory} onValueChange={handleCategorySelect} disabled={isLoading}>
+                <SelectTrigger id="category-select">
+                  <SelectValue placeholder="Choose a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COMMON_CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="custom">Custom (Enter new name)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="space-y-2">
-            <Label htmlFor="name">Category Name</Label>
+            <Label htmlFor="name">Category Name {!isEditing && isCustom && '(Custom)'}</Label>
             <Input
               id="name"
               name="name"
               value={formData.name}
               onChange={handleChange}
-              placeholder="e.g., Vegetables"
+              placeholder={isCustom ? "Enter custom category name" : "e.g., Vegetables"}
               required
-              disabled={isLoading}
+              disabled={isLoading || (!isEditing && !isCustom)}
             />
+            {!isEditing && !isCustom && (
+              <p className="text-xs text-muted-foreground">
+                Selected: <strong>{formData.name}</strong>
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

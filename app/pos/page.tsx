@@ -30,7 +30,6 @@ import Link from 'next/link';
 import type { Item } from '@/lib/db/types';
 import type { Category } from '@/lib/db/types';
 import { getItemImage } from '@/lib/utils/item-images';
-import { InstallApp } from '@/components/InstallApp';
 import { DownloadButton } from '@/components/DownloadButton';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { Settings } from 'lucide-react';
@@ -594,7 +593,13 @@ export default function POSPage() {
           </>
         )}
 
-        <div className="fixed bottom-6 left-0 right-0 px-4 flex justify-center z-30 pointer-events-none">
+        <div className="fixed bottom-6 left-0 right-0 px-4 flex flex-col items-center gap-3 z-30 pointer-events-none">
+          <div className="pointer-events-auto w-full max-w-md flex justify-end">
+            <DownloadButton
+              size="sm"
+              className="bg-white/95 backdrop-blur-sm hover:bg-white border-2 border-[#4bee2b] text-[#4bee2b] hover:text-[#3bd522] font-semibold shadow-lg"
+            />
+          </div>
           <Link
             href="/pos/cart"
             className="pointer-events-auto shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_30px_rgb(75,238,43,0.3)] active:scale-95 transition-all w-full max-w-md h-[72px] bg-[#4bee2b] rounded-full flex items-center justify-between px-2 pr-6 group"
@@ -680,11 +685,11 @@ export default function POSPage() {
                   </Button>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-shrink-0">
                 <DownloadButton
                   variant="outline"
                   size="sm"
-                  className="hidden md:flex bg-white hover:bg-[#4bee2b]/10 border-gray-200 hover:border-[#4bee2b]"
+                  className="hidden lg:flex bg-white hover:bg-[#4bee2b]/10 border-gray-200 hover:border-[#4bee2b]"
                 />
                 <Link href="/pos/cart">
                   <Button
@@ -747,8 +752,6 @@ export default function POSPage() {
         onOpenChange={setVariantSelectorOpen}
         onSelectVariant={handleVariantSelected}
       />
-
-      <InstallApp />
     </>
   );
 }

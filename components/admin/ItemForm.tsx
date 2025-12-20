@@ -51,6 +51,8 @@ export function ItemForm({
   const [variantName, setVariantName] = useState<string>(initialData?.variant_name || '');
   const [selectedParentId, setSelectedParentId] = useState<string>(parentItemId || initialData?.parent_item_id || '');
   const [categoryId, setCategoryId] = useState<string>(initialData?.category_id || '');
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [customCategoryName, setCustomCategoryName] = useState('');
   const [unitType, setUnitType] = useState<UnitType>(initialData?.unit_type || 'piece');
   const [initialStock, setInitialStock] = useState<string>(initialData?.current_stock?.toString() || '0');
   const [buyPrice, setBuyPrice] = useState<string>(initialData?.buy_price?.toString() || '');
@@ -99,13 +101,26 @@ export function ItemForm({
     e.preventDefault();
     setError(null);
 
+    // Validate category
+    if (isCustomCategory) {
+      if (!customCategoryName.trim()) {
+        setError('Category name is required when creating a new category');
+        return;
+      }
+    } else {
+      if (!categoryId) {
+        setError('Category is required');
+        return;
+      }
+    }
+
     // Parent mode validation
     if (mode === 'parent') {
       if (!name.trim()) {
         setError('Item name is required');
         return;
       }
-      if (!categoryId) {
+      if (!categoryId && !isCustomCategory) {
         setError('Category is required');
         return;
       }
@@ -127,7 +142,7 @@ export function ItemForm({
         }
       }
 
-      if (!categoryId) {
+      if (!categoryId && !isCustomCategory) {
         setError('Category is required');
         return;
       }
@@ -156,6 +171,43 @@ export function ItemForm({
     setIsSubmitting(true);
 
     try {
+      let finalCategoryId = categoryId;
+      
+      // If custom category, create it first
+      if (isCustomCategory && customCategoryName.trim()) {
+        const categoryResponse = await fetch('/api/categories', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: customCategoryName.trim() }),
+        });
+        
+        const categoryResult = await categoryResponse.json();
+        if (!categoryResult.success) {
+          setError(categoryResult.message || 'Failed to create category');
+          setIsSubmitting(false);
+          return;
+        }
+        
+        // Fetch updated categories to get the new category ID
+        const categoriesRes = await fetch('/api/categories');
+        const categoriesResult = await categoriesRes.json();
+        if (categoriesResult.success) {
+          const newCategory = categoriesResult.data.find(
+            (cat: Category) => cat.name === customCategoryName.trim()
+          );
+          if (newCategory) {
+            finalCategoryId = newCategory.id;
+            setCategories(categoriesResult.data);
+            setIsCustomCategory(false);
+            setCategoryId(newCategory.id);
+          } else {
+            setError('Category was created but could not be found');
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+
       const url = itemId ? `/api/items/${itemId}` : '/api/items';
       const method = itemId ? 'PUT' : 'POST';
       
@@ -176,7 +228,7 @@ export function ItemForm({
         },
         body: JSON.stringify({
           name: itemName,
-          categoryId,
+          categoryId: finalCategoryId,
           unitType,
           initialStock: mode === 'parent' ? 0 : stock,
           buyPrice: mode === 'parent' ? null : buy,
@@ -344,8 +396,17 @@ export function ItemForm({
           <div className="space-y-2">
             <Label htmlFor="category">Category *</Label>
             <Select 
-              value={categoryId} 
-              onValueChange={setCategoryId}
+              value={isCustomCategory ? 'custom' : categoryId} 
+              onValueChange={(value) => {
+                if (value === 'custom') {
+                  setIsCustomCategory(true);
+                  setCategoryId('');
+                  setCustomCategoryName('');
+                } else {
+                  setIsCustomCategory(false);
+                  setCategoryId(value);
+                }
+              }}
               disabled={mode === 'variant' && !!parentItemId}
             >
               <SelectTrigger className="h-12 touch-target">
@@ -357,8 +418,22 @@ export function ItemForm({
                     {category.name}
                   </SelectItem>
                 ))}
+                <SelectItem value="custom">+ Add New Category</SelectItem>
               </SelectContent>
             </Select>
+            {isCustomCategory && (
+              <div className="mt-2">
+                <Input
+                  value={customCategoryName}
+                  onChange={(e) => setCustomCategoryName(e.target.value)}
+                  placeholder="Enter new category name"
+                  className="h-12 touch-target"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  A new category will be created with this name
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Unit Type - only for non-parent items */}

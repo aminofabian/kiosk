@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, ShoppingBag, Package, TrendingUp, CreditCard, ShoppingCart } from 'lucide-react';
+import { DownloadButton } from '@/components/DownloadButton';
 
 const MOBILE_NAV_ITEMS = [
   { href: '/admin', label: 'Home', icon: Home },

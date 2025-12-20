@@ -8,6 +8,7 @@ import { signOut } from 'next-auth/react';
 import { LogOut, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { DownloadButton } from '@/components/DownloadButton';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -22,16 +23,16 @@ export function AdminLayout({ children, sidebar }: AdminLayoutProps) {
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex md:w-60 lg:w-64 flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18]">
         <div className="h-16 flex items-center justify-between px-5 border-b border-slate-200 dark:border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#4bee2b] to-[#3bd522] flex items-center justify-center shadow-lg shadow-[#4bee2b]/20">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#4bee2b] to-[#3bd522] flex items-center justify-center shadow-lg shadow-[#4bee2b]/20 flex-shrink-0">
               <span className="text-lg font-black text-[#101b0d]">P</span>
             </div>
-            <div>
-              <h1 className="font-bold text-base text-slate-900 dark:text-white leading-none">POS Admin</h1>
+            <div className="min-w-0">
+              <h1 className="font-bold text-base text-slate-900 dark:text-white leading-none truncate">POS Admin</h1>
               <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Management Portal</p>
             </div>
           </div>
-          <Link href="/pos">
+          <Link href="/pos" className="flex-shrink-0">
             <Button
               size="sm"
               className="bg-[#4bee2b] hover:bg-[#3bd522] text-[#101b0d] font-semibold shadow-md shadow-[#4bee2b]/30"
@@ -44,9 +45,16 @@ export function AdminLayout({ children, sidebar }: AdminLayoutProps) {
         <div className="flex-1 overflow-y-auto">
           {sidebar || <AdminSidebar />}
         </div>
-        <div className="p-3 border-t border-slate-200 dark:border-slate-800">
+        <div className="p-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
+          <div className="px-2">
+            <DownloadButton
+              variant="outline"
+              size="sm"
+              className="w-full justify-center border-slate-300 dark:border-slate-700"
+            />
+          </div>
           <div className="flex items-center gap-3 px-2">
-            <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center flex-shrink-0">
               <span className="text-sm font-medium text-emerald-600 dark:text-emerald-300">
                 {user?.name?.charAt(0).toUpperCase() || 'U'}
               </span>
@@ -61,7 +69,7 @@ export function AdminLayout({ children, sidebar }: AdminLayoutProps) {
             </div>
             <button
               onClick={() => signOut({ callbackUrl: '/login' })}
-              className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+              className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors flex-shrink-0"
               title="Sign out"
             >
               <LogOut className="w-4 h-4" />
@@ -77,6 +85,15 @@ export function AdminLayout({ children, sidebar }: AdminLayoutProps) {
       
       {/* Mobile Bottom Navigation */}
       <AdminBottomNav />
+      
+      {/* Mobile Download Button - Above bottom nav */}
+      <div className="fixed bottom-20 right-4 z-40 md:hidden">
+        <DownloadButton
+          variant="default"
+          size="sm"
+          className="bg-[#4bee2b] hover:bg-[#3bd522] text-[#101b0d] font-semibold shadow-lg shadow-[#4bee2b]/30 rounded-full px-4"
+        />
+      </div>
     </div>
   );
 }
