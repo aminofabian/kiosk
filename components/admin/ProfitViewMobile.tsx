@@ -151,7 +151,11 @@ export function ProfitViewMobile() {
   const topProfitItems = profitData?.itemProfits
     .filter(item => item.total_profit > 0)
     .sort((a, b) => b.total_profit - a.total_profit)
-    .slice(0, 2) || [];
+    .slice(0, 3) || [];
+
+  const leastProfitItems = profitData?.itemProfits
+    .sort((a, b) => a.total_profit - b.total_profit)
+    .slice(0, 3) || [];
 
   const lowProfitItems = profitData?.itemProfits
     .filter(item => {
@@ -159,7 +163,7 @@ export function ProfitViewMobile() {
       return item.total_profit < 0 || margin < 5;
     })
     .sort((a, b) => a.total_profit - b.total_profit)
-    .slice(0, 2) || [];
+    .slice(0, 3) || [];
 
   if (loading) {
     return (
@@ -370,27 +374,121 @@ export function ProfitViewMobile() {
           </h3>
           <div className="flex flex-col gap-3">
             {topProfitItems.map((item, index) => {
-              const emojis = ['🍦', '💧'];
+              const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
+              const avgBuyPrice = item.quantity_sold > 0 ? item.total_cost / item.quantity_sold : 0;
+              const avgSellPrice = item.quantity_sold > 0 ? item.total_sales / item.quantity_sold : 0;
+              const avgProfit = item.quantity_sold > 0 ? item.total_profit / item.quantity_sold : 0;
+              const emojis = ['🥇', '🥈', '🥉'];
               return (
                 <div
                   key={item.item_id}
-                  className="flex items-center p-4 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border border-slate-100 dark:border-slate-800"
+                  className="flex flex-col p-4 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border border-slate-100 dark:border-slate-800"
                 >
-                  <div className="h-10 w-10 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-xl shrink-0">
-                    {emojis[index] || '📦'}
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="h-10 w-10 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-xl shrink-0">
+                      {emojis[index] || '📦'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-slate-900 dark:text-white font-bold text-base">
+                        {item.item_name}
+                      </p>
+                      <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">
+                        {item.quantity_sold.toFixed(0)} sold • {margin.toFixed(1)}% margin
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-green-600 dark:text-green-400 font-bold text-lg">
+                        +{formatPrice(item.total_profit)}
+                      </p>
+                      <p className="text-green-600/70 dark:text-green-400/70 text-xs font-medium">
+                        {formatPrice(avgProfit)}/unit
+                      </p>
+                    </div>
                   </div>
-                  <div className="ml-3 flex-1">
-                    <p className="text-slate-900 dark:text-white font-bold text-base">
-                      {item.item_name}
-                    </p>
-                    <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">
-                      Qty Sold: {item.quantity_sold.toFixed(0)}
-                    </p>
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <div className="flex-1">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Buy Price</p>
+                      <p className="text-slate-700 dark:text-slate-300 font-semibold text-sm">{formatPrice(avgBuyPrice)}</p>
+                    </div>
+                    <div className="flex-1 text-center">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Sell Price</p>
+                      <p className="text-slate-700 dark:text-slate-300 font-semibold text-sm">{formatPrice(avgSellPrice)}</p>
+                    </div>
+                    <div className="flex-1 text-right">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Profit/Unit</p>
+                      <p className="text-green-600 dark:text-green-400 font-semibold text-sm">+{formatPrice(avgProfit)}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-green-600 dark:text-green-400 font-bold text-lg">
-                      +{formatPrice(item.total_profit)}
-                    </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Least Profitable Items */}
+      {leastProfitItems.length > 0 && (
+        <div className="mt-6 px-4">
+          <h3 className="text-slate-900 dark:text-white text-lg font-bold mb-3 flex items-center gap-2">
+            <TrendingDown className="w-5 h-5 text-orange-500" />
+            Least Profitable
+          </h3>
+          <div className="flex flex-col gap-3">
+            {leastProfitItems.map((item, index) => {
+              const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
+              const avgBuyPrice = item.quantity_sold > 0 ? item.total_cost / item.quantity_sold : 0;
+              const avgSellPrice = item.quantity_sold > 0 ? item.total_sales / item.quantity_sold : 0;
+              const avgProfit = item.quantity_sold > 0 ? item.total_profit / item.quantity_sold : 0;
+              const isNegative = item.total_profit < 0;
+              const bgColor = isNegative
+                ? 'bg-red-50 dark:bg-red-900/10'
+                : 'bg-orange-50 dark:bg-orange-900/10';
+              const borderColor = isNegative
+                ? 'border-red-100 dark:border-red-900/30'
+                : 'border-orange-100 dark:border-orange-900/30';
+              const textColor = isNegative
+                ? 'text-red-600 dark:text-red-400'
+                : 'text-orange-600 dark:text-orange-400';
+              
+              return (
+                <div
+                  key={item.item_id}
+                  className={`flex flex-col p-4 rounded-xl ${bgColor} shadow-sm border ${borderColor}`}
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className={`h-10 w-10 rounded-full flex items-center justify-center text-lg font-bold shrink-0 ${isNegative ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'}`}>
+                      {index + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-slate-900 dark:text-white font-bold text-base">
+                        {item.item_name}
+                      </p>
+                      <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">
+                        {item.quantity_sold.toFixed(0)} sold • {margin.toFixed(1)}% margin
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`${textColor} font-bold text-lg`}>
+                        {isNegative ? '-' : ''}{formatPrice(Math.abs(item.total_profit))}
+                      </p>
+                      <p className={`${textColor}/70 text-xs font-medium`}>
+                        {formatPrice(avgProfit)}/unit
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-700">
+                    <div className="flex-1">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Buy Price</p>
+                      <p className="text-slate-700 dark:text-slate-300 font-semibold text-sm">{formatPrice(avgBuyPrice)}</p>
+                    </div>
+                    <div className="flex-1 text-center">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Sell Price</p>
+                      <p className="text-slate-700 dark:text-slate-300 font-semibold text-sm">{formatPrice(avgSellPrice)}</p>
+                    </div>
+                    <div className="flex-1 text-right">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Profit/Unit</p>
+                      <p className={`${textColor} font-semibold text-sm`}>{formatPrice(avgProfit)}</p>
+                    </div>
                   </div>
                 </div>
               );
@@ -403,14 +501,16 @@ export function ProfitViewMobile() {
       {lowProfitItems.length > 0 && (
         <div className="mt-6 px-4">
           <h3 className="text-slate-900 dark:text-white text-lg font-bold mb-3 flex items-center gap-2">
-            <TrendingDown className="w-5 h-5 text-red-500" />
+            <AlertTriangle className="w-5 h-5 text-red-500" />
             Low / Negative Profit
           </h3>
           <div className="flex flex-col gap-3">
             {lowProfitItems.map((item) => {
               const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
               const isNegative = item.total_profit < 0;
-              const isVeryLow = !isNegative && margin < 5;
+              const avgBuyPrice = item.quantity_sold > 0 ? item.total_cost / item.quantity_sold : 0;
+              const avgSellPrice = item.quantity_sold > 0 ? item.total_sales / item.quantity_sold : 0;
+              const avgProfit = item.quantity_sold > 0 ? item.total_profit / item.quantity_sold : 0;
               const bgColor = isNegative
                 ? 'bg-red-50 dark:bg-red-900/10'
                 : 'bg-orange-50 dark:bg-orange-900/10';
@@ -427,29 +527,134 @@ export function ProfitViewMobile() {
               return (
                 <div
                   key={item.item_id}
-                  className={`flex items-center p-4 rounded-xl ${bgColor} shadow-sm border ${borderColor}`}
+                  className={`flex flex-col p-4 rounded-xl ${bgColor} shadow-sm border ${borderColor}`}
                 >
-                  <div className={`h-10 w-10 rounded-full bg-white dark:bg-opacity-30 flex items-center justify-center ${iconColor} shrink-0`}>
-                    <AlertTriangle className="w-5 h-5" />
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className={`h-10 w-10 rounded-full bg-white dark:bg-opacity-30 flex items-center justify-center ${iconColor} shrink-0`}>
+                      <AlertTriangle className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-slate-900 dark:text-white font-bold text-base">
+                        {item.item_name}
+                      </p>
+                      <p className={`${textColor}/80 text-xs font-bold`}>
+                        {isNegative
+                          ? 'Spoilage / Waste'
+                          : `Very Low Margin (${margin.toFixed(1)}%)`} • {item.quantity_sold.toFixed(0)} sold
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className={`${textColor} font-bold text-lg`}>
+                        {isNegative ? '-' : '+'}{formatPrice(Math.abs(item.total_profit))}
+                      </p>
+                      <p className={`${textColor}/70 text-xs font-medium`}>
+                        {formatPrice(avgProfit)}/unit
+                      </p>
+                    </div>
                   </div>
-                  <div className="ml-3 flex-1">
-                    <p className="text-slate-900 dark:text-white font-bold text-base">
-                      {item.item_name}
-                    </p>
-                    <p className={`${textColor}/80 text-xs font-bold`}>
-                      {isNegative
-                        ? 'Spoilage / Waste'
-                        : `Very Low Margin (${margin.toFixed(1)}%)`}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className={`${textColor} font-bold text-lg`}>
-                      {isNegative ? '-' : '+'}{formatPrice(Math.abs(item.total_profit))}
-                    </p>
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-700">
+                    <div className="flex-1">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Buy Price</p>
+                      <p className="text-slate-700 dark:text-slate-300 font-semibold text-sm">{formatPrice(avgBuyPrice)}</p>
+                    </div>
+                    <div className="flex-1 text-center">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Sell Price</p>
+                      <p className="text-slate-700 dark:text-slate-300 font-semibold text-sm">{formatPrice(avgSellPrice)}</p>
+                    </div>
+                    <div className="flex-1 text-right">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Profit/Unit</p>
+                      <p className={`${textColor} font-semibold text-sm`}>{formatPrice(avgProfit)}</p>
+                    </div>
                   </div>
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* All Items List */}
+      {profitData && profitData.itemProfits.length > 0 && (
+        <div className="mt-6 px-4 mb-6">
+          <h3 className="text-slate-900 dark:text-white text-lg font-bold mb-3 flex items-center gap-2">
+            <Package className="w-5 h-5 text-slate-500" />
+            All Items ({profitData.itemProfits.length})
+          </h3>
+          <div className="flex flex-col gap-3">
+            {profitData.itemProfits
+              .sort((a, b) => b.total_profit - a.total_profit)
+              .map((item) => {
+                const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
+                const isPositive = item.total_profit >= 0;
+                const avgBuyPrice = item.quantity_sold > 0 ? item.total_cost / item.quantity_sold : 0;
+                const avgSellPrice = item.quantity_sold > 0 ? item.total_sales / item.quantity_sold : 0;
+                const avgProfit = item.quantity_sold > 0 ? item.total_profit / item.quantity_sold : 0;
+
+                return (
+                  <div
+                    key={item.item_id}
+                    className="flex flex-col p-4 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border border-slate-100 dark:border-slate-800"
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${isPositive ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'}`}>
+                        {isPositive ? (
+                          <TrendingUp className={`w-5 h-5 ${isPositive ? 'text-green-500' : 'text-red-500'}`} />
+                        ) : (
+                          <TrendingDown className="w-5 h-5 text-red-500" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-slate-900 dark:text-white font-bold text-base">
+                          {item.item_name}
+                        </p>
+                        <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">
+                          {item.quantity_sold.toFixed(0)} sold • {margin.toFixed(1)}% margin
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className={`font-bold text-lg ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
+                          {isPositive ? '+' : ''}{formatPrice(item.total_profit)}
+                        </p>
+                        <p className="text-slate-400 dark:text-slate-500 text-xs font-medium">
+                          {formatPrice(avgProfit)}/unit
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                      <div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Buy Price</p>
+                        <p className="text-slate-700 dark:text-slate-300 font-semibold text-sm">{formatPrice(avgBuyPrice)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Sell Price</p>
+                        <p className="text-slate-700 dark:text-slate-300 font-semibold text-sm">{formatPrice(avgSellPrice)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Profit/Unit</p>
+                        <p className={`font-semibold text-sm ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
+                          {isPositive ? '+' : ''}{formatPrice(avgProfit)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 pt-3 mt-3 border-t border-slate-100 dark:border-slate-800">
+                      <div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Total Cost</p>
+                        <p className="text-slate-600 dark:text-slate-400 font-medium text-sm">{formatPrice(item.total_cost)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Total Sales</p>
+                        <p className="text-slate-600 dark:text-slate-400 font-medium text-sm">{formatPrice(item.total_sales)}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Margin</p>
+                        <p className={`font-medium text-sm ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
+                          {margin.toFixed(1)}%
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}

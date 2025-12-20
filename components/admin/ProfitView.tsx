@@ -163,6 +163,10 @@ export function ProfitView() {
     .sort((a, b) => b.total_profit - a.total_profit)
     .slice(0, 5);
 
+  const leastProfitItems = profitData.itemProfits
+    .sort((a, b) => a.total_profit - b.total_profit)
+    .slice(0, 5);
+
   const lowProfitItems = profitData.itemProfits
     .filter((item) => {
       const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
@@ -302,8 +306,8 @@ export function ProfitView() {
         ))}
       </div>
 
-      {/* Top & Low Profit Items */}
-      <div className="grid lg:grid-cols-2 gap-6">
+      {/* Top, Least & Low Profit Items */}
+      <div className="grid lg:grid-cols-3 gap-6">
         {/* Top Items */}
         <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
           <CardContent className="p-0">
@@ -320,6 +324,9 @@ export function ProfitView() {
                 <div className="space-y-3">
                   {topItems.map((item, index) => {
                     const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
+                    const avgBuyPrice = item.quantity_sold > 0 ? item.total_cost / item.quantity_sold : 0;
+                    const avgSellPrice = item.quantity_sold > 0 ? item.total_sales / item.quantity_sold : 0;
+                    const avgProfit = item.quantity_sold > 0 ? item.total_profit / item.quantity_sold : 0;
                     return (
                       <div
                         key={item.item_id}
@@ -329,14 +336,83 @@ export function ProfitView() {
                           <span className="text-sm font-bold text-green-600 dark:text-green-400">{index + 1}</span>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-slate-900 dark:text-white truncate">{item.item_name}</p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                          <p className="font-semibold text-slate-900 dark:text-white truncate text-sm">{item.item_name}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                             {item.quantity_sold.toFixed(0)} sold • {margin.toFixed(1)}% margin
                           </p>
+                          <div className="flex gap-2 mt-1 text-xs">
+                            <span className="text-slate-500">Buy: {formatPrice(avgBuyPrice)}</span>
+                            <span className="text-slate-500">•</span>
+                            <span className="text-slate-500">Sell: {formatPrice(avgSellPrice)}</span>
+                          </div>
                         </div>
-                        <p className="font-bold text-green-600 dark:text-green-400">
-                          +{formatPrice(item.total_profit)}
-                        </p>
+                        <div className="text-right">
+                          <p className="font-bold text-green-600 dark:text-green-400 text-sm">
+                            +{formatPrice(item.total_profit)}
+                          </p>
+                          <p className="text-xs text-slate-400">({formatPrice(avgProfit)}/unit)</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Least Profit Items */}
+        <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
+          <CardContent className="p-0">
+            <div className="flex items-center gap-2 p-5 border-b border-slate-100 dark:border-slate-800">
+              <div className="w-8 h-8 rounded-lg bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center">
+                <TrendingDown className="w-4 h-4 text-orange-500" />
+              </div>
+              <h3 className="font-bold text-slate-900 dark:text-white">Least Profitable</h3>
+            </div>
+            <div className="p-4">
+              {leastProfitItems.length === 0 ? (
+                <p className="text-center text-slate-500 dark:text-slate-400 py-8">No items yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {leastProfitItems.map((item, index) => {
+                    const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
+                    const avgBuyPrice = item.quantity_sold > 0 ? item.total_cost / item.quantity_sold : 0;
+                    const avgSellPrice = item.quantity_sold > 0 ? item.total_sales / item.quantity_sold : 0;
+                    const avgProfit = item.quantity_sold > 0 ? item.total_profit / item.quantity_sold : 0;
+                    const isNegative = item.total_profit < 0;
+                    const bgColor = isNegative
+                      ? 'bg-red-50/50 dark:bg-red-900/10 hover:bg-red-50 dark:hover:bg-red-900/20'
+                      : 'bg-orange-50/50 dark:bg-orange-900/10 hover:bg-orange-50 dark:hover:bg-orange-900/20';
+                    const textColor = isNegative
+                      ? 'text-red-600 dark:text-red-400'
+                      : 'text-orange-600 dark:text-orange-400';
+
+                    return (
+                      <div
+                        key={item.item_id}
+                        className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${bgColor}`}
+                      >
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isNegative ? 'bg-red-100 dark:bg-red-900/30' : 'bg-orange-100 dark:bg-orange-900/30'}`}>
+                          <span className={`text-xs font-bold ${textColor}`}>{index + 1}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-slate-900 dark:text-white truncate text-sm">{item.item_name}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            {item.quantity_sold.toFixed(0)} sold • {margin.toFixed(1)}% margin
+                          </p>
+                          <div className="flex gap-2 mt-1 text-xs">
+                            <span className="text-slate-500">Buy: {formatPrice(avgBuyPrice)}</span>
+                            <span className="text-slate-500">•</span>
+                            <span className="text-slate-500">Sell: {formatPrice(avgSellPrice)}</span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className={`font-bold text-sm ${textColor}`}>
+                            {isNegative ? '-' : ''}{formatPrice(Math.abs(item.total_profit))}
+                          </p>
+                          <p className="text-xs text-slate-400">({formatPrice(avgProfit)}/unit)</p>
+                        </div>
                       </div>
                     );
                   })}
@@ -351,7 +427,7 @@ export function ProfitView() {
           <CardContent className="p-0">
             <div className="flex items-center gap-2 p-5 border-b border-slate-100 dark:border-slate-800">
               <div className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
-                <TrendingDown className="w-4 h-4 text-red-500" />
+                <AlertCircle className="w-4 h-4 text-red-500" />
               </div>
               <h3 className="font-bold text-slate-900 dark:text-white">Low / Negative Profit</h3>
             </div>
@@ -368,6 +444,9 @@ export function ProfitView() {
                   {lowProfitItems.map((item) => {
                     const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
                     const isNegative = item.total_profit < 0;
+                    const avgBuyPrice = item.quantity_sold > 0 ? item.total_cost / item.quantity_sold : 0;
+                    const avgSellPrice = item.quantity_sold > 0 ? item.total_sales / item.quantity_sold : 0;
+                    const avgProfit = item.quantity_sold > 0 ? item.total_profit / item.quantity_sold : 0;
                     const bgColor = isNegative
                       ? 'bg-red-50/50 dark:bg-red-900/10 hover:bg-red-50 dark:hover:bg-red-900/20'
                       : 'bg-orange-50/50 dark:bg-orange-900/10 hover:bg-orange-50 dark:hover:bg-orange-900/20';
@@ -384,14 +463,22 @@ export function ProfitView() {
                           <AlertCircle className={`w-4 h-4 ${textColor}`} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-slate-900 dark:text-white truncate">{item.item_name}</p>
-                          <p className={`text-xs ${textColor}`}>
-                            {isNegative ? 'Loss / Waste' : `${margin.toFixed(1)}% margin`}
+                          <p className="font-semibold text-slate-900 dark:text-white truncate text-sm">{item.item_name}</p>
+                          <p className={`text-xs ${textColor} mt-0.5`}>
+                            {isNegative ? 'Loss / Waste' : `${margin.toFixed(1)}% margin`} • {item.quantity_sold.toFixed(0)} sold
                           </p>
+                          <div className="flex gap-2 mt-1 text-xs">
+                            <span className="text-slate-500">Buy: {formatPrice(avgBuyPrice)}</span>
+                            <span className="text-slate-500">•</span>
+                            <span className="text-slate-500">Sell: {formatPrice(avgSellPrice)}</span>
+                          </div>
                         </div>
-                        <p className={`font-bold ${textColor}`}>
-                          {isNegative ? '-' : '+'}{formatPrice(Math.abs(item.total_profit))}
-                        </p>
+                        <div className="text-right">
+                          <p className={`font-bold text-sm ${textColor}`}>
+                            {isNegative ? '-' : '+'}{formatPrice(Math.abs(item.total_profit))}
+                          </p>
+                          <p className={`text-xs ${textColor} opacity-70`}>({formatPrice(avgProfit)}/unit)</p>
+                        </div>
                       </div>
                     );
                   })}
@@ -422,10 +509,13 @@ export function ProfitView() {
                 <thead>
                   <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30">
                     <th className="text-left p-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Item</th>
-                    <th className="text-right p-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Sales</th>
-                    <th className="text-right p-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Cost</th>
-                    <th className="text-right p-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Qty</th>
-                    <th className="text-right p-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Profit</th>
+                    <th className="text-right p-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Quantity</th>
+                    <th className="text-right p-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Buy Price</th>
+                    <th className="text-right p-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Sell Price</th>
+                    <th className="text-right p-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Profit/Unit</th>
+                    <th className="text-right p-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Total Cost</th>
+                    <th className="text-right p-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Total Sales</th>
+                    <th className="text-right p-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Total Profit</th>
                     <th className="text-right p-4 text-sm font-semibold text-slate-600 dark:text-slate-300">Margin</th>
                   </tr>
                 </thead>
@@ -435,6 +525,9 @@ export function ProfitView() {
                     .map((item) => {
                       const itemMargin = item.total_sales > 0 ? item.total_profit / item.total_sales : 0;
                       const isPositive = item.total_profit >= 0;
+                      const avgBuyPrice = item.quantity_sold > 0 ? item.total_cost / item.quantity_sold : 0;
+                      const avgSellPrice = item.quantity_sold > 0 ? item.total_sales / item.quantity_sold : 0;
+                      const avgProfit = item.quantity_sold > 0 ? item.total_profit / item.quantity_sold : 0;
 
                       return (
                         <tr
@@ -451,14 +544,23 @@ export function ProfitView() {
                               <span className="font-medium text-slate-900 dark:text-white">{item.item_name}</span>
                             </div>
                           </td>
+                          <td className="p-4 text-right text-slate-600 dark:text-slate-300 font-medium">
+                            {item.quantity_sold.toFixed(1)}
+                          </td>
                           <td className="p-4 text-right text-slate-600 dark:text-slate-300">
-                            {formatPrice(item.total_sales)}
+                            {formatPrice(avgBuyPrice)}
+                          </td>
+                          <td className="p-4 text-right text-slate-600 dark:text-slate-300">
+                            {formatPrice(avgSellPrice)}
+                          </td>
+                          <td className={`p-4 text-right font-semibold ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
+                            {formatPrice(avgProfit)}
                           </td>
                           <td className="p-4 text-right text-slate-500 dark:text-slate-400">
                             {formatPrice(item.total_cost)}
                           </td>
-                          <td className="p-4 text-right text-slate-500 dark:text-slate-400">
-                            {item.quantity_sold.toFixed(1)}
+                          <td className="p-4 text-right text-slate-600 dark:text-slate-300">
+                            {formatPrice(item.total_sales)}
                           </td>
                           <td className={`p-4 text-right font-bold ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
                             {formatPrice(item.total_profit)}
