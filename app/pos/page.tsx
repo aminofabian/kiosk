@@ -32,6 +32,8 @@ import type { Category } from '@/lib/db/types';
 import { getItemImage } from '@/lib/utils/item-images';
 import { InstallApp } from '@/components/InstallApp';
 import { DownloadButton } from '@/components/DownloadButton';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { Settings } from 'lucide-react';
 
 const CATEGORY_IMAGE_MAP: Record<string, string> = {
   Vegetables: '/images/vegetables.jpeg',
@@ -71,6 +73,8 @@ export default function POSPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { items: cartItems } = useCartStore();
+  const { user } = useCurrentUser();
+  const isOwnerOrAdmin = user?.role === 'owner' || user?.role === 'admin';
   
   // Variant selector state
   const [selectedParentItem, setSelectedParentItem] = useState<{
@@ -293,12 +297,24 @@ export default function POSPage() {
         {!selectedCategoryId ? (
           <>
             <header className="flex items-center justify-between p-4 pt-6 bg-[#f6f8f6] dark:bg-[#132210] sticky top-0 z-20">
-              <button
-                aria-label="Menu"
-                className="flex size-12 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform"
-              >
-                <Menu className="w-8 h-8" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  aria-label="Menu"
+                  className="flex size-12 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform"
+                >
+                  <Menu className="w-8 h-8" />
+                </button>
+                {isOwnerOrAdmin && (
+                  <Link
+                    href="/admin"
+                    className="flex items-center justify-center gap-2 px-4 h-12 rounded-full bg-[#4bee2b] hover:bg-[#3bd522] active:scale-95 transition-all shadow-lg shadow-[#4bee2b]/30"
+                    aria-label="Admin"
+                  >
+                    <Settings className="w-5 h-5 text-[#101b0d]" />
+                    <span className="font-bold text-sm text-[#101b0d]">Admin</span>
+                  </Link>
+                )}
+              </div>
               <h1 className="text-xl font-extrabold tracking-tight uppercase text-[#101b0d]/80 dark:text-[#4bee2b]/90">
                 Kiosk POS
               </h1>
@@ -464,12 +480,24 @@ export default function POSPage() {
         ) : (
           <>
             <header className="flex items-center justify-between p-4 pt-6 bg-[#f6f8f6] dark:bg-[#132210] sticky top-0 z-20">
-              <button
-                onClick={() => setSelectedCategoryId(null)}
-                className="flex size-12 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform"
-              >
-                <ArrowLeft className="w-8 h-8" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedCategoryId(null)}
+                  className="flex size-12 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform"
+                >
+                  <ArrowLeft className="w-8 h-8" />
+                </button>
+                {isOwnerOrAdmin && (
+                  <Link
+                    href="/admin"
+                    className="flex items-center justify-center gap-2 px-4 h-12 rounded-full bg-[#4bee2b] hover:bg-[#3bd522] active:scale-95 transition-all shadow-lg shadow-[#4bee2b]/30"
+                    aria-label="Admin"
+                  >
+                    <Settings className="w-5 h-5 text-[#101b0d]" />
+                    <span className="font-bold text-sm text-[#101b0d]">Admin</span>
+                  </Link>
+                )}
+              </div>
               <h1 className="text-xl font-bold text-[#101b0d] dark:text-[#f0fdf4]">
                 {selectedCategory?.name || 'Category'}
               </h1>
@@ -603,6 +631,17 @@ export default function POSPage() {
                 <h1 className="text-2xl font-bold text-[#4bee2b] hidden sm:block">
                   Grocery POS
                 </h1>
+                {isOwnerOrAdmin && (
+                  <Link href="/admin">
+                    <Button
+                      size="sm"
+                      className="hidden sm:flex items-center gap-2 bg-[#4bee2b] hover:bg-[#3bd522] text-[#101b0d] font-semibold shadow-md shadow-[#4bee2b]/30"
+                    >
+                      <Settings className="w-4 h-4" />
+                      <span className="hidden md:inline">Admin</span>
+                    </Button>
+                  </Link>
+                )}
                 {showSearch ? (
                   <div className="flex-1 max-w-md relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, ShoppingBag, Package, TrendingUp, CreditCard } from 'lucide-react';
+import { Home, ShoppingBag, Package, TrendingUp, CreditCard, ShoppingCart } from 'lucide-react';
 
 const MOBILE_NAV_ITEMS = [
   { href: '/admin', label: 'Home', icon: Home },
@@ -64,6 +64,19 @@ export function AdminBottomNav() {
             </Link>
           );
         })}
+        <Link
+          href="/pos"
+          className="flex-1 flex flex-col items-center justify-center gap-0.5 relative"
+        >
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#4bee2b]/10">
+            <ShoppingCart
+              className="w-5 h-5 text-[#4bee2b]"
+            />
+          </div>
+          <span className="text-[10px] font-medium text-[#4bee2b]">
+            POS
+          </span>
+        </Link>
       </div>
     </nav>
   );
