@@ -1,0 +1,207 @@
+'use client';
+
+import { useEffect, useState, useMemo } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { ArrowRight, User, Loader2, CreditCard, CheckCircle } from 'lucide-react';
+import type { CreditAccount } from '@/lib/db/types';
+import { SearchFilterSection } from './SearchFilterSection';
+
+export function CreditList() {
+  const [accounts, setAccounts] = useState<CreditAccount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'amount' | 'date'>('amount');
+
+  useEffect(() => {
+    async function fetchCredits() {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/credits');
+        const result = await response.json();
+
+        if (result.success) {
+          setAccounts(result.data);
+        } else {
+          setError(result.message || 'Failed to load credits');
+        }
+      } catch (err) {
+        setError('Failed to load credits');
+        console.error('Error fetching credits:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchCredits();
+  }, []);
+
+  const formatPrice = (price: number) => {
+    return `KES ${price.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  };
+
+  const formatDate = (timestamp: number | null) => {
+    if (!timestamp) return 'Never';
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleDateString('en-KE', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  const outstandingAccounts = useMemo(() => {
+    return accounts
+      .filter((acc) => acc.total_credit > 0)
+      .filter((acc) => {
+        if (searchQuery) {
+          const query = searchQuery.toLowerCase();
+          return (
+            acc.customer_name.toLowerCase().includes(query) ||
+            acc.customer_phone?.toLowerCase().includes(query)
+          );
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'name') {
+          return a.customer_name.localeCompare(b.customer_name);
+        }
+        if (sortBy === 'date') {
+          const aDate = a.last_transaction_at || 0;
+          const bDate = b.last_transaction_at || 0;
+          return bDate - aDate;
+        }
+        return b.total_credit - a.total_credit;
+      });
+  }, [accounts, searchQuery, sortBy]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 rounded-2xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto">
+            <Loader2 className="h-8 w-8 text-red-500 animate-spin" />
+          </div>
+          <p className="text-slate-500 dark:text-slate-400 font-medium">Loading credits...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center space-y-3">
+          <div className="w-16 h-16 mx-auto bg-red-50 dark:bg-red-900/20 rounded-2xl flex items-center justify-center">
+            <span className="text-2xl">⚠️</span>
+          </div>
+          <p className="text-red-600 dark:text-red-400 font-semibold">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (accounts.length === 0 || outstandingAccounts.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center space-y-4">
+          <div className="w-20 h-20 mx-auto bg-green-50 dark:bg-green-900/20 rounded-2xl flex items-center justify-center">
+            <CheckCircle className="w-10 h-10 text-green-500" />
+          </div>
+          <p className="text-lg font-semibold text-green-600 dark:text-green-400">No outstanding credits!</p>
+          <p className="text-sm text-slate-400">
+            {searchQuery ? 'Try adjusting your search' : 'All customers have paid their debts'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalOutstanding = outstandingAccounts.reduce((sum, acc) => sum + acc.total_credit, 0);
+
+  return (
+    <div className="space-y-4">
+      {/* Summary Card */}
+      <Card className="bg-gradient-to-br from-red-500 to-red-600 border-0 shadow-lg shadow-red-500/20">
+        <CardContent className="p-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-red-100 text-sm font-medium mb-1">Total Outstanding</p>
+              <p className="text-3xl font-black text-white">{formatPrice(totalOutstanding)}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge className="bg-white/20 text-white border-0 text-sm">
+                {outstandingAccounts.length} customers
+              </Badge>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <SearchFilterSection
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search by customer name or phone..."
+        sortOptions={[
+          { value: 'amount', label: 'Sort by Amount (Highest)' },
+          { value: 'name', label: 'Sort by Name' },
+          { value: 'date', label: 'Sort by Last Transaction' },
+        ]}
+        sortValue={sortBy}
+        onSortChange={(v) => setSortBy(v as 'name' | 'amount' | 'date')}
+      />
+
+      <div className="space-y-3">
+        {outstandingAccounts.map((account) => (
+          <Card
+            key={account.id}
+            className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-slate-900/50 transition-all"
+          >
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center flex-shrink-0">
+                    <User className="w-5 h-5 text-red-500" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <h3 className="font-bold text-slate-900 dark:text-white truncate">
+                        {account.customer_name}
+                      </h3>
+                      <Badge variant="destructive" className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                        Outstanding
+                      </Badge>
+                    </div>
+                    {account.customer_phone && (
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        📱 {account.customer_phone}
+                      </p>
+                    )}
+                    <p className="text-xs text-slate-400 mt-1">
+                      Last transaction: {formatDate(account.last_transaction_at)}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right flex flex-col items-end gap-2">
+                  <p className="text-xl font-bold text-red-500">
+                    {formatPrice(account.total_credit)}
+                  </p>
+                  <Link href={`/admin/credits/${account.id}/payment`}>
+                    <Button className="bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d]" size="sm">
+                      Collect
+                      <ArrowRight className="ml-2 h-3 w-3" />
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}

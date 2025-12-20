@@ -1,0 +1,518 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, Package, Layers } from 'lucide-react';
+import type { Category, Item } from '@/lib/db/types';
+import type { UnitType } from '@/lib/constants';
+
+type FormMode = 'standalone' | 'parent' | 'variant';
+
+interface ItemFormProps {
+  itemId?: string;
+  initialData?: {
+    name: string;
+    category_id: string;
+    unit_type: UnitType;
+    current_stock: number;
+    current_sell_price: number;
+    min_stock_level: number | null;
+    buy_price?: number | null;
+    variant_name?: string | null;
+    parent_item_id?: string | null;
+  };
+  parentItemId?: string; // If set, we're creating a variant for this parent
+  defaultMode?: FormMode;
+  onSuccess?: () => void;
+  onCancel?: () => void;
+}
+
+export function ItemForm({ 
+  itemId, 
+  initialData, 
+  parentItemId, 
+  defaultMode = 'standalone',
+  onSuccess, 
+  onCancel 
+}: ItemFormProps) {
+  const router = useRouter();
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [parentItems, setParentItems] = useState<Item[]>([]);
+  const [mode, setMode] = useState<FormMode>(
+    parentItemId ? 'variant' : 
+    initialData?.parent_item_id ? 'variant' : 
+    defaultMode
+  );
+  const [name, setName] = useState<string>(initialData?.name || '');
+  const [variantName, setVariantName] = useState<string>(initialData?.variant_name || '');
+  const [selectedParentId, setSelectedParentId] = useState<string>(parentItemId || initialData?.parent_item_id || '');
+  const [categoryId, setCategoryId] = useState<string>(initialData?.category_id || '');
+  const [unitType, setUnitType] = useState<UnitType>(initialData?.unit_type || 'piece');
+  const [initialStock, setInitialStock] = useState<string>(initialData?.current_stock?.toString() || '0');
+  const [buyPrice, setBuyPrice] = useState<string>(initialData?.buy_price?.toString() || '');
+  const [sellPrice, setSellPrice] = useState<string>(initialData?.current_sell_price?.toString() || '');
+  const [minStockLevel, setMinStockLevel] = useState<string>(initialData?.min_stock_level?.toString() || '');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        setLoading(true);
+        const [categoriesRes, parentsRes] = await Promise.all([
+          fetch('/api/categories'),
+          fetch('/api/items?all=true&parentsOnly=true'),
+        ]);
+        
+        const categoriesResult = await categoriesRes.json();
+        const parentsResult = await parentsRes.json();
+        
+        if (categoriesResult.success) {
+          setCategories(categoriesResult.data);
+        }
+        if (parentsResult.success) {
+          setParentItems(parentsResult.data);
+        }
+        
+        // If parentItemId is set, get the parent's category
+        if (parentItemId && parentsResult.success) {
+          const parent = parentsResult.data.find((p: Item) => p.id === parentItemId);
+          if (parent) {
+            setCategoryId(parent.category_id);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching data:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, [parentItemId]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    // Parent mode validation
+    if (mode === 'parent') {
+      if (!name.trim()) {
+        setError('Item name is required');
+        return;
+      }
+      if (!categoryId) {
+        setError('Category is required');
+        return;
+      }
+    } else {
+      // Standalone or variant mode validation
+      if (!name.trim() && mode !== 'variant') {
+        setError('Item name is required');
+        return;
+      }
+      
+      if (mode === 'variant') {
+        if (!selectedParentId) {
+          setError('Parent item is required for variants');
+          return;
+        }
+        if (!variantName.trim()) {
+          setError('Variant name is required');
+          return;
+        }
+      }
+
+      if (!categoryId) {
+        setError('Category is required');
+        return;
+      }
+
+      if (!sellPrice || parseFloat(sellPrice) <= 0) {
+        setError('Sell price must be greater than 0');
+        return;
+      }
+    }
+
+    const stock = parseFloat(initialStock) || 0;
+    const buy = buyPrice ? parseFloat(buyPrice) : null;
+    const price = mode === 'parent' ? 0 : parseFloat(sellPrice);
+    const minStock = minStockLevel ? parseFloat(minStockLevel) : null;
+
+    if (mode !== 'parent' && stock > 0 && buy !== null && buy <= 0) {
+      setError('Buy price must be greater than 0 when setting initial stock');
+      return;
+    }
+
+    if (mode !== 'parent' && minStock !== null && minStock < 0) {
+      setError('Min stock level cannot be negative');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const url = itemId ? `/api/items/${itemId}` : '/api/items';
+      const method = itemId ? 'PUT' : 'POST';
+      
+      // Get parent name for variant display name
+      const parentItem = mode === 'variant' 
+        ? parentItems.find(p => p.id === selectedParentId) 
+        : null;
+      
+      // Build the item name: for variants, use "ParentName - VariantName"
+      const itemName = mode === 'variant' && parentItem
+        ? `${parentItem.name} - ${variantName.trim()}`
+        : name.trim();
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: itemName,
+          categoryId,
+          unitType,
+          initialStock: mode === 'parent' ? 0 : stock,
+          buyPrice: mode === 'parent' ? null : buy,
+          sellPrice: price,
+          minStockLevel: mode === 'parent' ? null : minStock,
+          isParent: mode === 'parent',
+          parentItemId: mode === 'variant' ? selectedParentId : null,
+          variantName: mode === 'variant' ? variantName.trim() : null,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.push('/admin/items');
+        }
+      } else {
+        setError(result.message || 'Failed to save item');
+        setIsSubmitting(false);
+      }
+    } catch (err) {
+      console.error('Item save error:', err);
+      setError('An error occurred. Please try again.');
+      setIsSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center space-y-3">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const isEditingExistingItem = !!itemId;
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Mode Selection - only show for new items and not when creating variant for a parent */}
+        {!isEditingExistingItem && !parentItemId && (
+          <div className="space-y-3">
+            <Label>Item Type</Label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setMode('standalone')}
+                className={`p-3 rounded-lg border-2 text-left transition-all ${
+                  mode === 'standalone'
+                    ? 'border-[#4bee2b] bg-[#4bee2b]/10'
+                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                }`}
+              >
+                <Package className="h-5 w-5 mb-1 text-slate-600 dark:text-slate-400" />
+                <p className="text-sm font-medium">Standalone</p>
+                <p className="text-xs text-slate-500">Single item</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('parent')}
+                className={`p-3 rounded-lg border-2 text-left transition-all ${
+                  mode === 'parent'
+                    ? 'border-[#4bee2b] bg-[#4bee2b]/10'
+                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                }`}
+              >
+                <Layers className="h-5 w-5 mb-1 text-purple-500" />
+                <p className="text-sm font-medium">Parent</p>
+                <p className="text-xs text-slate-500">Has variants</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('variant')}
+                className={`p-3 rounded-lg border-2 text-left transition-all ${
+                  mode === 'variant'
+                    ? 'border-[#4bee2b] bg-[#4bee2b]/10'
+                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                }`}
+              >
+                <Layers className="h-5 w-5 mb-1 text-blue-500" />
+                <p className="text-sm font-medium">Variant</p>
+                <p className="text-xs text-slate-500">Add to parent</p>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Variant-specific: Parent selection */}
+        {mode === 'variant' && !parentItemId && (
+          <div className="space-y-2">
+            <Label htmlFor="parent">Parent Item *</Label>
+            <Select value={selectedParentId} onValueChange={(v) => {
+              setSelectedParentId(v);
+              const parent = parentItems.find(p => p.id === v);
+              if (parent) {
+                setCategoryId(parent.category_id);
+              }
+            }}>
+              <SelectTrigger className="h-12 touch-target">
+                <SelectValue placeholder="Select parent item" />
+              </SelectTrigger>
+              <SelectContent>
+                {parentItems.length === 0 ? (
+                  <p className="p-2 text-sm text-slate-500">No parent items. Create one first.</p>
+                ) : (
+                  parentItems.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {/* Variant Name (for variants) */}
+        {mode === 'variant' && (
+          <div className="space-y-2">
+            <Label htmlFor="variantName">Variant Name *</Label>
+            <Input
+              id="variantName"
+              value={variantName}
+              onChange={(e) => setVariantName(e.target.value)}
+              placeholder="e.g., Big, Small, Red Kidney"
+              required
+              className="h-12 touch-target"
+            />
+            <p className="text-xs text-muted-foreground">
+              This will be combined with parent name (e.g., "Tomatoes - Big")
+            </p>
+          </div>
+        )}
+
+        {/* Item Name (for standalone and parent modes) */}
+        {mode !== 'variant' && (
+          <div className="space-y-2">
+            <Label htmlFor="name">
+              {mode === 'parent' ? 'Product Name *' : 'Item Name *'}
+            </Label>
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={mode === 'parent' ? 'e.g., Tomatoes (will have variants)' : 'e.g., Tomatoes'}
+              required
+              className="h-12 touch-target"
+            />
+            {mode === 'parent' && (
+              <p className="text-xs text-muted-foreground">
+                This is a container for variants. Add variants after creating.
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="category">Category *</Label>
+            <Select 
+              value={categoryId} 
+              onValueChange={setCategoryId}
+              disabled={mode === 'variant' && !!parentItemId}
+            >
+              <SelectTrigger className="h-12 touch-target">
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    {category.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Unit Type - only for non-parent items */}
+          {mode !== 'parent' && (
+            <div className="space-y-2">
+              <Label htmlFor="unit">Unit Type *</Label>
+              <Select value={unitType} onValueChange={(v) => setUnitType(v as UnitType)}>
+                <SelectTrigger className="h-12 touch-target">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="kg">Kilogram (kg)</SelectItem>
+                  <SelectItem value="g">Gram (g)</SelectItem>
+                  <SelectItem value="piece">Piece</SelectItem>
+                  <SelectItem value="bunch">Bunch</SelectItem>
+                  <SelectItem value="tray">Tray</SelectItem>
+                  <SelectItem value="litre">Litre (L)</SelectItem>
+                  <SelectItem value="ml">Millilitre (ml)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+
+        {/* Stock and Price fields - only for non-parent items */}
+        {mode !== 'parent' && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="stock">Initial Stock ({unitType})</Label>
+                <Input
+                  id="stock"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={initialStock}
+                  onChange={(e) => setInitialStock(e.target.value)}
+                  placeholder="0.00"
+                  className="h-12 touch-target"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Starting stock level (default: 0)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="buyPrice">Buying Price (KES)</Label>
+                <Input
+                  id="buyPrice"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={buyPrice}
+                  onChange={(e) => setBuyPrice(e.target.value)}
+                  placeholder="0.00"
+                  className="h-12 touch-target"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Cost per {unitType} (required if stock &gt; 0)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="price">Selling Price (KES) *</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={sellPrice}
+                  onChange={(e) => setSellPrice(e.target.value)}
+                  placeholder="0.00"
+                  required
+                  className="h-12 touch-target"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Price per {unitType}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="minStock">Min Stock Level ({unitType})</Label>
+              <Input
+                id="minStock"
+                type="number"
+                step="0.01"
+                min="0"
+                value={minStockLevel}
+                onChange={(e) => setMinStockLevel(e.target.value)}
+                placeholder="Leave empty for no alert"
+                className="h-12 touch-target"
+              />
+              <p className="text-xs text-muted-foreground">
+                Alert when stock falls below this level (optional)
+              </p>
+            </div>
+          </>
+        )}
+
+        {/* Parent mode info */}
+        {mode === 'parent' && (
+          <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-100 dark:border-purple-800/30">
+            <p className="text-sm text-purple-700 dark:text-purple-300">
+              <strong>Parent items</strong> are containers for variants. They don&apos;t have their own stock or price. 
+              After creating, you can add variants like "Big", "Small", or "Red Kidney".
+            </p>
+          </div>
+        )}
+
+        {error && (
+          <div className="p-3 bg-destructive/10 text-destructive rounded-md text-sm">
+            {error}
+          </div>
+        )}
+
+        <div className="flex gap-3 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              if (onCancel) {
+                onCancel();
+              } else {
+                router.push('/admin/items');
+              }
+            }}
+            size="touch"
+            className="flex-1"
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            size="touch"
+            disabled={isSubmitting}
+            className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              itemId ? 'Update Item' : 
+              mode === 'parent' ? 'Create Parent Item' :
+              mode === 'variant' ? 'Create Variant' :
+              'Create Item'
+            )}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
+

@@ -1,0 +1,501 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { ArrowLeft, WifiOff, TrendingUp, TrendingDown, AlertTriangle, Download, ShoppingBag, Receipt, PieChart, Package } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+
+interface ProfitData {
+  totalProfit: number;
+  totalSales: number;
+  totalCost: number;
+  profitMargin: number;
+  itemProfits: Array<{
+    item_id: string;
+    item_name: string;
+    total_profit: number;
+    total_sales: number;
+    total_cost: number;
+    quantity_sold: number;
+  }>;
+}
+
+interface LowStockItem {
+  id: string;
+  name: string;
+  current_stock: number;
+  unit_type: string;
+}
+
+type DatePreset = 'today' | 'week' | 'month';
+
+export function ProfitViewMobile() {
+  const router = useRouter();
+  const [profitData, setProfitData] = useState<ProfitData | null>(null);
+  const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [datePreset, setDatePreset] = useState<DatePreset>('today');
+  const [isOffline, setIsOffline] = useState(false);
+
+  useEffect(() => {
+    fetchProfitData();
+    fetchLowStockItems();
+  }, [datePreset]);
+
+  async function fetchProfitData() {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const today = new Date();
+      const start = new Date();
+
+      switch (datePreset) {
+        case 'today':
+          start.setHours(0, 0, 0, 0);
+          break;
+        case 'week':
+          start.setDate(today.getDate() - 7);
+          break;
+        case 'month':
+          start.setDate(1);
+          break;
+      }
+
+      const startTimestamp = Math.floor(start.getTime() / 1000);
+      const endTimestamp = Math.floor(today.getTime() / 1000);
+
+      const response = await fetch(
+        `/api/profit?start=${startTimestamp}&end=${endTimestamp}`
+      );
+      const result = await response.json();
+
+      if (result.success) {
+        setProfitData(result.data);
+      } else {
+        setError(result.message || 'Failed to load profit data');
+      }
+    } catch (err) {
+      setError('Failed to load profit data');
+      setIsOffline(true);
+      console.error('Error fetching profit:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function fetchLowStockItems() {
+    try {
+      const response = await fetch('/api/stock');
+      const result = await response.json();
+
+      if (result.success) {
+        const lowStock = result.data
+          .filter((item: any) => item.current_stock > 0 && item.current_stock < 10)
+          .sort((a: any, b: any) => a.current_stock - b.current_stock)
+          .slice(0, 5)
+          .map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            current_stock: item.current_stock,
+            unit_type: item.unit_type,
+          }));
+        setLowStockItems(lowStock);
+      }
+    } catch (err) {
+      console.error('Error fetching low stock items:', err);
+    }
+  }
+
+  const formatPrice = (price: number) => {
+    return `KES ${price.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  };
+
+  const formatCurrency = (price: number) => {
+    return `$${price.toFixed(2)}`;
+  };
+
+  const getStockStatus = (stock: number) => {
+    if (stock <= 3) return { label: 'Critical', color: 'red', bg: 'bg-red-50 dark:bg-red-900/10', border: 'border-red-100 dark:border-red-900/30' };
+    if (stock <= 5) return { label: 'Low', color: 'yellow', bg: 'bg-yellow-50 dark:bg-yellow-900/10', border: 'border-yellow-100 dark:border-yellow-900/30' };
+    return { label: 'Low', color: 'yellow', bg: 'bg-yellow-50 dark:bg-yellow-900/10', border: 'border-yellow-100 dark:border-yellow-900/30' };
+  };
+
+  const topProfitItems = profitData?.itemProfits
+    .filter(item => item.total_profit > 0)
+    .sort((a, b) => b.total_profit - a.total_profit)
+    .slice(0, 2) || [];
+
+  const lowProfitItems = profitData?.itemProfits
+    .filter(item => {
+      const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
+      return item.total_profit < 0 || margin < 5;
+    })
+    .sort((a, b) => a.total_profit - b.total_profit)
+    .slice(0, 2) || [];
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center space-y-3">
+          <div className="w-12 h-12 mx-auto border-4 border-[#4bee2b]/20 border-t-[#4bee2b] rounded-full animate-spin"></div>
+          <p className="text-gray-600 font-medium">Loading profit data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !profitData) {
+    return (
+      <div className="flex items-center justify-center h-screen p-4">
+        <div className="text-center space-y-3">
+          <div className="w-16 h-16 mx-auto bg-red-100 rounded-full flex items-center justify-center">
+            <AlertTriangle className="h-8 w-8 text-red-600" />
+          </div>
+          <p className="text-red-600 font-semibold">Error: {error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const salesValue = profitData?.totalSales || 0;
+  const costValue = profitData?.totalCost || 0;
+  const profitValue = profitData?.totalProfit || 0;
+  const marginPercent = profitData?.profitMargin ? (profitData.profitMargin * 100).toFixed(0) : '0';
+
+  return (
+    <div className="bg-[#f6f8f6] dark:bg-[#132210] min-h-screen pb-28">
+      <style jsx global>{`
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
+
+      {/* Top App Bar */}
+      <div className="sticky top-0 z-50 flex items-center bg-[#f6f8f6]/95 dark:bg-[#132210]/95 backdrop-blur-sm p-4 justify-between border-b border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center justify-center p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-slate-900 dark:text-white" />
+          </button>
+          <h2 className="text-slate-900 dark:text-white text-xl font-bold leading-tight tracking-[-0.015em]">
+            Profit Dashboard
+          </h2>
+        </div>
+        <Link
+          href="/admin"
+          className="flex px-4 py-2 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-800 active:scale-95 transition-transform"
+        >
+          <p className="text-slate-900 dark:text-white text-sm font-bold leading-normal tracking-[0.015em]">
+            Close
+          </p>
+        </Link>
+      </div>
+
+      {/* Offline Indicator */}
+      {isOffline && (
+        <div className="w-full flex justify-center py-2">
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-orange-100 dark:bg-orange-900/30 border border-orange-200 dark:border-orange-800">
+            <WifiOff className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+            <p className="text-orange-800 dark:text-orange-200 text-xs font-medium">
+              Offline Mode: Showing local data
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Date Filter (Segmented Buttons) */}
+      <div className="px-4 py-2">
+        <div className="flex h-12 w-full items-center justify-center rounded-full bg-white dark:bg-[#1c2e18] p-1 shadow-sm border border-slate-100 dark:border-slate-800">
+          <label className="flex cursor-pointer h-full grow items-center justify-center overflow-hidden rounded-full px-2 transition-all duration-200">
+            <input
+              checked={datePreset === 'today'}
+              className="hidden peer"
+              name="date-filter"
+              type="radio"
+              value="today"
+              onChange={() => setDatePreset('today')}
+            />
+            <span
+              className={`truncate text-sm font-bold z-10 ${
+                datePreset === 'today'
+                  ? 'text-black dark:text-white bg-[#4bee2b] rounded-full px-2 py-1 shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400'
+              }`}
+            >
+              Today
+            </span>
+          </label>
+          <label className="flex cursor-pointer h-full grow items-center justify-center overflow-hidden rounded-full px-2 transition-all duration-200">
+            <input
+              checked={datePreset === 'week'}
+              className="hidden peer"
+              name="date-filter"
+              type="radio"
+              value="week"
+              onChange={() => setDatePreset('week')}
+            />
+            <span
+              className={`truncate text-sm font-bold z-10 ${
+                datePreset === 'week'
+                  ? 'text-black dark:text-white bg-[#4bee2b] rounded-full px-2 py-1 shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400'
+              }`}
+            >
+              This Week
+            </span>
+          </label>
+          <label className="flex cursor-pointer h-full grow items-center justify-center overflow-hidden rounded-full px-2 transition-all duration-200">
+            <input
+              checked={datePreset === 'month'}
+              className="hidden peer"
+              name="date-filter"
+              type="radio"
+              value="month"
+              onChange={() => setDatePreset('month')}
+            />
+            <span
+              className={`truncate text-sm font-bold z-10 ${
+                datePreset === 'month'
+                  ? 'text-black dark:text-white bg-[#4bee2b] rounded-full px-2 py-1 shadow-sm'
+                  : 'text-slate-500 dark:text-slate-400'
+              }`}
+            >
+              This Month
+            </span>
+          </label>
+        </div>
+      </div>
+
+      {/* Today at a Glance */}
+      <div className="px-4 pt-4 pb-2">
+        <h2 className="text-slate-900 dark:text-white tracking-tight text-lg font-bold leading-tight mb-3">
+          Today at a Glance
+        </h2>
+        <div className="grid grid-cols-2 gap-3">
+          {/* Sales */}
+          <div className="flex flex-col p-4 bg-white dark:bg-[#1c2e18] rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-1.5 mb-1">
+              <ShoppingBag className="w-4 h-4 text-slate-400" />
+              <span className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                Sales
+              </span>
+            </div>
+            <span className="text-slate-900 dark:text-white text-2xl font-black">
+              {formatPrice(salesValue)}
+            </span>
+          </div>
+
+          {/* Cost */}
+          <div className="flex flex-col p-4 bg-white dark:bg-[#1c2e18] rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Receipt className="w-4 h-4 text-slate-400" />
+              <span className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
+                Cost
+              </span>
+            </div>
+            <span className="text-slate-900 dark:text-white text-2xl font-black">
+              {formatPrice(costValue)}
+            </span>
+          </div>
+
+          {/* Profit */}
+          <div className="flex flex-col p-4 bg-[#4bee2b] rounded-2xl shadow-lg shadow-[#4bee2b]/20 relative overflow-hidden">
+            <div className="absolute right-[-10px] top-[-10px] w-16 h-16 bg-white/20 rounded-full blur-xl pointer-events-none"></div>
+            <div className="flex items-center gap-1.5 mb-1 z-10">
+              <TrendingUp className="w-4 h-4 text-black/70" />
+              <span className="text-black/70 text-xs font-bold uppercase tracking-wider">
+                Profit
+              </span>
+            </div>
+            <span className="text-black text-3xl font-black z-10">
+              {formatPrice(profitValue)}
+            </span>
+          </div>
+
+          {/* Margin */}
+          <div className="flex flex-col p-4 bg-blue-50 dark:bg-blue-900/10 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+            <div className="flex items-center gap-1.5 mb-1">
+              <PieChart className="w-4 h-4 text-blue-500 dark:text-blue-400" />
+              <span className="text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wider">
+                Margin
+              </span>
+            </div>
+            <span className="text-blue-800 dark:text-blue-200 text-3xl font-black">
+              {marginPercent}%
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Top Profit Items */}
+      {topProfitItems.length > 0 && (
+        <div className="mt-6 px-4">
+          <h3 className="text-slate-900 dark:text-white text-lg font-bold mb-3 flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-green-500" />
+            Top Profit Items
+          </h3>
+          <div className="flex flex-col gap-3">
+            {topProfitItems.map((item, index) => {
+              const emojis = ['🍦', '💧'];
+              return (
+                <div
+                  key={item.item_id}
+                  className="flex items-center p-4 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border border-slate-100 dark:border-slate-800"
+                >
+                  <div className="h-10 w-10 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center text-xl shrink-0">
+                    {emojis[index] || '📦'}
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <p className="text-slate-900 dark:text-white font-bold text-base">
+                      {item.item_name}
+                    </p>
+                    <p className="text-slate-500 dark:text-slate-400 text-xs font-medium">
+                      Qty Sold: {item.quantity_sold.toFixed(0)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-green-600 dark:text-green-400 font-bold text-lg">
+                      +{formatPrice(item.total_profit)}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Low / Negative Profit */}
+      {lowProfitItems.length > 0 && (
+        <div className="mt-6 px-4">
+          <h3 className="text-slate-900 dark:text-white text-lg font-bold mb-3 flex items-center gap-2">
+            <TrendingDown className="w-5 h-5 text-red-500" />
+            Low / Negative Profit
+          </h3>
+          <div className="flex flex-col gap-3">
+            {lowProfitItems.map((item) => {
+              const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
+              const isNegative = item.total_profit < 0;
+              const isVeryLow = !isNegative && margin < 5;
+              const bgColor = isNegative
+                ? 'bg-red-50 dark:bg-red-900/10'
+                : 'bg-orange-50 dark:bg-orange-900/10';
+              const borderColor = isNegative
+                ? 'border-red-100 dark:border-red-900/30'
+                : 'border-orange-100 dark:border-orange-900/30';
+              const textColor = isNegative
+                ? 'text-red-600 dark:text-red-400'
+                : 'text-orange-600 dark:text-orange-400';
+              const iconColor = isNegative
+                ? 'text-red-600 dark:text-red-400'
+                : 'text-orange-600 dark:text-orange-400';
+
+              return (
+                <div
+                  key={item.item_id}
+                  className={`flex items-center p-4 rounded-xl ${bgColor} shadow-sm border ${borderColor}`}
+                >
+                  <div className={`h-10 w-10 rounded-full bg-white dark:bg-opacity-30 flex items-center justify-center ${iconColor} shrink-0`}>
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <p className="text-slate-900 dark:text-white font-bold text-base">
+                      {item.item_name}
+                    </p>
+                    <p className={`${textColor}/80 text-xs font-bold`}>
+                      {isNegative
+                        ? 'Spoilage / Waste'
+                        : `Very Low Margin (${margin.toFixed(1)}%)`}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`${textColor} font-bold text-lg`}>
+                      {isNegative ? '-' : '+'}{formatPrice(Math.abs(item.total_profit))}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Restock Alerts */}
+      {lowStockItems.length > 0 && (
+        <div className="mt-8 px-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-slate-900 dark:text-white text-lg font-bold flex items-center gap-2">
+              <Package className="w-5 h-5 text-amber-500" />
+              Restock Alerts
+            </h3>
+            <Link
+              href="/admin/stock"
+              className="text-[#3abd21] dark:text-[#4bee2b] text-xs font-bold bg-[#4bee2b]/10 dark:bg-[#4bee2b]/20 px-3 py-1.5 rounded-full"
+            >
+              See All Inventory
+            </Link>
+          </div>
+          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 -mx-4 px-4 snap-x">
+            {lowStockItems.map((item) => {
+              const status = getStockStatus(item.current_stock);
+              const isCritical = status.color === 'red';
+              const indicatorColor = isCritical ? 'bg-red-500' : 'bg-yellow-500';
+              const ringColor = isCritical
+                ? 'ring-red-200 dark:ring-red-900'
+                : 'ring-yellow-200 dark:ring-yellow-900';
+              const stockTextColor = isCritical
+                ? 'text-red-700 dark:text-red-400'
+                : 'text-yellow-700 dark:text-yellow-500';
+
+              return (
+                <div
+                  key={item.id}
+                  className={`snap-start flex-none w-[180px] p-4 rounded-xl ${status.bg} border-2 ${status.border} flex flex-col justify-between h-[140px]`}
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="w-10 h-10 rounded-full bg-white dark:bg-opacity-40 flex items-center justify-center shadow-sm text-lg">
+                      📦
+                    </div>
+                    <div
+                      className={`w-3 h-3 rounded-full ${indicatorColor} ${isCritical ? 'animate-pulse' : ''} ring-2 ${ringColor}`}
+                    ></div>
+                  </div>
+                  <div>
+                    <p className="text-slate-900 dark:text-white font-bold text-lg leading-tight mb-1">
+                      {item.name}
+                    </p>
+                    <p className={`${stockTextColor} text-sm font-extrabold`}>
+                      {item.current_stock} REMAINING
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Floating Action Button / Bottom Bar */}
+      <div className="fixed bottom-20 left-0 w-full px-4 flex justify-center z-40 pointer-events-none">
+        <button
+          onClick={() => {
+            // TODO: Implement CSV export
+            console.log('Export report');
+          }}
+          className="pointer-events-auto shadow-xl shadow-[#4bee2b]/30 flex items-center gap-2 bg-[#4bee2b] hover:bg-[#3abd21] active:scale-95 transition-all text-black font-bold text-base px-6 py-3.5 rounded-full"
+        >
+          <Download className="w-5 h-5" />
+          Export Report (CSV)
+        </button>
+      </div>
+    </div>
+  );
+}
