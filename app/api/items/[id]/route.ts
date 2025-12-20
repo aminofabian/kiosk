@@ -5,6 +5,10 @@ import type { Item } from '@/lib/db/types';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 
+// Disable caching for this route
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function OPTIONS() {
   return optionsResponse();
 }
@@ -174,16 +178,23 @@ export async function PUT(
 
     if (isParentItem) {
       // Update parent item (only name and category)
-      await execute(
+      const updateResult = await execute(
         `UPDATE items 
          SET name = ?,
              category_id = ?
          WHERE id = ? AND business_id = ?`,
         [name.trim(), categoryId, itemId, auth.businessId]
       );
+
+      if (updateResult.rowsAffected === 0) {
+        return jsonResponse(
+          { success: false, message: 'No rows were updated. Item may not exist or data is unchanged.' },
+          400
+        );
+      }
     } else {
       // Update regular item or variant
-      await execute(
+      const updateResult = await execute(
         `UPDATE items 
          SET name = ?,
              category_id = ?,
@@ -202,26 +213,50 @@ export async function PUT(
         ]
       );
 
+      if (updateResult.rowsAffected === 0) {
+        return jsonResponse(
+          { success: false, message: 'No rows were updated. Item may not exist or data is unchanged.' },
+          400
+        );
+      }
+
       const price = sellPrice;
 
-      // If price changed, create new selling price record
+      // Always update the price (even if same, to ensure consistency)
+      // Check if price changed to decide whether to create price history
       const currentItem = await queryOne<{ current_sell_price: number }>(
-        'SELECT current_sell_price FROM items WHERE id = ?',
-        [itemId]
+        'SELECT current_sell_price FROM items WHERE id = ? AND business_id = ?',
+        [itemId, auth.businessId]
       );
 
-      if (currentItem && currentItem.current_sell_price !== price) {
+      if (!currentItem) {
+        return jsonResponse(
+          { success: false, message: 'Item not found after update' },
+          404
+        );
+      }
+
+      // Use a small epsilon for floating point comparison
+      const priceChanged = Math.abs(currentItem.current_sell_price - price) > 0.01;
+
+      // Always update the current_sell_price field
+      const priceUpdateResult = await execute(
+        `UPDATE items SET current_sell_price = ? WHERE id = ? AND business_id = ?`,
+        [price, itemId, auth.businessId]
+      );
+
+      if (priceUpdateResult.rowsAffected === 0) {
+        console.error('Price update failed for item:', itemId);
+      }
+
+      // Only create price history if price actually changed
+      if (priceChanged) {
         const priceId = generateUUID();
         await execute(
           `INSERT INTO selling_prices (
             id, item_id, price, effective_from, set_by, created_at
           ) VALUES (?, ?, ?, ?, ?, ?)`,
           [priceId, itemId, price, now, auth.userId, now]
-        );
-
-        await execute(
-          `UPDATE items SET current_sell_price = ? WHERE id = ?`,
-          [price, itemId]
         );
       }
 
@@ -253,11 +288,33 @@ export async function PUT(
       }
     }
 
+    // Fetch and return the updated item
+    const updatedItem = await queryOne<Item>(
+      `SELECT * FROM items WHERE id = ? AND business_id = ?`,
+      [itemId, auth.businessId]
+    );
+
+    if (!updatedItem) {
+      return jsonResponse(
+        { success: false, message: 'Item not found after update' },
+        404
+      );
+    }
+
+    // Get the latest buy price from inventory batches
+    const latestBatch = await queryOne<{ buy_price_per_unit: number }>(
+      `SELECT buy_price_per_unit FROM inventory_batches 
+       WHERE item_id = ? AND business_id = ?
+       ORDER BY received_at DESC LIMIT 1`,
+      [itemId, auth.businessId]
+    );
+
     return jsonResponse({
       success: true,
       message: 'Item updated successfully',
       data: {
-        itemId,
+        ...updatedItem,
+        buy_price: latestBatch?.buy_price_per_unit || null,
       },
     });
   } catch (error) {

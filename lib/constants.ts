@@ -23,7 +23,7 @@ export const PURCHASE_ITEM_STATUS = ['pending', 'broken_down'] as const;
 export type PurchaseItemStatus = (typeof PURCHASE_ITEM_STATUS)[number];
 
 // Stock adjustment reasons
-export const ADJUSTMENT_REASONS = ['spoilage', 'theft', 'counting_error', 'damage', 'other'] as const;
+export const ADJUSTMENT_REASONS = ['restock', 'spoilage', 'theft', 'counting_error', 'damage', 'other'] as const;
 export type AdjustmentReason = (typeof ADJUSTMENT_REASONS)[number];
 
 // Shift status

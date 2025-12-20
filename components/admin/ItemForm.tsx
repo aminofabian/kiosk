@@ -42,7 +42,7 @@ interface ItemFormProps {
   };
   parentItemId?: string; // If set, we're creating a variant for this parent
   defaultMode?: FormMode;
-  onSuccess?: () => void;
+  onSuccess?: (updatedItem?: Item) => void;
   onCancel?: () => void;
 }
 
@@ -105,6 +105,26 @@ export function ItemForm({
             setCategoryId(parent.category_id);
           }
         }
+        
+        // If editing a variant and parent not in list, try to fetch it
+        if (itemId && initialData?.parent_item_id && parentsResult.success) {
+          const parent = parentsResult.data.find((p: Item) => p.id === initialData.parent_item_id);
+          if (!parent && initialData.parent_item_id) {
+            // Parent not in parents list, try to fetch it directly
+            try {
+              const parentRes = await fetch(`/api/items/${initialData.parent_item_id}`);
+              const parentResult = await parentRes.json();
+              if (parentResult.success && parentResult.data) {
+                // Add to parent items list if it's actually a parent
+                if (parentResult.data.isParent) {
+                  setParentItems(prev => [...prev, parentResult.data]);
+                }
+              }
+            } catch (err) {
+              console.error('Error fetching parent item:', err);
+            }
+          }
+        }
       } catch (err) {
         console.error('Error fetching data:', err);
       } finally {
@@ -112,7 +132,7 @@ export function ItemForm({
       }
     }
     fetchData();
-  }, [parentItemId]);
+  }, [parentItemId, itemId, initialData?.parent_item_id]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -234,9 +254,46 @@ export function ItemForm({
         : null;
       
       // Build the item name: for variants, use "ParentName - VariantName"
-      const itemName = mode === 'variant' && parentItem
-        ? `${parentItem.name} - ${variantName.trim()}`
-        : name.trim();
+      let itemName: string;
+      if (mode === 'variant') {
+        if (parentItem) {
+          // Use parent name from the list
+          itemName = `${parentItem.name} - ${variantName.trim()}`;
+        } else if (itemId && initialData?.name) {
+          // When editing a variant, if parent not found, extract parent name from existing name
+          // Format is typically "ParentName - VariantName"
+          const existingName = initialData.name;
+          const existingVariantName = initialData.variant_name || '';
+          
+          if (existingName.includes(' - ') && existingVariantName) {
+            // Extract parent name by removing the existing variant part
+            const parentName = existingName.replace(` - ${existingVariantName}`, '').trim();
+            itemName = `${parentName} - ${variantName.trim()}`;
+          } else if (existingName.includes(' - ')) {
+            // If we have the separator but no stored variant name, try to extract
+            // by using the last part as the variant
+            const parts = existingName.split(' - ');
+            if (parts.length >= 2) {
+              const parentName = parts.slice(0, -1).join(' - ').trim();
+              itemName = `${parentName} - ${variantName.trim()}`;
+            } else {
+              itemName = existingName;
+            }
+          } else {
+            // Fallback: if we can't extract, use the existing name structure
+            // This handles cases where the name format might be different
+            itemName = existingName;
+          }
+        } else if (itemId && name.trim()) {
+          // Fallback: use the provided name (might already be correctly formatted)
+          itemName = name.trim();
+        } else {
+          // New variant but parent not found - use provided name or build from variant
+          itemName = name.trim() || (variantName.trim() ? `Item - ${variantName.trim()}` : '');
+        }
+      } else {
+        itemName = name.trim();
+      }
 
       const response = await fetch(url, {
         method,
@@ -261,7 +318,7 @@ export function ItemForm({
 
       if (result.success) {
         if (onSuccess) {
-          onSuccess();
+          onSuccess(result.data);
         } else {
           router.push('/admin/items');
         }
@@ -537,22 +594,37 @@ export function ItemForm({
         {mode !== 'parent' && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="stock">Initial Stock ({unitType})</Label>
-                <Input
-                  id="stock"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={initialStock}
-                  onChange={(e) => setInitialStock(e.target.value)}
-                  placeholder="0.00"
-                  className="h-12 touch-target"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Starting stock level (default: 0)
-                </p>
-              </div>
+              {/* Only show stock input for NEW items - editing stock is done via purchases */}
+              {!itemId ? (
+                <div className="space-y-2">
+                  <Label htmlFor="stock">Initial Stock ({unitType})</Label>
+                  <Input
+                    id="stock"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={initialStock}
+                    onChange={(e) => setInitialStock(e.target.value)}
+                    placeholder="0.00"
+                    className="h-12 touch-target"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Starting stock level (default: 0)
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Current Stock ({unitType})</Label>
+                  <div className="h-12 px-3 flex items-center bg-slate-100 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700">
+                    <span className="text-slate-600 dark:text-slate-300 font-medium">
+                      {initialData?.current_stock?.toFixed(2) || '0.00'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Stock is managed via Purchases
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="buyPrice">Buying Price (KES)</Label>

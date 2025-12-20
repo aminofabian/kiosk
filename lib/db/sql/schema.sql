@@ -342,7 +342,7 @@ CREATE TABLE IF NOT EXISTS stock_adjustments (
   system_stock REAL NOT NULL,
   actual_stock REAL NOT NULL,
   difference REAL NOT NULL, -- actual_stock - system_stock
-  reason TEXT NOT NULL CHECK (reason IN ('spoilage', 'theft', 'counting_error', 'damage', 'other')),
+  reason TEXT NOT NULL CHECK (reason IN ('restock', 'spoilage', 'theft', 'counting_error', 'damage', 'other')),
   notes TEXT,
   adjusted_by TEXT NOT NULL,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),

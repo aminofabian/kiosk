@@ -21,11 +21,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Edit, Loader2, Plus, Search, Package, X, ChevronRight, FolderTree, Layers, ChevronDown } from 'lucide-react';
+import { Edit, Loader2, Plus, Search, Package, X, ChevronRight, FolderTree, Layers, ChevronDown, TrendingUp, TrendingDown } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 import { ItemForm } from '@/components/admin/ItemForm';
 import { CategoryForm } from '@/components/admin/CategoryForm';
 import type { Item, Category } from '@/lib/db/types';
-import type { UnitType } from '@/lib/constants';
+import type { UnitType, AdjustmentReason } from '@/lib/constants';
+import { ADJUSTMENT_REASONS } from '@/lib/constants';
+
+const REASON_LABELS: Record<AdjustmentReason, string> = {
+  restock: 'Restock / New Delivery',
+  spoilage: 'Spoilage',
+  theft: 'Theft',
+  counting_error: 'Counting Error',
+  damage: 'Damage',
+  other: 'Other',
+};
 
 interface ItemWithCategory extends Item {
   category_name?: string;
@@ -50,13 +61,23 @@ export default function ItemsPage() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
   const [addingVariantToParent, setAddingVariantToParent] = useState<string | null>(null);
+  
+  // Stock adjustment state
+  const [stockDrawerOpen, setStockDrawerOpen] = useState(false);
+  const [adjustingItem, setAdjustingItem] = useState<ItemWithCategory | null>(null);
+  const [adjustmentType, setAdjustmentType] = useState<'increase' | 'decrease'>('increase');
+  const [adjustmentQuantity, setAdjustmentQuantity] = useState<string>('');
+  const [adjustmentReason, setAdjustmentReason] = useState<AdjustmentReason>('restock');
+  const [adjustmentNotes, setAdjustmentNotes] = useState<string>('');
+  const [isAdjusting, setIsAdjusting] = useState(false);
+  const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
 
   const fetchItems = async () => {
     try {
       setLoading(true);
       const [itemsRes, categoriesRes] = await Promise.all([
-        fetch('/api/items?all=true'),
-        fetch('/api/categories'),
+        fetch('/api/items?all=true', { cache: 'no-store' }),
+        fetch('/api/categories', { cache: 'no-store' }),
       ]);
 
       const itemsResult = await itemsRes.json();
@@ -225,6 +246,97 @@ export default function ItemsPage() {
       setDrawerOpen(true);
     }
   };
+
+  const handleAdjustStockClick = () => {
+    if (selectedItem) {
+      setAdjustingItem(selectedItem);
+      setAdjustmentType('increase');
+      setAdjustmentQuantity('');
+      setAdjustmentReason('restock');
+      setAdjustmentNotes('');
+      setAdjustmentError(null);
+      setStockDrawerOpen(true);
+    }
+  };
+
+  const handleStockAdjustSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adjustingItem) return;
+
+    const qty = parseFloat(adjustmentQuantity);
+    if (isNaN(qty) || qty <= 0) {
+      setAdjustmentError('Please enter a valid quantity greater than 0');
+      return;
+    }
+
+    if (adjustmentType === 'decrease' && qty > adjustingItem.current_stock) {
+      setAdjustmentError(`Cannot decrease by more than current stock (${adjustingItem.current_stock.toFixed(2)})`);
+      return;
+    }
+
+    setIsAdjusting(true);
+    setAdjustmentError(null);
+
+    try {
+      const response = await fetch('/api/stock/adjust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemId: adjustingItem.id,
+          adjustmentType,
+          quantity: qty,
+          reason: adjustmentReason,
+          notes: adjustmentNotes || null,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Update local state with new stock
+        const newStock = adjustmentType === 'increase' 
+          ? adjustingItem.current_stock + qty 
+          : adjustingItem.current_stock - qty;
+
+        const updatedItem = { ...adjustingItem, current_stock: newStock };
+
+        // Update items list
+        setItems(prevItems => prevItems.map(item => {
+          if (item.id === adjustingItem.id) {
+            return { ...item, current_stock: newStock };
+          }
+          if (item.variants) {
+            const updatedVariants = item.variants.map(v => 
+              v.id === adjustingItem.id ? { ...v, current_stock: newStock } : v
+            );
+            return { ...item, variants: updatedVariants };
+          }
+          return item;
+        }));
+
+        // Update selected item if it's the one being adjusted
+        if (selectedItem?.id === adjustingItem.id) {
+          setSelectedItem(updatedItem);
+        }
+
+        setStockDrawerOpen(false);
+        setAdjustingItem(null);
+      } else {
+        setAdjustmentError(result.message || 'Failed to adjust stock');
+      }
+    } catch (err) {
+      console.error('Stock adjustment error:', err);
+      setAdjustmentError('An error occurred. Please try again.');
+    } finally {
+      setIsAdjusting(false);
+    }
+  };
+
+  const calculatedNewStock = adjustingItem && adjustmentQuantity 
+    ? (adjustmentType === 'increase' 
+        ? adjustingItem.current_stock + (parseFloat(adjustmentQuantity) || 0)
+        : Math.max(0, adjustingItem.current_stock - (parseFloat(adjustmentQuantity) || 0)))
+    : null;
 
   return (
     <AdminLayout>
@@ -659,17 +771,25 @@ export default function ItemsPage() {
                               </div>
                             )}
 
-                            <div className="flex gap-3 pt-2">
+                            <div className="flex gap-3 pt-2 flex-wrap">
                               <Button
                                 variant="outline"
                                 onClick={() => setSelectedItem(null)}
-                                className="flex-1"
+                                className="flex-1 min-w-[100px]"
                               >
                                 Close
                               </Button>
                               <Button
+                                variant="outline"
+                                onClick={handleAdjustStockClick}
+                                className="flex-1 min-w-[100px] border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                              >
+                                <TrendingUp className="h-4 w-4 mr-2" />
+                                Adjust Stock
+                              </Button>
+                              <Button
                                 onClick={handleEditClick}
-                                className="flex-1 bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d]"
+                                className="flex-1 min-w-[100px] bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d]"
                               >
                                 <Edit className="h-4 w-4 mr-2" />
                                 Edit Item
@@ -743,25 +863,60 @@ export default function ItemsPage() {
                   variant_name: editingItem.variant_name,
                   parent_item_id: editingItem.parent_item_id,
                 } : undefined}
-                onSuccess={async () => {
+                onSuccess={async (updatedItem) => {
                   setDrawerOpen(false);
                   const editedItemId = editingItem?.id;
                   const parentId = addingVariantToParent;
-                  setEditingItem(null);
-                  setAddingVariantToParent(null);
-                  const updatedItems = await fetchItems();
-                  
-                  // If we added a variant, expand the parent and select it
-                  if (parentId) {
-                    setExpandedParents(prev => new Set([...prev, parentId]));
-                    const parent = updatedItems.find((i) => i.id === parentId);
-                    if (parent) {
-                      setSelectedItem(parent);
+
+                  // If we have updated item data from the API response, use it directly
+                  // This avoids Turso eventual consistency issues
+                  if (updatedItem && editedItemId) {
+                    // Find the category name for display
+                    const category = categories.find(c => c.id === updatedItem.category_id);
+                    const itemWithCategory: ItemWithCategory = {
+                      ...updatedItem,
+                      category_name: category?.name,
+                    };
+
+                    // Update the item in the local state directly
+                    setItems(prevItems => {
+                      return prevItems.map(item => {
+                        if (item.id === editedItemId) {
+                          return { ...item, ...itemWithCategory };
+                        }
+                        // Also check if this item has variants that need updating
+                        if (item.variants) {
+                          const updatedVariants = item.variants.map(v => 
+                            v.id === editedItemId ? { ...v, ...itemWithCategory } : v
+                          );
+                          return { ...item, variants: updatedVariants };
+                        }
+                        return item;
+                      });
+                    });
+
+                    // Update selected item if it was the one being edited
+                    if (selectedItem?.id === editedItemId) {
+                      setSelectedItem(itemWithCategory);
                     }
-                  } else if (selectedItem && editedItemId === selectedItem.id) {
-                    const updated = updatedItems.find((i) => i.id === editedItemId);
-                    if (updated) {
-                      setSelectedItem(updated);
+                    
+                    // Clear editing state AFTER updating items
+                    setEditingItem(null);
+                    setAddingVariantToParent(null);
+                  } else {
+                    setEditingItem(null);
+                    setAddingVariantToParent(null);
+                    
+                    // For new items or when we don't have updated data, do a full refresh
+                    const updatedItems = await fetchItems();
+                    
+                    // If we added a variant, expand the parent and select it
+                    if (parentId) {
+                      setExpandedParents(prev => new Set([...prev, parentId]));
+                      const parent = updatedItems.find((i) => i.id === parentId);
+                      if (parent) {
+                        setSelectedItem(parent);
+                      }
                     }
                   }
                 }}
@@ -807,6 +962,193 @@ export default function ItemsPage() {
                   }
                 }}
               />
+            </div>
+          </DrawerContent>
+        </Drawer>
+
+        {/* Stock Adjustment Drawer */}
+        <Drawer open={stockDrawerOpen} onOpenChange={setStockDrawerOpen} direction="right">
+          <DrawerContent className="!w-full sm:!w-[450px] !max-w-none h-full max-h-screen">
+            <DrawerHeader className="border-b bg-gradient-to-r from-blue-500/10 to-emerald-500/10">
+              <DrawerTitle className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-blue-500" />
+                Adjust Stock
+              </DrawerTitle>
+              <DrawerDescription>
+                {adjustingItem ? `Adjust stock for ${adjustingItem.name}` : 'Select an item to adjust'}
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="overflow-y-auto p-6 flex-1 bg-slate-50/50 dark:bg-slate-900/50">
+              {adjustingItem && (
+                <form onSubmit={handleStockAdjustSubmit} className="space-y-6">
+                  {/* Current Stock Display */}
+                  <div className="p-4 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">Current Stock</p>
+                        <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                          {adjustingItem.current_stock.toFixed(2)} <span className="text-base font-normal text-slate-500">{adjustingItem.unit_type}</span>
+                        </p>
+                      </div>
+                      <Package className="h-10 w-10 text-slate-300 dark:text-slate-600" />
+                    </div>
+                  </div>
+
+                  {/* Adjustment Type */}
+                  <div className="space-y-2">
+                    <Label>Adjustment Type</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAdjustmentType('increase');
+                          setAdjustmentReason('restock');
+                        }}
+                        className={`p-4 rounded-xl border-2 transition-all ${
+                          adjustmentType === 'increase'
+                            ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-emerald-300'
+                        }`}
+                      >
+                        <TrendingUp className={`h-6 w-6 mx-auto mb-1 ${
+                          adjustmentType === 'increase' ? 'text-emerald-600' : 'text-slate-400'
+                        }`} />
+                        <p className={`font-semibold ${
+                          adjustmentType === 'increase' ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-600 dark:text-slate-400'
+                        }`}>Add Stock</p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAdjustmentType('decrease');
+                          setAdjustmentReason('spoilage');
+                        }}
+                        className={`p-4 rounded-xl border-2 transition-all ${
+                          adjustmentType === 'decrease'
+                            ? 'border-red-500 bg-red-50 dark:bg-red-950'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-red-300'
+                        }`}
+                      >
+                        <TrendingDown className={`h-6 w-6 mx-auto mb-1 ${
+                          adjustmentType === 'decrease' ? 'text-red-600' : 'text-slate-400'
+                        }`} />
+                        <p className={`font-semibold ${
+                          adjustmentType === 'decrease' ? 'text-red-700 dark:text-red-300' : 'text-slate-600 dark:text-slate-400'
+                        }`}>Remove Stock</p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quantity */}
+                  <div className="space-y-2">
+                    <Label htmlFor="adjustQuantity">Quantity ({adjustingItem.unit_type})</Label>
+                    <Input
+                      id="adjustQuantity"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={adjustmentQuantity}
+                      onChange={(e) => setAdjustmentQuantity(e.target.value)}
+                      placeholder="0.00"
+                      className="h-12 text-lg"
+                      autoFocus
+                    />
+                  </div>
+
+                  {/* New Stock Preview */}
+                  {calculatedNewStock !== null && adjustmentQuantity && (
+                    <div className={`p-4 rounded-xl border-2 ${
+                      adjustmentType === 'increase' 
+                        ? 'bg-emerald-50 dark:bg-emerald-950/50 border-emerald-200 dark:border-emerald-800' 
+                        : 'bg-red-50 dark:bg-red-950/50 border-red-200 dark:border-red-800'
+                    }`}>
+                      <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">New Stock After Adjustment</p>
+                      <p className={`text-2xl font-bold ${
+                        adjustmentType === 'increase' ? 'text-emerald-600' : 'text-red-600'
+                      }`}>
+                        {calculatedNewStock.toFixed(2)} <span className="text-base font-normal">{adjustingItem.unit_type}</span>
+                      </p>
+                      <p className="text-sm mt-1 text-slate-500">
+                        {adjustmentType === 'increase' ? '+' : '-'}{parseFloat(adjustmentQuantity).toFixed(2)} from current
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Reason */}
+                  <div className="space-y-2">
+                    <Label>Reason</Label>
+                    <Select value={adjustmentReason} onValueChange={(v) => setAdjustmentReason(v as AdjustmentReason)}>
+                      <SelectTrigger className="h-12">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ADJUSTMENT_REASONS.map((r) => (
+                          <SelectItem key={r} value={r}>
+                            {REASON_LABELS[r]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Notes */}
+                  <div className="space-y-2">
+                    <Label htmlFor="adjustNotes">Notes (Optional)</Label>
+                    <Input
+                      id="adjustNotes"
+                      value={adjustmentNotes}
+                      onChange={(e) => setAdjustmentNotes(e.target.value)}
+                      placeholder="Add any notes..."
+                      className="h-12"
+                    />
+                  </div>
+
+                  {/* Error */}
+                  {adjustmentError && (
+                    <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm">
+                      {adjustmentError}
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex gap-3 pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setStockDrawerOpen(false)}
+                      disabled={isAdjusting}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={isAdjusting || !adjustmentQuantity}
+                      className={`flex-1 ${
+                        adjustmentType === 'increase' 
+                          ? 'bg-emerald-600 hover:bg-emerald-700' 
+                          : 'bg-red-600 hover:bg-red-700'
+                      }`}
+                    >
+                      {isAdjusting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          {adjustmentType === 'increase' ? (
+                            <TrendingUp className="mr-2 h-4 w-4" />
+                          ) : (
+                            <TrendingDown className="mr-2 h-4 w-4" />
+                          )}
+                          {adjustmentType === 'increase' ? 'Add Stock' : 'Remove Stock'}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              )}
             </div>
           </DrawerContent>
         </Drawer>

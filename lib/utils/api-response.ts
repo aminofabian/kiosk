@@ -1,7 +1,14 @@
 import { NextResponse } from 'next/server';
 
-export function jsonResponse(data: any, status: number = 200) {
-  return NextResponse.json(data, { status });
+export function jsonResponse(data: unknown, status: number = 200) {
+  return NextResponse.json(data, { 
+    status,
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+    },
+  });
 }
 
 export function optionsResponse() {

@@ -6,6 +6,81 @@ import { migrateItemVariants } from './migrate-item-variants';
 const SCHEMA_PATH = join(process.cwd(), 'lib', 'db', 'sql', 'schema.sql');
 
 /**
+ * Migration: Add 'restock' to stock_adjustments reason CHECK constraint
+ * SQLite doesn't support ALTER TABLE to modify CHECK constraints, so we recreate the table
+ */
+async function migrateStockAdjustmentsReason() {
+  try {
+    // Check if table exists
+    const tableInfo = await query<{ sql: string }>(
+      "SELECT sql FROM sqlite_master WHERE type='table' AND name='stock_adjustments'"
+    );
+    
+    if (tableInfo.length === 0) {
+      console.log('⚠ stock_adjustments table does not exist, will be created by schema');
+      return;
+    }
+
+    const oldSql = tableInfo[0].sql;
+    if (oldSql && oldSql.includes("'restock'")) {
+      console.log('✓ stock_adjustments.reason already includes restock');
+      return;
+    }
+
+    console.log('🔄 Migrating stock_adjustments table to add restock reason...');
+
+    // Disable foreign keys temporarily
+    await execute('PRAGMA foreign_keys = OFF');
+
+    // Create new table with updated CHECK constraint
+    await execute(`
+      CREATE TABLE stock_adjustments_new (
+        id TEXT PRIMARY KEY,
+        business_id TEXT NOT NULL,
+        item_id TEXT NOT NULL,
+        system_stock REAL NOT NULL,
+        actual_stock REAL NOT NULL,
+        difference REAL NOT NULL,
+        reason TEXT NOT NULL CHECK (reason IN ('restock', 'spoilage', 'theft', 'counting_error', 'damage', 'other')),
+        notes TEXT,
+        adjusted_by TEXT NOT NULL,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
+        FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
+        FOREIGN KEY (adjusted_by) REFERENCES users(id) ON DELETE RESTRICT
+      )
+    `);
+
+    // Copy data from old table
+    await execute(`
+      INSERT INTO stock_adjustments_new 
+      SELECT * FROM stock_adjustments
+    `);
+
+    // Drop old table
+    await execute('DROP TABLE stock_adjustments');
+
+    // Rename new table
+    await execute('ALTER TABLE stock_adjustments_new RENAME TO stock_adjustments');
+
+    // Recreate indexes
+    await execute('CREATE INDEX IF NOT EXISTS idx_stock_adjustments_business_id ON stock_adjustments(business_id)');
+    await execute('CREATE INDEX IF NOT EXISTS idx_stock_adjustments_item_id ON stock_adjustments(item_id)');
+    await execute('CREATE INDEX IF NOT EXISTS idx_stock_adjustments_date ON stock_adjustments(business_id, created_at DESC)');
+
+    // Re-enable foreign keys
+    await execute('PRAGMA foreign_keys = ON');
+
+    console.log('✅ Successfully migrated stock_adjustments table');
+  } catch (error) {
+    console.error('❌ Error migrating stock_adjustments:', error);
+    // Re-enable foreign keys even on error
+    await execute('PRAGMA foreign_keys = ON').catch(() => {});
+    throw error;
+  }
+}
+
+/**
  * Migration: Make source_breakdown_id nullable in inventory_batches
  * SQLite doesn't support ALTER COLUMN, so we recreate the table
  */
@@ -82,6 +157,12 @@ async function migrateInventoryBatchesNullable() {
 export async function runMigrations() {
   try {
     // Run specific migrations first - each can fail independently
+    try {
+      await migrateStockAdjustmentsReason();
+    } catch (error) {
+      console.error('⚠ stock_adjustments migration skipped:', error);
+    }
+    
     try {
       await migrateInventoryBatchesNullable();
     } catch (error) {

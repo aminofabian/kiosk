@@ -26,6 +26,7 @@ import type { AdjustmentReason } from '@/lib/constants';
 import { ADJUSTMENT_REASONS } from '@/lib/constants';
 
 const REASON_LABELS: Record<AdjustmentReason, string> = {
+  restock: 'Restock / New Delivery',
   spoilage: 'Spoilage',
   theft: 'Theft',
   counting_error: 'Counting Error',

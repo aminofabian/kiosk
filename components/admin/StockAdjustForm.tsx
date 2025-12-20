@@ -27,6 +27,7 @@ import { ADJUSTMENT_REASONS } from '@/lib/constants';
 import { StockAdjustFormMobile } from './StockAdjustFormMobile';
 
 const REASON_LABELS: Record<AdjustmentReason, string> = {
+  restock: 'Restock / New Delivery',
   spoilage: 'Spoilage',
   theft: 'Theft',
   counting_error: 'Counting Error',
@@ -38,9 +39,9 @@ export function StockAdjustForm() {
   const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string>('');
-  const [adjustmentType, setAdjustmentType] = useState<'increase' | 'decrease'>('decrease');
+  const [adjustmentType, setAdjustmentType] = useState<'increase' | 'decrease'>('increase');
   const [quantity, setQuantity] = useState<string>('');
-  const [reason, setReason] = useState<AdjustmentReason>('spoilage');
+  const [reason, setReason] = useState<AdjustmentReason>('restock');
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);

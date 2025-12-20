@@ -5,6 +5,10 @@ import type { Item } from '@/lib/db/types';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 
+// Disable caching for this route
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function OPTIONS() {
   return optionsResponse();
 }
