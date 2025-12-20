@@ -36,35 +36,61 @@ export function ProfitViewMobile() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [datePreset, setDatePreset] = useState<DatePreset>('today');
+  const [dateRange, setDateRange] = useState(() => {
+    const today = new Date();
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    return {
+      start: todayStart.toISOString().split('T')[0],
+      end: today.toISOString().split('T')[0],
+    };
+  });
   const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
-    fetchProfitData();
-    fetchLowStockItems();
+    updateDateRangeFromPreset(datePreset);
   }, [datePreset]);
+
+  useEffect(() => {
+    fetchProfitData();
+  }, [dateRange]);
+
+  useEffect(() => {
+    fetchLowStockItems();
+  }, []);
+
+  function updateDateRangeFromPreset(preset: DatePreset) {
+    const today = new Date();
+    const start = new Date();
+
+    switch (preset) {
+      case 'today':
+        start.setHours(0, 0, 0, 0);
+        break;
+      case 'week':
+        start.setDate(today.getDate() - 7);
+        break;
+      case 'month':
+        start.setDate(1);
+        break;
+    }
+
+    setDateRange({
+      start: start.toISOString().split('T')[0],
+      end: today.toISOString().split('T')[0],
+    });
+  }
 
   async function fetchProfitData() {
     try {
       setLoading(true);
       setError(null);
-      
-      const today = new Date();
-      const start = new Date();
-
-      switch (datePreset) {
-        case 'today':
-          start.setHours(0, 0, 0, 0);
-          break;
-        case 'week':
-          start.setDate(today.getDate() - 7);
-          break;
-        case 'month':
-          start.setDate(1);
-          break;
-      }
-
-      const startTimestamp = Math.floor(start.getTime() / 1000);
-      const endTimestamp = Math.floor(today.getTime() / 1000);
+      const startTimestamp = Math.floor(
+        new Date(dateRange.start).getTime() / 1000
+      );
+      const endTimestamp = Math.floor(
+        new Date(dateRange.end + 'T23:59:59').getTime() / 1000
+      );
 
       const response = await fetch(
         `/api/profit?start=${startTimestamp}&end=${endTimestamp}`

@@ -174,7 +174,7 @@ export async function GET(request: NextRequest) {
     // Check if we should aggregate by parent item
     const groupByParent = searchParams.get('groupByParent') === 'true';
 
-    // Buy price fallback subquery
+    // Buy price fallback subquery (with placeholder for business_id)
     const buyPriceFallback = `
       COALESCE(
         NULLIF(si.buy_price_per_unit, 0),
@@ -230,10 +230,13 @@ export async function GET(request: NextRequest) {
          GROUP BY COALESCE(parent.id, i.id), COALESCE(parent.name, i.name)
          HAVING total_profit != 0 OR total_sales != 0
          ORDER BY total_profit DESC`,
-        [auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp]
+        [auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp]
       );
     } else {
       // Individual item profits (existing behavior)
+      // buyPriceFallback contains one ? placeholder for business_id, and it's used twice
+      // So we need: business_id (for buyPriceFallback #1), business_id (for buyPriceFallback #2), 
+      //            business_id (for WHERE), startTimestamp, endTimestamp = 5 params total
       itemProfits = await query<{
         item_id: string;
         item_name: string;
@@ -266,7 +269,7 @@ export async function GET(request: NextRequest) {
          GROUP BY i.id, i.name, i.variant_name, parent.name
          HAVING total_profit != 0 OR total_sales != 0
          ORDER BY total_profit DESC`,
-        [auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp]
+        [auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp]
       );
     }
 
