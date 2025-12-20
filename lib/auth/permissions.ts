@@ -14,6 +14,19 @@ type Permission =
   | 'business_settings';
 
 const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  superadmin: [
+    'sell',
+    'view_own_sales',
+    'void_own_sale',
+    'record_purchase',
+    'breakdown_purchase',
+    'adjust_stock',
+    'view_all_sales',
+    'view_profit',
+    'manage_items',
+    'manage_users',
+    'business_settings',
+  ],
   owner: [
     'sell',
     'view_own_sales',

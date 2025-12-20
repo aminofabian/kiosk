@@ -11,10 +11,10 @@ export async function OPTIONS() {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const purchaseId = params.id;
+    const { id: purchaseId } = await params;
 
     const purchase = await queryOne<Purchase>(
       `SELECT * FROM purchases WHERE id = ? AND business_id = ?`,

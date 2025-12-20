@@ -23,6 +23,14 @@ export interface AuthContext {
   role: UserRole;
   email: string;
   name: string;
+  isSuperAdmin: boolean;
+}
+
+export interface SuperAdminContext {
+  userId: string;
+  email: string;
+  name: string;
+  isSuperAdmin: true;
 }
 
 export async function getAuthContext(): Promise<AuthContext | null> {
@@ -32,12 +40,33 @@ export async function getAuthContext(): Promise<AuthContext | null> {
     return null;
   }
 
+  // Super admins don't have a businessId
+  if (session.user.isSuperAdmin) {
+    return null;
+  }
+
   return {
     userId: session.user.id,
-    businessId: session.user.businessId,
-    role: session.user.role,
+    businessId: session.user.businessId!,
+    role: session.user.role as UserRole,
     email: session.user.email,
     name: session.user.name,
+    isSuperAdmin: false,
+  };
+}
+
+export async function getSuperAdminContext(): Promise<SuperAdminContext | null> {
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user || !session.user.isSuperAdmin) {
+    return null;
+  }
+
+  return {
+    userId: session.user.id,
+    email: session.user.email,
+    name: session.user.name,
+    isSuperAdmin: true,
   };
 }
 
@@ -49,6 +78,16 @@ export async function requireAuth(): Promise<AuthContext | Response> {
   }
 
   return auth;
+}
+
+export async function requireSuperAdmin(): Promise<SuperAdminContext | Response> {
+  const admin = await getSuperAdminContext();
+  
+  if (!admin) {
+    return jsonResponse({ success: false, message: 'Super admin access required' }, 403);
+  }
+
+  return admin;
 }
 
 export async function requirePermission(permission: Permission): Promise<AuthContext | Response> {
@@ -79,6 +118,6 @@ export async function requireRole(roles: UserRole[]): Promise<AuthContext | Resp
   return auth;
 }
 
-export function isAuthResponse(value: AuthContext | Response): value is Response {
+export function isAuthResponse(value: AuthContext | SuperAdminContext | Response): value is Response {
   return value instanceof Response;
 }

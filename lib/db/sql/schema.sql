@@ -2,7 +2,7 @@
 PRAGMA foreign_keys = ON;
 
 -- ============================================
--- 1. businesses (Tenants)
+-- 1. businesses (Tenants/Kiosks)
 -- ============================================
 CREATE TABLE IF NOT EXISTS businesses (
   id TEXT PRIMARY KEY,
@@ -10,8 +10,23 @@ CREATE TABLE IF NOT EXISTS businesses (
   currency TEXT NOT NULL DEFAULT 'KES',
   timezone TEXT NOT NULL DEFAULT 'Africa/Nairobi',
   settings TEXT, -- JSON stored as TEXT
+  active INTEGER NOT NULL DEFAULT 1, -- 1 = active, 0 = suspended
   created_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
+
+-- ============================================
+-- 1.5. super_admins (Platform Administrators)
+-- ============================================
+CREATE TABLE IF NOT EXISTS super_admins (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  name TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
+CREATE INDEX IF NOT EXISTS idx_super_admins_email ON super_admins(email);
 
 -- ============================================
 -- 2. users

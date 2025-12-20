@@ -12,10 +12,10 @@ export async function OPTIONS() {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const accountId = params.id;
+    const { id: accountId } = await params;
 
     const account = await queryOne<CreditAccount>(
       `SELECT * FROM credit_accounts 

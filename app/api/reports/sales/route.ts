@@ -3,6 +3,7 @@ import { query } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 import type { PaymentMethod } from '@/lib/constants';
+import type { InValue } from '@libsql/client';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
         AND s.sale_date <= ?
     `;
 
-    const params: unknown[] = [auth.businessId, startTimestamp, endTimestamp];
+    const params: InValue[] = [auth.businessId, startTimestamp, endTimestamp];
 
     if (paymentMethod && paymentMethod !== 'all') {
       sql += ' AND s.payment_method = ?';

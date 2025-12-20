@@ -1,4 +1,4 @@
-import { createClient } from '@libsql/client';
+import { createClient, type InValue } from '@libsql/client';
 
 if (!process.env.TURSO_DATABASE_URL) {
   throw new Error('TURSO_DATABASE_URL is not set');
@@ -22,7 +22,7 @@ export type QueryResult = {
 
 export async function execute(
   sql: string,
-  params: unknown[] = []
+  params: InValue[] = []
 ): Promise<{ rowsAffected: number; lastInsertRowid?: bigint }> {
   const result = await client.execute({
     sql,
@@ -55,7 +55,7 @@ function rowToObject(row: unknown): Record<string, unknown> {
 
 export async function query<T = Record<string, unknown>>(
   sql: string,
-  params: unknown[] = []
+  params: InValue[] = []
 ): Promise<T[]> {
   const result = await client.execute({
     sql,
@@ -66,7 +66,7 @@ export async function query<T = Record<string, unknown>>(
 
 export async function queryOne<T = Record<string, unknown>>(
   sql: string,
-  params: unknown[] = []
+  params: InValue[] = []
 ): Promise<T | null> {
   const result = await client.execute({
     sql,
@@ -76,12 +76,6 @@ export async function queryOne<T = Record<string, unknown>>(
     return null;
   }
   return rowToObject(result.rows[0]) as T;
-}
-
-export async function transaction<T>(
-  callback: (tx: typeof client) => Promise<T>
-): Promise<T> {
-  return await client.transaction(callback);
 }
 
 export default db;

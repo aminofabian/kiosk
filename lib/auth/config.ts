@@ -2,7 +2,7 @@ import type { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { queryOne } from '@/lib/db';
-import type { User } from '@/lib/db/types';
+import type { User, SuperAdmin } from '@/lib/db/types';
 
 declare module 'next-auth' {
   interface Session {
@@ -10,9 +10,10 @@ declare module 'next-auth' {
       id: string;
       email: string;
       name: string;
-      role: 'owner' | 'admin' | 'cashier';
-      businessId: string;
-      businessName: string;
+      role: 'owner' | 'admin' | 'cashier' | 'superadmin';
+      businessId: string | null;
+      businessName: string | null;
+      isSuperAdmin: boolean;
     };
   }
 
@@ -20,9 +21,10 @@ declare module 'next-auth' {
     id: string;
     email: string;
     name: string;
-    role: 'owner' | 'admin' | 'cashier';
-    businessId: string;
-    businessName: string;
+    role: 'owner' | 'admin' | 'cashier' | 'superadmin';
+    businessId: string | null;
+    businessName: string | null;
+    isSuperAdmin: boolean;
   }
 }
 
@@ -31,9 +33,10 @@ declare module 'next-auth/jwt' {
     id: string;
     email: string;
     name: string;
-    role: 'owner' | 'admin' | 'cashier';
-    businessId: string;
-    businessName: string;
+    role: 'owner' | 'admin' | 'cashier' | 'superadmin';
+    businessId: string | null;
+    businessName: string | null;
+    isSuperAdmin: boolean;
   }
 }
 
@@ -79,6 +82,7 @@ export const authOptions: NextAuthOptions = {
           role: user.role,
           businessId: user.business_id,
           businessName: user.business_name,
+          isSuperAdmin: false,
         };
       },
     }),
@@ -113,6 +117,48 @@ export const authOptions: NextAuthOptions = {
           role: user.role,
           businessId: user.business_id,
           businessName: user.business_name,
+          isSuperAdmin: false,
+        };
+      },
+    }),
+    CredentialsProvider({
+      id: 'superadmin',
+      name: 'Super Admin',
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) {
+          throw new Error('Email and password are required');
+        }
+
+        const admin = await queryOne<SuperAdmin>(
+          `SELECT * FROM super_admins WHERE email = ? AND active = 1`,
+          [credentials.email]
+        );
+
+        if (!admin) {
+          throw new Error('Invalid email or password');
+        }
+
+        const isValidPassword = await bcrypt.compare(
+          credentials.password,
+          admin.password_hash
+        );
+
+        if (!isValidPassword) {
+          throw new Error('Invalid email or password');
+        }
+
+        return {
+          id: admin.id,
+          email: admin.email,
+          name: admin.name,
+          role: 'superadmin' as const,
+          businessId: null,
+          businessName: null,
+          isSuperAdmin: true,
         };
       },
     }),
@@ -126,6 +172,7 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         token.businessId = user.businessId;
         token.businessName = user.businessName;
+        token.isSuperAdmin = user.isSuperAdmin;
       }
       return token;
     },
@@ -137,6 +184,7 @@ export const authOptions: NextAuthOptions = {
         role: token.role,
         businessId: token.businessId,
         businessName: token.businessName,
+        isSuperAdmin: token.isSuperAdmin,
       };
       return session;
     },

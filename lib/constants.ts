@@ -3,7 +3,7 @@ export const UNIT_TYPES = ['kg', 'g', 'piece', 'bunch', 'tray', 'litre', 'ml'] a
 export type UnitType = (typeof UNIT_TYPES)[number];
 
 // User roles
-export const USER_ROLES = ['owner', 'admin', 'cashier'] as const;
+export const USER_ROLES = ['owner', 'admin', 'cashier', 'superadmin'] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
 // Payment methods

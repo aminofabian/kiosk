@@ -460,7 +460,7 @@ export function StockAdjustFormMobile({
       : Math.max(0, selectedItem.current_stock - qty);
   }, [selectedItem, quantity, adjustmentType]);
 
-  const isLowStock = selectedItem && selectedItem.current_stock < 10;
+  const isLowStock = selectedItem ? selectedItem.current_stock < 10 : false;
   const willGoNegative = calculatedNewStock !== null && calculatedNewStock < 0;
   const willBeLowStock = calculatedNewStock !== null && calculatedNewStock < 10 && calculatedNewStock >= 0;
 

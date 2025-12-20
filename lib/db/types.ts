@@ -21,7 +21,17 @@ export interface Business {
   currency: string;
   timezone: string;
   settings: string | null; // JSON stored as string
+  active: number; // 1 = active, 0 = suspended
   created_at: number; // Unix timestamp
+}
+
+export interface SuperAdmin {
+  id: string;
+  email: string;
+  password_hash: string;
+  name: string;
+  active: number;
+  created_at: number;
 }
 
 export interface User {

@@ -23,7 +23,7 @@ export async function requireAuth() {
   return session.user;
 }
 
-export async function requireRole(allowedRoles: ('owner' | 'admin' | 'cashier')[]) {
+export async function requireRole(allowedRoles: ('owner' | 'admin' | 'cashier' | 'superadmin')[]) {
   const user = await requireAuth();
   if (!allowedRoles.includes(user.role)) {
     throw new Error('Forbidden');

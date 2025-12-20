@@ -92,26 +92,6 @@ export async function POST(
       [amount, now, accountId]
     );
 
-    // If payment is cash, add to current shift's expected closing cash
-    if (paymentMethod === 'cash') {
-      const shift = await queryOne<{ id: string }>(
-        `SELECT id FROM shifts 
-         WHERE business_id = ? AND user_id = ? AND status = 'open'
-         ORDER BY started_at DESC
-         LIMIT 1`,
-        [DEMO_BUSINESS_ID, user.id]
-      );
-
-      if (shift) {
-        await execute(
-          `UPDATE shifts 
-           SET expected_closing_cash = expected_closing_cash + ? 
-           WHERE id = ?`,
-          [amount, shift.id]
-        );
-      }
-    }
-
     return jsonResponse({
       success: true,
       message: 'Payment recorded successfully',
