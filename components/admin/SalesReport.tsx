@@ -102,8 +102,8 @@ export function SalesReport() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center space-y-3">
-          <div className="w-12 h-12 mx-auto border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin"></div>
-          <p className="text-gray-600 font-medium">Loading sales...</p>
+          <div className="w-12 h-12 mx-auto border-4 border-[#259783]/20 border-t-[#259783] rounded-full animate-spin"></div>
+          <p className="text-slate-600 dark:text-slate-400 font-medium">Loading sales...</p>
         </div>
       </div>
     );
@@ -127,8 +127,8 @@ export function SalesReport() {
   return (
     <div className="space-y-6">
       {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
+      <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18]">
+        <CardContent className="p-5">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-2">
               <Label htmlFor="start">Start Date</Label>
@@ -137,6 +137,7 @@ export function SalesReport() {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
+                className="focus-visible:ring-[#259783]"
               />
             </div>
             <div className="space-y-2">
@@ -146,6 +147,7 @@ export function SalesReport() {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
+                className="focus-visible:ring-[#259783]"
               />
             </div>
             <div className="space-y-2">
@@ -163,7 +165,11 @@ export function SalesReport() {
               </Select>
             </div>
             <div className="flex items-end">
-              <Button onClick={fetchSales} size="touch" className="w-full">
+              <Button 
+                onClick={fetchSales} 
+                size="touch" 
+                className="w-full bg-[#259783] hover:bg-[#45d827] text-white font-semibold shadow-md shadow-[#259783]/20"
+              >
                 Apply Filters
               </Button>
             </div>
@@ -172,52 +178,55 @@ export function SalesReport() {
       </Card>
 
       {/* Summary */}
-      <Card>
-        <CardContent className="p-4">
+      <Card className="bg-[#259783] border-0 shadow-lg shadow-[#259783]/20">
+        <CardContent className="p-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">Total Sales</p>
-              <p className="text-2xl font-bold">{formatPrice(totalSales)}</p>
+              <p className="text-sm text-white/90 font-medium mb-1">Total Sales</p>
+              <p className="text-3xl font-black text-white">{formatPrice(totalSales)}</p>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Number of Sales</p>
-              <p className="text-2xl font-bold">{sales.length}</p>
+            <div className="text-right">
+              <p className="text-sm text-white/90 font-medium mb-1">Number of Sales</p>
+              <p className="text-3xl font-black text-white">{sales.length}</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Sales Table */}
-      <Card>
+      <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18] overflow-hidden">
         <CardContent className="p-0">
           {sales.length === 0 ? (
             <div className="p-12 text-center">
-              <p className="text-muted-foreground">No sales found for this period</p>
+              <p className="text-slate-500 dark:text-slate-400">No sales found for this period</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-muted">
+                <thead className="bg-[#259783]">
                   <tr>
-                    <th className="text-left p-4 font-semibold">Date</th>
-                    <th className="text-left p-4 font-semibold">Cashier</th>
-                    <th className="text-left p-4 font-semibold">Items</th>
-                    <th className="text-left p-4 font-semibold">Customer</th>
-                    <th className="text-left p-4 font-semibold">Payment</th>
-                    <th className="text-right p-4 font-semibold">Total</th>
+                    <th className="text-left p-4 font-semibold text-white">Date</th>
+                    <th className="text-left p-4 font-semibold text-white">Cashier</th>
+                    <th className="text-left p-4 font-semibold text-white">Items</th>
+                    <th className="text-left p-4 font-semibold text-white">Customer</th>
+                    <th className="text-left p-4 font-semibold text-white">Payment</th>
+                    <th className="text-right p-4 font-semibold text-white">Total</th>
                   </tr>
                 </thead>
                 <tbody>
                   {sales.map((sale) => (
-                    <tr key={sale.id} className="border-t hover:bg-muted/50">
-                      <td className="p-4 text-sm">{formatDate(sale.sale_date)}</td>
-                      <td className="p-4 text-sm">
+                    <tr 
+                      key={sale.id} 
+                      className="border-t border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                    >
+                      <td className="p-4 text-sm text-slate-900 dark:text-slate-100">{formatDate(sale.sale_date)}</td>
+                      <td className="p-4 text-sm text-slate-900 dark:text-slate-100">
                         {sale.user_name || 'Unknown'}
                       </td>
-                      <td className="p-4 text-sm">{sale.items_count} items</td>
-                      <td className="p-4 text-sm">
+                      <td className="p-4 text-sm text-slate-900 dark:text-slate-100">{sale.items_count} items</td>
+                      <td className="p-4 text-sm text-slate-900 dark:text-slate-100">
                         {sale.customer_name || (
-                          <span className="text-muted-foreground">Walk-in</span>
+                          <span className="text-slate-500 dark:text-slate-400">Walk-in</span>
                         )}
                       </td>
                       <td className="p-4">
@@ -225,7 +234,7 @@ export function SalesReport() {
                           {sale.payment_method}
                         </Badge>
                       </td>
-                      <td className="p-4 text-right font-semibold">
+                      <td className="p-4 text-right font-semibold text-slate-900 dark:text-slate-100">
                         {formatPrice(sale.total_amount)}
                       </td>
                     </tr>

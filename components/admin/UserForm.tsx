@@ -101,14 +101,16 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
   };
 
   return (
-    <Card className="max-w-lg mx-auto">
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>{isEditing ? 'Edit User' : 'Add New User'}</CardTitle>
-        <Button variant="ghost" size="sm" onClick={onClose}>
+    <Card className="max-w-2xl mx-auto border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18]">
+      <CardHeader className="flex flex-row items-center justify-between border-b border-slate-200 dark:border-slate-800">
+        <CardTitle className="text-xl font-bold text-slate-900 dark:text-white">
+          {isEditing ? 'Edit User' : 'Add New User'}
+        </CardTitle>
+        <Button variant="ghost" size="sm" onClick={onClose} className="hover:bg-slate-100 dark:hover:bg-slate-800">
           <X className="h-4 w-4" />
         </Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
@@ -120,6 +122,7 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
               placeholder="John Doe"
               required
               disabled={isLoading}
+              className="focus-visible:ring-[#259783]"
             />
           </div>
 
@@ -134,6 +137,7 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
               placeholder="john@example.com"
               required
               disabled={isLoading}
+              className="focus-visible:ring-[#259783]"
             />
           </div>
 
@@ -150,6 +154,7 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
               placeholder="••••••••"
               required={!isEditing}
               disabled={isLoading}
+              className="focus-visible:ring-[#259783]"
             />
           </div>
 
@@ -186,6 +191,7 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
               maxLength={4}
               pattern="\d{4}"
               disabled={isLoading}
+              className="focus-visible:ring-[#259783]"
             />
           </div>
 
@@ -214,7 +220,7 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
             </div>
           )}
 
-          <div className="flex gap-2 pt-4">
+          <div className="flex gap-3 pt-4">
             <Button
               type="button"
               variant="outline"
@@ -226,7 +232,7 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
             </Button>
             <Button
               type="submit"
-              className="flex-1"
+              className="flex-1 bg-[#259783] hover:bg-[#45d827] text-white font-semibold shadow-md shadow-[#259783]/20"
               disabled={isLoading}
             >
               {isLoading ? (
