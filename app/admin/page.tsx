@@ -12,6 +12,7 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { CategoryForm } from '@/components/admin/CategoryForm';
+import { ItemForm } from '@/components/admin/ItemForm';
 import {
   Plus,
   Package,
@@ -42,7 +43,6 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: FolderTree,
   },
   {
-    href: '/admin/items/new',
     label: 'Add Item',
     description: 'Create new product',
     icon: Package,
@@ -113,22 +113,20 @@ const ACTION_BUTTONS: ActionButton[] = [
 export default function AdminDashboardPage() {
   const { user } = useCurrentUser();
   const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
+  const [itemDrawerOpen, setItemDrawerOpen] = useState(false);
 
   const visibleButtons = ACTION_BUTTONS.filter((button) => {
     if (!button.roles) return true;
     return user && button.roles.includes(user.role);
-  });
-
-  const handleButtonClick = (button: ActionButton) => {
-    if (button.onClick) {
-      button.onClick();
+  }).map((button) => {
+    if (button.label === 'Create Category' && !button.onClick) {
+      return { ...button, onClick: () => setCategoryDrawerOpen(true) };
     }
-  };
-
-  const createCategoryButton = visibleButtons.find((b) => b.label === 'Create Category');
-  if (createCategoryButton && !createCategoryButton.onClick) {
-    createCategoryButton.onClick = () => setCategoryDrawerOpen(true);
-  }
+    if (button.label === 'Add Item' && !button.onClick) {
+      return { ...button, onClick: () => setItemDrawerOpen(true) };
+    }
+    return button;
+  });
 
   return (
     <AdminLayout>
@@ -138,7 +136,7 @@ export default function AdminDashboardPage() {
             const Icon = button.icon;
             const ButtonContent = (
               <button
-                onClick={() => handleButtonClick(button)}
+                onClick={button.onClick}
                 className="group relative w-full bg-[#259783] rounded-lg px-4 py-5 text-center transition-all duration-200 hover:bg-[#3bd522] hover:shadow-md active:scale-95"
               >
                 <div className="flex flex-col items-center gap-2">
@@ -186,6 +184,26 @@ export default function AdminDashboardPage() {
               category={null}
               onClose={() => setCategoryDrawerOpen(false)}
               onSuccess={() => setCategoryDrawerOpen(false)}
+            />
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      <Drawer open={itemDrawerOpen} onOpenChange={setItemDrawerOpen} direction="right">
+        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen">
+          <DrawerHeader className="border-b bg-gradient-to-r from-[#259783]/10 to-blue-500/10">
+            <DrawerTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5 text-[#259783]" />
+              Add New Item
+            </DrawerTitle>
+            <DrawerDescription>
+              Create a new product item for your inventory
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 sm:px-6 pb-6 flex-1 bg-slate-50/50 dark:bg-slate-900/50">
+            <ItemForm
+              onSuccess={() => setItemDrawerOpen(false)}
+              onCancel={() => setItemDrawerOpen(false)}
             />
           </div>
         </DrawerContent>
