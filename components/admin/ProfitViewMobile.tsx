@@ -169,7 +169,7 @@ export function ProfitViewMobile() {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center space-y-3">
-          <div className="w-12 h-12 mx-auto border-4 border-[#4bee2b]/20 border-t-[#4bee2b] rounded-full animate-spin"></div>
+          <div className="w-12 h-12 mx-auto border-4 border-[#259783]/20 border-t-[#259783] rounded-full animate-spin"></div>
           <p className="text-gray-600 font-medium">Loading profit data...</p>
         </div>
       </div>
@@ -256,7 +256,7 @@ export function ProfitViewMobile() {
             <span
               className={`truncate text-sm font-bold z-10 ${
                 datePreset === 'today'
-                  ? 'text-black dark:text-white bg-[#4bee2b] rounded-full px-2 py-1 shadow-sm'
+                  ? 'text-white bg-[#259783] rounded-full px-2 py-1 shadow-sm'
                   : 'text-slate-500 dark:text-slate-400'
               }`}
             >
@@ -275,7 +275,7 @@ export function ProfitViewMobile() {
             <span
               className={`truncate text-sm font-bold z-10 ${
                 datePreset === 'week'
-                  ? 'text-black dark:text-white bg-[#4bee2b] rounded-full px-2 py-1 shadow-sm'
+                  ? 'text-white bg-[#259783] rounded-full px-2 py-1 shadow-sm'
                   : 'text-slate-500 dark:text-slate-400'
               }`}
             >
@@ -294,7 +294,7 @@ export function ProfitViewMobile() {
             <span
               className={`truncate text-sm font-bold z-10 ${
                 datePreset === 'month'
-                  ? 'text-black dark:text-white bg-[#4bee2b] rounded-full px-2 py-1 shadow-sm'
+                  ? 'text-white bg-[#259783] rounded-full px-2 py-1 shadow-sm'
                   : 'text-slate-500 dark:text-slate-400'
               }`}
             >
@@ -337,15 +337,15 @@ export function ProfitViewMobile() {
           </div>
 
           {/* Profit */}
-          <div className="flex flex-col p-4 bg-[#4bee2b] rounded-2xl shadow-lg shadow-[#4bee2b]/20 relative overflow-hidden">
+          <div className="flex flex-col p-4 bg-[#259783] rounded-2xl shadow-lg shadow-[#259783]/20 relative overflow-hidden">
             <div className="absolute right-[-10px] top-[-10px] w-16 h-16 bg-white/20 rounded-full blur-xl pointer-events-none"></div>
             <div className="flex items-center gap-1.5 mb-1 z-10">
-              <TrendingUp className="w-4 h-4 text-black/70" />
-              <span className="text-black/70 text-xs font-bold uppercase tracking-wider">
+              <TrendingUp className="w-4 h-4 text-white/90" />
+              <span className="text-white/90 text-xs font-bold uppercase tracking-wider">
                 Profit
               </span>
             </div>
-            <span className="text-black text-3xl font-black z-10">
+            <span className="text-white text-3xl font-black z-10">
               {formatPrice(profitValue)}
             </span>
           </div>
@@ -669,7 +669,7 @@ export function ProfitViewMobile() {
             </h3>
             <Link
               href="/admin/stock"
-              className="text-[#3abd21] dark:text-[#4bee2b] text-xs font-bold bg-[#4bee2b]/10 dark:bg-[#4bee2b]/20 px-3 py-1.5 rounded-full"
+              className="text-[#3abd21] dark:text-[#259783] text-xs font-bold bg-[#259783]/10 dark:bg-[#259783]/20 px-3 py-1.5 rounded-full"
             >
               See All Inventory
             </Link>
@@ -721,7 +721,7 @@ export function ProfitViewMobile() {
             // TODO: Implement CSV export
             console.log('Export report');
           }}
-          className="pointer-events-auto shadow-xl shadow-[#4bee2b]/30 flex items-center gap-2 bg-[#4bee2b] hover:bg-[#3abd21] active:scale-95 transition-all text-black font-bold text-base px-6 py-3.5 rounded-full"
+          className="pointer-events-auto shadow-xl shadow-[#259783]/30 flex items-center gap-2 bg-[#259783] hover:bg-[#3abd21] active:scale-95 transition-all text-white font-bold text-base px-6 py-3.5 rounded-full"
         >
           <Download className="w-5 h-5" />
           Export Report (CSV)

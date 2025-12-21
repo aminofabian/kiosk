@@ -306,7 +306,7 @@ export default function POSPage() {
                 {isOwnerOrAdmin && (
                   <Link
                     href="/admin"
-                    className="flex items-center justify-center gap-2 px-4 h-12 rounded-full bg-[#4bee2b] hover:bg-[#3bd522] active:scale-95 transition-all shadow-lg shadow-[#4bee2b]/30"
+                    className="flex items-center justify-center gap-2 px-4 h-12 rounded-full bg-[#259783] hover:bg-[#3bd522] active:scale-95 transition-all shadow-lg shadow-[#259783]/30 text-white"
                     aria-label="Admin"
                   >
                     <Settings className="w-5 h-5 text-[#101b0d]" />
@@ -314,7 +314,7 @@ export default function POSPage() {
                   </Link>
                 )}
               </div>
-              <h1 className="text-xl font-extrabold tracking-tight uppercase text-[#101b0d]/80 dark:text-[#4bee2b]/90">
+              <h1 className="text-xl font-extrabold tracking-tight uppercase text-[#101b0d]/80 dark:text-[#259783]/90">
                 Kiosk POS
               </h1>
               <button
@@ -356,11 +356,11 @@ export default function POSPage() {
                 <>
                   <div className="flex gap-3 py-2 overflow-x-auto no-scrollbar w-full mb-4">
                     <button className="flex h-12 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-[#1c2e18] border border-black/5 dark:border-white/5 shadow-sm px-6 active:scale-95 transition-transform">
-                      <DollarSign className="w-6 h-6 text-[#4bee2b]" />
+                      <DollarSign className="w-6 h-6 text-[#259783]" />
                       <p className="font-bold text-base whitespace-nowrap">Custom Amount</p>
                     </button>
                     <button className="flex h-12 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-[#1c2e18] border border-black/5 dark:border-white/5 shadow-sm px-6 active:scale-95 transition-transform">
-                      <QrCode className="w-6 h-6 text-[#4bee2b]" />
+                      <QrCode className="w-6 h-6 text-[#259783]" />
                       <p className="font-bold text-base whitespace-nowrap">Scan Barcode</p>
                     </button>
                   </div>
@@ -375,7 +375,7 @@ export default function POSPage() {
                         <button
                           key={category.id}
                           onClick={() => setSelectedCategoryId(category.id)}
-                          className="group relative flex flex-col justify-between p-5 h-48 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border-2 border-transparent hover:border-[#4bee2b] active:scale-[0.98] transition-all overflow-hidden text-left"
+                          className="group relative flex flex-col justify-between p-5 h-48 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border-2 border-transparent hover:border-[#259783] active:scale-[0.98] transition-all overflow-hidden text-left"
                         >
                           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-40 group-hover:opacity-30 transition-opacity z-10 rounded-xl"></div>
                           {imageUrl && (
@@ -405,7 +405,7 @@ export default function POSPage() {
                         <button
                           key={category.id}
                           onClick={() => setSelectedCategoryId(category.id)}
-                          className="group relative flex flex-col justify-between p-5 h-40 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border-2 border-transparent hover:border-[#4bee2b] active:scale-[0.98] transition-all overflow-hidden text-left"
+                          className="group relative flex flex-col justify-between p-5 h-40 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border-2 border-transparent hover:border-[#259783] active:scale-[0.98] transition-all overflow-hidden text-left"
                         >
                           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-40 group-hover:opacity-30 transition-opacity z-10 rounded-xl"></div>
                           {imageUrl && (
@@ -429,7 +429,7 @@ export default function POSPage() {
                     {miscCategory && (
                       <button
                         onClick={() => setSelectedCategoryId(miscCategory.id)}
-                        className="col-span-2 group relative flex flex-row items-center justify-between p-5 h-32 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border-2 border-transparent hover:border-[#4bee2b] active:scale-[0.98] transition-all overflow-hidden text-left"
+                        className="col-span-2 group relative flex flex-row items-center justify-between p-5 h-32 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border-2 border-transparent hover:border-[#259783] active:scale-[0.98] transition-all overflow-hidden text-left"
                       >
                         <div className="absolute inset-0 bg-gradient-to-r from-gray-600 to-gray-400 dark:from-gray-800 dark:to-gray-700 opacity-100 z-0 rounded-xl"></div>
                         <div
@@ -489,7 +489,7 @@ export default function POSPage() {
                 {isOwnerOrAdmin && (
                   <Link
                     href="/admin"
-                    className="flex items-center justify-center gap-2 px-4 h-12 rounded-full bg-[#4bee2b] hover:bg-[#3bd522] active:scale-95 transition-all shadow-lg shadow-[#4bee2b]/30"
+                    className="flex items-center justify-center gap-2 px-4 h-12 rounded-full bg-[#259783] hover:bg-[#3bd522] active:scale-95 transition-all shadow-lg shadow-[#259783]/30 text-white"
                     aria-label="Admin"
                   >
                     <Settings className="w-5 h-5 text-[#101b0d]" />
@@ -519,7 +519,7 @@ export default function POSPage() {
             <main className="flex-1 overflow-y-auto no-scrollbar pb-32 px-4">
               {itemsLoading ? (
                 <div className="flex items-center justify-center h-64">
-                  <div className="w-10 h-10 border-4 border-[#4bee2b]/20 border-t-[#4bee2b] rounded-full animate-spin"></div>
+                  <div className="w-10 h-10 border-4 border-[#259783]/20 border-t-[#259783] rounded-full animate-spin"></div>
                 </div>
               ) : filteredCategoryItems.length === 0 ? (
                 <div className="flex items-center justify-center h-64">
@@ -576,7 +576,7 @@ export default function POSPage() {
                           </div>
                         ) : (
                           <div className="flex items-center gap-2">
-                            <span className="bg-[#4bee2b] text-white font-bold text-sm px-2 py-1 rounded">
+                            <span className="bg-[#259783] text-white font-bold text-sm px-2 py-1 rounded">
                               {formatPrice(item.current_sell_price)}
                             </span>
                             <span className="text-xs text-white/80">
@@ -597,22 +597,22 @@ export default function POSPage() {
           <div className="pointer-events-auto w-full max-w-md flex justify-end">
             <DownloadButton
               size="sm"
-              className="bg-white/95 backdrop-blur-sm hover:bg-white border-2 border-[#4bee2b] text-[#4bee2b] hover:text-[#3bd522] font-semibold shadow-lg"
+              className="bg-white/95 backdrop-blur-sm hover:bg-white border-2 border-[#259783] text-[#259783] hover:text-[#3bd522] font-semibold shadow-lg"
             />
           </div>
           <Link
             href="/pos/cart"
-            className="pointer-events-auto shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_30px_rgb(75,238,43,0.3)] active:scale-95 transition-all w-full max-w-md h-[72px] bg-[#4bee2b] rounded-full flex items-center justify-between px-2 pr-6 group"
+            className="pointer-events-auto shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_30px_rgb(75,238,43,0.3)] active:scale-95 transition-all w-full max-w-md h-[72px] bg-[#259783] rounded-full flex items-center justify-between px-2 pr-6 group"
           >
             <div className="flex items-center gap-3">
               <div className="bg-black/10 w-[56px] h-[56px] rounded-full flex items-center justify-center group-hover:bg-black/20 transition-colors">
-                <ShoppingCart className="w-7 h-7 text-[#101b0d]" />
+                <ShoppingCart className="w-7 h-7 text-white" />
               </div>
               <div className="flex flex-col items-start">
-                <span className="text-[#101b0d] font-bold text-lg leading-none">
+                <span className="text-white font-bold text-lg leading-none">
                   Checkout
                 </span>
-                <span className="text-[#101b0d]/70 font-medium text-sm leading-tight mt-1">
+                <span className="text-white/90 font-medium text-sm leading-tight mt-1">
                   {cartItemCount} {cartItemCount === 1 ? 'item' : 'items'}
                 </span>
               </div>
@@ -630,17 +630,17 @@ export default function POSPage() {
           header={
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-10 h-10 bg-[#4bee2b] rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
-                  <ShoppingCart className="w-5 h-5 text-[#101b0d]" />
+                <div className="w-10 h-10 bg-[#259783] rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
+                  <ShoppingCart className="w-5 h-5 text-white" />
                 </div>
-                <h1 className="text-2xl font-bold text-[#4bee2b] hidden sm:block">
+                <h1 className="text-2xl font-bold text-[#259783] hidden sm:block">
                   Grocery POS
                 </h1>
                 {isOwnerOrAdmin && (
                   <Link href="/admin">
                     <Button
                       size="sm"
-                      className="hidden sm:flex items-center gap-2 bg-[#4bee2b] hover:bg-[#3bd522] text-[#101b0d] font-semibold shadow-md shadow-[#4bee2b]/30"
+                      className="hidden sm:flex items-center gap-2 bg-[#259783] hover:bg-[#3bd522] text-white font-semibold shadow-md shadow-[#259783]/30"
                     >
                       <Settings className="w-4 h-4" />
                       <span className="hidden md:inline">Admin</span>
@@ -675,7 +675,7 @@ export default function POSPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => setShowSearch(true)}
-                    className="hidden sm:flex items-center gap-2 bg-white hover:bg-[#4bee2b]/10 border-gray-200 hover:border-[#4bee2b]"
+                    className="hidden sm:flex items-center gap-2 bg-white hover:bg-[#259783]/10 border-gray-200 hover:border-[#259783]"
                   >
                     <Search className="w-4 h-4" />
                     <span className="hidden md:inline">Search</span>
@@ -689,13 +689,13 @@ export default function POSPage() {
                 <DownloadButton
                   variant="outline"
                   size="sm"
-                  className="hidden lg:flex bg-white hover:bg-[#4bee2b]/10 border-gray-200 hover:border-[#4bee2b]"
+                  className="hidden lg:flex bg-white hover:bg-[#259783]/10 border-gray-200 hover:border-[#259783]"
                 />
                 <Link href="/pos/cart">
                   <Button
                     variant="outline"
                     size="touch"
-                    className="relative bg-white hover:bg-[#4bee2b]/10 border-gray-200 hover:border-[#4bee2b] transition-smooth shadow-sm hover:shadow-md"
+                    className="relative bg-white hover:bg-[#259783]/10 border-gray-200 hover:border-[#259783] transition-smooth shadow-sm hover:shadow-md"
                   >
                     <ShoppingCart className="mr-2" />
                     <span className="hidden sm:inline">Cart</span>
@@ -707,7 +707,7 @@ export default function POSPage() {
                         >
                           {cartItemCount}
                         </Badge>
-                        <span className="hidden md:inline ml-2 font-semibold text-[#4bee2b]">
+                        <span className="hidden md:inline ml-2 font-semibold text-[#259783]">
                           KES {cartTotal.toFixed(0)}
                         </span>
                       </>

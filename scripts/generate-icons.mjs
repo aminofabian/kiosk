@@ -3,14 +3,14 @@ import { writeFileSync } from 'fs';
 import { join } from 'path';
 
 const sizes = [192, 512];
-const themeColor = '#4bee2b';
+const themeColor = '#259783';
 
 async function generateIcon(size) {
   const svg = `
     <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#4bee2b;stop-opacity:1" />
+          <stop offset="0%" style="stop-color:#259783;stop-opacity:1" />
           <stop offset="100%" style="stop-color:#10b981;stop-opacity:1" />
         </linearGradient>
       </defs>

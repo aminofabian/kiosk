@@ -83,7 +83,7 @@ export function Receipt({ sale, items }: ReceiptProps) {
             {/* Total */}
             <div className="flex justify-between items-center text-lg font-bold mb-6">
               <span>Total:</span>
-              <span className="text-2xl text-[#4bee2b]">
+              <span className="text-2xl text-[#259783]">
                 {formatPrice(sale.total_amount)}
               </span>
             </div>

@@ -191,7 +191,7 @@ export function CreditList() {
                     {formatPrice(account.total_credit)}
                   </p>
                   <Link href={`/admin/credits/${account.id}/payment`}>
-                    <Button className="bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d]" size="sm">
+                    <Button className="bg-[#259783] hover:bg-[#45d827] text-white" size="sm">
                       Collect
                       <ArrowRight className="ml-2 h-3 w-3" />
                     </Button>

@@ -127,7 +127,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
                   <>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Credit Payments Collected:</span>
-                      <span className="font-medium text-[#4bee2b]">
+                      <span className="font-medium text-[#259783]">
                         {formatPrice(salesSummary.creditPayments.total)}
                       </span>
                     </div>
@@ -223,7 +223,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
                 type="submit"
                 size="touch"
                 disabled={isSubmitting}
-                className="w-full bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d]"
+                className="w-full bg-[#259783] hover:bg-[#45d827] text-white"
               >
                 {isSubmitting ? (
                   <>

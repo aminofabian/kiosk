@@ -12,6 +12,7 @@ export async function GET() {
     const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
 
+    // Only show variants and standalone items - exclude parent items
     const items = await query<
       Item & { category_name: string }
     >(
@@ -20,7 +21,20 @@ export async function GET() {
         c.name as category_name
        FROM items i
        LEFT JOIN categories c ON i.category_id = c.id
-       WHERE i.business_id = ? AND i.active = 1
+       WHERE i.business_id = ? 
+         AND i.active = 1
+         AND (
+           -- Include variants (items with parent_item_id)
+           i.parent_item_id IS NOT NULL
+           OR
+           -- Include standalone items (no parent AND no variants)
+           (i.parent_item_id IS NULL AND NOT EXISTS (
+             SELECT 1 FROM items v 
+             WHERE v.parent_item_id = i.id 
+             AND v.business_id = i.business_id 
+             AND v.active = 1
+           ))
+         )
        ORDER BY i.name ASC`,
       [auth.businessId]
     );

@@ -67,7 +67,7 @@ export default function PurchasesPage() {
               </div>
               <Button
                 onClick={() => setDrawerOpen(true)}
-                className="bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d] font-semibold shadow-lg shadow-[#4bee2b]/20"
+                className="bg-[#259783] hover:bg-[#45d827] text-white font-semibold shadow-lg shadow-[#259783]/20"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 <span className="hidden sm:inline">New Purchase</span>
@@ -84,9 +84,9 @@ export default function PurchasesPage() {
 
         <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
           <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen">
-            <DrawerHeader className="border-b bg-gradient-to-r from-[#4bee2b]/10 to-blue-500/10">
+            <DrawerHeader className="border-b bg-gradient-to-r from-[#259783]/10 to-blue-500/10">
               <DrawerTitle className="text-2xl flex items-center gap-2">
-                <ShoppingBag className="w-6 h-6 text-[#4bee2b]" />
+                <ShoppingBag className="w-6 h-6 text-[#259783]" />
                 New Purchase
               </DrawerTitle>
               <DrawerDescription>

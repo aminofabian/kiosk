@@ -359,7 +359,7 @@ export function ItemForm({
                 onClick={() => setMode('standalone')}
                 className={`p-3 rounded-lg border-2 text-left transition-all ${
                   mode === 'standalone'
-                    ? 'border-[#4bee2b] bg-[#4bee2b]/10'
+                    ? 'border-[#259783] bg-[#259783]/10'
                     : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
                 }`}
               >
@@ -372,7 +372,7 @@ export function ItemForm({
                 onClick={() => setMode('parent')}
                 className={`p-3 rounded-lg border-2 text-left transition-all ${
                   mode === 'parent'
-                    ? 'border-[#4bee2b] bg-[#4bee2b]/10'
+                    ? 'border-[#259783] bg-[#259783]/10'
                     : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
                 }`}
               >
@@ -385,7 +385,7 @@ export function ItemForm({
                 onClick={() => setMode('variant')}
                 className={`p-3 rounded-lg border-2 text-left transition-all ${
                   mode === 'variant'
-                    ? 'border-[#4bee2b] bg-[#4bee2b]/10'
+                    ? 'border-[#259783] bg-[#259783]/10'
                     : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
                 }`}
               >

@@ -84,7 +84,7 @@ export default function ReceiptPage() {
             <Button
               size="touch"
               onClick={() => router.push('/pos')}
-              className="bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d]"
+              className="bg-[#259783] hover:bg-[#45d827] text-white"
             >
               New Sale
             </Button>

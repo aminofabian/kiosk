@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: "Grocery POS",
   description: "Simple, intuitive grocery-focused POS system",
   manifest: "/manifest.json",
-  themeColor: "#4bee2b",
+  themeColor: "#259783",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -35,7 +35,7 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#4bee2b" />
+        <meta name="theme-color" content="#259783" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Grocery POS" />

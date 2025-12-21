@@ -135,7 +135,7 @@ export function ItemGrid({
     return (
       <div className="p-4 flex items-center justify-center h-full">
         <div className="text-center space-y-4 max-w-md">
-          <div className="w-20 h-20 mx-auto bg-[#4bee2b]/10 rounded-2xl flex items-center justify-center shadow-lg">
+          <div className="w-20 h-20 mx-auto bg-[#259783]/10 rounded-2xl flex items-center justify-center shadow-lg">
             <p className="text-4xl">👆</p>
           </div>
           <p className="text-lg font-semibold text-gray-600">
@@ -154,7 +154,7 @@ export function ItemGrid({
     return (
       <div className="p-4 flex items-center justify-center h-full">
         <div className="text-center space-y-3">
-          <div className="w-12 h-12 mx-auto border-4 border-[#4bee2b]/20 border-t-[#4bee2b] rounded-full animate-spin"></div>
+          <div className="w-12 h-12 mx-auto border-4 border-[#259783]/20 border-t-[#259783] rounded-full animate-spin"></div>
           <p className="text-gray-600 font-medium">Loading items...</p>
         </div>
       </div>
@@ -253,7 +253,7 @@ export function ItemGrid({
           return (
             <Card
               key={item.id}
-              className={`group cursor-pointer hover-lift transition-smooth touch-target bg-white border-gray-200 hover:border-[#4bee2b] shadow-sm hover:shadow-lg relative overflow-hidden ${
+              className={`group cursor-pointer hover-lift transition-smooth touch-target bg-white border-gray-200 hover:border-[#259783] shadow-sm hover:shadow-lg relative overflow-hidden ${
                 item.isParent ? 'ring-2 ring-purple-200 dark:ring-purple-800' : ''
               }`}
               onClick={() => handleItemClick(item)}
@@ -278,7 +278,7 @@ export function ItemGrid({
                   </div>
                 ) : (
                   // Regular item or variant
-                  <div className="text-lg sm:text-xl font-bold text-[#4bee2b]">
+                  <div className="text-lg sm:text-xl font-bold text-[#259783]">
                     {formatPrice(item.current_sell_price)}
                   </div>
                 )}
@@ -309,7 +309,7 @@ export function ItemGrid({
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[#4bee2b]/10 hover:text-[#4bee2b]"
+                      className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[#259783]/10 hover:text-[#259783]"
                       onClick={(e) => {
                         e.stopPropagation();
                         onQuickAdd(item, quickQty);

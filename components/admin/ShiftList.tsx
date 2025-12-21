@@ -182,7 +182,7 @@ export function ShiftList() {
                 key={shift.id}
                 className={`bg-white dark:bg-[#1c2e18] border transition-all hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-slate-900/50 ${
                   isOpen
-                    ? 'border-[#4bee2b] dark:border-[#4bee2b]'
+                    ? 'border-[#259783] dark:border-[#259783]'
                     : 'border-slate-200 dark:border-slate-800'
                 }`}
               >
@@ -191,11 +191,11 @@ export function ShiftList() {
                     <div className="flex items-start gap-3 flex-1 min-w-0">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
                         isOpen
-                          ? 'bg-[#4bee2b]/10'
+                          ? 'bg-[#259783]/10'
                           : 'bg-indigo-50 dark:bg-indigo-900/20'
                       }`}>
                         <Clock className={`w-5 h-5 ${
-                          isOpen ? 'text-[#4bee2b]' : 'text-indigo-500'
+                          isOpen ? 'text-[#259783]' : 'text-indigo-500'
                         }`} />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -205,7 +205,7 @@ export function ShiftList() {
                           </h3>
                           <Badge
                             className={isOpen
-                              ? 'bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d]'
+                              ? 'bg-[#259783] hover:bg-[#45d827] text-white'
                               : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
                             }
                           >

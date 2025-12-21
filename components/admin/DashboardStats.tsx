@@ -93,8 +93,8 @@ export function DashboardStats() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center space-y-4">
           <div className="relative">
-            <div className="w-16 h-16 rounded-2xl bg-[#4bee2b]/10 flex items-center justify-center mx-auto">
-              <Loader2 className="h-8 w-8 text-[#4bee2b] animate-spin" />
+            <div className="w-16 h-16 rounded-2xl bg-[#259783]/10 flex items-center justify-center mx-auto">
+              <Loader2 className="h-8 w-8 text-[#259783] animate-spin" />
             </div>
           </div>
           <p className="text-slate-500 dark:text-slate-400 font-medium">Loading dashboard...</p>
@@ -137,7 +137,7 @@ export function DashboardStats() {
           type="date"
           value={selectedDate}
           onChange={(e) => setSelectedDate(e.target.value)}
-          className="w-40 h-9 border-0 bg-slate-50 dark:bg-slate-800/50 focus-visible:ring-[#4bee2b]"
+          className="w-40 h-9 border-0 bg-slate-50 dark:bg-slate-800/50 focus-visible:ring-[#259783]"
         />
       </div>
 
@@ -173,13 +173,13 @@ export function DashboardStats() {
         </Card>
 
         {/* Total Profit Card */}
-        <Card className="bg-gradient-to-br from-[#4bee2b] to-[#3bd522] border-0 shadow-lg shadow-[#4bee2b]/20">
+        <Card className="bg-[#259783] border-0 shadow-lg shadow-[#259783]/20">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-xl bg-[#101b0d]/10 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-[#101b0d]" />
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-white" />
               </div>
-              <div className="flex items-center gap-1 text-[#101b0d]/80">
+              <div className="flex items-center gap-1 text-white/90">
                 {isPositiveMargin ? (
                   <ArrowUpRight className="w-4 h-4" />
                 ) : (
@@ -188,8 +188,8 @@ export function DashboardStats() {
                 <span className="text-sm font-bold">{formatPercent(data.profitMargin)}</span>
               </div>
             </div>
-            <p className="text-[#101b0d]/70 text-sm font-medium mb-1">Total Profit</p>
-            <p className="text-2xl font-black text-[#101b0d]">{formatPrice(data.totalProfit)}</p>
+            <p className="text-white/90 text-sm font-medium mb-1">Total Profit</p>
+            <p className="text-2xl font-black text-white">{formatPrice(data.totalProfit)}</p>
           </CardContent>
         </Card>
 
@@ -224,7 +224,7 @@ export function DashboardStats() {
                 <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Best performers today</p>
               </div>
               <Link href="/admin/profit">
-                <Button variant="ghost" size="sm" className="text-[#4bee2b] hover:text-[#4bee2b] hover:bg-[#4bee2b]/10">
+                <Button variant="ghost" size="sm" className="text-[#259783] hover:text-[#259783] hover:bg-[#259783]/10">
                   View All
                   <ChevronRight className="w-4 h-4 ml-1" />
                 </Button>
@@ -250,8 +250,8 @@ export function DashboardStats() {
                         className="p-3 rounded-xl bg-slate-50 dark:bg-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors space-y-2"
                       >
                         <div className="flex items-center gap-3">
-                          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-[#4bee2b]/10 flex items-center justify-center">
-                            <span className="text-sm font-bold text-[#4bee2b]">{index + 1}</span>
+                          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-[#259783]/10 flex items-center justify-center">
+                            <span className="text-sm font-bold text-[#259783]">{index + 1}</span>
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-slate-900 dark:text-white truncate">{item.item_name}</p>
@@ -260,7 +260,7 @@ export function DashboardStats() {
                             </p>
                           </div>
                           <div className="text-right">
-                            <p className="text-sm font-bold text-[#4bee2b]">{formatPrice(item.total_sales)}</p>
+                            <p className="text-sm font-bold text-[#259783]">{formatPrice(item.total_sales)}</p>
                             <p className="text-xs text-slate-500 dark:text-slate-400">Sales</p>
                           </div>
                         </div>

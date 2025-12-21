@@ -130,8 +130,8 @@ export function ProfitView() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-[#4bee2b]/10 flex items-center justify-center mx-auto">
-            <Loader2 className="h-8 w-8 text-[#4bee2b] animate-spin" />
+          <div className="w-16 h-16 rounded-2xl bg-[#259783]/10 flex items-center justify-center mx-auto">
+            <Loader2 className="h-8 w-8 text-[#259783] animate-spin" />
           </div>
           <p className="text-slate-500 dark:text-slate-400 font-medium">Loading profit data...</p>
         </div>
@@ -188,7 +188,7 @@ export function ProfitView() {
               onClick={() => setDatePreset(preset)}
               className={`h-9 px-4 capitalize ${
                 datePreset === preset
-                  ? 'bg-[#4bee2b] text-[#101b0d] hover:bg-[#45d827] shadow-md shadow-[#4bee2b]/20'
+                  ? 'bg-[#259783] text-white hover:bg-[#45d827] shadow-md shadow-[#259783]/20'
                   : 'hover:bg-slate-100 dark:hover:bg-slate-800'
               }`}
             >
@@ -229,18 +229,18 @@ export function ProfitView() {
       {/* Main Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Profit Card */}
-        <Card className="bg-gradient-to-br from-[#4bee2b] to-[#3bd522] border-0 shadow-lg shadow-[#4bee2b]/20 col-span-2 lg:col-span-1">
+        <Card className="bg-[#259783] border-0 shadow-lg shadow-[#259783]/20 col-span-2 lg:col-span-1">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
-              <div className="w-10 h-10 rounded-xl bg-[#101b0d]/10 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-[#101b0d]" />
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-white" />
               </div>
-              <Badge className="bg-[#101b0d]/10 text-[#101b0d] border-0">
+              <Badge className="bg-white/20 text-white border-0">
                 {formatPercent(profitData.profitMargin)} margin
               </Badge>
             </div>
-            <p className="text-[#101b0d]/70 text-sm font-medium mb-1">Total Profit</p>
-            <p className="text-3xl font-black text-[#101b0d]">{formatPrice(profitData.totalProfit)}</p>
+            <p className="text-white/90 text-sm font-medium mb-1">Total Profit</p>
+            <p className="text-3xl font-black text-white">{formatPrice(profitData.totalProfit)}</p>
           </CardContent>
         </Card>
 

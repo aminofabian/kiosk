@@ -45,7 +45,7 @@ export function CategoryList({
     return (
       <div className="p-6 flex items-center justify-center">
         <div className="text-center space-y-3">
-          <div className="w-10 h-10 mx-auto border-4 border-[#4bee2b]/20 border-t-[#4bee2b] rounded-full animate-spin"></div>
+          <div className="w-10 h-10 mx-auto border-4 border-[#259783]/20 border-t-[#259783] rounded-full animate-spin"></div>
           <p className="text-gray-600 font-medium">Loading categories...</p>
         </div>
       </div>
@@ -92,8 +92,8 @@ export function CategoryList({
               size="touch"
               className={`flex flex-col items-center justify-center h-20 sm:h-24 gap-2 transition-all duration-200 hover-lift ${
                 isSelected
-                  ? 'bg-[#4bee2b] text-white border-0 shadow-lg scale-105 ring-2 ring-[#4bee2b]/30'
-                  : 'bg-white hover:bg-[#4bee2b]/10 border-gray-200 hover:border-[#4bee2b] shadow-sm hover:scale-102'
+                  ? 'bg-[#259783] text-white border-0 shadow-lg scale-105 ring-2 ring-[#259783]/30'
+                  : 'bg-white hover:bg-[#259783]/10 border-gray-200 hover:border-[#259783] shadow-sm hover:scale-102'
               }`}
               onClick={() =>
                 onSelectCategory(isSelected ? null : category.id)

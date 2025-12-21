@@ -46,7 +46,7 @@ export function SearchFilterSection({
               placeholder={searchPlaceholder}
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="pl-9 h-11 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-[#4bee2b]"
+              className="pl-9 h-11 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-[#259783]"
             />
           </div>
 

@@ -57,7 +57,7 @@ export function PurchaseList() {
   const getStatusConfig = (status: PurchaseStatus) => {
     switch (status) {
       case 'complete':
-        return { variant: 'default' as const, className: 'bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d]' };
+        return { variant: 'default' as const, className: 'bg-[#259783] hover:bg-[#45d827] text-white' };
       case 'partial':
         return { variant: 'secondary' as const, className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' };
       case 'pending':
@@ -192,7 +192,7 @@ export function PurchaseList() {
                       </div>
                     </div>
                     <div className="text-right flex flex-col items-end gap-2">
-                      <p className="text-lg font-bold text-[#4bee2b]">
+                      <p className="text-lg font-bold text-[#259783]">
                         {formatPrice(purchase.total_amount)}
                       </p>
                       <Link href={`/admin/purchases/${purchase.id}/breakdown`}>

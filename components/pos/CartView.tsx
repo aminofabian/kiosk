@@ -20,13 +20,13 @@ export function CartView() {
     return (
       <div className="flex flex-col items-center justify-center h-full p-6">
         <div className="text-center space-y-4">
-          <div className="w-24 h-24 mx-auto bg-[#4bee2b]/10 rounded-2xl flex items-center justify-center">
-            <ShoppingCart className="w-12 h-12 text-[#4bee2b]" />
+          <div className="w-24 h-24 mx-auto bg-[#259783]/10 rounded-2xl flex items-center justify-center">
+            <ShoppingCart className="w-12 h-12 text-[#259783]" />
           </div>
           <h2 className="text-2xl font-bold text-gray-800">Your cart is empty</h2>
           <p className="text-gray-500">Add items from the POS to get started</p>
           <Link href="/pos">
-            <Button size="touch" className="mt-4 bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d]">
+            <Button size="touch" className="mt-4 bg-[#259783] hover:bg-[#45d827] text-white">
               Continue Shopping
             </Button>
           </Link>
@@ -88,7 +88,7 @@ export function CartView() {
         <div className="max-w-4xl mx-auto space-y-4">
           <div className="flex justify-between items-center text-lg">
             <span className="font-semibold">Total:</span>
-            <span className="text-2xl font-bold text-[#4bee2b]">
+            <span className="text-2xl font-bold text-[#259783]">
               {formatPrice(total)}
             </span>
           </div>
@@ -105,7 +105,7 @@ export function CartView() {
             <Link href="/pos/checkout" className="flex-1">
               <Button
                 size="touch"
-                className="w-full bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d]"
+                className="w-full bg-[#259783] hover:bg-[#45d827] text-white"
               >
                 Checkout
               </Button>

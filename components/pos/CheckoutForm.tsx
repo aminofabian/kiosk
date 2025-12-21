@@ -131,7 +131,7 @@ export function CheckoutForm() {
               <Separator />
               <div className="flex justify-between items-center text-lg font-bold">
                 <span>Total:</span>
-                <span className="text-2xl text-[#4bee2b]">
+                <span className="text-2xl text-[#259783]">
                   {formatPrice(total)}
                 </span>
               </div>
@@ -181,7 +181,7 @@ export function CheckoutForm() {
                         <span
                           className={
                             change >= 0
-                              ? 'text-[#4bee2b]'
+                              ? 'text-[#259783]'
                               : 'text-destructive'
                           }
                         >
@@ -242,7 +242,7 @@ export function CheckoutForm() {
             type="submit"
             size="touch"
             disabled={!isValid || isProcessing}
-            className="flex-1 bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d]"
+            className="flex-1 bg-[#259783] hover:bg-[#45d827] text-white"
           >
             {isProcessing ? (
               <>

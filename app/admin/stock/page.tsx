@@ -25,7 +25,7 @@ export default function StockPage() {
               </div>
               <div className="flex gap-2">
                 <Link href="/admin/stock/take">
-                  <Button className="bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d] font-semibold shadow-lg shadow-[#4bee2b]/20">
+                  <Button className="bg-[#259783] hover:bg-[#45d827] text-white font-semibold shadow-lg shadow-[#259783]/20">
                     <ClipboardList className="w-4 h-4 mr-2" />
                     <span className="hidden sm:inline">Stock Take</span>
                     <span className="sm:hidden">Take</span>

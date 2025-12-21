@@ -177,12 +177,12 @@ export function StockList() {
                             ? 'bg-red-50 dark:bg-red-900/20'
                             : low
                             ? 'bg-orange-50 dark:bg-orange-900/20'
-                            : 'bg-[#4bee2b]/10'
+                            : 'bg-[#259783]/10'
                         }`}>
                           {outOfStock || low ? (
                             <AlertTriangle className={`w-5 h-5 ${outOfStock ? 'text-red-500' : 'text-orange-500'}`} />
                           ) : (
-                            <Package className="w-5 h-5 text-[#4bee2b]" />
+                            <Package className="w-5 h-5 text-[#259783]" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -197,14 +197,14 @@ export function StockList() {
                       ) : low ? (
                         <Badge className="bg-orange-500 hover:bg-orange-600">Low</Badge>
                       ) : (
-                        <Badge className="bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d]">OK</Badge>
+                        <Badge className="bg-[#259783] hover:bg-[#45d827] text-white">OK</Badge>
                       )}
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="bg-slate-50 dark:bg-slate-800/30 rounded-lg p-3">
                         <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Current Stock</p>
                         <p className={`font-bold ${
-                          outOfStock ? 'text-red-500' : low ? 'text-orange-500' : 'text-[#4bee2b]'
+                          outOfStock ? 'text-red-500' : low ? 'text-orange-500' : 'text-[#259783]'
                         }`}>
                           {formatStock(item.current_stock, item.unit_type)}
                         </p>
@@ -258,10 +258,10 @@ export function StockList() {
                                   ? 'bg-red-100 dark:bg-red-900/30'
                                   : low
                                   ? 'bg-orange-100 dark:bg-orange-900/30'
-                                  : 'bg-[#4bee2b]/10'
+                                  : 'bg-[#259783]/10'
                               }`}>
                                 <Package className={`w-4 h-4 ${
-                                  outOfStock ? 'text-red-500' : low ? 'text-orange-500' : 'text-[#4bee2b]'
+                                  outOfStock ? 'text-red-500' : low ? 'text-orange-500' : 'text-[#259783]'
                                 }`} />
                               </div>
                               <span className="font-semibold text-slate-900 dark:text-white">{item.name}</span>
@@ -272,7 +272,7 @@ export function StockList() {
                           </td>
                           <td className="p-4 text-right">
                             <span className={`font-bold ${
-                              outOfStock ? 'text-red-500' : low ? 'text-orange-500' : 'text-[#4bee2b]'
+                              outOfStock ? 'text-red-500' : low ? 'text-orange-500' : 'text-[#259783]'
                             }`}>
                               {formatStock(item.current_stock, item.unit_type)}
                             </span>
@@ -286,7 +286,7 @@ export function StockList() {
                             ) : low ? (
                               <Badge className="bg-orange-500 hover:bg-orange-600">Low Stock</Badge>
                             ) : (
-                              <Badge className="bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d]">In Stock</Badge>
+                              <Badge className="bg-[#259783] hover:bg-[#45d827] text-white">In Stock</Badge>
                             )}
                           </td>
                         </tr>

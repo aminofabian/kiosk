@@ -50,7 +50,7 @@ export function VariantSelector({
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[85vh]">
-        <DrawerHeader className="border-b bg-gradient-to-r from-purple-500/10 to-[#4bee2b]/10">
+        <DrawerHeader className="border-b bg-gradient-to-r from-purple-500/10 to-[#259783]/10">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
               <Layers className="w-6 h-6 text-purple-600 dark:text-purple-400" />
@@ -81,7 +81,7 @@ export function VariantSelector({
                     onSelectVariant(variant);
                     onOpenChange(false);
                   }}
-                  className="w-full p-4 rounded-xl bg-white dark:bg-slate-800 border-2 border-gray-100 dark:border-slate-700 hover:border-[#4bee2b] transition-all text-left group"
+                  className="w-full p-4 rounded-xl bg-white dark:bg-slate-800 border-2 border-gray-100 dark:border-slate-700 hover:border-[#259783] transition-all text-left group"
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex-1 min-w-0">
@@ -94,7 +94,7 @@ export function VariantSelector({
                         </Badge>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-lg font-bold text-[#4bee2b]">
+                        <span className="text-lg font-bold text-[#259783]">
                           {formatPrice(variant.current_sell_price)}
                         </span>
                         <span className="text-xs text-gray-400">•</span>
@@ -110,8 +110,8 @@ export function VariantSelector({
                       </div>
                     </div>
                     <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="w-10 h-10 rounded-full bg-[#4bee2b]/10 flex items-center justify-center">
-                        <ShoppingCart className="w-5 h-5 text-[#4bee2b]" />
+                      <div className="w-10 h-10 rounded-full bg-[#259783]/10 flex items-center justify-center">
+                        <ShoppingCart className="w-5 h-5 text-[#259783]" />
                       </div>
                     </div>
                   </div>

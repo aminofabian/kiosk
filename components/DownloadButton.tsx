@@ -21,9 +21,10 @@ interface DownloadButtonProps {
   className?: string;
   variant?: 'default' | 'outline' | 'ghost';
   size?: 'default' | 'sm' | 'lg';
+  label?: string;
 }
 
-export function DownloadButton({ className, variant = 'default', size = 'default' }: DownloadButtonProps) {
+export function DownloadButton({ className, variant = 'default', size = 'default', label = 'Download App' }: DownloadButtonProps) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
@@ -97,7 +98,7 @@ export function DownloadButton({ className, variant = 'default', size = 'default
         className={className}
       >
         <Download className="w-4 h-4 mr-2" />
-        Download App
+        {label}
       </Button>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

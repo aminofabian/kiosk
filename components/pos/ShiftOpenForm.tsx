@@ -86,7 +86,7 @@ export function ShiftOpenForm() {
     return (
       <div className="flex flex-col items-center justify-center h-full p-6">
         <div className="text-center space-y-4 max-w-md">
-          <div className="w-20 h-20 mx-auto bg-[#4bee2b]/10 rounded-2xl flex items-center justify-center">
+          <div className="w-20 h-20 mx-auto bg-[#259783]/10 rounded-2xl flex items-center justify-center">
             <span className="text-4xl">✅</span>
           </div>
           <h2 className="text-2xl font-bold">Shift Already Open</h2>
@@ -137,7 +137,7 @@ export function ShiftOpenForm() {
               type="submit"
               size="touch"
               disabled={isSubmitting}
-              className="w-full bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d]"
+              className="w-full bg-[#259783] hover:bg-[#45d827] text-white"
             >
               {isSubmitting ? (
                 <>

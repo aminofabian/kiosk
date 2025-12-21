@@ -87,7 +87,7 @@ export function AddToCartDialog({
             </button>
 
             <div className="flex flex-col items-center pt-8 pb-6">
-              <div className="w-20 h-20 rounded-full bg-[#4bee2b]/20 dark:bg-[#4bee2b]/10 flex items-center justify-center mb-4 overflow-hidden">
+              <div className="w-20 h-20 rounded-full bg-[#259783]/20 dark:bg-[#259783]/10 flex items-center justify-center mb-4 overflow-hidden">
                 {getItemImage(item.name) ? (
                   <img
                     src={getItemImage(item.name)!}
@@ -98,12 +98,12 @@ export function AddToCartDialog({
                       const target = e.target as HTMLImageElement;
                       const parent = target.parentElement;
                       if (parent) {
-                        parent.innerHTML = '<svg class="w-10 h-10 text-[#4bee2b]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>';
+                        parent.innerHTML = '<svg class="w-10 h-10 text-[#259783]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>';
                       }
                     }}
                   />
                 ) : (
-                  <Package className="w-10 h-10 text-[#4bee2b]" />
+                  <Package className="w-10 h-10 text-[#259783]" />
                 )}
               </div>
               <h2 className="text-2xl font-bold uppercase text-gray-900 dark:text-gray-100 mb-3">
@@ -135,7 +135,7 @@ export function AddToCartDialog({
               <button
                 onClick={handleIncrement}
                 disabled={isOutOfStock || (maxQuantity > 0 && quantity >= maxQuantity)}
-                className="w-12 h-12 rounded-full bg-[#4bee2b] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#45d827] transition-colors"
+                className="w-12 h-12 rounded-full bg-[#259783] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#45d827] transition-colors"
               >
                 <Plus className="w-6 h-6 text-white" />
               </button>
@@ -155,7 +155,7 @@ export function AddToCartDialog({
             <Button
               onClick={handleAddToCart}
               disabled={quantity <= 0 || isOutOfStock}
-              className="w-full h-14 bg-[#4bee2b] hover:bg-[#45d827] text-white font-bold text-lg rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-14 bg-[#259783] hover:bg-[#45d827] text-white font-bold text-lg rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ShoppingCart className="w-5 h-5" />
               <span>ADD TO CART</span>

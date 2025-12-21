@@ -355,7 +355,7 @@ export default function ItemsPage() {
                 </div>
               </div>
               <Button
-                className="bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d] font-semibold shadow-lg shadow-[#4bee2b]/20"
+                className="bg-[#259783] hover:bg-[#45d827] text-white font-semibold shadow-lg shadow-[#259783]/20"
                 onClick={() => {
                   setEditingItem(null);
                   setSelectedItem(null);
@@ -403,7 +403,7 @@ export default function ItemsPage() {
                         placeholder="Search items..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9 h-11 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-[#4bee2b]"
+                        className="pl-9 h-11 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-[#259783]"
                       />
                     </div>
 
@@ -429,7 +429,7 @@ export default function ItemsPage() {
                         <Button
                           type="button"
                           variant="outline"
-                          className="h-10 shrink-0 bg-[#4bee2b]/10 hover:bg-[#4bee2b]/20 border-[#4bee2b] text-[#4bee2b] font-medium"
+                          className="h-10 shrink-0 bg-[#259783]/10 hover:bg-[#259783]/20 border-[#259783] text-[#259783] font-medium"
                           onClick={() => {
                             setEditingCategory(null);
                             setCategoryDrawerOpen(true);
@@ -484,7 +484,7 @@ export default function ItemsPage() {
                                 }}
                                 className={`w-full text-left p-3 rounded-xl transition-all ${
                                   isSelected
-                                    ? 'bg-[#4bee2b]/10 ring-2 ring-[#4bee2b]'
+                                    ? 'bg-[#259783]/10 ring-2 ring-[#259783]'
                                     : 'bg-slate-50 dark:bg-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-800/50'
                                 } ${isLow && !item.isParent ? 'border-l-4 border-l-orange-500' : ''}`}
                               >
@@ -511,7 +511,7 @@ export default function ItemsPage() {
                                       </div>
                                       {!item.isParent && (
                                         <div className="flex items-center gap-2 mt-1">
-                                          <span className="text-xs font-medium text-[#4bee2b]">
+                                          <span className="text-xs font-medium text-[#259783]">
                                             {formatPrice(item.current_sell_price)}
                                           </span>
                                           <span className="text-xs text-slate-400">•</span>
@@ -533,7 +533,7 @@ export default function ItemsPage() {
                                     </Badge>
                                   )}
                                   {isSelected && (
-                                    <ChevronRight className="w-4 h-4 text-[#4bee2b]" />
+                                    <ChevronRight className="w-4 h-4 text-[#259783]" />
                                   )}
                                 </div>
                               </button>
@@ -551,7 +551,7 @@ export default function ItemsPage() {
                                         onClick={() => handleItemClick(variant)}
                                         className={`w-full text-left p-2 rounded-lg transition-all ${
                                           variantIsSelected
-                                            ? 'bg-[#4bee2b]/10 ring-2 ring-[#4bee2b]'
+                                            ? 'bg-[#259783]/10 ring-2 ring-[#259783]'
                                             : 'bg-slate-50/50 dark:bg-slate-800/20 hover:bg-slate-100 dark:hover:bg-slate-800/40'
                                         } ${variantIsLow ? 'border-l-4 border-l-orange-500' : ''}`}
                                       >
@@ -561,7 +561,7 @@ export default function ItemsPage() {
                                               {variant.variant_name || variant.name}
                                             </p>
                                             <div className="flex items-center gap-2 mt-0.5">
-                                              <span className="text-xs font-medium text-[#4bee2b]">
+                                              <span className="text-xs font-medium text-[#259783]">
                                                 {formatPrice(variant.current_sell_price)}
                                               </span>
                                               <span className="text-xs text-slate-400">•</span>
@@ -589,9 +589,9 @@ export default function ItemsPage() {
                                       setEditingItem(null);
                                       setDrawerOpen(true);
                                     }}
-                                    className="w-full text-left p-2 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-[#4bee2b] hover:bg-[#4bee2b]/5 transition-all"
+                                    className="w-full text-left p-2 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-[#259783] hover:bg-[#259783]/5 transition-all"
                                   >
-                                    <div className="flex items-center gap-2 text-slate-500 hover:text-[#4bee2b]">
+                                    <div className="flex items-center gap-2 text-slate-500 hover:text-[#259783]">
                                       <Plus className="w-4 h-4" />
                                       <span className="text-sm">Add variant</span>
                                     </div>
@@ -717,7 +717,7 @@ export default function ItemsPage() {
                               </Button>
                               <Button
                                 onClick={handleEditClick}
-                                className="bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d]"
+                                className="bg-[#259783] hover:bg-[#45d827] text-white"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -729,7 +729,7 @@ export default function ItemsPage() {
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                               <div className="bg-slate-50 dark:bg-slate-800/30 rounded-xl p-4">
                                 <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Selling Price</p>
-                                <p className="text-xl font-bold text-[#4bee2b]">
+                                <p className="text-xl font-bold text-[#259783]">
                                   {formatPrice(selectedItem.current_sell_price)}
                                 </p>
                               </div>
@@ -758,7 +758,7 @@ export default function ItemsPage() {
                                 ) : isLowStock(selectedItem) ? (
                                   <Badge className="bg-orange-500 hover:bg-orange-600 mt-1">Low Stock</Badge>
                                 ) : (
-                                  <Badge className="bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d] mt-1">In Stock</Badge>
+                                  <Badge className="bg-[#259783] hover:bg-[#45d827] text-white mt-1">In Stock</Badge>
                                 )}
                               </div>
                             </div>
@@ -789,7 +789,7 @@ export default function ItemsPage() {
                               </Button>
                               <Button
                                 onClick={handleEditClick}
-                                className="flex-1 min-w-[100px] bg-[#4bee2b] hover:bg-[#45d827] text-[#101b0d]"
+                                className="flex-1 min-w-[100px] bg-[#259783] hover:bg-[#45d827] text-white"
                               >
                                 <Edit className="h-4 w-4 mr-2" />
                                 Edit Item
@@ -826,7 +826,7 @@ export default function ItemsPage() {
           }
         }} direction="right">
           <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen">
-            <DrawerHeader className="border-b bg-gradient-to-r from-purple-500/10 to-[#4bee2b]/10">
+            <DrawerHeader className="border-b bg-gradient-to-r from-purple-500/10 to-[#259783]/10">
               <DrawerTitle className="flex items-center gap-2">
                 {addingVariantToParent ? (
                   <>
@@ -933,7 +933,7 @@ export default function ItemsPage() {
         {/* Category Form Drawer */}
         <Drawer open={categoryDrawerOpen} onOpenChange={setCategoryDrawerOpen} direction="right">
           <DrawerContent className="!w-full sm:!w-[500px] md:!w-[600px] !max-w-none h-full max-h-screen">
-            <DrawerHeader className="border-b bg-gradient-to-r from-blue-500/10 to-[#4bee2b]/10">
+            <DrawerHeader className="border-b bg-gradient-to-r from-blue-500/10 to-[#259783]/10">
               <DrawerTitle className="flex items-center gap-2">
                 <FolderTree className="w-5 h-5 text-blue-500" />
                 {editingCategory ? `Edit: ${editingCategory.name}` : 'Add New Category'}

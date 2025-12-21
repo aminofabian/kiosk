@@ -24,7 +24,7 @@ export function AdminLayout({ children, sidebar }: AdminLayoutProps) {
       <aside className="hidden md:flex md:w-60 lg:w-64 flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18]">
         <div className="h-16 flex items-center justify-between px-5 border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#4bee2b] to-[#3bd522] flex items-center justify-center shadow-lg shadow-[#4bee2b]/20 flex-shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-lg shadow-[#259783]/20 flex-shrink-0">
               <span className="text-lg font-black text-[#101b0d]">P</span>
             </div>
             <div className="min-w-0">
@@ -35,7 +35,7 @@ export function AdminLayout({ children, sidebar }: AdminLayoutProps) {
           <Link href="/pos" className="flex-shrink-0">
             <Button
               size="sm"
-              className="bg-[#4bee2b] hover:bg-[#3bd522] text-[#101b0d] font-semibold shadow-md shadow-[#4bee2b]/30"
+              className="bg-[#259783] hover:bg-[#3bd522] text-white font-semibold shadow-md shadow-[#259783]/30"
             >
               <ShoppingCart className="w-4 h-4 mr-2" />
               POS
@@ -87,11 +87,11 @@ export function AdminLayout({ children, sidebar }: AdminLayoutProps) {
       <AdminBottomNav />
       
       {/* Mobile Download Button - Above bottom nav */}
-      <div className="fixed bottom-20 right-4 z-40 md:hidden">
+      <div className="fixed bottom-25 right-4 z-40 md:hidden">
         <DownloadButton
-          variant="default"
+          variant="outline"
           size="sm"
-          className="bg-[#4bee2b] hover:bg-[#3bd522] text-[#101b0d] font-semibold shadow-lg shadow-[#4bee2b]/30 rounded-full px-4"
+          className="border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700"
         />
       </div>
     </div>

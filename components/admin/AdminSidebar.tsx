@@ -67,7 +67,7 @@ export function AdminSidebar() {
             <div
               className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
                 active
-                  ? 'bg-[#4bee2b] shadow-md shadow-[#4bee2b]/20'
+                  ? 'bg-[#259783] shadow-md shadow-[#259783]/20 text-white'
                   : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'
               }`}
             >
@@ -81,7 +81,7 @@ export function AdminSidebar() {
                 <Icon
                   className={`w-[18px] h-[18px] transition-colors ${
                     active
-                      ? 'text-[#101b0d]'
+                      ? 'text-white'
                       : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300'
                   }`}
                 />
@@ -89,21 +89,21 @@ export function AdminSidebar() {
               <div className="flex-1 min-w-0">
                 <p
                   className={`text-sm font-semibold truncate ${
-                    active ? 'text-[#101b0d]' : 'text-slate-700 dark:text-slate-300'
+                    active ? 'text-white' : 'text-slate-700 dark:text-slate-300'
                   }`}
                 >
                   {item.label}
                 </p>
                 <p
                   className={`text-[10px] truncate ${
-                    active ? 'text-[#101b0d]/60' : 'text-slate-400 dark:text-slate-500'
+                    active ? 'text-white/80' : 'text-slate-400 dark:text-slate-500'
                   }`}
                 >
                   {item.description}
                 </p>
               </div>
               {active && (
-                <ChevronRight className="w-4 h-4 text-[#101b0d]/50" />
+                <ChevronRight className="w-4 h-4 text-white/70" />
               )}
             </div>
           </Link>
