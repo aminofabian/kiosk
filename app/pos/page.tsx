@@ -25,6 +25,7 @@ import {
   Package,
   ArrowLeft,
   Layers,
+  LogOut,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Item } from '@/lib/db/types';
@@ -33,6 +34,7 @@ import { getItemImage } from '@/lib/utils/item-images';
 import { DownloadButton } from '@/components/DownloadButton';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { Settings } from 'lucide-react';
+import { signOut } from 'next-auth/react';
 
 const CATEGORY_IMAGE_MAP: Record<string, string> = {
   Vegetables: '/images/vegetables.jpeg',
@@ -317,13 +319,23 @@ export default function POSPage() {
               <h1 className="text-xl font-extrabold tracking-tight uppercase text-[#101b0d]/80 dark:text-[#259783]/90">
                 Kiosk POS
               </h1>
-              <button
-                aria-label="Search"
-                onClick={() => setShowSearch(!showSearch)}
-                className="flex size-12 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform"
-              >
-                <Search className="w-7 h-7" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  aria-label="Search"
+                  onClick={() => setShowSearch(!showSearch)}
+                  className="flex size-12 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform"
+                >
+                  <Search className="w-7 h-7" />
+                </button>
+                <button
+                  aria-label="Logout"
+                  onClick={() => signOut({ callbackUrl: '/pos/login' })}
+                  className="flex size-12 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform"
+                  title="Logout"
+                >
+                  <LogOut className="w-7 h-7" />
+                </button>
+              </div>
             </header>
 
             {showSearch && (
@@ -500,7 +512,14 @@ export default function POSPage() {
               <h1 className="text-xl font-bold text-[#101b0d] dark:text-[#f0fdf4]">
                 {selectedCategory?.name || 'Category'}
               </h1>
-              <div className="w-12"></div>
+              <button
+                aria-label="Logout"
+                onClick={() => signOut({ callbackUrl: '/pos/login' })}
+                className="flex size-12 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform"
+                title="Logout"
+              >
+                <LogOut className="w-7 h-7" />
+              </button>
             </header>
 
             <div className="px-4 pb-4 bg-[#f6f8f6] dark:bg-[#132210] sticky top-[72px] z-20">
@@ -691,6 +710,16 @@ export default function POSPage() {
                   size="sm"
                   className="hidden lg:flex bg-white hover:bg-[#259783]/10 border-gray-200 hover:border-[#259783]"
                 />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => signOut({ callbackUrl: '/pos/login' })}
+                  className="hidden sm:flex bg-white hover:bg-red-50 border-gray-200 hover:border-red-300 text-gray-700 hover:text-red-600"
+                  title="Logout"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  <span className="hidden md:inline">Logout</span>
+                </Button>
                 <Link href="/pos/cart">
                   <Button
                     variant="outline"
