@@ -28,7 +28,11 @@ export function CheckoutForm() {
   const isValid =
     paymentMethod === 'credit'
       ? total > 0 && customerName.trim().length > 0
-      : cashAmount >= total && total > 0;
+      : paymentMethod === 'cash'
+        ? cashAmount >= total && total > 0
+        : paymentMethod === 'mpesa'
+          ? total > 0
+          : false;
 
   const formatPrice = (price: number) => {
     return `KES ${price.toFixed(0)}`;
@@ -45,8 +49,10 @@ export function CheckoutForm() {
     if (!isValid) {
       if (paymentMethod === 'credit') {
         setError('Please enter customer name');
-      } else {
+      } else if (paymentMethod === 'cash') {
         setError('Please enter a valid cash amount');
+      } else {
+        setError('Please ensure order total is valid');
       }
       return;
     }
@@ -205,14 +211,6 @@ export function CheckoutForm() {
                   onCustomerNameChange={setCustomerName}
                   onCustomerPhoneChange={setCustomerPhone}
                 />
-              )}
-
-              {paymentMethod === 'mpesa' && (
-                <div className="p-4 bg-muted rounded-lg text-center">
-                  <p className="text-muted-foreground">
-                    M-Pesa payment confirmation will be handled here
-                  </p>
-                </div>
               )}
 
               {error && (
