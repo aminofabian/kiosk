@@ -89,6 +89,7 @@ export default function CategoriesPage() {
         <div className="p-6">
           <CategoryForm
             category={editingCategory}
+            existingCategories={categories}
             onClose={handleClose}
             onSuccess={handleSuccess}
           />

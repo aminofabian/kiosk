@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import type { Category } from '@/lib/db/types';
 import {
   Drawer,
   DrawerContent,
@@ -114,6 +115,22 @@ export default function AdminDashboardPage() {
   const { user } = useCurrentUser();
   const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
   const [itemDrawerOpen, setItemDrawerOpen] = useState(false);
+  const [existingCategories, setExistingCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    if (categoryDrawerOpen) {
+      fetch('/api/categories')
+        .then(res => res.json())
+        .then(result => {
+          if (result.success) {
+            setExistingCategories(result.data);
+          }
+        })
+        .catch(() => {
+          setExistingCategories([]);
+        });
+    }
+  }, [categoryDrawerOpen]);
 
   const visibleButtons = ACTION_BUTTONS.filter((button) => {
     if (!button.roles) return true;
@@ -182,6 +199,7 @@ export default function AdminDashboardPage() {
           <div className="overflow-y-auto px-6 pb-6 flex-1 bg-slate-50/50 dark:bg-slate-900/50">
             <CategoryForm
               category={null}
+              existingCategories={existingCategories}
               onClose={() => setCategoryDrawerOpen(false)}
               onSuccess={() => setCategoryDrawerOpen(false)}
             />

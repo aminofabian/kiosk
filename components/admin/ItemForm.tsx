@@ -6,7 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Package, Layers } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, Package, Layers, ShoppingCart, DollarSign, Box, AlertCircle, Info, Sparkles, Grid3x3 } from 'lucide-react';
 import type { Category, Item } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
 
@@ -347,51 +349,110 @@ export function ItemForm({
   const isEditingExistingItem = !!itemId;
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="max-w-2xl mx-auto py-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
         {/* Mode Selection - only show for new items and not when creating variant for a parent */}
         {!isEditingExistingItem && !parentItemId && (
           <div className="space-y-3">
-            <Label>Item Type</Label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="flex items-center gap-2">
+              <Package className="h-4 w-4 text-muted-foreground" />
+              <Label className="text-base font-semibold">What type of product is this?</Label>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
                 type="button"
                 onClick={() => setMode('standalone')}
-                className={`p-3 rounded-lg border-2 text-left transition-all ${
-                  mode === 'standalone'
-                    ? 'border-[#259783] bg-[#259783]/10'
-                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
-                }`}
+                disabled={isSubmitting}
+                className={`
+                  relative p-4 rounded-lg border-2 transition-all duration-200 text-left
+                  hover:shadow-md group
+                  ${mode === 'standalone'
+                    ? 'border-[#259783] bg-[#259783]/5 dark:bg-[#259783]/10 shadow-sm'
+                    : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
+                  }
+                  ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                `}
               >
-                <Package className="h-5 w-5 mb-1 text-slate-600 dark:text-slate-400" />
-                <p className="text-sm font-medium">Standalone</p>
-                <p className="text-xs text-slate-500">Single item</p>
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900/30">
+                    <Package className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm mb-1">Single Product</p>
+                    <p className="text-xs text-muted-foreground">
+                      A regular item you sell (e.g., "Tomatoes", "Milk")
+                    </p>
+                  </div>
+                </div>
+                {mode === 'standalone' && (
+                  <div className="absolute top-2 right-2">
+                    <div className="h-2 w-2 rounded-full bg-[#259783] animate-pulse" />
+                  </div>
+                )}
               </button>
+              
               <button
                 type="button"
                 onClick={() => setMode('parent')}
-                className={`p-3 rounded-lg border-2 text-left transition-all ${
-                  mode === 'parent'
-                    ? 'border-[#259783] bg-[#259783]/10'
-                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
-                }`}
+                disabled={isSubmitting}
+                className={`
+                  relative p-4 rounded-lg border-2 transition-all duration-200 text-left
+                  hover:shadow-md group
+                  ${mode === 'parent'
+                    ? 'border-purple-500 bg-purple-500/5 dark:bg-purple-500/10 shadow-sm'
+                    : 'border-border bg-card hover:border-purple-500/50 hover:bg-accent/50'
+                  }
+                  ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                `}
               >
-                <Layers className="h-5 w-5 mb-1 text-purple-500" />
-                <p className="text-sm font-medium">Parent</p>
-                <p className="text-xs text-slate-500">Has variants</p>
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-md bg-purple-100 dark:bg-purple-900/30">
+                    <Layers className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm mb-1">Product with Variants</p>
+                    <p className="text-xs text-muted-foreground">
+                      Has different sizes/types (e.g., "Beans" → Big, Small)
+                    </p>
+                  </div>
+                </div>
+                {mode === 'parent' && (
+                  <div className="absolute top-2 right-2">
+                    <div className="h-2 w-2 rounded-full bg-purple-500 animate-pulse" />
+                  </div>
+                )}
               </button>
+              
               <button
                 type="button"
                 onClick={() => setMode('variant')}
-                className={`p-3 rounded-lg border-2 text-left transition-all ${
-                  mode === 'variant'
-                    ? 'border-[#259783] bg-[#259783]/10'
-                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300'
-                }`}
+                disabled={isSubmitting}
+                className={`
+                  relative p-4 rounded-lg border-2 transition-all duration-200 text-left
+                  hover:shadow-md group
+                  ${mode === 'variant'
+                    ? 'border-blue-500 bg-blue-500/5 dark:bg-blue-500/10 shadow-sm'
+                    : 'border-border bg-card hover:border-blue-500/50 hover:bg-accent/50'
+                  }
+                  ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                `}
               >
-                <Layers className="h-5 w-5 mb-1 text-blue-500" />
-                <p className="text-sm font-medium">Variant</p>
-                <p className="text-xs text-slate-500">Add to parent</p>
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900/30">
+                    <Layers className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm mb-1">Add Variant</p>
+                    <p className="text-xs text-muted-foreground">
+                      Add size/type to existing product
+                    </p>
+                  </div>
+                </div>
+                {mode === 'variant' && (
+                  <div className="absolute top-2 right-2">
+                    <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                  </div>
+                )}
               </button>
             </div>
           </div>
@@ -399,305 +460,514 @@ export function ItemForm({
 
         {/* Variant-specific: Parent selection */}
         {mode === 'variant' && !parentItemId && (
-          <div className="space-y-2">
-            <Label htmlFor="parent">Parent Item *</Label>
-            <Select value={selectedParentId} onValueChange={(v) => {
-              setSelectedParentId(v);
-              const parent = parentItems.find(p => p.id === v);
-              if (parent) {
-                setCategoryId(parent.category_id);
-              }
-            }}>
-              <SelectTrigger className="h-12 touch-target">
-                <SelectValue placeholder="Select parent item" />
-              </SelectTrigger>
-              <SelectContent>
-                {parentItems.length === 0 ? (
-                  <p className="p-2 text-sm text-slate-500">No parent items. Create one first.</p>
-                ) : (
-                  parentItems.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.name}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </div>
+          <>
+            <Separator />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Layers className="h-4 w-4 text-muted-foreground" />
+                <Label htmlFor="parent" className="text-base font-semibold">Which product is this a variant of? *</Label>
+              </div>
+              <Select 
+                value={selectedParentId} 
+                onValueChange={(v) => {
+                  setSelectedParentId(v);
+                  const parent = parentItems.find(p => p.id === v);
+                  if (parent) {
+                    setCategoryId(parent.category_id);
+                  }
+                }}
+                disabled={isSubmitting}
+              >
+                <SelectTrigger className="h-12">
+                  <SelectValue placeholder="Choose the main product..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {parentItems.length === 0 ? (
+                    <div className="p-4 text-center">
+                      <p className="text-sm text-muted-foreground mb-2">No products with variants found.</p>
+                      <p className="text-xs text-muted-foreground">Create a "Product with Variants" first.</p>
+                    </div>
+                  ) : (
+                    parentItems.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          </>
         )}
 
         {/* Variant Name (for variants) */}
         {mode === 'variant' && (
           <div className="space-y-2">
-            <Label htmlFor="variantName">Variant Name *</Label>
+            <Label htmlFor="variantName" className="text-base font-semibold">
+              What's the variant name? *
+            </Label>
             <Input
               id="variantName"
               value={variantName}
               onChange={(e) => setVariantName(e.target.value)}
-              placeholder="e.g., Big, Small, Red Kidney"
+              placeholder="e.g., Big, Small, Red Kidney, 500g"
               required
-              className="h-12 touch-target"
+              disabled={isSubmitting}
+              className="h-12 text-base focus-visible:ring-[#259783]"
             />
-            <p className="text-xs text-muted-foreground">
-              This will be combined with parent name (e.g., "Tomatoes - Big")
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <Info className="h-3 w-3" />
+              This will appear as "{selectedParentId ? parentItems.find(p => p.id === selectedParentId)?.name || 'Product' : 'Product'} - {variantName || 'Variant'}"
             </p>
           </div>
         )}
 
-        {/* Category Selection - show first */}
-        <div className="space-y-2">
-          <Label htmlFor="category">Category *</Label>
-          <Select 
-            value={isCustomCategory ? 'custom' : categoryId} 
-            onValueChange={(value) => {
-              if (value === 'custom') {
-                setIsCustomCategory(true);
-                setCategoryId('');
-                setCustomCategoryName('');
-              } else {
-                setIsCustomCategory(false);
-                setCategoryId(value);
-                // Reset item name selection when category changes
-                setSelectedItemSuggestion('');
-                setIsCustomItemName(true);
-                setName('');
-              }
-            }}
-            disabled={mode === 'variant' && !!parentItemId}
-          >
-            <SelectTrigger className="h-12 touch-target">
-              <SelectValue placeholder="Select category" />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map((category) => (
-                <SelectItem key={category.id} value={category.id}>
-                  {category.name}
+        <Separator />
+
+        {/* Category Selection */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Grid3x3 className="h-4 w-4 text-muted-foreground" />
+            <Label className="text-base font-semibold">Which category does this belong to? *</Label>
+          </div>
+          
+          {categories.length > 0 && !isCustomCategory ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {categories.map((category) => {
+                const isSelected = categoryId === category.id;
+                return (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() => {
+                      setCategoryId(category.id);
+                      setIsCustomCategory(false);
+                      setCustomCategoryName('');
+                      // Reset item name selection when category changes
+                      setSelectedItemSuggestion('');
+                      setIsCustomItemName(true);
+                      setName('');
+                    }}
+                    disabled={isSubmitting || (mode === 'variant' && !!parentItemId)}
+                    className={`
+                      relative p-3 rounded-lg border-2 transition-all duration-200
+                      text-left hover:shadow-sm
+                      ${isSelected 
+                        ? 'border-[#259783] bg-[#259783]/5 dark:bg-[#259783]/10 shadow-sm' 
+                        : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
+                      }
+                      ${isSubmitting || (mode === 'variant' && !!parentItemId) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                    `}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">{category.icon || '📦'}</span>
+                      <span className="font-medium text-sm flex-1">{category.name}</span>
+                    </div>
+                    {isSelected && (
+                      <div className="absolute top-1.5 right-1.5">
+                        <div className="h-1.5 w-1.5 rounded-full bg-[#259783] animate-pulse" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCustomCategory(true);
+                  setCategoryId('');
+                  setCustomCategoryName('');
+                }}
+                disabled={isSubmitting || (mode === 'variant' && !!parentItemId)}
+                className={`
+                  relative p-3 rounded-lg border-2 border-dashed transition-all duration-200
+                  text-left hover:shadow-sm
+                  ${isCustomCategory
+                    ? 'border-[#259783] bg-[#259783]/5 dark:bg-[#259783]/10 shadow-sm'
+                    : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
+                  }
+                  ${isSubmitting || (mode === 'variant' && !!parentItemId) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                `}
+              >
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-muted-foreground" />
+                  <span className="font-medium text-sm">New Category</span>
+                </div>
+                {isCustomCategory && (
+                  <div className="absolute top-1.5 right-1.5">
+                    <div className="h-1.5 w-1.5 rounded-full bg-[#259783] animate-pulse" />
+                  </div>
+                )}
+              </button>
+            </div>
+          ) : (
+            <Select 
+              value={isCustomCategory ? 'custom' : categoryId} 
+              onValueChange={(value) => {
+                if (value === 'custom') {
+                  setIsCustomCategory(true);
+                  setCategoryId('');
+                  setCustomCategoryName('');
+                } else {
+                  setIsCustomCategory(false);
+                  setCategoryId(value);
+                  setSelectedItemSuggestion('');
+                  setIsCustomItemName(true);
+                  setName('');
+                }
+              }}
+              disabled={isSubmitting || (mode === 'variant' && !!parentItemId)}
+            >
+              <SelectTrigger className="h-12">
+                <SelectValue placeholder="Choose a category..." />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    <div className="flex items-center gap-2">
+                      <span>{category.icon || '📦'}</span>
+                      <span>{category.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+                <SelectItem value="custom">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    <span>Create New Category</span>
+                  </div>
                 </SelectItem>
-              ))}
-              <SelectItem value="custom">+ Add New Category</SelectItem>
-            </SelectContent>
-          </Select>
+              </SelectContent>
+            </Select>
+          )}
+          
           {isCustomCategory && (
-            <div className="mt-2">
+            <div className="mt-2 p-4 rounded-lg bg-muted/50 border">
+              <Label htmlFor="customCategory" className="text-sm font-medium mb-2 block">
+                New Category Name
+              </Label>
               <Input
+                id="customCategory"
                 value={customCategoryName}
                 onChange={(e) => setCustomCategoryName(e.target.value)}
-                placeholder="Enter new category name"
-                className="h-12 touch-target"
+                placeholder="e.g., Electronics, Stationery"
+                disabled={isSubmitting}
+                className="h-11 focus-visible:ring-[#259783]"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                A new category will be created with this name
+              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                <Info className="h-3 w-3" />
+                A new category will be created automatically
               </p>
             </div>
           )}
         </div>
 
-        {/* Item Name (for standalone and parent modes) - show after category */}
+        <Separator />
+
+        {/* Item Name (for standalone and parent modes) */}
         {mode !== 'variant' && (
-          <div className="space-y-2">
-            <Label htmlFor="name">
-              {mode === 'parent' ? 'Product Name *' : 'Item Name *'}
-            </Label>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+              <Label htmlFor="name" className="text-base font-semibold">
+                What's the product name? *
+              </Label>
+            </div>
             
-            {/* Show dropdown if category is selected and we have suggestions (only for new items) */}
+            {/* Show suggestions if category is selected and we have suggestions (only for new items) */}
             {!itemId && categoryId && categoryId !== '' && !isCustomCategory && (() => {
               const categoryName = categories.find(c => c.id === categoryId)?.name || '';
               const suggestions = CATEGORY_ITEM_SUGGESTIONS[categoryName];
               return suggestions && suggestions.length > 0;
             })() && (
               <div className="space-y-2">
-                <Select
-                  value={selectedItemSuggestion || ''}
-                  onValueChange={(value) => {
-                    if (value === 'custom') {
+                <p className="text-sm text-muted-foreground">Quick pick from common items:</p>
+                <div className="flex flex-wrap gap-2">
+                  {CATEGORY_ITEM_SUGGESTIONS[categories.find(c => c.id === categoryId)?.name || '']?.slice(0, 8).map((itemName) => {
+                    const isSelected = selectedItemSuggestion === itemName && !isCustomItemName;
+                    return (
+                      <button
+                        key={itemName}
+                        type="button"
+                        onClick={() => {
+                          setIsCustomItemName(false);
+                          setSelectedItemSuggestion(itemName);
+                          setName(itemName);
+                        }}
+                        disabled={isSubmitting}
+                        className={`
+                          px-3 py-1.5 rounded-lg border text-sm transition-all
+                          ${isSelected
+                            ? 'border-[#259783] bg-[#259783]/10 text-[#259783] font-medium'
+                            : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
+                          }
+                          ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                        `}
+                      >
+                        {itemName}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => {
                       setIsCustomItemName(true);
                       setSelectedItemSuggestion('');
-                    } else {
-                      setIsCustomItemName(false);
-                      setSelectedItemSuggestion(value);
-                      setName(value);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="h-12 touch-target">
-                    <SelectValue placeholder="Select common item name or choose custom" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORY_ITEM_SUGGESTIONS[categories.find(c => c.id === categoryId)?.name || '']?.map((itemName) => (
-                      <SelectItem key={itemName} value={itemName}>
-                        {itemName}
-                      </SelectItem>
-                    ))}
-                    <SelectItem value="custom">Custom (Enter new name)</SelectItem>
-                  </SelectContent>
-                </Select>
+                      setName('');
+                    }}
+                    disabled={isSubmitting}
+                    className={`
+                      px-3 py-1.5 rounded-lg border-2 border-dashed text-sm transition-all
+                      ${isCustomItemName
+                        ? 'border-[#259783] bg-[#259783]/10 text-[#259783] font-medium'
+                        : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
+                      }
+                      ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                    `}
+                  >
+                    <Sparkles className="h-3 w-3 inline mr-1" />
+                    Custom
+                  </button>
+                </div>
               </div>
             )}
             
-            {/* Always show input field, but show selected value if a suggestion was chosen */}
+            {/* Input field */}
             {selectedItemSuggestion && !isCustomItemName ? (
-              <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-                <p className="text-sm">
-                  <span className="text-muted-foreground">Selected:</span>{' '}
-                  <strong>{selectedItemSuggestion}</strong>
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsCustomItemName(true);
-                    setSelectedItemSuggestion('');
-                    setName('');
-                  }}
-                  className="text-xs text-primary hover:underline mt-1"
-                >
-                  Change to custom name
-                </button>
+              <div className="p-4 rounded-lg bg-muted/50 border">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Selected:</p>
+                    <p className="font-semibold text-base">{selectedItemSuggestion}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCustomItemName(true);
+                      setSelectedItemSuggestion('');
+                      setName('');
+                    }}
+                    disabled={isSubmitting}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Change
+                  </button>
+                </div>
               </div>
             ) : (
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g., Tomatoes"
+                placeholder={mode === 'parent' ? 'e.g., Beans, Rice, Flour' : 'e.g., Tomatoes, Milk, Bread'}
                 required
-                className="h-12 touch-target"
-                disabled={!!selectedItemSuggestion && !isCustomItemName}
+                disabled={isSubmitting}
+                className="h-12 text-base focus-visible:ring-[#259783]"
               />
             )}
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Unit Type - only for non-parent items */}
-          {mode !== 'parent' && (
-            <div className="space-y-2">
-              <Label htmlFor="unit">Unit Type *</Label>
-              <Select value={unitType} onValueChange={(v) => setUnitType(v as UnitType)}>
-                <SelectTrigger className="h-12 touch-target">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="kg">Kilogram (kg)</SelectItem>
-                  <SelectItem value="g">Gram (g)</SelectItem>
-                  <SelectItem value="piece">Piece</SelectItem>
-                  <SelectItem value="bunch">Bunch</SelectItem>
-                  <SelectItem value="tray">Tray</SelectItem>
-                  <SelectItem value="litre">Litre (L)</SelectItem>
-                  <SelectItem value="ml">Millilitre (ml)</SelectItem>
-                </SelectContent>
-              </Select>
+        <Separator />
+
+        {/* Unit Type - only for non-parent items */}
+        {mode !== 'parent' && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Box className="h-4 w-4 text-muted-foreground" />
+              <Label htmlFor="unit" className="text-base font-semibold">How do you sell this? *</Label>
             </div>
-          )}
-        </div>
+            <Select 
+              value={unitType} 
+              onValueChange={(v) => setUnitType(v as UnitType)}
+              disabled={isSubmitting}
+            >
+              <SelectTrigger className="h-12">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="piece">By Piece (1, 2, 3...)</SelectItem>
+                <SelectItem value="kg">By Kilogram (kg)</SelectItem>
+                <SelectItem value="g">By Gram (g)</SelectItem>
+                <SelectItem value="bunch">By Bunch</SelectItem>
+                <SelectItem value="tray">By Tray</SelectItem>
+                <SelectItem value="litre">By Litre (L)</SelectItem>
+                <SelectItem value="ml">By Millilitre (ml)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <Info className="h-3 w-3" />
+              This determines how you measure and price the product
+            </p>
+          </div>
+        )}
 
         {/* Stock and Price fields - only for non-parent items */}
         {mode !== 'parent' && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Only show stock input for NEW items - editing stock is done via purchases */}
-              {!itemId ? (
+            <Separator />
+            
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <Label className="text-base font-semibold">Pricing & Stock Information</Label>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Selling Price */}
                 <div className="space-y-2">
-                  <Label htmlFor="stock">Initial Stock ({unitType})</Label>
+                  <Label htmlFor="price" className="text-sm font-medium">
+                    Selling Price (KES) *
+                  </Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">KES</span>
+                    <Input
+                      id="price"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={sellPrice}
+                      onChange={(e) => setSellPrice(e.target.value)}
+                      placeholder="0.00"
+                      required
+                      disabled={isSubmitting}
+                      className="h-12 pl-12 text-base focus-visible:ring-[#259783]"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    How much you sell 1 {unitType} for
+                  </p>
+                </div>
+
+                {/* Buying Price */}
+                <div className="space-y-2">
+                  <Label htmlFor="buyPrice" className="text-sm font-medium">
+                    Buying Price (KES)
+                    <span className="text-xs font-normal text-muted-foreground ml-1">(Optional)</span>
+                  </Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">KES</span>
+                    <Input
+                      id="buyPrice"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={buyPrice}
+                      onChange={(e) => setBuyPrice(e.target.value)}
+                      placeholder="0.00"
+                      disabled={isSubmitting}
+                      className="h-12 pl-12 text-base focus-visible:ring-[#259783]"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    How much you buy 1 {unitType} for
+                  </p>
+                </div>
+              </div>
+
+              {/* Stock Information */}
+              <div className="p-4 rounded-lg bg-muted/30 border space-y-4">
+                {!itemId ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="stock" className="text-sm font-medium">
+                      Starting Stock ({unitType})
+                      <span className="text-xs font-normal text-muted-foreground ml-1">(Optional)</span>
+                    </Label>
+                    <Input
+                      id="stock"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={initialStock}
+                      onChange={(e) => setInitialStock(e.target.value)}
+                      placeholder="0.00"
+                      disabled={isSubmitting}
+                      className="h-12 text-base focus-visible:ring-[#259783]"
+                    />
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Info className="h-3 w-3" />
+                      How many {unitType}s you have right now (leave 0 if none)
+                    </p>
+                    {parseFloat(initialStock) > 0 && !buyPrice && (
+                      <div className="p-2 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                        <p className="text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          Add buying price if you have stock
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Current Stock ({unitType})</Label>
+                    <div className="h-12 px-4 flex items-center bg-background rounded-md border border-border">
+                      <span className="text-foreground font-semibold text-lg">
+                        {initialData?.current_stock?.toFixed(2) || '0.00'} {unitType}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Info className="h-3 w-3" />
+                      Update stock by adding purchases
+                    </p>
+                  </div>
+                )}
+
+                {/* Min Stock Level */}
+                <div className="space-y-2">
+                  <Label htmlFor="minStock" className="text-sm font-medium">
+                    Low Stock Alert ({unitType})
+                    <span className="text-xs font-normal text-muted-foreground ml-1">(Optional)</span>
+                  </Label>
                   <Input
-                    id="stock"
+                    id="minStock"
                     type="number"
                     step="0.01"
                     min="0"
-                    value={initialStock}
-                    onChange={(e) => setInitialStock(e.target.value)}
-                    placeholder="0.00"
-                    className="h-12 touch-target"
+                    value={minStockLevel}
+                    onChange={(e) => setMinStockLevel(e.target.value)}
+                    placeholder="Leave empty for no alert"
+                    disabled={isSubmitting}
+                    className="h-12 text-base focus-visible:ring-[#259783]"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Starting stock level (default: 0)
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Info className="h-3 w-3" />
+                    Get notified when stock goes below this amount
                   </p>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  <Label>Current Stock ({unitType})</Label>
-                  <div className="h-12 px-3 flex items-center bg-slate-100 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700">
-                    <span className="text-slate-600 dark:text-slate-300 font-medium">
-                      {initialData?.current_stock?.toFixed(2) || '0.00'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Stock is managed via Purchases
-                  </p>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="buyPrice">Buying Price (KES)</Label>
-                <Input
-                  id="buyPrice"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={buyPrice}
-                  onChange={(e) => setBuyPrice(e.target.value)}
-                  placeholder="0.00"
-                  className="h-12 touch-target"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Cost per {unitType} (required if stock &gt; 0)
-                </p>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="price">Selling Price (KES) *</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={sellPrice}
-                  onChange={(e) => setSellPrice(e.target.value)}
-                  placeholder="0.00"
-                  required
-                  className="h-12 touch-target"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Price per {unitType}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="minStock">Min Stock Level ({unitType})</Label>
-              <Input
-                id="minStock"
-                type="number"
-                step="0.01"
-                min="0"
-                value={minStockLevel}
-                onChange={(e) => setMinStockLevel(e.target.value)}
-                placeholder="Leave empty for no alert"
-                className="h-12 touch-target"
-              />
-              <p className="text-xs text-muted-foreground">
-                Alert when stock falls below this level (optional)
-              </p>
             </div>
           </>
         )}
 
         {/* Parent mode info */}
         {mode === 'parent' && (
-          <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-100 dark:border-purple-800/30">
-            <p className="text-sm text-purple-700 dark:text-purple-300">
-              <strong>Parent items</strong> are containers for variants. They don&apos;t have their own stock or price. 
-              After creating, you can add variants like "Big", "Small", or "Red Kidney".
-            </p>
-          </div>
+          <>
+            <Separator />
+            <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800/30">
+              <div className="flex items-start gap-3">
+                <Info className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-purple-900 dark:text-purple-100">
+                    Product with Variants
+                  </p>
+                  <p className="text-sm text-purple-700 dark:text-purple-300">
+                    This product will have different sizes or types. After creating it, you can add variants like "Big", "Small", or "Red Kidney" with their own prices and stock.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </>
         )}
 
         {error && (
-          <div className="p-3 bg-destructive/10 text-destructive rounded-md text-sm">
-            {error}
+          <div className="p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg flex items-start gap-2">
+            <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+            <span className="text-sm">{error}</span>
           </div>
         )}
 
-        <div className="flex gap-3 pt-4">
+        <Separator />
+
+        <div className="flex gap-3 pt-2">
           <Button
             type="button"
             variant="outline"
@@ -708,28 +978,26 @@ export function ItemForm({
                 router.push('/admin/items');
               }
             }}
-            size="touch"
-            className="flex-1"
+            className="flex-1 h-11"
             disabled={isSubmitting}
           >
             Cancel
           </Button>
           <Button
             type="submit"
-            size="touch"
             disabled={isSubmitting}
-            className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600"
+            className="flex-1 h-11 bg-[#259783] hover:bg-[#45d827] text-white font-semibold shadow-md shadow-[#259783]/20"
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Saving...
               </>
             ) : (
-              itemId ? 'Update Item' : 
-              mode === 'parent' ? 'Create Parent Item' :
-              mode === 'variant' ? 'Create Variant' :
-              'Create Item'
+              itemId ? 'Update Product' : 
+              mode === 'parent' ? 'Create Product' :
+              mode === 'variant' ? 'Add Variant' :
+              'Create Product'
             )}
           </Button>
         </div>

@@ -947,6 +947,7 @@ export default function ItemsPage() {
             <div className="overflow-y-auto px-6 pb-6 flex-1 bg-slate-50/50 dark:bg-slate-900/50">
               <CategoryForm
                 category={editingCategory}
+                existingCategories={categories}
                 onClose={() => {
                   setCategoryDrawerOpen(false);
                   setEditingCategory(null);

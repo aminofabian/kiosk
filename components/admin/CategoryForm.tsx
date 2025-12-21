@@ -11,6 +11,7 @@ import type { Category } from '@/lib/db/types';
 
 interface CategoryFormProps {
   category?: Category | null;
+  existingCategories?: Category[];
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -45,8 +46,17 @@ const CATEGORY_EMOJIS: Record<string, string[]> = {
   'Canned Goods': ['🥫', '🥫', '🥫', '🍯', '🥫'],
 };
 
-export function CategoryForm({ category, onClose, onSuccess }: CategoryFormProps) {
+export function CategoryForm({ category, existingCategories = [], onClose, onSuccess }: CategoryFormProps) {
   const isEditing = !!category;
+  
+  const existingCategoryNames = new Set(
+    existingCategories.map(cat => cat.name.toLowerCase().trim())
+  );
+  
+  const availableCategories = COMMON_CATEGORIES.filter(
+    cat => !existingCategoryNames.has(cat.toLowerCase().trim())
+  );
+  
   const [selectedCategory, setSelectedCategory] = useState<string>(
     category?.name || 'custom'
   );
@@ -134,7 +144,7 @@ export function CategoryForm({ category, onClose, onSuccess }: CategoryFormProps
               <Label className="text-base font-semibold">Choose a Category</Label>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {COMMON_CATEGORIES.map((cat) => {
+              {availableCategories.map((cat) => {
                 const isSelected = selectedCategory === cat;
                 const emoji = CATEGORY_EMOJIS[cat]?.[0] || '📦';
                 return (
