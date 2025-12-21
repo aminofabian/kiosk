@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { CategoryList } from '@/components/admin/CategoryList';
@@ -8,7 +8,7 @@ import { CategoryForm } from '@/components/admin/CategoryForm';
 import { Loader2 } from 'lucide-react';
 import type { Category } from '@/lib/db/types';
 
-export default function CategoriesPage() {
+function CategoriesPageContent() {
   const searchParams = useSearchParams();
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -127,5 +127,25 @@ export default function CategoriesPage() {
         )}
       </div>
     </AdminLayout>
+  );
+}
+
+function LoadingFallback() {
+  return (
+    <AdminLayout>
+      <div className="p-6">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    </AdminLayout>
+  );
+}
+
+export default function CategoriesPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <CategoriesPageContent />
+    </Suspense>
   );
 }
