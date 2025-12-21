@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Loader2 } from 'lucide-react';
 import type { Shift } from '@/lib/db/types';
+import { apiGet, apiPost } from '@/lib/utils/api-client';
 
 interface ShiftCloseFormProps {
   shift: Shift;
@@ -28,10 +29,12 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
   useEffect(() => {
     async function fetchSalesSummary() {
       try {
-        const response = await fetch(`/api/shifts/${shift.id}/summary`);
-        const result = await response.json();
+        const result = await apiGet<{
+          sales: { count: number; total: number };
+          creditPayments: { count: number; total: number };
+        }>(`/api/shifts/${shift.id}/summary`);
         if (result.success) {
-          setSalesSummary(result.data);
+          setSalesSummary(result.data ?? null);
         }
       } catch (err) {
         console.error('Error fetching sales summary:', err);
@@ -70,17 +73,9 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`/api/shifts/${shift.id}/close`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          actualClosingCash: actualAmount,
-        }),
+      const result = await apiPost(`/api/shifts/${shift.id}/close`, {
+        actualClosingCash: actualAmount,
       });
-
-      const result = await response.json();
 
       if (result.success) {
         router.push('/pos');

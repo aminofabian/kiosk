@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, User, Loader2, CreditCard, CheckCircle } from 'lucide-react';
 import type { CreditAccount } from '@/lib/db/types';
 import { SearchFilterSection } from './SearchFilterSection';
+import { apiGet } from '@/lib/utils/api-client';
 
 export function CreditList() {
   const [accounts, setAccounts] = useState<CreditAccount[]>([]);
@@ -20,11 +21,10 @@ export function CreditList() {
     async function fetchCredits() {
       try {
         setLoading(true);
-        const response = await fetch('/api/credits');
-        const result = await response.json();
+        const result = await apiGet<CreditAccount[]>('/api/credits');
 
         if (result.success) {
-          setAccounts(result.data);
+          setAccounts(result.data ?? []);
         } else {
           setError(result.message || 'Failed to load credits');
         }

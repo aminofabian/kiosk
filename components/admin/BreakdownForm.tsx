@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 import type { PurchaseItem, Item } from '@/lib/db/types';
+import { apiGet, apiPost } from '@/lib/utils/api-client';
 
 interface BreakdownFormProps {
   purchaseItem: PurchaseItem & { item_name?: string; item_unit_type?: string };
@@ -29,10 +30,9 @@ export function BreakdownForm({ purchaseItem, purchaseId }: BreakdownFormProps) 
   useEffect(() => {
     async function fetchItems() {
       try {
-        const response = await fetch('/api/items?all=true');
-        const result = await response.json();
+        const result = await apiGet<Item[]>('/api/items?all=true');
         if (result.success) {
-          setItems(result.data);
+          setItems(result.data ?? []);
         }
       } catch (err) {
         console.error('Error fetching items:', err);
@@ -75,22 +75,14 @@ export function BreakdownForm({ purchaseItem, purchaseId }: BreakdownFormProps) 
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`/api/purchases/${purchaseId}/breakdown`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          purchaseItemId: purchaseItem.id,
-          itemId: itemId === '__none__' ? null : itemId,
-          usableQuantity: parseFloat(usableQuantity),
-          wastageQuantity: parseFloat(wastageQuantity) || 0,
-          buyPricePerUnit: parseFloat(buyPricePerUnit),
-          notes: notes || null,
-        }),
+      const result = await apiPost(`/api/purchases/${purchaseId}/breakdown`, {
+        purchaseItemId: purchaseItem.id,
+        itemId: itemId === '__none__' ? null : itemId,
+        usableQuantity: parseFloat(usableQuantity),
+        wastageQuantity: parseFloat(wastageQuantity) || 0,
+        buyPricePerUnit: parseFloat(buyPricePerUnit),
+        notes: notes || null,
       });
-
-      const result = await response.json();
 
       if (result.success) {
         router.refresh();

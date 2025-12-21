@@ -11,6 +11,11 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Package, Layers, ShoppingCart, DollarSign, Box, AlertCircle, Info, Sparkles, Grid3x3 } from 'lucide-react';
 import type { Category, Item } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
+import { apiGet, apiPost, apiPut } from '@/lib/utils/api-client';
+
+interface ItemWithParentFlag extends Item {
+  isParent?: boolean;
+}
 
 type FormMode = 'standalone' | 'parent' | 'variant';
 
@@ -610,24 +615,21 @@ export function ItemForm({
     async function fetchData() {
       try {
         setLoading(true);
-        const [categoriesRes, parentsRes] = await Promise.all([
-          fetch('/api/categories'),
-          fetch('/api/items?all=true&parentsOnly=true'),
+        const [categoriesResult, parentsResult] = await Promise.all([
+          apiGet<Category[]>('/api/categories'),
+          apiGet<Item[]>('/api/items?all=true&parentsOnly=true'),
         ]);
         
-        const categoriesResult = await categoriesRes.json();
-        const parentsResult = await parentsRes.json();
-        
         if (categoriesResult.success) {
-          setCategories(categoriesResult.data);
+          setCategories(categoriesResult.data ?? []);
         }
         if (parentsResult.success) {
-          setParentItems(parentsResult.data);
+          setParentItems(parentsResult.data ?? []);
         }
         
         // If parentItemId is set, get the parent's category
         if (parentItemId && parentsResult.success) {
-          const parent = parentsResult.data.find((p: Item) => p.id === parentItemId);
+          const parent = (parentsResult.data ?? []).find((p: Item) => p.id === parentItemId);
           if (parent) {
             setCategoryId(parent.category_id);
           }
@@ -635,16 +637,15 @@ export function ItemForm({
         
         // If editing a variant and parent not in list, try to fetch it
         if (itemId && initialData?.parent_item_id && parentsResult.success) {
-          const parent = parentsResult.data.find((p: Item) => p.id === initialData.parent_item_id);
+          const parent = (parentsResult.data ?? []).find((p: Item) => p.id === initialData.parent_item_id);
           if (!parent && initialData.parent_item_id) {
             // Parent not in parents list, try to fetch it directly
             try {
-              const parentRes = await fetch(`/api/items/${initialData.parent_item_id}`);
-              const parentResult = await parentRes.json();
+              const parentResult = await apiGet<ItemWithParentFlag>(`/api/items/${initialData.parent_item_id}`);
               if (parentResult.success && parentResult.data) {
                 // Add to parent items list if it's actually a parent
                 if (parentResult.data.isParent) {
-                  setParentItems(prev => [...prev, parentResult.data]);
+                  setParentItems(prev => [...prev, parentResult.data as Item]);
                 }
               }
             } catch (err) {
@@ -741,13 +742,8 @@ export function ItemForm({
       
       // If custom category, create it first
       if (isCustomCategory && customCategoryName.trim()) {
-        const categoryResponse = await fetch('/api/categories', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: customCategoryName.trim() }),
-        });
+        const categoryResult = await apiPost('/api/categories', { name: customCategoryName.trim() });
         
-        const categoryResult = await categoryResponse.json();
         if (!categoryResult.success) {
           setError(categoryResult.message || 'Failed to create category');
           setIsSubmitting(false);
@@ -755,15 +751,14 @@ export function ItemForm({
         }
         
         // Fetch updated categories to get the new category ID
-        const categoriesRes = await fetch('/api/categories');
-        const categoriesResult = await categoriesRes.json();
+        const categoriesResult = await apiGet<Category[]>('/api/categories');
         if (categoriesResult.success) {
-          const newCategory = categoriesResult.data.find(
+          const newCategory = (categoriesResult.data ?? []).find(
             (cat: Category) => cat.name === customCategoryName.trim()
           );
           if (newCategory) {
             finalCategoryId = newCategory.id;
-            setCategories(categoriesResult.data);
+            setCategories(categoriesResult.data ?? []);
             setIsCustomCategory(false);
             setCategoryId(newCategory.id);
           } else {
@@ -775,7 +770,6 @@ export function ItemForm({
       }
 
       const url = itemId ? `/api/items/${itemId}` : '/api/items';
-      const method = itemId ? 'PUT' : 'POST';
       
       // Get parent name for variant display name
       const parentItem = mode === 'variant' 
@@ -824,26 +818,22 @@ export function ItemForm({
         itemName = name.trim();
       }
 
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: itemName,
-          categoryId: finalCategoryId,
-          unitType,
-          initialStock: mode === 'parent' ? 0 : stock,
-          buyPrice: mode === 'parent' ? null : buy,
-          sellPrice: price,
-          minStockLevel: mode === 'parent' ? null : minStock,
-          isParent: mode === 'parent',
-          parentItemId: mode === 'variant' ? selectedParentId : null,
-          variantName: mode === 'variant' ? variantName.trim() : null,
-        }),
-      });
+      const requestBody = {
+        name: itemName,
+        categoryId: finalCategoryId,
+        unitType,
+        initialStock: mode === 'parent' ? 0 : stock,
+        buyPrice: mode === 'parent' ? null : buy,
+        sellPrice: price,
+        minStockLevel: mode === 'parent' ? null : minStock,
+        isParent: mode === 'parent',
+        parentItemId: mode === 'variant' ? selectedParentId : null,
+        variantName: mode === 'variant' ? variantName.trim() : null,
+      };
 
-      const result = await response.json();
+      const result = itemId 
+        ? await apiPut<Item>(url, requestBody)
+        : await apiPost<Item>(url, requestBody);
 
       if (result.success) {
         if (onSuccess) {

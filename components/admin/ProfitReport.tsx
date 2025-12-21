@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { apiGet } from '@/lib/utils/api-client';
 
 interface ProfitData {
   totalSales: number;
@@ -63,11 +64,10 @@ export function ProfitReport() {
         viewBy,
       });
 
-      const response = await fetch(`/api/reports/profit?${params.toString()}`);
-      const result = await response.json();
+      const result = await apiGet<ProfitData>(`/api/reports/profit?${params.toString()}`);
 
       if (result.success) {
-        setData(result.data);
+        setData(result.data ?? null);
       } else {
         setError(result.message || 'Failed to load profit data');
       }

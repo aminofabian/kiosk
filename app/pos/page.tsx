@@ -34,6 +34,7 @@ import { getItemImage } from '@/lib/utils/item-images';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { Settings } from 'lucide-react';
 import { signOut } from 'next-auth/react';
+import { apiGet } from '@/lib/utils/api-client';
 
 const CATEGORY_IMAGE_MAP: Record<string, string> = {
   Vegetables: '/category/vegetables.jpeg',
@@ -110,10 +111,9 @@ export default function POSPage() {
   useEffect(() => {
     async function fetchCategories() {
       try {
-        const response = await fetch('/api/categories');
-        const result = await response.json();
+        const result = await apiGet<Category[]>('/api/categories');
         if (result.success) {
-          setCategories(result.data);
+          setCategories(result.data ?? []);
         }
       } catch (err) {
         console.error('Error fetching categories:', err);
@@ -284,10 +284,9 @@ export default function POSPage() {
     async function fetchCategoryItems() {
       try {
         setItemsLoading(true);
-        const response = await fetch(`/api/items?categoryId=${selectedCategoryId}`);
-        const result = await response.json();
+        const result = await apiGet<Item[]>(`/api/items?categoryId=${selectedCategoryId}`);
         if (result.success) {
-          const allItems: Item[] = result.data;
+          const allItems: Item[] = result.data ?? [];
           
           // Group items: separate parents and variants
           const parentItems: ItemWithVariants[] = [];

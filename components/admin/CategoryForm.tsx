@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Sparkles, Grid3x3 } from 'lucide-react';
 import type { Category } from '@/lib/db/types';
+import { apiPost, apiPut } from '@/lib/utils/api-client';
 
 interface CategoryFormProps {
   category?: Category | null;
@@ -98,7 +99,6 @@ export function CategoryForm({ category, existingCategories = [], onClose, onSuc
 
     try {
       const url = isEditing ? `/api/categories/${category.id}` : '/api/categories';
-      const method = isEditing ? 'PUT' : 'POST';
 
       const payload: Record<string, unknown> = {
         name: formData.name,
@@ -113,13 +113,9 @@ export function CategoryForm({ category, existingCategories = [], onClose, onSuc
         payload.active = formData.active;
       }
 
-      const response = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const result = await response.json();
+      const result = isEditing 
+        ? await apiPut(url, payload)
+        : await apiPost(url, payload);
 
       if (!result.success) {
         setError(result.message || 'Operation failed');

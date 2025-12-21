@@ -12,6 +12,7 @@ import { Loader2 } from 'lucide-react';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
 import { CreditForm } from './CreditForm';
 import type { PaymentMethod } from '@/lib/constants';
+import { apiPost } from '@/lib/utils/api-client';
 
 export function CheckoutForm() {
   const router = useRouter();
@@ -61,27 +62,19 @@ export function CheckoutForm() {
     setError(null);
 
     try {
-      const response = await fetch('/api/sales', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          items: items.map((item) => ({
-            itemId: item.itemId,
-            quantity: item.quantity,
-            price: item.price,
-          })),
-          paymentMethod,
-          cashReceived: paymentMethod === 'cash' ? cashAmount : undefined,
-          customerName: paymentMethod === 'credit' ? customerName : undefined,
-          customerPhone: paymentMethod === 'credit' ? customerPhone || undefined : undefined,
-        }),
+      const result = await apiPost<{ saleId: string }>('/api/sales', {
+        items: items.map((item) => ({
+          itemId: item.itemId,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+        paymentMethod,
+        cashReceived: paymentMethod === 'cash' ? cashAmount : undefined,
+        customerName: paymentMethod === 'credit' ? customerName : undefined,
+        customerPhone: paymentMethod === 'credit' ? customerPhone || undefined : undefined,
       });
 
-      const result = await response.json();
-
-      if (result.success) {
+      if (result.success && result.data) {
         clearCart();
         router.push(`/pos/receipt/${result.data.saleId}`);
       } else {

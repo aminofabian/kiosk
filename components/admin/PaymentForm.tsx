@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2 } from 'lucide-react';
 import type { CreditAccount } from '@/lib/db/types';
 import type { CreditPaymentMethod } from '@/lib/constants';
+import { apiPost } from '@/lib/utils/api-client';
 
 interface PaymentFormProps {
   account: CreditAccount;
@@ -49,19 +50,11 @@ export function PaymentForm({ account }: PaymentFormProps) {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`/api/credits/${account.id}/payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount: paymentAmount,
-          paymentMethod,
-          notes: notes || null,
-        }),
+      const result = await apiPost(`/api/credits/${account.id}/payment`, {
+        amount: paymentAmount,
+        paymentMethod,
+        notes: notes || null,
       });
-
-      const result = await response.json();
 
       if (result.success) {
         router.push('/admin/credits');

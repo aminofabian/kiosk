@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import { apiGet, apiPost } from '@/lib/utils/api-client';
+import type { Shift } from '@/lib/db/types';
 
 export function ShiftOpenForm() {
   const router = useRouter();
@@ -18,8 +20,7 @@ export function ShiftOpenForm() {
   useEffect(() => {
     async function checkOpenShift() {
       try {
-        const response = await fetch('/api/shifts/current');
-        const result = await response.json();
+        const result = await apiGet<Shift>('/api/shifts/current');
         if (result.success && result.data) {
           setHasOpenShift(true);
         } else {
@@ -46,17 +47,7 @@ export function ShiftOpenForm() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/shifts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          openingCash: cash,
-        }),
-      });
-
-      const result = await response.json();
+      const result = await apiPost('/api/shifts', { openingCash: cash });
 
       if (result.success) {
         router.push('/pos');

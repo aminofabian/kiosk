@@ -18,6 +18,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import Link from 'next/link';
+import { apiGet } from '@/lib/utils/api-client';
 
 interface DashboardData {
   totalSales: number;
@@ -61,11 +62,10 @@ export function DashboardStats() {
         new Date(selectedDate + 'T23:59:59').getTime() / 1000
       );
 
-      const response = await fetch(`/api/dashboard?date=${dateTimestamp}`);
-      const result = await response.json();
+      const result = await apiGet<DashboardData>(`/api/dashboard?date=${dateTimestamp}`);
 
       if (result.success) {
-        setData(result.data);
+        setData(result.data ?? null);
       } else {
         setError(result.message || 'Failed to load dashboard data');
       }
