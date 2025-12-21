@@ -13,7 +13,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@/components/ui/drawer';
-import { Plus, ShoppingBag } from 'lucide-react';
+import { Plus, ShoppingBag, ListChecks, X } from 'lucide-react';
 
 interface PurchaseItem {
   id: string;
@@ -83,17 +83,32 @@ export default function PurchasesPage() {
         </div>
 
         <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
-          <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen">
-            <DrawerHeader className="border-b bg-gradient-to-r from-[#259783]/10 to-blue-500/10">
-              <DrawerTitle className="text-2xl flex items-center gap-2">
-                <ShoppingBag className="w-6 h-6 text-[#259783]" />
-                New Purchase
-              </DrawerTitle>
-              <DrawerDescription>
-                Add purchase details and items one at a time
+          <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen flex flex-col">
+            <DrawerHeader className="border-b bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-amber-950/20 dark:via-orange-950/20 dark:to-yellow-950/20 relative pr-12">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setDrawerOpen(false)}
+                className="absolute right-4 top-4 h-8 w-8 hover:bg-amber-200 dark:hover:bg-amber-900/40"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-md shadow-amber-500/30">
+                  <ListChecks className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <DrawerTitle className="text-xl flex items-center gap-2 text-amber-900 dark:text-amber-100">
+                    Purchase List
+                  </DrawerTitle>
+                  <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">{new Date().toLocaleDateString()}</p>
+                </div>
+              </div>
+              <DrawerDescription className="text-xs text-amber-800/70 dark:text-amber-200/70 mt-1">
+                Add items and track your purchase
               </DrawerDescription>
             </DrawerHeader>
-            <div className="overflow-y-auto px-4 sm:px-6 pb-6 flex-1 bg-slate-50/50 dark:bg-slate-900/50">
+            <div className="overflow-y-auto px-4 sm:px-6 pb-24 flex-1 bg-gradient-to-b from-amber-50/30 via-white to-white dark:from-amber-950/10 dark:via-[#0f1a0d] dark:to-[#0f1a0d]">
               <PurchaseForm
                 initialData={formData}
                 onDataChange={handleDataChange}

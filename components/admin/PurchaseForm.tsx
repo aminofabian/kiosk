@@ -8,27 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Loader2, Trash2, Check, X } from 'lucide-react';
-import type { Item } from '@/lib/db/types';
-
-const COMMON_ITEM_NAMES = [
-  'Tomatoes', 'Onions', 'Potatoes', 'Carrots', 'Cabbage', 'Bell Peppers', 'Eggplant', 'Okra',
-  'Green Beans', 'Cauliflower', 'Broccoli', 'Spinach', 'Lettuce', 'Cucumber', 'Zucchini',
-  'Bananas', 'Apples', 'Oranges', 'Mangoes', 'Grapes', 'Strawberries', 'Watermelon', 'Pineapple',
-  'Papaya', 'Avocado', 'Pears', 'Cherries', 'Peaches', 'Plums', 'Berries',
-  'Rice', 'Wheat', 'Maize', 'Oats', 'Barley', 'Quinoa', 'Millet', 'Sorghum', 'Flour', 'Pasta', 'Noodles',
-  'Salt', 'Black Pepper', 'Turmeric', 'Cumin', 'Coriander', 'Garlic', 'Ginger', 'Chili Powder', 'Paprika',
-  'Cinnamon', 'Cardamom', 'Cloves',
-  'Water', 'Juice', 'Soda', 'Tea', 'Coffee', 'Milk', 'Yogurt Drink', 'Energy Drink', 'Soft Drink',
-  'Chips', 'Biscuits', 'Cookies', 'Crackers', 'Nuts', 'Popcorn', 'Chocolate', 'Candy', 'Cakes', 'Pastries',
-  'Kale', 'Coriander', 'Parsley', 'Mint', 'Basil', 'Arugula', 'Spring Onions', 'Dill', 'Chives',
-  'Cheese', 'Yogurt', 'Butter', 'Eggs', 'Cream', 'Sour Cream', 'Cottage Cheese', 'Mozzarella',
-  'Beef', 'Chicken', 'Pork', 'Lamb', 'Fish', 'Turkey', 'Bacon', 'Sausages', 'Ham', 'Mince',
-  'Bread', 'White Bread', 'Brown Bread', 'Baguette', 'Croissant', 'Donuts', 'Muffins',
-  'Ice Cream', 'Frozen Vegetables', 'Frozen Fruits', 'Frozen Meat', 'Frozen Fish', 'Frozen Pizza',
-  'Canned Tomatoes', 'Canned Beans', 'Canned Corn', 'Canned Peas', 'Canned Fish', 'Canned Fruits',
-].sort();
+import { Plus, Loader2, Trash2, Check, X, ListChecks, ShoppingCart, PenTool } from 'lucide-react';
 
 interface PurchaseItem {
   id: string;
@@ -82,9 +62,6 @@ export function PurchaseForm({ onSuccess, onCancel, initialData, onDataChange }:
     itemId: null,
     notes: '',
   });
-  const [availableItems, setAvailableItems] = useState<Item[]>([]);
-  const [loadingItems, setLoadingItems] = useState(false);
-  const [isCustomItemName, setIsCustomItemName] = useState(false);
   const isInitialMount = useRef(true);
   const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const onDataChangeRef = useRef(onDataChange);
@@ -126,23 +103,6 @@ export function PurchaseForm({ onSuccess, onCancel, initialData, onDataChange }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplierName, purchaseDate, totalAmount, extraCosts, notes, items]);
 
-  useEffect(() => {
-    async function fetchItems() {
-      try {
-        setLoadingItems(true);
-        const response = await fetch('/api/items?all=true');
-        const result = await response.json();
-        if (result.success) {
-          setAvailableItems(result.data);
-        }
-      } catch (err) {
-        console.error('Error fetching items:', err);
-      } finally {
-        setLoadingItems(false);
-      }
-    }
-    fetchItems();
-  }, []);
 
   const handleAddItemClick = () => {
     setShowAddItemForm(true);
@@ -193,7 +153,6 @@ export function PurchaseForm({ onSuccess, onCancel, initialData, onDataChange }:
       itemId: null,
       notes: '',
     });
-    setIsCustomItemName(false);
     setShowAddItemForm(false);
     setError(null);
   };
@@ -208,7 +167,6 @@ export function PurchaseForm({ onSuccess, onCancel, initialData, onDataChange }:
       itemId: null,
       notes: '',
     });
-    setIsCustomItemName(false);
     setError(null);
   };
 
@@ -302,231 +260,176 @@ export function PurchaseForm({ onSuccess, onCancel, initialData, onDataChange }:
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Purchase Details */}
-      <div className="space-y-4">
-        <div>
-          <h3 className="text-lg font-semibold mb-4">Purchase Information</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="supplier">Supplier Name</Label>
-              <Input
-                id="supplier"
-                value={supplierName}
-                onChange={(e) => setSupplierName(e.target.value)}
-                placeholder="e.g., Market Vendor"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="date">Purchase Date *</Label>
-              <Input
-                id="date"
-                type="date"
-                value={purchaseDate}
-                onChange={(e) => setPurchaseDate(e.target.value)}
-                required
-              />
-            </div>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Purchase Details - Compact Header */}
+      <div className="space-y-2 bg-white dark:bg-slate-800/50 rounded-lg p-3 border border-amber-200 dark:border-amber-900/30">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label htmlFor="supplier" className="text-xs font-medium text-amber-900 dark:text-amber-200">Store/Supplier</Label>
+            <Input
+              id="supplier"
+              value={supplierName}
+              onChange={(e) => setSupplierName(e.target.value)}
+              placeholder="Where are you shopping?"
+              className="h-8 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="date" className="text-xs font-medium text-amber-900 dark:text-amber-200">Date *</Label>
+            <Input
+              id="date"
+              type="date"
+              value={purchaseDate}
+              onChange={(e) => setPurchaseDate(e.target.value)}
+              required
+              className="h-8 text-sm"
+            />
           </div>
         </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="extra">Extra Costs (KES)</Label>
-          <Input
-            id="extra"
-            type="number"
-            step="0.01"
-            value={extraCosts}
-            onChange={(e) => setExtraCosts(e.target.value)}
-            placeholder="Transport, tips, etc."
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="notes">Notes</Label>
-          <Input
-            id="notes"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Additional notes about this purchase"
-          />
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label htmlFor="extra" className="text-xs font-medium text-amber-900 dark:text-amber-200">Extra Costs</Label>
+            <Input
+              id="extra"
+              type="number"
+              step="0.01"
+              value={extraCosts}
+              onChange={(e) => setExtraCosts(e.target.value)}
+              placeholder="0.00"
+              className="h-8 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="notes" className="text-xs font-medium text-amber-900 dark:text-amber-200">Notes</Label>
+            <Input
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Quick notes"
+              className="h-8 text-sm"
+            />
+          </div>
         </div>
       </div>
 
-      <Separator />
-
-      {/* Items Section */}
-      <div className="space-y-4">
+      {/* Purchase List Section */}
+      <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Items ({items.length})</h3>
+          <div className="flex items-center gap-2">
+            <ShoppingCart className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            <h3 className="text-base font-bold text-amber-900 dark:text-amber-100">Items</h3>
+            <Badge variant="secondary" className="ml-1 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200 text-xs">
+              {items.length}
+            </Badge>
+          </div>
           {!showAddItemForm && (
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={handleAddItemClick}
-              className="gap-2"
+              className="gap-1.5 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20 h-8 text-xs"
             >
-              <Plus className="h-4 w-4" />
-              Add Item
+              <Plus className="h-3.5 w-3.5" />
+              Add
             </Button>
           )}
         </div>
 
-        {/* Add Item Form */}
+        {/* Add Item Form - Compact Style */}
         {showAddItemForm && (
-          <Card className="border-2 border-emerald-200 bg-emerald-50/50">
-            <CardContent className="p-4 space-y-4">
+          <Card className="border-2 border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30">
+            <CardContent className="p-3 space-y-2.5">
               <div className="flex items-center justify-between mb-2">
-                <h4 className="font-semibold text-emerald-700">Add New Item</h4>
+                <div className="flex items-center gap-1.5">
+                  <PenTool className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  <h4 className="font-semibold text-sm text-amber-900 dark:text-amber-100">Add Item</h4>
+                </div>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
                   onClick={handleCancelAddItem}
-                  className="h-8 w-8"
+                  className="h-7 w-7 hover:bg-amber-200 dark:hover:bg-amber-900/40"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3.5 w-3.5" />
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Item Name *</Label>
-                  {!isCustomItemName ? (
-                    <Select
-                      value={currentItem.itemName || ''}
-                      onValueChange={(value) => {
-                        if (value === '__custom__') {
-                          setIsCustomItemName(true);
-                          setCurrentItem({ ...currentItem, itemName: '', itemId: null });
-                        } else {
-                          // Try to find matching item from DB to auto-link
-                          const selectedItem = availableItems.find(item => item.name === value);
-                          setCurrentItem({ 
-                            ...currentItem, 
-                            itemName: value,
-                            itemId: selectedItem?.id || null,
-                          });
-                        }
-                      }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select item or enter custom" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {COMMON_ITEM_NAMES.map((itemName) => (
-                          <SelectItem key={itemName} value={itemName}>
-                            {itemName}
-                          </SelectItem>
-                        ))}
-                        <SelectItem value="__custom__">+ Custom Name</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <div className="space-y-2">
-                      <Input
-                        value={currentItem.itemName}
-                        onChange={(e) => {
-                          setCurrentItem({ ...currentItem, itemName: e.target.value });
-                        }}
-                        placeholder="e.g., Tomatoes"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsCustomItemName(false);
-                          setCurrentItem({ ...currentItem, itemName: '' });
-                        }}
-                        className="text-xs text-primary hover:underline"
-                      >
-                        ← Select from suggestions
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <Label>Link to Item</Label>
-                  <Select
-                    value={currentItem.itemId || '__none__'}
-                    onValueChange={(value) =>
-                      setCurrentItem({
-                        ...currentItem,
-                        itemId: value === '__none__' ? null : value,
-                      })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select item" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">None</SelectItem>
-                      {availableItems.map((item) => (
-                        <SelectItem key={item.id} value={item.id}>
-                          {item.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Quantity Note *</Label>
-                  <Input
-                    value={currentItem.quantityNote}
-                    onChange={(e) =>
-                      setCurrentItem({
-                        ...currentItem,
-                        quantityNote: e.target.value,
-                      })
-                    }
-                    placeholder="e.g., 2 crates, 1 bag, 50 kg"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Amount (KES) *</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={currentItem.amount}
-                    onChange={(e) =>
-                      setCurrentItem({ ...currentItem, amount: e.target.value })
-                    }
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-
               <div className="space-y-2">
-                <Label>Notes</Label>
-                <Input
-                  value={currentItem.notes}
-                  onChange={(e) =>
-                    setCurrentItem({ ...currentItem, notes: e.target.value })
-                  }
-                  placeholder="Additional notes about this item"
-                />
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-amber-900 dark:text-amber-200">Item Name *</Label>
+                  <Input
+                    value={currentItem.itemName}
+                    onChange={(e) => {
+                      setCurrentItem({ ...currentItem, itemName: e.target.value });
+                    }}
+                    placeholder="Type item name..."
+                    required
+                    className="h-8 text-sm border-amber-300 focus:border-amber-500 dark:border-amber-700 dark:focus:border-amber-500"
+                    autoFocus
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-amber-900 dark:text-amber-200">Quantity *</Label>
+                    <Input
+                      value={currentItem.quantityNote}
+                      onChange={(e) =>
+                        setCurrentItem({
+                          ...currentItem,
+                          quantityNote: e.target.value,
+                        })
+                      }
+                      placeholder="e.g., 2 crates"
+                      className="h-8 text-sm border-amber-300 focus:border-amber-500 dark:border-amber-700 dark:focus:border-amber-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-amber-900 dark:text-amber-200">Price (KES) *</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={currentItem.amount}
+                      onChange={(e) =>
+                        setCurrentItem({ ...currentItem, amount: e.target.value })
+                      }
+                      placeholder="0.00"
+                      className="h-8 text-sm border-amber-300 focus:border-amber-500 dark:border-amber-700 dark:focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-amber-900 dark:text-amber-200">Notes</Label>
+                  <Input
+                    value={currentItem.notes}
+                    onChange={(e) =>
+                      setCurrentItem({ ...currentItem, notes: e.target.value })
+                    }
+                    placeholder="Optional notes..."
+                    className="h-8 text-sm border-amber-300 focus:border-amber-500 dark:border-amber-700 dark:focus:border-amber-500"
+                  />
+                </div>
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-1.5">
                 <Button
                   type="button"
                   onClick={handleSaveItem}
-                  className="gap-2 flex-1"
+                  className="gap-1.5 flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold h-8 text-xs"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Saving...
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Adding...
                     </>
                   ) : (
                     <>
-                      <Check className="h-4 w-4" />
-                      Save Item
+                      <Check className="h-3.5 w-3.5" />
+                      Add
                     </>
                   )}
                 </Button>
@@ -535,52 +438,49 @@ export function PurchaseForm({ onSuccess, onCancel, initialData, onDataChange }:
           </Card>
         )}
 
-        {/* Items List */}
+        {/* Purchase List Items */}
         {items.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {items.map((item, index) => (
-              <Card key={item.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">
-                          #{index + 1}
-                        </Badge>
-                        <span className="font-semibold">{item.itemName}</span>
-                        {item.itemId && (
-                          <Badge variant="outline" className="text-xs">
-                            Linked
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-600 space-y-1">
-                        <div>
-                          <span className="font-medium">Quantity:</span>{' '}
-                          {item.quantityNote}
-                        </div>
-                        <div>
-                          <span className="font-medium">Amount:</span>{' '}
-                          <span className="text-emerald-600 font-semibold">
-                            KES {parseFloat(item.amount || '0').toFixed(2)}
-                          </span>
-                        </div>
-                        {item.notes && (
-                          <div className="text-gray-500 italic">
-                            {item.notes}
-                          </div>
-                        )}
+              <Card key={item.id} className="hover:shadow-md transition-all border-l-2 border-l-amber-400 bg-white dark:bg-slate-800/50">
+                <CardContent className="p-2.5">
+                  <div className="flex items-start gap-2">
+                    <div className="flex-shrink-0 mt-0.5">
+                      <div className="w-5 h-5 rounded-full border-2 border-amber-400 bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center">
+                        <Check className="w-3 h-3 text-amber-600 dark:text-amber-400" />
                       </div>
                     </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeItem(item.id)}
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex-1 space-y-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-sm text-slate-900 dark:text-white leading-tight">
+                            {item.itemName}
+                          </h4>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-700 px-1.5 py-0">
+                              {item.quantityNote}
+                            </Badge>
+                            <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                              KES {parseFloat(item.amount || '0').toFixed(2)}
+                            </span>
+                          </div>
+                          {item.notes && (
+                            <p className="text-xs text-slate-500 dark:text-slate-400 italic mt-0.5">
+                              {item.notes}
+                            </p>
+                          )}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeItem(item.id)}
+                          className="text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 h-7 w-7 flex-shrink-0"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -589,37 +489,42 @@ export function PurchaseForm({ onSuccess, onCancel, initialData, onDataChange }:
         )}
 
         {items.length === 0 && !showAddItemForm && (
-          <div className="text-center py-8 text-gray-500">
-            <p>No items added yet. Click "Add Item" to get started.</p>
+          <div className="text-center py-8 bg-white dark:bg-slate-800/30 rounded-lg border-2 border-dashed border-amber-300 dark:border-amber-700">
+            <ListChecks className="w-8 h-8 text-amber-400 dark:text-amber-600 mx-auto mb-2 opacity-50" />
+            <p className="text-xs text-amber-700 dark:text-amber-300 font-medium">List is empty</p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Click "Add" to start</p>
           </div>
         )}
       </div>
 
       <Separator />
 
-      {/* Summary */}
-      <Card className="bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200">
-        <CardContent className="p-4 space-y-3">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Items Total:</span>
-            <span className="font-semibold">
-              KES{' '}
-              {items
-                .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0)
-                .toFixed(2)}
-            </span>
+      {/* Purchase Summary - Compact */}
+      <Card className="bg-gradient-to-br from-amber-100 via-orange-50 to-yellow-50 dark:from-amber-950/40 dark:via-orange-950/30 dark:to-yellow-950/30 border border-amber-300 dark:border-amber-700">
+        <CardContent className="p-3 space-y-2">
+          <div className="flex items-center gap-1.5 mb-2">
+            <ShoppingCart className="w-4 h-4 text-amber-700 dark:text-amber-300" />
+            <h3 className="font-semibold text-sm text-amber-900 dark:text-amber-100">Summary</h3>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Extra Costs:</span>
-            <span className="font-semibold">
-              KES {(parseFloat(extraCosts) || 0).toFixed(2)}
-            </span>
-          </div>
-          <Separator className="my-2" />
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="total-summary" className="text-sm font-medium text-gray-700">
-                Total Amount (KES)
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-xs">
+              <span className="text-amber-800 dark:text-amber-200">Subtotal:</span>
+              <span className="font-semibold text-amber-900 dark:text-amber-100">
+                KES{' '}
+                {items
+                  .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0)
+                  .toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between text-xs">
+              <span className="text-amber-800 dark:text-amber-200">Extra:</span>
+              <span className="font-semibold text-amber-900 dark:text-amber-100">
+                KES {(parseFloat(extraCosts) || 0).toFixed(2)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between pt-1 border-t border-amber-300 dark:border-amber-700">
+              <Label htmlFor="total-summary" className="text-xs font-semibold text-amber-900 dark:text-amber-100">
+                Total (KES)
               </Label>
               <Input
                 id="total-summary"
@@ -627,13 +532,13 @@ export function PurchaseForm({ onSuccess, onCancel, initialData, onDataChange }:
                 step="0.01"
                 value={totalAmount}
                 onChange={(e) => setTotalAmount(e.target.value)}
-                placeholder="Enter total amount"
-                className="w-40 text-right font-semibold"
+                placeholder="0.00"
+                className="w-28 h-7 text-xs text-right font-bold border-amber-400 focus:border-amber-600 dark:border-amber-600 dark:focus:border-amber-500 bg-white dark:bg-slate-800"
               />
             </div>
-            <div className="flex justify-between items-center pt-2">
-              <span className="font-bold text-lg">Grand Total:</span>
-              <span className="font-bold text-xl text-emerald-600">
+            <div className="flex justify-between items-center pt-1 border-t-2 border-amber-300 dark:border-amber-700">
+              <span className="font-bold text-sm text-amber-900 dark:text-amber-100">Grand Total:</span>
+              <span className="font-bold text-lg text-amber-700 dark:text-amber-300">
                 KES {calculateTotal().toFixed(2)}
               </span>
             </div>
@@ -642,43 +547,44 @@ export function PurchaseForm({ onSuccess, onCancel, initialData, onDataChange }:
       </Card>
 
       {error && (
-        <div className="p-4 bg-destructive/10 text-destructive rounded-md border border-destructive/20">
+        <div className="p-2.5 bg-destructive/10 text-destructive rounded-md border border-destructive/20 text-xs">
           {error}
         </div>
       )}
 
-      <div className="flex gap-3 pt-4 border-t">
-        <Button
-          type="button"
-          variant="outline"
-          size="touch"
-          onClick={() => {
-            if (onCancel) {
-              onCancel();
-            } else {
-              router.push('/admin/purchases');
-            }
-          }}
-          className="flex-1"
-          disabled={isSubmitting}
-        >
-          Cancel
-        </Button>
-        <Button
-          type="submit"
-          size="touch"
-          disabled={isSubmitting || items.length === 0}
-          className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600"
-        >
-          {isSubmitting ? (
-            <>
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            'Save Purchase'
-          )}
-        </Button>
+      {/* Fixed Bottom Action Buttons */}
+      <div className="fixed bottom-0 left-0 right-0 sm:left-auto sm:right-auto sm:w-[600px] md:w-[700px] bg-white dark:bg-[#0f1a0d] border-t border-amber-200 dark:border-amber-800 p-3 shadow-lg z-50">
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              if (onCancel) {
+                onCancel();
+              } else {
+                router.push('/admin/purchases');
+              }
+            }}
+            className="flex-1 h-9 text-sm"
+            disabled={isSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={isSubmitting || items.length === 0}
+            className="flex-1 h-9 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold text-sm"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save List'
+            )}
+          </Button>
+        </div>
       </div>
     </form>
   );
