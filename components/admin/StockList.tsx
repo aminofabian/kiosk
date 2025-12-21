@@ -13,6 +13,10 @@ interface StockItem extends Item {
   initial_stock: number;
   stock_change: number;
   stock_change_percent: number | null;
+  initial_value: number;
+  current_value: number;
+  value_change: number;
+  value_change_percent: number | null;
   trend: 'growing' | 'shrinking' | 'stable' | 'new';
 }
 
@@ -100,6 +104,10 @@ export function StockList() {
   const formatStock = (stock: number, unitType: UnitType) => {
     if (stock <= 0) return '0';
     return stock.toFixed(1);
+  };
+
+  const formatCurrency = (amount: number) => {
+    return `KES ${amount.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   };
 
   const formatChange = (change: number | null) => {
@@ -305,6 +313,22 @@ export function StockList() {
                     </div>
                   </div>
                   
+                  {/* Stock Values */}
+                  <div className="mt-2 grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <div>
+                      <p className="text-[10px] text-slate-400 mb-0.5">Initial Value</p>
+                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                        {formatCurrency(item.initial_value)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 mb-0.5">Current Value</p>
+                      <p className={`text-xs font-semibold ${trendConfig.color}`}>
+                        {formatCurrency(item.current_value)}
+                      </p>
+                    </div>
+                  </div>
+                  
                   {/* Progress Bar */}
                   <div className="mt-2 flex items-center gap-2">
                     <span className="text-[10px] text-slate-400 w-12">{item.initial_stock.toFixed(0)}</span>
@@ -334,8 +358,10 @@ export function StockList() {
                   <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
                     <th className="text-left p-3 font-medium text-slate-500 text-xs">Item</th>
                     <th className="text-left p-3 font-medium text-slate-500 text-xs">Category</th>
-                    <th className="text-center p-3 font-medium text-slate-500 text-xs">Initial</th>
-                    <th className="text-center p-3 font-medium text-slate-500 text-xs">Current</th>
+                    <th className="text-center p-3 font-medium text-slate-500 text-xs">Initial Stock</th>
+                    <th className="text-center p-3 font-medium text-slate-500 text-xs">Initial Value</th>
+                    <th className="text-center p-3 font-medium text-slate-500 text-xs">Current Stock</th>
+                    <th className="text-center p-3 font-medium text-slate-500 text-xs">Current Value</th>
                     <th className="text-center p-3 font-medium text-slate-500 text-xs w-32">Growth</th>
                     <th className="text-center p-3 font-medium text-slate-500 text-xs">Trend</th>
                   </tr>
@@ -374,6 +400,9 @@ export function StockList() {
                         <td className="p-3 text-center text-xs text-slate-500">
                           {item.initial_stock.toFixed(1)} <span className="text-slate-400">{item.unit_type}</span>
                         </td>
+                        <td className="p-3 text-center text-xs text-slate-600 dark:text-slate-400">
+                          <span className="font-medium">{formatCurrency(item.initial_value)}</span>
+                        </td>
                         <td className="p-3 text-center">
                           <span className={`font-semibold text-xs ${
                             outOfStock ? 'text-rose-500' : low ? 'text-amber-500' : 'text-slate-900 dark:text-white'
@@ -381,6 +410,11 @@ export function StockList() {
                             {formatStock(item.current_stock, item.unit_type)}
                           </span>
                           <span className="text-slate-400 text-xs ml-0.5">{item.unit_type}</span>
+                        </td>
+                        <td className="p-3 text-center text-xs">
+                          <span className={`font-semibold ${trendConfig.color}`}>
+                            {formatCurrency(item.current_value)}
+                          </span>
                         </td>
                         <td className="p-3">
                           <div className="flex items-center gap-2">

@@ -73,6 +73,14 @@ export async function GET() {
         ? ((currentStock - initialStock) / initialStock) * 100
         : (currentStock > 0 ? 100 : null);
       
+      // Calculate values (stock × sell price)
+      const initialValue = initialStock * item.current_sell_price;
+      const currentValue = currentStock * item.current_sell_price;
+      const valueChange = currentValue - initialValue;
+      const valueChangePercent = initialValue > 0 
+        ? ((currentValue - initialValue) / initialValue) * 100
+        : (currentValue > 0 ? 100 : null);
+      
       let trend: 'growing' | 'shrinking' | 'stable' | 'new' = 'new';
       if (initialStock > 0) {
         if (currentStock > initialStock) {
@@ -89,6 +97,10 @@ export async function GET() {
         initial_stock: initialStock,
         stock_change: stockChange,
         stock_change_percent: stockChangePercent,
+        initial_value: initialValue,
+        current_value: currentValue,
+        value_change: valueChange,
+        value_change_percent: valueChangePercent,
         trend,
       };
     });
