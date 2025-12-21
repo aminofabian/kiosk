@@ -69,7 +69,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: Package,
   },
   {
-    label: 'Stock Adjustment',
+    label: 'Add Stock',
     description: 'Adjust inventory levels',
     icon: Scale,
   },
@@ -493,7 +493,7 @@ export default function AdminDashboardPage() {
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-orange-500 flex items-center justify-center shadow-sm">
                 <Scale className="w-5 h-5 text-white" />
               </div>
-              Stock Adjustment
+              Add Stock
             </DrawerTitle>
             <DrawerDescription className="mt-2 text-sm text-slate-600 dark:text-slate-400">
               Update inventory levels for damaged, spoiled, or miscounted items
@@ -721,7 +721,7 @@ export default function AdminDashboardPage() {
                   <div className="flex items-center gap-2 mb-2">
                     <Scale className="w-5 h-5 text-orange-500" />
                     <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-                      Stock Adjustment (Fixing Mistakes!)
+                      Add Stock (Fixing Mistakes!)
                     </h3>
                   </div>
                   <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
@@ -825,7 +825,7 @@ export default function AdminDashboardPage() {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="font-bold">•</span>
-                    <span>If stock numbers seem wrong, use Stock Adjustment or Stock Take to fix them!</span>
+                    <span>If stock numbers seem wrong, use Add Stock or Stock Take to fix them!</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="font-bold">•</span>
