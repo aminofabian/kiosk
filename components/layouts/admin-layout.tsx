@@ -5,9 +5,7 @@ import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminBottomNav } from '@/components/admin/AdminBottomNav';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { signOut } from 'next-auth/react';
-import { LogOut, ShoppingCart } from 'lucide-react';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+import { LogOut } from 'lucide-react';
 import { DownloadButton } from '@/components/DownloadButton';
 
 interface AdminLayoutProps {
@@ -22,7 +20,7 @@ export function AdminLayout({ children, sidebar }: AdminLayoutProps) {
     <div className="flex h-screen w-screen bg-slate-50 dark:bg-[#0f1a0d]">
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex md:w-60 lg:w-64 flex-col border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18]">
-        <div className="h-16 flex items-center justify-between px-5 border-b border-slate-200 dark:border-slate-800">
+        <div className="h-16 flex items-center px-5 border-b border-slate-200 dark:border-slate-800">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-lg shadow-[#259783]/20 flex-shrink-0">
               <span className="text-lg font-black text-[#101b0d]">P</span>
@@ -32,15 +30,6 @@ export function AdminLayout({ children, sidebar }: AdminLayoutProps) {
               <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Management Portal</p>
             </div>
           </div>
-          <Link href="/pos" className="flex-shrink-0">
-            <Button
-              size="sm"
-              className="bg-[#259783] hover:bg-[#3bd522] text-white font-semibold shadow-md shadow-[#259783]/30"
-            >
-              <ShoppingCart className="w-4 h-4 mr-2" />
-              POS
-            </Button>
-          </Link>
         </div>
         <div className="flex-1 overflow-y-auto">
           {sidebar || <AdminSidebar />}

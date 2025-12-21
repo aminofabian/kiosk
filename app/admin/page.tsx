@@ -29,6 +29,7 @@ import {
   FolderTree,
   Scale,
   ClipboardList,
+  ShoppingCart,
 } from 'lucide-react';
 
 interface ActionButton {
@@ -41,6 +42,12 @@ interface ActionButton {
 }
 
 const ACTION_BUTTONS: ActionButton[] = [
+  {
+    href: '/pos',
+    label: 'Open POS',
+    description: 'Start selling',
+    icon: ShoppingCart,
+  },
   {
     label: 'Create Category',
     description: 'Add new product category',
@@ -203,10 +210,42 @@ export default function AdminDashboardPage() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-slate-50 dark:bg-[#0f1a0d] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-50 dark:bg-[#0f1a0d] flex flex-col items-center justify-center p-4">
+        {/* POS Quick Access - Prominent at top */}
+        <div className="mb-6 w-full max-w-5xl">
+          <Link href="/pos">
+            <div className="group relative w-full bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-xl px-6 py-6 text-center transition-all duration-200 hover:shadow-lg hover:shadow-[#259783]/30 active:scale-98 cursor-pointer">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
+                  <ShoppingCart className="w-7 h-7 text-white" />
+                </div>
+                <div className="text-center sm:text-left">
+                  <h3 className="text-xl font-bold text-white mb-1">
+                    Open POS
+                  </h3>
+                  <p className="text-sm text-white/90">
+                    Start selling and processing transactions
+                  </p>
+                </div>
+                <div className="hidden sm:block ml-auto">
+                  <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
+                    <ShoppingCart className="w-5 h-5 text-white" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Link>
+        </div>
+
+        {/* Action Buttons Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-w-5xl w-full">
           {visibleButtons.map((button, index) => {
             const Icon = button.icon;
+            const isPOS = button.href === '/pos';
+            
+            // Skip POS button in grid since it's shown prominently above
+            if (isPOS) return null;
+            
             const ButtonContent = (
               <button
                 onClick={button.onClick}
