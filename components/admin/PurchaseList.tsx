@@ -10,7 +10,11 @@ import type { Purchase } from '@/lib/db/types';
 import type { PurchaseStatus } from '@/lib/constants';
 import { SearchFilterSection } from './SearchFilterSection';
 
-export function PurchaseList() {
+interface PurchaseListProps {
+  onViewBreakdown?: (purchaseId: string) => void;
+}
+
+export function PurchaseList({ onViewBreakdown }: PurchaseListProps = {}) {
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -195,12 +199,24 @@ export function PurchaseList() {
                       <p className="text-lg font-bold text-[#259783]">
                         {formatPrice(purchase.total_amount)}
                       </p>
-                      <Link href={`/admin/purchases/${purchase.id}/breakdown`}>
-                        <Button variant="outline" size="sm" className="border-slate-200 dark:border-slate-700">
+                      {onViewBreakdown ? (
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="border-slate-200 dark:border-slate-700"
+                          onClick={() => onViewBreakdown(purchase.id)}
+                        >
                           View
                           <ArrowRight className="ml-2 h-3 w-3" />
                         </Button>
-                      </Link>
+                      ) : (
+                        <Link href={`/admin/purchases/${purchase.id}/breakdown`}>
+                          <Button variant="outline" size="sm" className="border-slate-200 dark:border-slate-700">
+                            View
+                            <ArrowRight className="ml-2 h-3 w-3" />
+                          </Button>
+                        </Link>
+                      )}
                     </div>
                   </div>
                 </CardContent>

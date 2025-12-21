@@ -31,7 +31,7 @@ interface MenuItem {
 
 const MENU_ITEMS: MenuItem[] = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview & stats' },
-  { href: '/admin/purchases', label: 'Purchases', icon: ShoppingBag, description: 'Buy inventory' },
+  { href: '/admin/purchases', label: 'Purchase List', icon: ShoppingBag, description: 'Buy inventory' },
   { href: '/admin/categories', label: 'Categories', icon: FolderTree, description: 'Product categories' },
   { href: '/admin/items', label: 'Items', icon: Package, description: 'Product catalog' },
   { href: '/admin/stock', label: 'Stock', icon: PackageCheck, description: 'Inventory levels' },

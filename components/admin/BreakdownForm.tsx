@@ -14,9 +14,10 @@ import { apiGet, apiPost } from '@/lib/utils/api-client';
 interface BreakdownFormProps {
   purchaseItem: PurchaseItem & { item_name?: string; item_unit_type?: string };
   purchaseId: string;
+  onBreakdownComplete?: () => void;
 }
 
-export function BreakdownForm({ purchaseItem, purchaseId }: BreakdownFormProps) {
+export function BreakdownForm({ purchaseItem, purchaseId, onBreakdownComplete }: BreakdownFormProps) {
   const router = useRouter();
   const [itemId, setItemId] = useState<string>(purchaseItem.item_id || '__none__');
   const [usableQuantity, setUsableQuantity] = useState<string>('');
@@ -85,7 +86,11 @@ export function BreakdownForm({ purchaseItem, purchaseId }: BreakdownFormProps) 
       });
 
       if (result.success) {
-        router.refresh();
+        if (onBreakdownComplete) {
+          onBreakdownComplete();
+        } else {
+          router.refresh();
+        }
       } else {
         setError(result.message || 'Failed to create breakdown');
         setIsSubmitting(false);
