@@ -6,6 +6,13 @@ import { UserList } from '@/components/admin/UserList';
 import { UserForm } from '@/components/admin/UserForm';
 import type { UserRole } from '@/lib/constants';
 import { Users } from 'lucide-react';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
 
 interface UserData {
   id: string;
@@ -18,26 +25,26 @@ interface UserData {
 }
 
 export default function UsersPage() {
-  const [showForm, setShowForm] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
 
   const handleAddUser = () => {
     setEditingUser(null);
-    setShowForm(true);
+    setDrawerOpen(true);
   };
 
   const handleEditUser = (user: UserData) => {
     setEditingUser(user);
-    setShowForm(true);
+    setDrawerOpen(true);
   };
 
   const handleClose = () => {
-    setShowForm(false);
+    setDrawerOpen(false);
     setEditingUser(null);
   };
 
   const handleSuccess = () => {
-    setShowForm(false);
+    setDrawerOpen(false);
     setEditingUser(null);
     // Force re-render of list by refreshing page
     window.location.reload();
@@ -65,16 +72,31 @@ export default function UsersPage() {
 
         {/* Content */}
         <div className="p-4 md:p-6 pb-24 md:pb-6">
-          {showForm ? (
-            <UserForm
-              user={editingUser}
-              onClose={handleClose}
-              onSuccess={handleSuccess}
-            />
-          ) : (
-            <UserList onAddUser={handleAddUser} onEditUser={handleEditUser} />
-          )}
+          <UserList onAddUser={handleAddUser} onEditUser={handleEditUser} />
         </div>
+
+        <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
+          <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen">
+            <DrawerHeader className="border-b bg-[#259783]/10 dark:bg-[#259783]/20">
+              <DrawerTitle className="text-2xl flex items-center gap-2 text-slate-900 dark:text-white">
+                <Users className="w-6 h-6 text-[#259783]" />
+                {editingUser ? 'Edit User' : 'Add New User'}
+              </DrawerTitle>
+              <DrawerDescription>
+                {editingUser 
+                  ? 'Update user details and permissions' 
+                  : 'Create a new team member and set their access level'}
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="overflow-y-auto px-4 sm:px-6 pb-6 flex-1 bg-slate-50/50 dark:bg-slate-900/50">
+              <UserForm
+                user={editingUser}
+                onClose={handleClose}
+                onSuccess={handleSuccess}
+              />
+            </div>
+          </DrawerContent>
+        </Drawer>
       </div>
     </AdminLayout>
   );

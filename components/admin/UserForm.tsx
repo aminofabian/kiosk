@@ -11,8 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, X } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import type { UserRole } from '@/lib/constants';
 
 interface UserData {
@@ -101,16 +100,7 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
   };
 
   return (
-    <Card className="max-w-2xl mx-auto border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18]">
-      <CardHeader className="flex flex-row items-center justify-between border-b border-slate-200 dark:border-slate-800">
-        <CardTitle className="text-xl font-bold text-slate-900 dark:text-white">
-          {isEditing ? 'Edit User' : 'Add New User'}
-        </CardTitle>
-        <Button variant="ghost" size="sm" onClick={onClose} className="hover:bg-slate-100 dark:hover:bg-slate-800">
-          <X className="h-4 w-4" />
-        </Button>
-      </CardHeader>
-      <CardContent className="pt-6">
+    <div className="max-w-2xl mx-auto py-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Name</Label>
@@ -248,7 +238,6 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
             </Button>
           </div>
         </form>
-      </CardContent>
-    </Card>
+      </div>
   );
 }
