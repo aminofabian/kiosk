@@ -1,12 +1,18 @@
 'use client';
 
+import { useState } from 'react';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { StockList } from '@/components/admin/StockList';
+import { RestockDrawer } from '@/components/admin/RestockDrawer';
+import { StockAnalysisDrawer } from '@/components/admin/StockAnalysisDrawer';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { PackageCheck, ClipboardList, Settings } from 'lucide-react';
+import { PackageCheck, ClipboardList, Settings, ShoppingCart, BarChart3 } from 'lucide-react';
 
 export default function StockPage() {
+  const [restockDrawerOpen, setRestockDrawerOpen] = useState(false);
+  const [analysisDrawerOpen, setAnalysisDrawerOpen] = useState(false);
+
   return (
     <AdminLayout>
       <div className="min-h-screen">
@@ -24,6 +30,23 @@ export default function StockPage() {
                 </div>
               </div>
               <div className="flex gap-2">
+                <Button
+                  onClick={() => setAnalysisDrawerOpen(true)}
+                  variant="outline"
+                  className="border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20"
+                >
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline">Stock Analysis</span>
+                  <span className="sm:hidden">Analysis</span>
+                </Button>
+                <Button
+                  onClick={() => setRestockDrawerOpen(true)}
+                  className="bg-amber-500 hover:bg-amber-600 text-white font-semibold shadow-lg shadow-amber-500/20"
+                >
+                  <ShoppingCart className="w-4 h-4 mr-2" />
+                  <span className="hidden sm:inline">What Needs Restocking</span>
+                  <span className="sm:hidden">Restock</span>
+                </Button>
                 <Link href="/admin/stock/take">
                   <Button className="bg-[#259783] hover:bg-[#45d827] text-white font-semibold shadow-lg shadow-[#259783]/20">
                     <ClipboardList className="w-4 h-4 mr-2" />
@@ -47,6 +70,12 @@ export default function StockPage() {
         <div className="p-4 md:p-6 pb-24 md:pb-6">
           <StockList />
         </div>
+
+        {/* Restock Drawer */}
+        <RestockDrawer open={restockDrawerOpen} onOpenChange={setRestockDrawerOpen} />
+
+        {/* Stock Analysis Drawer */}
+        <StockAnalysisDrawer open={analysisDrawerOpen} onOpenChange={setAnalysisDrawerOpen} />
       </div>
     </AdminLayout>
   );
