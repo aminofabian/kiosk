@@ -5,7 +5,7 @@ export async function OPTIONS() {
   return optionsResponse();
 }
 
-export async function POST() {
+async function executeMigration() {
   try {
     await runMigrations();
     return jsonResponse({
@@ -23,5 +23,13 @@ export async function POST() {
       500
     );
   }
+}
+
+export async function GET() {
+  return executeMigration();
+}
+
+export async function POST() {
+  return executeMigration();
 }
 

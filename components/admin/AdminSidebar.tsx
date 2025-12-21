@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Users,
   FolderTree,
+  Receipt,
 } from 'lucide-react';
 
 interface MenuItem {
@@ -34,6 +35,7 @@ const MENU_ITEMS: MenuItem[] = [
   { href: '/admin/items', label: 'Items', icon: Package, description: 'Product catalog' },
   { href: '/admin/stock', label: 'Stock', icon: PackageCheck, description: 'Inventory levels' },
   { href: '/admin/profit', label: 'Profit', icon: TrendingUp, description: 'Analytics' },
+  { href: '/admin/expenses', label: 'Expenses', icon: Receipt, description: 'Operating costs' },
   { href: '/admin/credits', label: 'Credits', icon: CreditCard, description: 'Outstanding debts' },
   { href: '/admin/shifts', label: 'Shifts', icon: Clock, description: 'Work sessions' },
   { href: '/admin/reports/sales', label: 'Reports', icon: FileText, matchPath: '/admin/reports', description: 'Sales reports' },

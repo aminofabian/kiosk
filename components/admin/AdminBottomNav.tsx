@@ -2,14 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, ShoppingBag, Package, TrendingUp, CreditCard, ShoppingCart } from 'lucide-react';
+import { Home, ShoppingBag, Package, TrendingUp, Receipt, ShoppingCart } from 'lucide-react';
 
 const MOBILE_NAV_ITEMS = [
   { href: '/admin', label: 'Home', icon: Home },
   { href: '/admin/purchases', label: 'Purchases', icon: ShoppingBag },
   { href: '/admin/items', label: 'Items', icon: Package },
   { href: '/admin/profit', label: 'Profit', icon: TrendingUp },
-  { href: '/admin/credits', label: 'Credits', icon: CreditCard },
+  { href: '/admin/expenses', label: 'Expenses', icon: Receipt },
 ] as const;
 
 export function AdminBottomNav() {

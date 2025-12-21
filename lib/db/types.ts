@@ -227,6 +227,22 @@ export interface StockAdjustment {
   created_at: number;
 }
 
+export type ExpenseCategory = 'fixed' | 'variable';
+export type ExpenseFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
+
+export interface Expense {
+  id: string;
+  business_id: string;
+  name: string;
+  category: ExpenseCategory;
+  amount: number;
+  frequency: ExpenseFrequency;
+  start_date: number;
+  notes: string | null;
+  active: number;
+  created_at: number;
+}
+
 // ============================================
 // Helper Types
 // ============================================
@@ -248,4 +264,4 @@ export type InsertShift = Omit<Shift, 'started_at'>;
 export type InsertCreditAccount = Omit<CreditAccount, 'created_at'>;
 export type InsertCreditTransaction = Omit<CreditTransaction, 'created_at'>;
 export type InsertStockAdjustment = Omit<StockAdjustment, 'created_at'>;
-
+export type InsertExpense = Omit<Expense, 'created_at'>;
