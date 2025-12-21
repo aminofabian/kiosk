@@ -71,6 +71,37 @@ export function AddToCartDialog({
     }
   };
 
+  const handleQuantityChange = (value: string) => {
+    if (value === '' || value === '.') {
+      setQuantity(0);
+      return;
+    }
+
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) {
+      return;
+    }
+
+    if (numValue < 0) {
+      setQuantity(0);
+      return;
+    }
+
+    if (maxQuantity > 0 && numValue > maxQuantity) {
+      setQuantity(maxQuantity);
+      return;
+    }
+
+    const fixedValue = isWeight ? parseFloat(numValue.toFixed(1)) : Math.floor(numValue);
+    setQuantity(fixedValue);
+  };
+
+  const handleQuantityBlur = () => {
+    if (quantity <= 0) {
+      setQuantity(isWeight ? 0.5 : 1);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -125,9 +156,16 @@ export function AddToCartDialog({
                 <Minus className="w-6 h-6 text-gray-700 dark:text-gray-300" />
               </button>
               <div className="flex flex-col items-center">
-                <span className="text-4xl font-bold text-gray-900 dark:text-gray-100">
-                  {quantity.toFixed(isWeight ? 1 : 0)}
-                </span>
+                <input
+                  type="number"
+                  value={quantity.toFixed(isWeight ? 1 : 0)}
+                  onChange={(e) => handleQuantityChange(e.target.value)}
+                  onBlur={handleQuantityBlur}
+                  min="0"
+                  max={maxQuantity > 0 ? maxQuantity : undefined}
+                  step={step}
+                  className="text-4xl font-bold text-gray-900 dark:text-gray-100 bg-transparent border-none outline-none text-center w-32 focus:ring-2 focus:ring-[#259783] rounded-lg px-2 py-1"
+                />
                 <span className="text-sm text-gray-600 dark:text-gray-400 uppercase mt-1">
                   {item.unit_type}
                 </span>
