@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ShoppingCart, Store, TrendingUp, Zap } from 'lucide-react';
 import { InstallApp } from '@/components/InstallApp';
-import { DownloadButton } from '@/components/DownloadButton';
 
 export default function HomePage() {
   return (
@@ -70,13 +69,6 @@ export default function HomePage() {
                 Open POS System
               </Button>
             </Link>
-            <div>
-              <DownloadButton
-                size="lg"
-                variant="outline"
-                className="bg-white/80 backdrop-blur-sm hover:bg-white border-2 border-emerald-600 text-emerald-600 hover:text-emerald-700 font-semibold px-8 py-6 text-lg rounded-xl shadow-lg hover-lift transition-smooth"
-              />
-            </div>
           </div>
         </div>
       </div>

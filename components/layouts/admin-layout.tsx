@@ -6,7 +6,7 @@ import { AdminBottomNav } from '@/components/admin/AdminBottomNav';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { signOut } from 'next-auth/react';
 import { LogOut } from 'lucide-react';
-import { DownloadButton } from '@/components/DownloadButton';
+import { InstallApp } from '@/components/InstallApp';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -35,13 +35,6 @@ export function AdminLayout({ children, sidebar }: AdminLayoutProps) {
           {sidebar || <AdminSidebar />}
         </div>
         <div className="p-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
-          <div className="px-2">
-            <DownloadButton
-              variant="outline"
-              size="sm"
-              className="w-full justify-center border-slate-300 dark:border-slate-700"
-            />
-          </div>
           <div className="flex items-center gap-3 px-2">
             <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900 flex items-center justify-center flex-shrink-0">
               <span className="text-sm font-medium text-emerald-600 dark:text-emerald-300">
@@ -75,14 +68,8 @@ export function AdminLayout({ children, sidebar }: AdminLayoutProps) {
       {/* Mobile Bottom Navigation */}
       <AdminBottomNav />
       
-      {/* Mobile Download Button - Above bottom nav */}
-      <div className="fixed bottom-25 right-4 z-40 md:hidden">
-        <DownloadButton
-          variant="outline"
-          size="sm"
-          className="border-slate-300 dark:border-slate-700 bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700"
-        />
-      </div>
+      {/* Install App Popup */}
+      <InstallApp />
     </div>
   );
 }

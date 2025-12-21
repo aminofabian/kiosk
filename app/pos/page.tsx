@@ -31,7 +31,6 @@ import Link from 'next/link';
 import type { Item } from '@/lib/db/types';
 import type { Category } from '@/lib/db/types';
 import { getItemImage } from '@/lib/utils/item-images';
-import { DownloadButton } from '@/components/DownloadButton';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { Settings } from 'lucide-react';
 import { signOut } from 'next-auth/react';
@@ -694,12 +693,6 @@ export default function POSPage() {
         )}
 
         <div className="fixed bottom-6 left-0 right-0 px-4 flex flex-col items-center gap-3 z-30 pointer-events-none">
-          <div className="pointer-events-auto w-full max-w-md flex justify-end">
-            <DownloadButton
-              size="sm"
-              className="bg-white/95 backdrop-blur-sm hover:bg-white border-2 border-[#259783] text-[#259783] hover:text-[#3bd522] font-semibold shadow-lg"
-            />
-          </div>
           <Link
             href="/pos/cart"
             className="pointer-events-auto shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_30px_rgb(75,238,43,0.3)] active:scale-95 transition-all w-full max-w-md h-[72px] bg-[#259783] rounded-full flex items-center justify-between px-2 pr-6 group"
@@ -787,11 +780,6 @@ export default function POSPage() {
                     </Button>
                   </Link>
                 )}
-                <DownloadButton
-                  variant="outline"
-                  size="sm"
-                  className="hidden lg:flex bg-white hover:bg-[#259783]/10 border-gray-200 hover:border-[#259783] transition-smooth"
-                />
                 <Button
                   variant="outline"
                   size="sm"

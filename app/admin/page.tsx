@@ -30,6 +30,10 @@ import {
   Scale,
   ClipboardList,
   ShoppingCart,
+  DollarSign,
+  AlertCircle,
+  Loader2,
+  Percent,
 } from 'lucide-react';
 
 interface ActionButton {
@@ -128,6 +132,15 @@ export default function AdminDashboardPage() {
   const [stockTakeDrawerOpen, setStockTakeDrawerOpen] = useState(false);
   const [existingCategories, setExistingCategories] = useState<Category[]>([]);
   const [isMobile, setIsMobile] = useState(false);
+  const [stats, setStats] = useState<{
+    totalProducts: number;
+    totalSales: number;
+    salesCount: number;
+    totalCost: number;
+    totalProfit: number;
+    profitMargin: number;
+  } | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -152,6 +165,42 @@ export default function AdminDashboardPage() {
         });
     }
   }, [categoryDrawerOpen]);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        // Use a wide date range for all-time stats
+        const startTimestamp = 1; // From beginning (use 1 to avoid falsy check)
+        const endTimestamp = Math.floor(Date.now() / 1000); // Now
+        
+        // Fetch profit data (all-time)
+        const profitResponse = await fetch(`/api/profit?start=${startTimestamp}&end=${endTimestamp}`);
+        const profitResult = await profitResponse.json();
+        
+        // Fetch total products count
+        const itemsResponse = await fetch('/api/items?all=true');
+        const itemsResult = await itemsResponse.json();
+        const totalProducts = itemsResult.success ? itemsResult.data?.length || 0 : 0;
+        
+        if (profitResult.success && profitResult.data) {
+          const data = profitResult.data;
+          setStats({
+            totalProducts,
+            totalSales: data.totalSales || 0,
+            salesCount: data.totalTransactions || 0,
+            totalCost: data.totalCost || 0,
+            totalProfit: data.totalProfit || 0,
+            profitMargin: data.profitMargin || 0,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch stats:', error);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
 
   const visibleButtons = ACTION_BUTTONS.filter((button) => {
     if (!button.roles) return true;
@@ -210,20 +259,20 @@ export default function AdminDashboardPage() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-slate-50 dark:bg-[#0f1a0d] flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen bg-slate-50 dark:bg-[#0f1a0d] flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 pt-2 sm:pt-4 pb-20 sm:pb-4">
         {/* POS Quick Access - Prominent at top */}
-        <div className="mb-6 w-full max-w-5xl">
+        <div className="mb-2 sm:mb-6 w-full max-w-5xl mt-0 sm:mt-0">
           <Link href="/pos">
-            <div className="group relative w-full bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-xl px-6 py-6 text-center transition-all duration-200 hover:shadow-lg hover:shadow-[#259783]/30 active:scale-98 cursor-pointer">
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
-                  <ShoppingCart className="w-7 h-7 text-white" />
+            <div className="group relative w-full bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-lg sm:rounded-xl px-3 py-2 sm:px-6 sm:py-6 text-center transition-all duration-200 hover:shadow-lg hover:shadow-[#259783]/30 active:scale-98 cursor-pointer">
+              <div className="flex flex-row items-center justify-center gap-2 sm:gap-4">
+                <div className="w-8 h-8 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
+                  <ShoppingCart className="w-4 h-4 sm:w-7 sm:h-7 text-white" />
                 </div>
-                <div className="text-center sm:text-left">
-                  <h3 className="text-xl font-bold text-white mb-1">
+                <div className="text-center sm:text-left flex-1">
+                  <h3 className="text-sm sm:text-xl font-bold text-white">
                     Open POS
                   </h3>
-                  <p className="text-sm text-white/90">
+                  <p className="hidden sm:block text-sm text-white/90 mt-1">
                     Start selling and processing transactions
                   </p>
                 </div>
@@ -238,7 +287,7 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Action Buttons Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-w-5xl w-full">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1.5 sm:gap-3 max-w-5xl w-full">
           {visibleButtons.map((button, index) => {
             const Icon = button.icon;
             const isPOS = button.href === '/pos';
@@ -249,17 +298,17 @@ export default function AdminDashboardPage() {
             const ButtonContent = (
               <button
                 onClick={button.onClick}
-                className="group relative w-full bg-[#259783] rounded-lg px-4 py-5 text-center transition-all duration-200 hover:bg-[#3bd522] hover:shadow-md active:scale-95"
+                className="group relative w-full bg-[#259783] rounded-lg px-2 py-2 sm:px-4 sm:py-5 text-center transition-all duration-200 hover:bg-[#3bd522] hover:shadow-md active:scale-95"
               >
-                <div className="flex flex-col items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-                    <Icon className="w-4 h-4 text-white" />
+                <div className="flex flex-col items-center gap-0.5 sm:gap-2">
+                  <div className="w-5 h-5 sm:w-8 sm:h-8 rounded-md sm:rounded-lg bg-white/20 flex items-center justify-center">
+                    <Icon className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-white mb-0.5">
+                    <h3 className="text-[11px] sm:text-sm font-semibold text-white leading-tight">
                       {button.label}
                     </h3>
-                    <p className="text-xs text-white/80">
+                    <p className="text-[9px] sm:text-xs text-white/80 leading-tight">
                       {button.description}
                     </p>
                   </div>
@@ -277,6 +326,78 @@ export default function AdminDashboardPage() {
 
             return <div key={index}>{ButtonContent}</div>;
           })}
+        </div>
+
+        {/* Stats Section */}
+        <div className="w-full max-w-5xl mt-4 sm:mt-6">
+          {statsLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="w-4 h-4 animate-spin text-slate-600 dark:text-slate-400" />
+            </div>
+          ) : stats ? (
+            <div className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18]">
+              <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-800">
+                <Link href="/admin/items">
+                  <div className="p-3 sm:p-4 text-center hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
+                    <div className="flex items-center justify-center mb-1.5">
+                      <Package className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600 dark:text-slate-400" />
+                    </div>
+                    <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Products</p>
+                    <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                      {stats.totalProducts}
+                    </p>
+                  </div>
+                </Link>
+                <div className="p-3 sm:p-4 text-center">
+                  <div className="flex items-center justify-center mb-1.5">
+                    <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600 dark:text-slate-400" />
+                  </div>
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Sales</p>
+                  <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                    KES {Math.round(stats.totalSales).toLocaleString()}
+                  </p>
+                </div>
+                <div className="p-3 sm:p-4 text-center">
+                  <div className="flex items-center justify-center mb-1.5">
+                    <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600 dark:text-slate-400" />
+                  </div>
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Orders</p>
+                  <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                    {stats.salesCount}
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-800 border-t border-slate-200 dark:border-slate-800">
+                <div className="p-3 sm:p-4 text-center">
+                  <div className="flex items-center justify-center mb-1.5">
+                    <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600 dark:text-slate-400" />
+                  </div>
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Cost</p>
+                  <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                    KES {Math.round(stats.totalCost).toLocaleString()}
+                  </p>
+                </div>
+                <div className="p-3 sm:p-4 text-center">
+                  <div className="flex items-center justify-center mb-1.5">
+                    <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600 dark:text-slate-400" />
+                  </div>
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Profit</p>
+                  <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                    KES {Math.round(stats.totalProfit).toLocaleString()}
+                  </p>
+                </div>
+                <div className="p-3 sm:p-4 text-center">
+                  <div className="flex items-center justify-center mb-1.5">
+                    <Percent className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600 dark:text-slate-400" />
+                  </div>
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Margin</p>
+                  <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                    {(stats.profitMargin * 100).toFixed(1)}%
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
 
