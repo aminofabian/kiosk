@@ -17,29 +17,34 @@ export async function OPTIONS() {
  * 2. Create the first super admin account
  * 
  * This should be called once during initial platform setup.
- * After the first super admin is created, this endpoint will not create more.
+ * Pass { force: true } to delete existing super admins and create a new one.
  */
 export async function POST(request: NextRequest) {
   try {
     // Run migration first
     await migrateSuperAdmin();
 
+    const body = await request.json();
+    const { email, password, name, force } = body;
+
     // Check if any super admin already exists
     const existing = await queryOne<{ count: number }>(
       `SELECT COUNT(*) as count FROM super_admins`
     );
 
-    if (existing && existing.count > 0) {
+    if (existing && existing.count > 0 && !force) {
       return jsonResponse({
         success: true,
-        message: 'Super admin already exists. Use the login page.',
+        message: 'Super admin already exists. Use the login page or pass force: true to reset.',
         alreadySetup: true,
       });
     }
 
-    // Get credentials from request body
-    const body = await request.json();
-    const { email, password, name } = body;
+    // If force is true, delete all existing super admins
+    if (force && existing && existing.count > 0) {
+      await execute(`DELETE FROM super_admins`);
+      console.log('🗑️ Deleted existing super admins');
+    }
 
     if (!email || !password || !name) {
       return jsonResponse(

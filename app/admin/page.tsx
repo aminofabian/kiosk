@@ -34,6 +34,7 @@ import {
   AlertCircle,
   Loader2,
   Percent,
+  Image,
 } from 'lucide-react';
 
 interface ActionButton {
@@ -119,6 +120,13 @@ const ACTION_BUTTONS: ActionButton[] = [
     label: 'Manage Users',
     description: 'Team management',
     icon: Users,
+    roles: ['owner'],
+  },
+  {
+    href: '/admin/banners',
+    label: 'Manage Banners',
+    description: 'Storefront banners',
+    icon: Image,
     roles: ['owner'],
   },
 ];
@@ -332,37 +340,37 @@ export default function AdminDashboardPage() {
         <div className="w-full max-w-5xl mt-4 sm:mt-6">
           {statsLoading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-4 h-4 animate-spin text-slate-600 dark:text-slate-400" />
+              <Loader2 className="w-4 h-4 animate-spin text-[#259783]" />
             </div>
           ) : stats ? (
-            <div className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18]">
+            <div className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18] border-t-2 border-t-[#259783]">
               <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-800">
                 <Link href="/admin/items">
-                  <div className="p-3 sm:p-4 text-center hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer">
+                  <div className="p-3 sm:p-4 text-center hover:bg-[#259783]/5 dark:hover:bg-[#259783]/10 transition-colors cursor-pointer">
                     <div className="flex items-center justify-center mb-1.5">
-                      <Package className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600 dark:text-slate-400" />
+                      <Package className="w-4 h-4 sm:w-5 sm:h-5 text-[#259783]" />
                     </div>
                     <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Products</p>
-                    <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                    <p className="text-xs sm:text-sm font-bold text-[#259783]">
                       {stats.totalProducts}
                     </p>
                   </div>
                 </Link>
                 <div className="p-3 sm:p-4 text-center">
                   <div className="flex items-center justify-center mb-1.5">
-                    <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600 dark:text-slate-400" />
+                    <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 text-[#259783]" />
                   </div>
                   <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Sales</p>
-                  <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                  <p className="text-xs sm:text-sm font-bold text-[#259783]">
                     KES {Math.round(stats.totalSales).toLocaleString()}
                   </p>
                 </div>
                 <div className="p-3 sm:p-4 text-center">
                   <div className="flex items-center justify-center mb-1.5">
-                    <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600 dark:text-slate-400" />
+                    <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-[#259783]" />
                   </div>
                   <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Orders</p>
-                  <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                  <p className="text-xs sm:text-sm font-bold text-[#259783]">
                     {stats.salesCount}
                   </p>
                 </div>
@@ -379,19 +387,19 @@ export default function AdminDashboardPage() {
                 </div>
                 <div className="p-3 sm:p-4 text-center">
                   <div className="flex items-center justify-center mb-1.5">
-                    <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600 dark:text-slate-400" />
+                    <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-[#259783]" />
                   </div>
                   <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Profit</p>
-                  <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                  <p className="text-xs sm:text-sm font-bold text-[#259783]">
                     KES {Math.round(stats.totalProfit).toLocaleString()}
                   </p>
                 </div>
                 <div className="p-3 sm:p-4 text-center">
                   <div className="flex items-center justify-center mb-1.5">
-                    <Percent className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600 dark:text-slate-400" />
+                    <Percent className="w-4 h-4 sm:w-5 sm:h-5 text-[#259783]" />
                   </div>
                   <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Margin</p>
-                  <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                  <p className="text-xs sm:text-sm font-bold text-[#259783]">
                     {(stats.profitMargin * 100).toFixed(1)}%
                   </p>
                 </div>

@@ -2,7 +2,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from './config';
 import { jsonResponse } from '@/lib/utils/api-response';
 import { hasPermission } from './permissions';
+import { queryOne } from '@/lib/db';
 import type { UserRole } from '@/lib/constants';
+import type { Business } from '@/lib/db/types';
 
 type Permission =
   | 'sell'
@@ -75,6 +77,16 @@ export async function requireAuth(): Promise<AuthContext | Response> {
   
   if (!auth) {
     return jsonResponse({ success: false, message: 'Unauthorized' }, 401);
+  }
+
+  // Verify the business is still active
+  const business = await queryOne<Business>(
+    `SELECT * FROM businesses WHERE id = ? AND active = 1`,
+    [auth.businessId]
+  );
+
+  if (!business) {
+    return jsonResponse({ success: false, message: 'Business is suspended or not found' }, 403);
   }
 
   return auth;

@@ -29,13 +29,17 @@ export default withAuth(
         const pathname = req.nextUrl.pathname;
 
         // Public routes that don't need authentication
-        const publicRoutes = ['/login', '/register', '/api/auth'];
+        const publicRoutes = [
+          '/login', 
+          '/register', 
+          '/api/auth', 
+          '/api/domain',
+          '/api/db',
+          '/api/superadmin/setup',
+          '/superadmin/login', 
+          '/superadmin/setup'
+        ];
         if (publicRoutes.some((route) => pathname.startsWith(route))) {
-          return true;
-        }
-
-        // API routes for db setup (temporary, remove in production)
-        if (pathname.startsWith('/api/db')) {
           return true;
         }
 

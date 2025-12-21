@@ -29,6 +29,23 @@ CREATE TABLE IF NOT EXISTS super_admins (
 CREATE INDEX IF NOT EXISTS idx_super_admins_email ON super_admins(email);
 
 -- ============================================
+-- 1.6. domains (Domain-to-Business Mapping)
+-- ============================================
+CREATE TABLE IF NOT EXISTS domains (
+  id TEXT PRIMARY KEY,
+  domain TEXT NOT NULL UNIQUE, -- e.g., "biashara.co.ke", "shop.kiosk.ke"
+  business_id TEXT NOT NULL,
+  is_primary INTEGER NOT NULL DEFAULT 0, -- 1 = primary domain, 0 = secondary
+  active INTEGER NOT NULL DEFAULT 1, -- 1 = active, 0 = suspended
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_domains_domain ON domains(domain);
+CREATE INDEX IF NOT EXISTS idx_domains_business_id ON domains(business_id);
+CREATE INDEX IF NOT EXISTS idx_domains_active ON domains(domain, active);
+
+-- ============================================
 -- 2. users
 -- ============================================
 CREATE TABLE IF NOT EXISTS users (

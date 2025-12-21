@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -9,12 +9,54 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 
+const DEFAULT_DOMAIN = 'kiosk.ke';
+const LOCALHOST_DOMAINS = ['localhost', '127.0.0.1', '0.0.0.0'];
+
 export function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [businessId, setBusinessId] = useState<string | null>(null);
+  const [businessName, setBusinessName] = useState<string | null>(null);
+  const [domainLoading, setDomainLoading] = useState(true);
+
+  useEffect(() => {
+    const resolveDomain = async () => {
+      try {
+        let hostname = window.location.hostname.toLowerCase();
+        
+        // Map localhost to default domain
+        if (LOCALHOST_DOMAINS.includes(hostname)) {
+          hostname = DEFAULT_DOMAIN;
+        }
+
+        // Remove port if present
+        const portIndex = hostname.indexOf(':');
+        if (portIndex > -1) {
+          hostname = hostname.substring(0, portIndex);
+        }
+
+        // Fetch business for this domain
+        const response = await fetch(`/api/domain/resolve?domain=${encodeURIComponent(hostname)}`);
+        const result = await response.json();
+
+        if (result.success && result.data) {
+          setBusinessId(result.data.businessId);
+          setBusinessName(result.data.businessName);
+        }
+        // If no business found, businessId stays null - fallback login will be used
+      } catch (err) {
+        console.error('Failed to resolve domain:', err);
+        // On error, businessId stays null - allows fallback login during initial setup
+      } finally {
+        setDomainLoading(false);
+      }
+    };
+
+    resolveDomain();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,11 +67,16 @@ export function LoginForm() {
       const result = await signIn('credentials', {
         email,
         password,
+        businessId: businessId || undefined,
         redirect: false,
       });
 
       if (result?.error) {
-        setError('Invalid email or password');
+        if (result.error.includes('suspended')) {
+          setError('This business is suspended. Please contact support.');
+        } else {
+          setError('Invalid email or password');
+        }
         setIsLoading(false);
         return;
       }
@@ -49,7 +96,13 @@ export function LoginForm() {
           Welcome Back
         </CardTitle>
         <CardDescription>
-          Sign in to access your POS dashboard
+          {domainLoading ? (
+            'Loading...'
+          ) : businessName ? (
+            <>Sign in to <span className="font-semibold text-emerald-600">{businessName}</span></>
+          ) : (
+            'Sign in to access your POS dashboard'
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent>

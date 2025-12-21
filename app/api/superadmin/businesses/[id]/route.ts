@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { query, execute, queryOne } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireSuperAdmin, isAuthResponse } from '@/lib/auth/api-auth';
-import type { Business, User } from '@/lib/db/types';
+import type { Business, User, Domain } from '@/lib/db/types';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -70,11 +70,23 @@ export async function GET(
       [businessId, thirtyDaysAgo]
     );
 
+    let domains: Domain[] = [];
+    try {
+      domains = await query<Domain>(
+        `SELECT * FROM domains WHERE business_id = ? ORDER BY is_primary DESC, domain ASC`,
+        [businessId]
+      );
+    } catch (error) {
+      // Domains table might not exist yet if migration hasn't run
+      console.warn('Domains table not found, skipping domain fetch:', error);
+    }
+
     return jsonResponse({
       success: true,
       data: {
         business,
         users,
+        domains,
         recentStats: recentStats || { recent_sales: 0, recent_revenue: 0 },
       },
     });

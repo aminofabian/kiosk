@@ -6,6 +6,15 @@ import { SuperAdminLayout } from '@/components/layouts/superadmin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
 import {
   Building2,
   Users,
@@ -20,6 +29,11 @@ import {
   Calendar,
   Mail,
   Shield,
+  Globe,
+  Plus,
+  Trash2,
+  Star,
+  ExternalLink,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -28,6 +42,15 @@ interface User {
   name: string;
   email: string;
   role: string;
+  active: number;
+  created_at: number;
+}
+
+interface Domain {
+  id: string;
+  domain: string;
+  business_id: string;
+  is_primary: number;
   active: number;
   created_at: number;
 }
@@ -47,6 +70,7 @@ interface BusinessDetails {
     categories_count: number;
   };
   users: User[];
+  domains: Domain[];
   recentStats: {
     recent_sales: number;
     recent_revenue: number;
@@ -60,6 +84,13 @@ export default function BusinessDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
+  
+  // Domain management state
+  const [domainDrawerOpen, setDomainDrawerOpen] = useState(false);
+  const [newDomain, setNewDomain] = useState('');
+  const [domainError, setDomainError] = useState<string | null>(null);
+  const [addingDomain, setAddingDomain] = useState(false);
+  const [deletingDomainId, setDeletingDomainId] = useState<string | null>(null);
 
   const businessId = params.id as string;
 
@@ -107,6 +138,117 @@ export default function BusinessDetailsPage() {
       // Handle error silently
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleAddDomain = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDomain.trim()) return;
+    
+    setAddingDomain(true);
+    setDomainError(null);
+    
+    try {
+      const response = await fetch('/api/domains', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          domain: newDomain.toLowerCase().trim(),
+          businessId,
+          isPrimary: data?.domains?.length === 0,
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setNewDomain('');
+        setDomainDrawerOpen(false);
+        // Refresh business data
+        const refreshResponse = await fetch(`/api/superadmin/businesses/${businessId}`);
+        const refreshResult = await refreshResponse.json();
+        if (refreshResult.success) {
+          setData(refreshResult.data);
+        }
+      } else {
+        setDomainError(result.message || 'Failed to add domain');
+      }
+    } catch {
+      setDomainError('Failed to add domain');
+    } finally {
+      setAddingDomain(false);
+    }
+  };
+
+  const handleDeleteDomain = async (domainId: string) => {
+    if (!confirm('Are you sure you want to delete this domain?')) return;
+    
+    setDeletingDomainId(domainId);
+    
+    try {
+      const response = await fetch(`/api/domains/${domainId}`, {
+        method: 'DELETE',
+      });
+      
+      const result = await response.json();
+      
+      if (result.success && data) {
+        setData({
+          ...data,
+          domains: data.domains.filter((d) => d.id !== domainId),
+        });
+      }
+    } catch {
+      // Handle error silently
+    } finally {
+      setDeletingDomainId(null);
+    }
+  };
+
+  const handleSetPrimary = async (domainId: string) => {
+    try {
+      const response = await fetch(`/api/domains/${domainId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPrimary: true }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success && data) {
+        setData({
+          ...data,
+          domains: data.domains.map((d) => ({
+            ...d,
+            is_primary: d.id === domainId ? 1 : 0,
+          })),
+        });
+      }
+    } catch {
+      // Handle error silently
+    }
+  };
+
+  const handleToggleDomainStatus = async (domain: Domain) => {
+    try {
+      const response = await fetch(`/api/domains/${domain.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: domain.active === 1 ? false : true }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success && data) {
+        setData({
+          ...data,
+          domains: data.domains.map((d) =>
+            d.id === domain.id ? { ...d, active: domain.active === 1 ? 0 : 1 } : d
+          ),
+        });
+      }
+    } catch {
+      // Handle error silently
     }
   };
 
@@ -320,8 +462,198 @@ export default function BusinessDetailsPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Domains Card */}
+            <Card className="bg-slate-800 border-slate-700 mt-6">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <Globe className="w-5 h-5 text-violet-400" />
+                    Domains ({data.domains?.length || 0})
+                  </CardTitle>
+                  <Button
+                    size="sm"
+                    onClick={() => setDomainDrawerOpen(true)}
+                    className="bg-violet-600 hover:bg-violet-500"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Add Domain
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {!data.domains || data.domains.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Globe className="w-12 h-12 text-slate-600 mx-auto mb-3" />
+                    <p className="text-slate-500 mb-4">No domains configured</p>
+                    <p className="text-slate-600 text-sm mb-4">
+                      Add a domain to allow customers to access this kiosk via a custom URL
+                    </p>
+                    <Button
+                      onClick={() => setDomainDrawerOpen(true)}
+                      className="bg-violet-600 hover:bg-violet-500"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add First Domain
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {data.domains.map((domain) => (
+                      <div
+                        key={domain.id}
+                        className={`flex items-center gap-4 p-4 rounded-xl ${
+                          domain.active === 1 ? 'bg-slate-700/50' : 'bg-slate-700/30 opacity-60'
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <a
+                              href={`https://${domain.domain}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-mono text-white hover:text-violet-400 transition-colors flex items-center gap-1"
+                            >
+                              {domain.domain}
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                            {domain.is_primary === 1 && (
+                              <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20">
+                                <Star className="w-3 h-3 mr-1" />
+                                Primary
+                              </Badge>
+                            )}
+                            {domain.active === 0 && (
+                              <Badge className="bg-red-500/10 text-red-400 border-red-500/20">
+                                Suspended
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-slate-500 text-xs mt-1">
+                            Added {formatDate(domain.created_at)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {domain.is_primary === 0 && domain.active === 1 && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleSetPrimary(domain.id)}
+                              className="text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+                            >
+                              <Star className="w-3 h-3 mr-1" />
+                              Set Primary
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleToggleDomainStatus(domain)}
+                            className={domain.active === 1 
+                              ? 'text-red-400 border-red-500/30 hover:bg-red-500/10'
+                              : 'text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10'
+                            }
+                          >
+                            {domain.active === 1 ? (
+                              <>
+                                <XCircle className="w-3 h-3 mr-1" />
+                                Suspend
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle className="w-3 h-3 mr-1" />
+                                Activate
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDeleteDomain(domain.id)}
+                            disabled={deletingDomainId === domain.id}
+                            className="text-red-400 border-red-500/30 hover:bg-red-500/10"
+                          >
+                            {deletingDomainId === domain.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3 h-3" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </>
         )}
+
+        {/* Add Domain Drawer */}
+        <Drawer open={domainDrawerOpen} onOpenChange={setDomainDrawerOpen}>
+          <DrawerContent className="bg-slate-900 border-slate-700">
+            <DrawerHeader>
+              <DrawerTitle className="text-white">Add Domain</DrawerTitle>
+              <DrawerDescription className="text-slate-400">
+                Map a domain or subdomain to this kiosk. Make sure DNS is configured to point to your server.
+              </DrawerDescription>
+            </DrawerHeader>
+            <form onSubmit={handleAddDomain} className="p-4 space-y-4">
+              <div>
+                <Label htmlFor="domain" className="text-white">Domain</Label>
+                <Input
+                  id="domain"
+                  type="text"
+                  placeholder="e.g., shop.example.com or example.co.ke"
+                  value={newDomain}
+                  onChange={(e) => setNewDomain(e.target.value)}
+                  className="mt-1 bg-slate-800 border-slate-700 text-white placeholder:text-slate-500"
+                />
+                <p className="text-xs text-slate-500 mt-1">
+                  Enter the full domain without https://
+                </p>
+              </div>
+              
+              {domainError && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+                  <p className="text-sm text-red-400">{domainError}</p>
+                </div>
+              )}
+              
+              <div className="flex gap-2 pt-4">
+                <Button
+                  type="submit"
+                  disabled={addingDomain || !newDomain.trim()}
+                  className="flex-1 bg-violet-600 hover:bg-violet-500"
+                >
+                  {addingDomain ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Domain
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setDomainDrawerOpen(false);
+                    setNewDomain('');
+                    setDomainError(null);
+                  }}
+                  className="border-slate-700 text-slate-300"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </DrawerContent>
+        </Drawer>
       </div>
     </SuperAdminLayout>
   );

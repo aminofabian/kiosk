@@ -39,6 +39,18 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'picsum.photos',
       },
+      {
+        protocol: 'https',
+        hostname: '*.s3.amazonaws.com',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.s3.eu-north-1.amazonaws.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'alexawriters.s3.eu-north-1.amazonaws.com',
+      },
     ],
   },
 };

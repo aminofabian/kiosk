@@ -34,6 +34,15 @@ export interface SuperAdmin {
   created_at: number;
 }
 
+export interface Domain {
+  id: string;
+  domain: string;
+  business_id: string;
+  is_primary: number; // 1 = primary, 0 = secondary
+  active: number; // 1 = active, 0 = suspended
+  created_at: number;
+}
+
 export interface User {
   id: string;
   business_id: string;
@@ -224,6 +233,7 @@ export interface StockAdjustment {
 
 // For inserting new records (omit auto-generated fields)
 export type InsertBusiness = Omit<Business, 'created_at'>;
+export type InsertDomain = Omit<Domain, 'created_at'>;
 export type InsertUser = Omit<User, 'created_at'>;
 export type InsertCategory = Omit<Category, 'created_at'>;
 export type InsertItem = Omit<Item, 'created_at'>;

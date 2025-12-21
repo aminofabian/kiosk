@@ -1,9 +1,11 @@
 'use client';
 
 import { Suspense, useEffect, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { PINLogin } from '@/components/pos/PINLogin';
 import { Loader2 } from 'lucide-react';
+
+const DEFAULT_DOMAIN = 'kiosk.ke';
+const LOCALHOST_DOMAINS = ['localhost', '127.0.0.1', '0.0.0.0'];
 
 interface BusinessInfo {
   id: string;
@@ -19,36 +21,37 @@ function LoadingSpinner() {
 }
 
 function POSLoginContent() {
-  const searchParams = useSearchParams();
-  const businessIdParam = searchParams.get('business');
-  
   const [business, setBusiness] = useState<BusinessInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadBusiness = async () => {
-      const storedBusinessId = localStorage.getItem('pos_business_id');
-      const businessId = businessIdParam || storedBusinessId;
-
-      if (!businessId) {
-        setError('No business selected. Please sign in with email first.');
-        setIsLoading(false);
-        return;
-      }
-
       try {
-        const response = await fetch(`/api/businesses/${businessId}`);
+        // Always resolve business from domain - never from URL params or localStorage
+        let hostname = window.location.hostname.toLowerCase();
+        
+        // Map localhost to default domain
+        if (LOCALHOST_DOMAINS.includes(hostname)) {
+          hostname = DEFAULT_DOMAIN;
+        }
+
+        // Remove port if present
+        const portIndex = hostname.indexOf(':');
+        if (portIndex > -1) {
+          hostname = hostname.substring(0, portIndex);
+        }
+
+        const response = await fetch(`/api/domain/resolve?domain=${encodeURIComponent(hostname)}`);
         const result = await response.json();
 
         if (result.success && result.data) {
           setBusiness({
-            id: result.data.id,
-            name: result.data.name,
+            id: result.data.businessId,
+            name: result.data.businessName,
           });
-          localStorage.setItem('pos_business_id', result.data.id);
         } else {
-          setError('Business not found');
+          setError('Business not found for this domain');
         }
       } catch {
         setError('Failed to load business');
@@ -58,7 +61,7 @@ function POSLoginContent() {
     };
 
     loadBusiness();
-  }, [businessIdParam]);
+  }, []);
 
   if (isLoading) {
     return <LoadingSpinner />;

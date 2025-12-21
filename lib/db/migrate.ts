@@ -2,6 +2,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { execute, query } from './index';
 import { migrateItemVariants } from './migrate-item-variants';
+import { migrateDomains } from './migrate-domains';
 
 const SCHEMA_PATH = join(process.cwd(), 'lib', 'db', 'sql', 'schema.sql');
 
@@ -156,26 +157,6 @@ async function migrateInventoryBatchesNullable() {
 
 export async function runMigrations() {
   try {
-    // Run specific migrations first - each can fail independently
-    try {
-      await migrateStockAdjustmentsReason();
-    } catch (error) {
-      console.error('⚠ stock_adjustments migration skipped:', error);
-    }
-    
-    try {
-      await migrateInventoryBatchesNullable();
-    } catch (error) {
-      console.error('⚠ inventory_batches migration skipped:', error);
-    }
-    
-    try {
-      await migrateItemVariants();
-    } catch (error) {
-      console.error('⚠ item_variants migration error:', error);
-      throw error; // This one is critical
-    }
-
     console.log('Reading schema file...');
     const schema = readFileSync(SCHEMA_PATH, 'utf-8');
     
@@ -241,6 +222,33 @@ export async function runMigrations() {
     
     // Re-enable foreign keys
     await execute('PRAGMA foreign_keys = ON');
+
+    // Run additional migrations AFTER schema is created
+    console.log('Running additional migrations...');
+    
+    try {
+      await migrateStockAdjustmentsReason();
+    } catch (error) {
+      console.error('⚠ stock_adjustments migration skipped:', error);
+    }
+    
+    try {
+      await migrateInventoryBatchesNullable();
+    } catch (error) {
+      console.error('⚠ inventory_batches migration skipped:', error);
+    }
+    
+    try {
+      await migrateItemVariants();
+    } catch (error) {
+      console.error('⚠ item_variants migration skipped:', error);
+    }
+    
+    try {
+      await migrateDomains();
+    } catch (error) {
+      console.error('⚠ domains migration skipped:', error);
+    }
 
     console.log('✅ Migration completed successfully!');
     return true;
