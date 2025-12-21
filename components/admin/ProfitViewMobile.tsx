@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, WifiOff, TrendingUp, TrendingDown, AlertTriangle, Download, ShoppingBag, Receipt, PieChart, Package, Target, CheckCircle2, XCircle, ChevronRight } from 'lucide-react';
+import { ArrowLeft, WifiOff, TrendingUp, TrendingDown, AlertTriangle, Download, ShoppingBag, Receipt, PieChart, Package, Target, CheckCircle2, XCircle, ChevronRight, Wallet } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -120,7 +120,7 @@ export function ProfitViewMobile() {
     return (
       <div className="flex items-center justify-center h-screen bg-slate-50 dark:bg-[#0f1a0d]">
         <div className="text-center">
-          <div className="w-10 h-10 mx-auto border-3 border-[#259783]/20 border-t-[#259783] rounded-full animate-spin mb-3"></div>
+          <div className="w-10 h-10 mx-auto border-3 border-[#259783]/20 border-t-[#259783] animate-spin mb-3"></div>
           <p className="text-slate-500 text-sm">Loading...</p>
         </div>
       </div>
@@ -146,15 +146,18 @@ export function ProfitViewMobile() {
   return (
     <div className="bg-slate-50 dark:bg-[#0f1a0d] min-h-screen pb-24">
       {/* Header */}
-      <div className="sticky top-0 z-50 bg-slate-50/95 dark:bg-[#0f1a0d]/95 backdrop-blur-sm px-4 py-3 border-b border-slate-200 dark:border-slate-800">
+      <div className="sticky top-0 z-50 bg-white/95 dark:bg-[#0f1a0d]/95 backdrop-blur-lg px-4 py-4 border-b-2 border-slate-200 dark:border-slate-800">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <button onClick={() => router.back()} className="p-1.5 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800">
+            <button onClick={() => router.back()} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800">
               <ArrowLeft className="w-5 h-5 text-slate-700 dark:text-slate-300" />
             </button>
-            <h1 className="text-lg font-bold text-slate-900 dark:text-white">Profit</h1>
+            <div>
+              <h1 className="text-lg font-black text-slate-900 dark:text-white">Profit</h1>
+              <p className="text-[10px] text-slate-500">Analytics & insights</p>
+            </div>
           </div>
-          <Link href="/admin" className="px-3 py-1.5 text-xs font-semibold bg-slate-200 dark:bg-slate-800 rounded-full text-slate-700 dark:text-slate-300">
+          <Link href="/admin" className="px-3 py-1.5 text-xs font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg">
             Close
           </Link>
         </div>
@@ -163,23 +166,23 @@ export function ProfitViewMobile() {
       {/* Offline */}
       {isOffline && (
         <div className="px-4 py-2">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-orange-100 dark:bg-orange-900/30 w-fit mx-auto">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-100 dark:bg-orange-900/30 w-fit mx-auto border-2 border-orange-200 dark:border-orange-800">
             <WifiOff className="w-3.5 h-3.5 text-orange-600" />
-            <span className="text-orange-700 text-xs font-medium">Offline</span>
+            <span className="text-orange-700 text-xs font-bold">Offline</span>
           </div>
         </div>
       )}
 
       {/* Date Filter */}
-      <div className="px-4 py-3">
-        <div className="flex bg-white dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
+      <div className="px-4 py-4">
+        <div className="flex bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 p-1">
           {(['today', 'week', 'month'] as DatePreset[]).map((preset) => (
             <button
               key={preset}
               onClick={() => setDatePreset(preset)}
-              className={`flex-1 py-2 text-xs font-semibold rounded-md capitalize transition-all ${
+              className={`flex-1 py-2.5 text-xs font-bold transition-all rounded-lg ${
                 datePreset === preset
-                  ? 'bg-[#259783] text-white shadow-sm'
+                  ? 'bg-[#259783] text-white shadow-md'
                   : 'text-slate-500'
               }`}
             >
@@ -191,66 +194,66 @@ export function ProfitViewMobile() {
 
       {/* Net Profit Status */}
       {hasExpenses && (
-        <div className="px-4 pb-3">
-          <div className={`p-3 rounded-xl flex items-center justify-between ${
+        <div className="px-4 pb-4">
+          <div className={`p-4 border-2 flex items-center justify-between ${
             isProfitable 
-              ? 'bg-green-500' 
-              : 'bg-red-500'
+              ? 'border-[#259783] bg-[#259783]' 
+              : 'border-red-500 bg-red-500'
           }`}>
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 flex items-center justify-center border-2 border-white/30">
                 {isProfitable ? <CheckCircle2 className="w-5 h-5 text-white" /> : <XCircle className="w-5 h-5 text-white" />}
               </div>
               <div>
-                <p className="text-white/80 text-[10px] font-bold uppercase">{isProfitable ? 'Profitable' : 'At a Loss'}</p>
-                <p className="text-white text-xl font-black">{isProfitable ? '+' : ''}{formatPrice(getNetProfit())}</p>
+                <p className="text-white/80 text-[10px] font-black uppercase">{isProfitable ? 'Profitable' : 'At a Loss'}</p>
+                <p className="text-white text-2xl font-black">{isProfitable ? '+' : ''}{formatPrice(getNetProfit())}</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-white/60 text-[10px] uppercase font-medium">Safe to Bank</p>
-              <p className="text-white text-lg font-bold">{formatPrice(Math.max(0, getNetProfit()))}</p>
+            <div className="text-right border-l-2 border-white/20 pl-4">
+              <p className="text-white/60 text-[10px] uppercase font-bold">Safe to Bank</p>
+              <p className="text-white text-xl font-black">{formatPrice(Math.max(0, getNetProfit()))}</p>
             </div>
           </div>
         </div>
       )}
 
       {/* Main Stats */}
-      <div className="px-4 pb-3">
+      <div className="px-4 pb-4">
         <div className="grid grid-cols-2 gap-2.5">
           {/* Sales */}
-          <div className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-slate-700">
-            <div className="flex items-center gap-1.5 mb-1">
-              <ShoppingBag className="w-3.5 h-3.5 text-slate-400" />
-              <span className="text-[10px] font-semibold text-slate-500 uppercase">Sales</span>
+          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
+            <div className="flex items-center gap-1.5 mb-2">
+              <ShoppingBag className="w-4 h-4 text-[#259783]" />
+              <span className="text-[10px] font-black text-slate-500 uppercase">Sales</span>
             </div>
-            <p className="text-xl font-black text-slate-900 dark:text-white">{formatPrice(profitData?.totalSales || 0)}</p>
+            <p className="text-2xl font-black text-slate-900 dark:text-white">{formatPrice(profitData?.totalSales || 0)}</p>
           </div>
 
           {/* COGS */}
-          <div className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-slate-200 dark:border-slate-700">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Receipt className="w-3.5 h-3.5 text-slate-400" />
-              <span className="text-[10px] font-semibold text-slate-500 uppercase">Cost</span>
+          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
+            <div className="flex items-center gap-1.5 mb-2">
+              <Receipt className="w-4 h-4 text-[#259783]" />
+              <span className="text-[10px] font-black text-slate-500 uppercase">Cost</span>
             </div>
-            <p className="text-xl font-black text-slate-900 dark:text-white">{formatPrice(profitData?.totalCost || 0)}</p>
+            <p className="text-2xl font-black text-slate-900 dark:text-white">{formatPrice(profitData?.totalCost || 0)}</p>
           </div>
 
           {/* Gross Profit */}
-          <div className="bg-[#259783] rounded-xl p-3">
-            <div className="flex items-center gap-1.5 mb-1">
-              <TrendingUp className="w-3.5 h-3.5 text-white/70" />
-              <span className="text-[10px] font-semibold text-white/70 uppercase">Gross Profit</span>
+          <div className="border-2 border-[#259783] bg-[#259783] p-3.5">
+            <div className="flex items-center gap-1.5 mb-2">
+              <TrendingUp className="w-4 h-4 text-white/70" />
+              <span className="text-[10px] font-black text-white/70 uppercase">Gross Profit</span>
             </div>
-            <p className="text-2xl font-black text-white">{formatPrice(profitData?.totalProfit || 0)}</p>
+            <p className="text-3xl font-black text-white">{formatPrice(profitData?.totalProfit || 0)}</p>
           </div>
 
           {/* Margin */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 border border-blue-100 dark:border-blue-900/30">
-            <div className="flex items-center gap-1.5 mb-1">
-              <PieChart className="w-3.5 h-3.5 text-blue-500" />
-              <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase">Margin</span>
+          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
+            <div className="flex items-center gap-1.5 mb-2">
+              <PieChart className="w-4 h-4 text-[#259783]" />
+              <span className="text-[10px] font-black text-slate-500 uppercase">Margin</span>
             </div>
-            <p className="text-2xl font-black text-blue-700 dark:text-blue-300">
+            <p className="text-3xl font-black text-slate-900 dark:text-white">
               {profitData?.profitMargin ? (profitData.profitMargin * 100).toFixed(0) : 0}%
             </p>
           </div>
@@ -259,42 +262,42 @@ export function ProfitViewMobile() {
 
       {/* Expenses Row */}
       {hasExpenses ? (
-        <div className="px-4 pb-3">
+        <div className="px-4 pb-4">
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Operating Costs</h2>
-            <Link href="/admin/expenses" className="text-[10px] font-semibold text-[#259783] flex items-center gap-0.5">
+            <h2 className="text-sm font-black text-slate-900 dark:text-white">Operating Costs</h2>
+            <Link href="/admin/expenses" className="text-[10px] font-bold text-[#259783] flex items-center gap-0.5">
               Manage <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-2.5">
-            <div className="bg-gradient-to-br from-orange-500 to-red-500 rounded-xl p-3">
-              <div className="flex items-center gap-1.5 mb-1">
-                <Receipt className="w-3.5 h-3.5 text-white/70" />
-                <span className="text-[10px] font-semibold text-white/70 uppercase">Expenses</span>
+            <div className="border-2 border-[#259783] bg-[#259783] p-3.5">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Receipt className="w-4 h-4 text-white/70" />
+                <span className="text-[10px] font-black text-white/70 uppercase">Expenses</span>
               </div>
-              <p className="text-xl font-black text-white">{formatPrice(getDailyExpense())}</p>
+              <p className="text-2xl font-black text-white">{formatPrice(getDailyExpense())}</p>
               <p className="text-[10px] text-white/60">{getPeriodDays()} day{getPeriodDays() !== 1 ? 's' : ''}</p>
             </div>
-            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 border border-amber-100 dark:border-amber-800">
-              <div className="flex items-center gap-1.5 mb-1">
-                <Target className="w-3.5 h-3.5 text-amber-500" />
-                <span className="text-[10px] font-semibold text-amber-600 uppercase">Break-even</span>
+            <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Target className="w-4 h-4 text-[#259783]" />
+                <span className="text-[10px] font-black text-slate-500 uppercase">Break-even</span>
               </div>
-              <p className="text-xl font-black text-amber-700 dark:text-amber-300">{formatPrice(getBreakEvenSales())}</p>
-              <p className="text-[10px] text-amber-600/70">Min. to survive</p>
+              <p className="text-2xl font-black text-slate-900 dark:text-white">{formatPrice(getBreakEvenSales())}</p>
+              <p className="text-[10px] text-slate-500">Min. to survive</p>
             </div>
           </div>
         </div>
       ) : (
-        <div className="px-4 pb-3">
+        <div className="px-4 pb-4">
           <Link href="/admin/expenses">
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-              <Receipt className="w-5 h-5 text-amber-600" />
+            <div className="flex items-center gap-3 p-3.5 border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+              <Receipt className="w-5 h-5 text-[#259783]" />
               <div className="flex-1">
-                <p className="font-semibold text-amber-800 dark:text-amber-200 text-sm">Add Expenses</p>
-                <p className="text-[10px] text-amber-700">See true profit</p>
+                <p className="font-black text-sm text-slate-900 dark:text-white">Add Expenses</p>
+                <p className="text-[10px] text-slate-500">See true profit</p>
               </div>
-              <ChevronRight className="w-4 h-4 text-amber-500" />
+              <ChevronRight className="w-4 h-4 text-[#259783]" />
             </div>
           </Link>
         </div>
@@ -302,23 +305,24 @@ export function ProfitViewMobile() {
 
       {/* Top Items */}
       {topItems.length > 0 && (
-        <div className="px-4 pb-3">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-1.5">
-            <TrendingUp className="w-4 h-4 text-green-500" />
+        <div className="px-4 pb-4">
+          <h2 className="text-sm font-black text-slate-900 dark:text-white mb-3 flex items-center gap-2 pb-2 border-b-2 border-slate-200 dark:border-slate-800">
+            <TrendingUp className="w-4 h-4 text-[#259783]" />
             Top Profit
           </h2>
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {topItems.map((item, i) => {
               const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
-              const emojis = ['🥇', '🥈', '🥉'];
               return (
-                <div key={item.item_id} className="flex items-center gap-2.5 p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-                  <span className="text-lg">{emojis[i]}</span>
+                <div key={item.item_id} className="flex items-center gap-3 p-3 border-2 border-[#259783]/20 bg-[#259783]/5">
+                  <div className="w-8 h-8 border-2 border-[#259783] bg-[#259783] flex items-center justify-center">
+                    <span className="text-xs font-black text-white">{i + 1}</span>
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-slate-900 dark:text-white truncate">{item.item_name}</p>
+                    <p className="font-black text-sm text-slate-900 dark:text-white truncate">{item.item_name}</p>
                     <p className="text-[10px] text-slate-500">{item.quantity_sold.toFixed(0)} sold • {margin.toFixed(0)}%</p>
                   </div>
-                  <p className="text-sm font-bold text-green-600">+{formatPrice(item.total_profit)}</p>
+                  <p className="text-sm font-black text-[#259783]">+{formatPrice(item.total_profit)}</p>
                 </div>
               );
             })}
@@ -328,27 +332,29 @@ export function ProfitViewMobile() {
 
       {/* Least Profitable */}
       {leastItems.length > 0 && (
-        <div className="px-4 pb-3">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-1.5">
-            <TrendingDown className="w-4 h-4 text-orange-500" />
+        <div className="px-4 pb-4">
+          <h2 className="text-sm font-black text-slate-900 dark:text-white mb-3 flex items-center gap-2 pb-2 border-b-2 border-slate-200 dark:border-slate-800">
+            <TrendingDown className="w-4 h-4 text-[#259783]" />
             Least Profitable
           </h2>
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {leastItems.map((item, i) => {
               const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
               const isNeg = item.total_profit < 0;
               return (
-                <div key={item.item_id} className={`flex items-center gap-2.5 p-2.5 rounded-xl border ${
-                  isNeg ? 'bg-red-50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30' : 'bg-orange-50 dark:bg-orange-900/10 border-orange-100 dark:border-orange-900/30'
+                <div key={item.item_id} className={`flex items-center gap-3 p-3 border-2 ${
+                  isNeg ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
                 }`}>
-                  <span className={`w-6 h-6 rounded text-xs font-bold flex items-center justify-center ${
-                    isNeg ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'
-                  }`}>{i + 1}</span>
+                  <div className={`w-8 h-8 border-2 flex items-center justify-center ${
+                    isNeg ? 'border-red-500 bg-red-500' : 'border-slate-300 dark:border-slate-600 bg-slate-100 dark:bg-slate-700'
+                  }`}>
+                    <span className={`text-xs font-black ${isNeg ? 'text-white' : 'text-slate-600 dark:text-slate-400'}`}>{i + 1}</span>
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-slate-900 dark:text-white truncate">{item.item_name}</p>
+                    <p className="font-black text-sm text-slate-900 dark:text-white truncate">{item.item_name}</p>
                     <p className="text-[10px] text-slate-500">{item.quantity_sold.toFixed(0)} sold • {margin.toFixed(0)}%</p>
                   </div>
-                  <p className={`text-sm font-bold ${isNeg ? 'text-red-600' : 'text-orange-600'}`}>
+                  <p className={`text-sm font-black ${isNeg ? 'text-red-600' : 'text-slate-600 dark:text-slate-400'}`}>
                     {isNeg ? '-' : ''}{formatPrice(Math.abs(item.total_profit))}
                   </p>
                 </div>
@@ -360,25 +366,27 @@ export function ProfitViewMobile() {
 
       {/* All Items */}
       {profitData && profitData.itemProfits.length > 0 && (
-        <div className="px-4 pb-3">
-          <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-2 flex items-center gap-1.5">
-            <Package className="w-4 h-4 text-slate-500" />
+        <div className="px-4 pb-4">
+          <h2 className="text-sm font-black text-slate-900 dark:text-white mb-3 flex items-center gap-2 pb-2 border-b-2 border-slate-200 dark:border-slate-800">
+            <Package className="w-4 h-4 text-[#259783]" />
             All Items ({profitData.itemProfits.length})
           </h2>
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {profitData.itemProfits.sort((a, b) => b.total_profit - a.total_profit).map((item) => {
               const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
               const isPos = item.total_profit >= 0;
               return (
-                <div key={item.item_id} className="flex items-center gap-2.5 p-2.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isPos ? 'bg-green-50' : 'bg-red-50'}`}>
-                    {isPos ? <TrendingUp className="w-3.5 h-3.5 text-green-500" /> : <TrendingDown className="w-3.5 h-3.5 text-red-500" />}
+                <div key={item.item_id} className="flex items-center gap-3 p-3 border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                  <div className={`w-8 h-8 border-2 flex items-center justify-center ${
+                    isPos ? 'border-[#259783] bg-[#259783]' : 'border-red-500 bg-red-500'
+                  }`}>
+                    {isPos ? <TrendingUp className="w-4 h-4 text-white" /> : <TrendingDown className="w-4 h-4 text-white" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-slate-900 dark:text-white truncate">{item.item_name}</p>
+                    <p className="font-black text-sm text-slate-900 dark:text-white truncate">{item.item_name}</p>
                     <p className="text-[10px] text-slate-500">{item.quantity_sold.toFixed(0)} sold • {margin.toFixed(0)}% margin</p>
                   </div>
-                  <p className={`text-sm font-bold ${isPos ? 'text-green-600' : 'text-red-500'}`}>
+                  <p className={`text-sm font-black ${isPos ? 'text-[#259783]' : 'text-red-500'}`}>
                     {isPos ? '+' : ''}{formatPrice(item.total_profit)}
                   </p>
                 </div>
@@ -391,22 +399,22 @@ export function ProfitViewMobile() {
       {/* Restock Alerts */}
       {lowStockItems.length > 0 && (
         <div className="px-4 pb-6">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-              <Package className="w-4 h-4 text-amber-500" />
+          <div className="flex items-center justify-between mb-3 pb-2 border-b-2 border-slate-200 dark:border-slate-800">
+            <h2 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+              <Package className="w-4 h-4 text-[#259783]" />
               Restock Alerts
             </h2>
-            <Link href="/admin/stock" className="text-[10px] font-semibold text-[#259783]">View All</Link>
+            <Link href="/admin/stock" className="text-[10px] font-bold text-[#259783]">View All</Link>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 no-scrollbar">
             {lowStockItems.map((item) => {
               const isCritical = item.current_stock <= 3;
               return (
-                <div key={item.id} className={`flex-none w-36 p-3 rounded-xl ${
-                  isCritical ? 'bg-red-50 border-red-100' : 'bg-yellow-50 border-yellow-100'
-                } border`}>
-                  <p className="font-semibold text-sm text-slate-900 truncate mb-1">{item.name}</p>
-                  <p className={`text-xs font-bold ${isCritical ? 'text-red-600' : 'text-yellow-600'}`}>
+                <div key={item.id} className={`flex-none w-36 p-3 border-2 ${
+                  isCritical ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10' : 'border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/10'
+                }`}>
+                  <p className="font-black text-sm text-slate-900 truncate mb-1">{item.name}</p>
+                  <p className={`text-xs font-black ${isCritical ? 'text-red-600' : 'text-amber-600'}`}>
                     {item.current_stock} left
                   </p>
                 </div>
@@ -418,7 +426,7 @@ export function ProfitViewMobile() {
 
       {/* Export Button */}
       <div className="fixed bottom-20 left-0 w-full px-4 flex justify-center z-40">
-        <button className="shadow-lg shadow-[#259783]/30 flex items-center gap-2 bg-[#259783] active:scale-95 transition-transform text-white font-semibold text-sm px-5 py-2.5 rounded-full">
+        <button className="shadow-lg shadow-[#259783]/30 flex items-center gap-2 bg-[#259783] active:scale-95 transition-transform text-white font-bold text-sm px-5 py-2.5 rounded-lg">
           <Download className="w-4 h-4" />
           Export CSV
         </button>

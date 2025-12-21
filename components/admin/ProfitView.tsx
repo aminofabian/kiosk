@@ -22,6 +22,8 @@ import {
   CheckCircle2,
   XCircle,
   ChevronRight,
+  ArrowUpRight,
+  ArrowDownRight,
 } from 'lucide-react';
 
 interface ProfitData {
@@ -188,7 +190,7 @@ export function ProfitView() {
         <div className="text-center space-y-3">
           <AlertCircle className="h-8 w-8 text-red-500 mx-auto" />
           <p className="text-red-600 dark:text-red-400 font-medium text-sm">{error}</p>
-          <Button onClick={fetchProfitData} variant="outline" size="sm">
+          <Button onClick={fetchProfitData} variant="outline" size="sm" className="rounded-lg">
             Try Again
           </Button>
         </div>
@@ -214,16 +216,16 @@ export function ProfitView() {
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-7xl mx-auto">
       {/* Header with Date Filter */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b-2 border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700">
           {(['today', 'week', 'month', 'custom'] as DatePreset[]).map((preset) => (
             <button
               key={preset}
               onClick={() => setDatePreset(preset)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md capitalize transition-all ${
+              className={`px-3 py-1.5 text-xs font-bold transition-all rounded-lg ${
                 datePreset === preset
-                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                  ? 'bg-[#259783] text-white shadow-md'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
               {preset}
@@ -233,7 +235,7 @@ export function ProfitView() {
 
         <div className="flex items-center gap-2">
           {datePreset === 'custom' && (
-            <div className="flex items-center gap-2 bg-white dark:bg-slate-800 rounded-lg p-1.5 border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 p-1.5">
               <Input
                 type="date"
                 value={dateRange.start}
@@ -249,31 +251,31 @@ export function ProfitView() {
               />
             </div>
           )}
-          <Button variant="outline" size="sm" className="h-8 text-xs">
+          <Button variant="outline" size="sm" className="h-8 text-xs rounded-lg">
             <Download className="w-3.5 h-3.5 mr-1.5" />
             Export
           </Button>
         </div>
       </div>
 
-      {/* Profitability Status - Compact Banner */}
+      {/* Profitability Status Banner */}
       {hasExpenses && (
-        <div className={`flex items-center justify-between p-4 rounded-xl border-2 ${
+        <div className={`flex items-center justify-between p-5 border-2 ${
           isProfitable 
-            ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800' 
-            : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'
+            ? 'border-[#259783] bg-[#259783]/5' 
+            : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10'
         }`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              isProfitable ? 'bg-green-500' : 'bg-red-500'
+          <div className="flex items-center gap-4">
+            <div className={`w-12 h-12 flex items-center justify-center border-2 ${
+              isProfitable ? 'border-[#259783] bg-[#259783]' : 'border-red-500 bg-red-500'
             }`}>
-              {isProfitable ? <CheckCircle2 className="w-5 h-5 text-white" /> : <XCircle className="w-5 h-5 text-white" />}
+              {isProfitable ? <CheckCircle2 className="w-6 h-6 text-white" /> : <XCircle className="w-6 h-6 text-white" />}
             </div>
             <div>
-              <p className={`text-xs font-bold uppercase tracking-wide ${
-                isProfitable ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'
+              <p className={`text-xs font-black uppercase tracking-wide mb-1 ${
+                isProfitable ? 'text-[#259783]' : 'text-red-600 dark:text-red-400'
               }`}>
-                {isProfitable ? '✓ Profitable' : '✗ At a Loss'}
+                {isProfitable ? '✓ PROFITABLE' : '✗ AT A LOSS'}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Net profit after {getPeriodDays()} day{getPeriodDays() !== 1 ? 's' : ''} expenses
@@ -281,15 +283,15 @@ export function ProfitView() {
             </div>
           </div>
           <div className="flex items-center gap-6">
-            <div className="text-right">
-              <p className="text-[10px] text-slate-500 uppercase font-medium">Net Profit</p>
-              <p className={`text-xl font-bold ${isProfitable ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+            <div className="text-right border-r-2 border-slate-200 dark:border-slate-700 pr-6">
+              <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Net Profit</p>
+              <p className={`text-2xl font-black ${isProfitable ? 'text-[#259783]' : 'text-red-600 dark:text-red-400'}`}>
                 {isProfitable ? '+' : ''}{formatPrice(getNetProfit())}
               </p>
             </div>
-            <div className="text-right border-l border-slate-200 dark:border-slate-700 pl-6">
-              <p className="text-[10px] text-slate-500 uppercase font-medium">Safe to Bank</p>
-              <p className="text-xl font-bold text-slate-900 dark:text-white">
+            <div className="text-right">
+              <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Safe to Bank</p>
+              <p className="text-2xl font-black text-slate-900 dark:text-white">
                 {formatPrice(Math.max(0, getNetProfit()))}
               </p>
             </div>
@@ -299,105 +301,92 @@ export function ProfitView() {
 
       {/* Main Stats - 4 Column Grid */}
       <div className="grid grid-cols-4 gap-3">
-        <Card className="bg-[#259783] border-0">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <TrendingUp className="w-4 h-4 text-white/70" />
-              <span className="text-[10px] font-medium text-white/70 bg-white/20 px-1.5 py-0.5 rounded">
-                {formatPercent(profitData.profitMargin)}
-              </span>
-            </div>
-            <p className="text-white/80 text-[10px] font-medium uppercase tracking-wide">Gross Profit</p>
-            <p className="text-2xl font-bold text-white">{formatPrice(profitData.totalProfit)}</p>
-          </CardContent>
-        </Card>
+        <div className="border-2 border-[#259783] bg-[#259783] p-5">
+          <div className="flex items-center justify-between mb-3">
+            <TrendingUp className="w-5 h-5 text-white" />
+            <span className="text-white/70 text-[10px] font-bold bg-white/20 px-1.5 py-0.5">
+              {formatPercent(profitData.profitMargin)}
+            </span>
+          </div>
+          <p className="text-white/80 text-[10px] font-bold uppercase tracking-wide mb-1">Gross Profit</p>
+          <p className="text-3xl font-black text-white">{formatPrice(profitData.totalProfit)}</p>
+          <p className="text-white/60 text-xs mt-1">Sales - Cost of Goods</p>
+        </div>
 
-        <Card className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <ShoppingCart className="w-4 h-4 text-blue-500" />
-            </div>
-            <p className="text-slate-500 dark:text-slate-400 text-[10px] font-medium uppercase tracking-wide">Revenue</p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatPrice(profitData.totalSales)}</p>
-          </CardContent>
-        </Card>
+        <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <ShoppingCart className="w-5 h-5 text-[#259783]" />
+          </div>
+          <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-1">Revenue</p>
+          <p className="text-3xl font-black text-slate-900 dark:text-white">{formatPrice(profitData.totalSales)}</p>
+        </div>
 
-        <Card className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <DollarSign className="w-4 h-4 text-orange-500" />
-            </div>
-            <p className="text-slate-500 dark:text-slate-400 text-[10px] font-medium uppercase tracking-wide">Cost of Goods</p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatPrice(profitData.totalCost)}</p>
-          </CardContent>
-        </Card>
+        <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <DollarSign className="w-5 h-5 text-[#259783]" />
+          </div>
+          <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-1">Cost of Goods</p>
+          <p className="text-3xl font-black text-slate-900 dark:text-white">{formatPrice(profitData.totalCost)}</p>
+        </div>
 
-        <Card className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-2">
-              <Users className="w-4 h-4 text-purple-500" />
-            </div>
-            <p className="text-slate-500 dark:text-slate-400 text-[10px] font-medium uppercase tracking-wide">Customers</p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white">{profitData.totalCustomers}</p>
-          </CardContent>
-        </Card>
+        <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <Users className="w-5 h-5 text-[#259783]" />
+          </div>
+          <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-1">Customers</p>
+          <p className="text-3xl font-black text-slate-900 dark:text-white">{profitData.totalCustomers}</p>
+        </div>
       </div>
 
       {/* Operating Expenses Row */}
       {hasExpenses ? (
         <div className="grid grid-cols-3 gap-3">
-          <Card className="bg-gradient-to-br from-orange-500 to-red-500 border-0">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <Receipt className="w-4 h-4 text-white/70" />
-                <Link href="/admin/expenses" className="text-[10px] text-white/80 hover:text-white flex items-center gap-0.5">
-                  Manage <ChevronRight className="w-3 h-3" />
-                </Link>
-              </div>
-              <p className="text-white/80 text-[10px] font-medium uppercase tracking-wide">Operating Expenses</p>
-              <p className="text-2xl font-bold text-white">{formatPrice(getDailyExpense())}</p>
-              <p className="text-white/60 text-[10px] mt-1">{expenseData?.expenseCount} expense{expenseData?.expenseCount !== 1 ? 's' : ''} • {getPeriodDays()} days</p>
-            </CardContent>
-          </Card>
+          <div className="border-2 border-[#259783] bg-[#259783] p-5">
+            <div className="flex items-center justify-between mb-3">
+              <Receipt className="w-5 h-5 text-white" />
+              <Link href="/admin/expenses" className="text-white/70 text-[10px] hover:text-white flex items-center gap-0.5">
+                Manage <ChevronRight className="w-3 h-3" />
+              </Link>
+            </div>
+            <p className="text-white/80 text-[10px] font-bold uppercase tracking-wide mb-1">Operating Expenses</p>
+            <p className="text-3xl font-black text-white">{formatPrice(getDailyExpense())}</p>
+            <p className="text-white/60 text-[10px] mt-1">{expenseData?.expenseCount} expense{expenseData?.expenseCount !== 1 ? 's' : ''} • {getPeriodDays()} days</p>
+          </div>
 
-          <Card className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <Target className="w-4 h-4 text-amber-500" />
-                {profitData.totalSales >= getBreakEvenSales() && (
-                  <span className="text-[10px] font-medium text-green-600 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded">✓</span>
-                )}
-              </div>
-              <p className="text-slate-500 dark:text-slate-400 text-[10px] font-medium uppercase tracking-wide">Break-even Sales</p>
-              <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatPrice(getBreakEvenSales())}</p>
-              <p className="text-slate-400 text-[10px] mt-1">Min. to survive</p>
-            </CardContent>
-          </Card>
+          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <Target className="w-5 h-5 text-[#259783]" />
+              {profitData.totalSales >= getBreakEvenSales() && (
+                <span className="text-[10px] font-bold text-[#259783] bg-[#259783]/10 px-1.5 py-0.5">✓</span>
+              )}
+            </div>
+            <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-1">Break-even Sales</p>
+            <p className="text-3xl font-black text-slate-900 dark:text-white">{formatPrice(getBreakEvenSales())}</p>
+            <p className="text-slate-400 text-[10px] mt-1">Min. to survive</p>
+          </div>
 
-          <Card className="bg-white dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <Wallet className="w-4 h-4 text-green-500" />
-              </div>
-              <p className="text-slate-500 dark:text-slate-400 text-[10px] font-medium uppercase tracking-wide">Safe to Bank</p>
-              <p className={`text-2xl font-bold ${isProfitable ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>
-                {formatPrice(Math.max(0, getNetProfit()))}
-              </p>
-              <p className="text-slate-400 text-[10px] mt-1">Keep {formatPrice(getDailyExpense())} for expenses</p>
-            </CardContent>
-          </Card>
+          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <Wallet className="w-5 h-5 text-[#259783]" />
+            </div>
+            <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-1">Safe to Bank</p>
+            <p className={`text-3xl font-black ${isProfitable ? 'text-[#259783]' : 'text-red-500'}`}>
+              {formatPrice(Math.max(0, getNetProfit()))}
+            </p>
+            <p className="text-slate-400 text-[10px] mt-1">Keep {formatPrice(getDailyExpense())} for expenses</p>
+          </div>
         </div>
       ) : (
         <Link href="/admin/expenses" className="block">
-          <div className="flex items-center justify-between p-4 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/20 transition-colors">
+          <div className="flex items-center justify-between p-5 border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
             <div className="flex items-center gap-3">
-              <Receipt className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              <Receipt className="w-5 h-5 text-[#259783]" />
               <div>
-                <p className="font-semibold text-amber-800 dark:text-amber-200 text-sm">Add Operating Expenses</p>
-                <p className="text-xs text-amber-700 dark:text-amber-300">See true profit after rent, salaries, etc.</p>
+                <p className="font-black text-sm text-slate-900 dark:text-white">Add Operating Expenses</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">See true profit after rent, salaries, etc.</p>
               </div>
             </div>
-            <ChevronRight className="w-5 h-5 text-amber-500" />
+            <ChevronRight className="w-5 h-5 text-[#259783]" />
           </div>
         </Link>
       )}
@@ -412,9 +401,9 @@ export function ProfitView() {
           { label: 'Repeat', value: profitData.repeatCustomers.toString() },
           { label: 'New', value: profitData.newCustomers.toString() },
         ].map((stat, index) => (
-          <div key={index} className="bg-slate-50 dark:bg-slate-800/30 rounded-lg p-3 text-center">
-            <p className="text-lg font-bold text-slate-900 dark:text-white">{stat.value}</p>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">{stat.label}</p>
+          <div key={index} className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 text-center">
+            <p className="text-xl font-black text-slate-900 dark:text-white mb-1">{stat.value}</p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold">{stat.label}</p>
           </div>
         ))}
       </div>
@@ -422,130 +411,139 @@ export function ProfitView() {
       {/* Item Performance Cards */}
       <div className="grid lg:grid-cols-3 gap-4">
         {/* Top Items */}
-        <Card className="border border-slate-200 dark:border-slate-700">
-          <CardContent className="p-0">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-              <TrendingUp className="w-4 h-4 text-green-500" />
-              <h3 className="font-semibold text-sm text-slate-900 dark:text-white">Top Profit Items</h3>
+        <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+          <div className="p-4 border-b-2 border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-[#259783]" />
+              <h3 className="font-black text-sm text-slate-900 dark:text-white">Top Profit Items</h3>
             </div>
-            <div className="p-3 space-y-2">
-              {topItems.length === 0 ? (
-                <p className="text-center text-slate-400 py-6 text-sm">No items yet</p>
-              ) : (
-                topItems.map((item, index) => (
-                  <ItemRow key={item.item_id} item={item} index={index} type="top" formatPrice={formatPrice} />
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="p-3 space-y-2">
+            {topItems.length === 0 ? (
+              <p className="text-center text-slate-400 py-6 text-sm">No items yet</p>
+            ) : (
+              topItems.map((item, index) => (
+                <ItemRow key={item.item_id} item={item} index={index} type="top" formatPrice={formatPrice} />
+              ))
+            )}
+          </div>
+        </div>
 
         {/* Least Profit */}
-        <Card className="border border-slate-200 dark:border-slate-700">
-          <CardContent className="p-0">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-              <TrendingDown className="w-4 h-4 text-orange-500" />
-              <h3 className="font-semibold text-sm text-slate-900 dark:text-white">Least Profitable</h3>
+        <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+          <div className="p-4 border-b-2 border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-2">
+              <TrendingDown className="w-4 h-4 text-[#259783]" />
+              <h3 className="font-black text-sm text-slate-900 dark:text-white">Least Profitable</h3>
             </div>
-            <div className="p-3 space-y-2">
-              {leastProfitItems.length === 0 ? (
-                <p className="text-center text-slate-400 py-6 text-sm">No items yet</p>
-              ) : (
-                leastProfitItems.map((item, index) => (
-                  <ItemRow key={item.item_id} item={item} index={index} type="least" formatPrice={formatPrice} />
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="p-3 space-y-2">
+            {leastProfitItems.length === 0 ? (
+              <p className="text-center text-slate-400 py-6 text-sm">No items yet</p>
+            ) : (
+              leastProfitItems.map((item, index) => (
+                <ItemRow key={item.item_id} item={item} index={index} type="least" formatPrice={formatPrice} />
+              ))
+            )}
+          </div>
+        </div>
 
         {/* Low/Negative */}
-        <Card className="border border-slate-200 dark:border-slate-700">
-          <CardContent className="p-0">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-              <AlertCircle className="w-4 h-4 text-red-500" />
-              <h3 className="font-semibold text-sm text-slate-900 dark:text-white">Low / Negative</h3>
+        <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+          <div className="p-4 border-b-2 border-slate-200 dark:border-slate-700">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-[#259783]" />
+              <h3 className="font-black text-sm text-slate-900 dark:text-white">Low / Negative</h3>
             </div>
-            <div className="p-3 space-y-2">
-              {lowProfitItems.length === 0 ? (
-                <div className="text-center py-6">
-                  <TrendingUp className="w-6 h-6 text-green-500 mx-auto mb-2" />
-                  <p className="text-green-600 dark:text-green-400 text-sm font-medium">All items profitable!</p>
-                </div>
-              ) : (
-                lowProfitItems.map((item, index) => (
-                  <ItemRow key={item.item_id} item={item} index={index} type="low" formatPrice={formatPrice} />
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div className="p-3 space-y-2">
+            {lowProfitItems.length === 0 ? (
+              <div className="text-center py-6">
+                <TrendingUp className="w-6 h-6 text-[#259783] mx-auto mb-2" />
+                <p className="text-[#259783] text-sm font-bold">All items profitable!</p>
+              </div>
+            ) : (
+              lowProfitItems.map((item, index) => (
+                <ItemRow key={item.item_id} item={item} index={index} type="low" formatPrice={formatPrice} />
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
       {/* All Items Table */}
-      <Card className="border border-slate-200 dark:border-slate-700">
-        <CardContent className="p-0">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800">
+      <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+        <div className="p-4 border-b-2 border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Package className="w-4 h-4 text-slate-500" />
-              <h3 className="font-semibold text-sm text-slate-900 dark:text-white">All Items</h3>
+              <Package className="w-4 h-4 text-[#259783]" />
+              <h3 className="font-black text-sm text-slate-900 dark:text-white">All Items</h3>
             </div>
-            <Badge variant="outline" className="text-xs">{profitData.itemProfits.length} items</Badge>
+            <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-xs">
+              {profitData.itemProfits.length} items
+            </Badge>
           </div>
-          {profitData.itemProfits.length === 0 ? (
-            <div className="text-center py-12">
-              <ShoppingCart className="h-8 w-8 mx-auto text-slate-300 mb-2" />
-              <p className="text-slate-500 text-sm">No sales in this period</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-800/30">
-                    <th className="text-left px-4 py-2 font-medium text-slate-600 dark:text-slate-400">Item</th>
-                    <th className="text-right px-4 py-2 font-medium text-slate-600 dark:text-slate-400">Qty</th>
-                    <th className="text-right px-4 py-2 font-medium text-slate-600 dark:text-slate-400">Buy</th>
-                    <th className="text-right px-4 py-2 font-medium text-slate-600 dark:text-slate-400">Sell</th>
-                    <th className="text-right px-4 py-2 font-medium text-slate-600 dark:text-slate-400">Profit/Unit</th>
-                    <th className="text-right px-4 py-2 font-medium text-slate-600 dark:text-slate-400">Total Profit</th>
-                    <th className="text-right px-4 py-2 font-medium text-slate-600 dark:text-slate-400">Margin</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {profitData.itemProfits.sort((a, b) => b.total_profit - a.total_profit).map((item) => {
-                    const margin = item.total_sales > 0 ? item.total_profit / item.total_sales : 0;
-                    const isPositive = item.total_profit >= 0;
-                    const avgBuy = item.quantity_sold > 0 ? item.total_cost / item.quantity_sold : 0;
-                    const avgSell = item.quantity_sold > 0 ? item.total_sales / item.quantity_sold : 0;
-                    const avgProfit = item.quantity_sold > 0 ? item.total_profit / item.quantity_sold : 0;
+        </div>
+        {profitData.itemProfits.length === 0 ? (
+          <div className="text-center py-12">
+            <ShoppingCart className="h-8 w-8 mx-auto text-slate-300 mb-2" />
+            <p className="text-slate-500 text-sm">No sales in this period</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-700">
+                  <th className="text-left px-6 py-3 font-black text-slate-700 dark:text-slate-300">Item</th>
+                  <th className="text-right px-6 py-3 font-black text-slate-700 dark:text-slate-300">Qty</th>
+                  <th className="text-right px-6 py-3 font-black text-slate-700 dark:text-slate-300">Buy</th>
+                  <th className="text-right px-6 py-3 font-black text-slate-700 dark:text-slate-300">Sell</th>
+                  <th className="text-right px-6 py-3 font-black text-slate-700 dark:text-slate-300">Profit/Unit</th>
+                  <th className="text-right px-6 py-3 font-black text-slate-700 dark:text-slate-300">Total Profit</th>
+                  <th className="text-right px-6 py-3 font-black text-slate-700 dark:text-slate-300">Margin</th>
+                </tr>
+              </thead>
+              <tbody>
+                {profitData.itemProfits.sort((a, b) => b.total_profit - a.total_profit).map((item) => {
+                  const margin = item.total_sales > 0 ? item.total_profit / item.total_sales : 0;
+                  const isPositive = item.total_profit >= 0;
+                  const avgBuy = item.quantity_sold > 0 ? item.total_cost / item.quantity_sold : 0;
+                  const avgSell = item.quantity_sold > 0 ? item.total_sales / item.quantity_sold : 0;
+                  const avgProfit = item.quantity_sold > 0 ? item.total_profit / item.quantity_sold : 0;
 
-                    return (
-                      <tr key={item.item_id} className="border-t border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/20">
-                        <td className="px-4 py-2.5">
-                          <div className="flex items-center gap-2">
-                            {isPositive ? <TrendingUp className="h-3.5 w-3.5 text-green-500" /> : <TrendingDown className="h-3.5 w-3.5 text-red-500" />}
-                            <span className="font-medium text-slate-900 dark:text-white">{item.item_name}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-2.5 text-right text-slate-600 dark:text-slate-300">{item.quantity_sold.toFixed(1)}</td>
-                        <td className="px-4 py-2.5 text-right text-slate-500">{formatPrice(avgBuy)}</td>
-                        <td className="px-4 py-2.5 text-right text-slate-600 dark:text-slate-300">{formatPrice(avgSell)}</td>
-                        <td className={`px-4 py-2.5 text-right font-medium ${isPositive ? 'text-green-600' : 'text-red-500'}`}>{formatPrice(avgProfit)}</td>
-                        <td className={`px-4 py-2.5 text-right font-bold ${isPositive ? 'text-green-600' : 'text-red-500'}`}>{formatPrice(item.total_profit)}</td>
-                        <td className="px-4 py-2.5 text-right">
-                          <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${isPositive ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
-                            {formatPercent(margin)}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  return (
+                    <tr 
+                      key={item.item_id} 
+                      className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30"
+                    >
+                      <td className="px-6 py-3">
+                        <div className="flex items-center gap-2">
+                          {isPositive ? <TrendingUp className="h-4 w-4 text-[#259783]" /> : <TrendingDown className="h-4 w-4 text-red-500" />}
+                          <span className="font-bold text-slate-900 dark:text-white">{item.item_name}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-3 text-right font-semibold text-slate-600 dark:text-slate-300">{item.quantity_sold.toFixed(1)}</td>
+                      <td className="px-6 py-3 text-right text-slate-500">{formatPrice(avgBuy)}</td>
+                      <td className="px-6 py-3 text-right text-slate-600 dark:text-slate-300">{formatPrice(avgSell)}</td>
+                      <td className={`px-6 py-3 text-right font-bold ${isPositive ? 'text-[#259783]' : 'text-red-500'}`}>
+                        {formatPrice(avgProfit)}
+                      </td>
+                      <td className={`px-6 py-3 text-right font-black ${isPositive ? 'text-[#259783]' : 'text-red-500'}`}>
+                        {formatPrice(item.total_profit)}
+                      </td>
+                      <td className="px-6 py-3 text-right">
+                        <span className={`text-xs font-bold px-1.5 py-0.5 ${isPositive ? 'bg-[#259783]/10 text-[#259783] border border-[#259783]/20' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800'}`}>
+                          {formatPercent(margin)}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -560,22 +558,28 @@ function ItemRow({ item, index, type, formatPrice }: {
   const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
   const isNegative = item.total_profit < 0;
   
-  const colors = {
-    top: 'bg-green-50 dark:bg-green-900/10 text-green-600 dark:text-green-400',
-    least: isNegative ? 'bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400' : 'bg-orange-50 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400',
-    low: isNegative ? 'bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400' : 'bg-orange-50 dark:bg-orange-900/10 text-orange-600 dark:text-orange-400',
-  };
+  const bgColor = type === 'top' 
+    ? 'bg-[#259783]/5 border-[#259783]/20' 
+    : isNegative 
+    ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800' 
+    : 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800';
+  
+  const textColor = type === 'top' 
+    ? 'text-[#259783]' 
+    : isNegative 
+    ? 'text-red-600 dark:text-red-400' 
+    : 'text-orange-600 dark:text-orange-400';
 
   return (
-    <div className={`flex items-center gap-2 p-2 rounded-lg ${colors[type].split(' ').slice(0, 2).join(' ')}`}>
-      <span className={`w-5 h-5 rounded text-xs font-bold flex items-center justify-center ${colors[type].split(' ').slice(2).join(' ')}`}>
-        {index + 1}
-      </span>
+    <div className={`flex items-center gap-2 p-2.5 border-2 ${bgColor}`}>
+      <div className={`w-6 h-6 flex items-center justify-center border-2 ${type === 'top' ? 'border-[#259783] bg-[#259783]' : isNegative ? 'border-red-500 bg-red-500' : 'border-orange-500 bg-orange-500'}`}>
+        <span className="text-xs font-black text-white">{index + 1}</span>
+      </div>
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-xs text-slate-900 dark:text-white truncate">{item.item_name}</p>
+        <p className="font-bold text-xs text-slate-900 dark:text-white truncate">{item.item_name}</p>
         <p className="text-[10px] text-slate-500">{item.quantity_sold.toFixed(0)} sold • {margin.toFixed(0)}%</p>
       </div>
-      <p className={`text-xs font-bold ${colors[type].split(' ').slice(2).join(' ')}`}>
+      <p className={`text-xs font-black ${textColor}`}>
         {type === 'top' ? '+' : isNegative ? '-' : ''}{formatPrice(Math.abs(item.total_profit))}
       </p>
     </div>
