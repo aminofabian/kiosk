@@ -3,6 +3,7 @@ import { query, execute } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireSuperAdmin, isAuthResponse } from '@/lib/auth/api-auth';
 import type { Domain } from '@/lib/db/types';
+import type { InValue } from '@libsql/client';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -96,7 +97,7 @@ export async function PUT(
     }
 
     const updates: string[] = [];
-    const values: unknown[] = [];
+    const values: InValue[] = [];
 
     if (domain !== undefined) {
       updates.push('domain = ?');

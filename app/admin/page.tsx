@@ -9,6 +9,7 @@ import type { Category } from '@/lib/db/types';
 import {
   Drawer,
   DrawerContent,
+  DrawerClose,
   DrawerDescription,
   DrawerHeader,
   DrawerTitle,
@@ -35,6 +36,9 @@ import {
   Loader2,
   Percent,
   Image,
+  HelpCircle,
+  ArrowRight,
+  X,
 } from 'lucide-react';
 
 interface ActionButton {
@@ -138,6 +142,7 @@ export default function AdminDashboardPage() {
   const [itemDrawerOpen, setItemDrawerOpen] = useState(false);
   const [stockAdjustDrawerOpen, setStockAdjustDrawerOpen] = useState(false);
   const [stockTakeDrawerOpen, setStockTakeDrawerOpen] = useState(false);
+  const [guideDrawerOpen, setGuideDrawerOpen] = useState(false);
   const [existingCategories, setExistingCategories] = useState<Category[]>([]);
   const [isMobile, setIsMobile] = useState(false);
   const [stats, setStats] = useState<{
@@ -292,6 +297,29 @@ export default function AdminDashboardPage() {
               </div>
             </div>
           </Link>
+        </div>
+
+        {/* Guide Link */}
+        <div className="mb-4 sm:mb-6 w-full max-w-5xl">
+          <button
+            onClick={() => setGuideDrawerOpen(true)}
+            className="w-full bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 rounded-lg sm:rounded-xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow text-left group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#259783]/20 dark:group-hover:bg-[#259783]/30 transition-colors">
+                <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 text-[#259783]" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-1">
+                  How to Use This System
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                  Click here to see a simple guide on how to get started
+                </p>
+              </div>
+              <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-[#259783] group-hover:translate-x-1 transition-all" />
+            </div>
+          </button>
         </div>
 
         {/* Action Buttons Grid */}
@@ -497,6 +525,105 @@ export default function AdminDashboardPage() {
               onSuccess={() => setStockTakeDrawerOpen(false)}
               onCancel={() => setStockTakeDrawerOpen(false)}
             />
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      <Drawer open={guideDrawerOpen} onOpenChange={setGuideDrawerOpen} direction="right">
+        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
+          <DrawerHeader className="relative border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
+            <DrawerTitle className="flex items-center gap-3 pr-12 sm:pr-14 text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-[#259783] to-blue-500 flex items-center justify-center shadow-sm flex-shrink-0">
+                <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+              </div>
+              <span className="leading-tight">How to Use This System</span>
+            </DrawerTitle>
+            <DrawerDescription className="mt-2 text-xs sm:text-sm text-slate-600 dark:text-slate-400 pr-12 sm:pr-14">
+              Follow these simple steps to get started
+            </DrawerDescription>
+            <DrawerClose asChild>
+              <button
+                className="absolute top-4 right-4 sm:top-5 sm:right-6 w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white active:scale-95 transition-all shadow-sm touch-target"
+                aria-label="Close guide"
+              >
+                <X className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2.5} />
+              </button>
+            </DrawerClose>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 sm:px-6 py-6 flex-1 bg-slate-50 dark:bg-slate-900/50">
+            <div className="space-y-6">
+              {/* Step 1 */}
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#259783] text-white flex items-center justify-center font-bold text-sm">
+                  1
+                </div>
+                <div className="flex-1 pt-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FolderTree className="w-5 h-5 text-[#259783]" />
+                    <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+                      Add Categories
+                    </h3>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    Create groups for your products like "Fruits", "Vegetables", or "Snacks"
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 2 */}
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#259783] text-white flex items-center justify-center font-bold text-sm">
+                  2
+                </div>
+                <div className="flex-1 pt-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Package className="w-5 h-5 text-[#259783]" />
+                    <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+                      Add Products
+                    </h3>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    Add your products with names, prices, and how many you have in stock
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 3 */}
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#259783] text-white flex items-center justify-center font-bold text-sm">
+                  3
+                </div>
+                <div className="flex-1 pt-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ShoppingCart className="w-5 h-5 text-[#259783]" />
+                    <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+                      Start Selling
+                    </h3>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    Click "Open POS" at the top to sell products to customers and take payments
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 4 */}
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#259783] text-white flex items-center justify-center font-bold text-sm">
+                  4
+                </div>
+                <div className="flex-1 pt-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <PackageCheck className="w-5 h-5 text-[#259783]" />
+                    <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+                      Check Stock
+                    </h3>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    Keep track of how many products you have and add more when needed
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </DrawerContent>
       </Drawer>

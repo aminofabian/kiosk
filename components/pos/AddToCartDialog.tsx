@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Minus, Plus, ShoppingCart, X, Package } from 'lucide-react';
 import { useCartStore } from '@/lib/stores/cart-store';
@@ -106,9 +106,9 @@ export function AddToCartDialog({
                   <Package className="w-10 h-10 text-[#259783]" />
                 )}
               </div>
-              <h2 className="text-2xl font-bold uppercase text-gray-900 dark:text-gray-100 mb-3">
+              <DialogTitle className="text-2xl font-bold uppercase text-gray-900 dark:text-gray-100 mb-3 text-center">
                 {item.name}
-              </h2>
+              </DialogTitle>
               <div className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800">
                 <span className="text-sm text-gray-700 dark:text-gray-300">
                   {formatPrice(item.current_sell_price)} / {item.unit_type}
