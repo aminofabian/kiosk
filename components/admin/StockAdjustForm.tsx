@@ -35,7 +35,13 @@ const REASON_LABELS: Record<AdjustmentReason, string> = {
   other: 'Other',
 };
 
-export function StockAdjustForm() {
+interface StockAdjustFormProps {
+  onSuccess?: () => void;
+  onCancel?: () => void;
+}
+
+export function StockAdjustForm(props: StockAdjustFormProps = {}) {
+  const { onSuccess, onCancel } = props;
   const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string>('');
@@ -53,7 +59,7 @@ export function StockAdjustForm() {
     async function fetchItems() {
       try {
         setLoadingItems(true);
-        const response = await fetch('/api/items?all=true');
+        const response = await fetch('/api/items?all=true&sellableOnly=true');
         const result = await response.json();
         if (result.success) {
           setItems(result.data);
@@ -140,7 +146,11 @@ export function StockAdjustForm() {
       if (result.success) {
         setShowSuccess(true);
         setTimeout(() => {
-          router.push('/admin/stock');
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            router.push('/admin/stock');
+          }
         }, 1500);
       } else {
         setError(result.message || 'Failed to adjust stock');

@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/drawer';
 import { CategoryForm } from '@/components/admin/CategoryForm';
 import { ItemForm } from '@/components/admin/ItemForm';
+import { StockAdjustForm } from '@/components/admin/StockAdjustForm';
 import {
   Plus,
   Package,
@@ -49,7 +50,6 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: Package,
   },
   {
-    href: '/admin/stock/adjust',
     label: 'Stock Adjustment',
     description: 'Adjust inventory levels',
     icon: Scale,
@@ -115,6 +115,7 @@ export default function AdminDashboardPage() {
   const { user } = useCurrentUser();
   const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
   const [itemDrawerOpen, setItemDrawerOpen] = useState(false);
+  const [stockAdjustDrawerOpen, setStockAdjustDrawerOpen] = useState(false);
   const [existingCategories, setExistingCategories] = useState<Category[]>([]);
 
   useEffect(() => {
@@ -141,6 +142,9 @@ export default function AdminDashboardPage() {
     }
     if (button.label === 'Add Item' && !button.onClick) {
       return { ...button, onClick: () => setItemDrawerOpen(true) };
+    }
+    if (button.label === 'Stock Adjustment' && !button.onClick) {
+      return { ...button, onClick: () => setStockAdjustDrawerOpen(true) };
     }
     return button;
   });
@@ -222,6 +226,26 @@ export default function AdminDashboardPage() {
             <ItemForm
               onSuccess={() => setItemDrawerOpen(false)}
               onCancel={() => setItemDrawerOpen(false)}
+            />
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      <Drawer open={stockAdjustDrawerOpen} onOpenChange={setStockAdjustDrawerOpen} direction="right">
+        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen">
+          <DrawerHeader className="border-b bg-gradient-to-r from-[#259783]/10 to-blue-500/10">
+            <DrawerTitle className="flex items-center gap-2">
+              <Scale className="w-5 h-5 text-[#259783]" />
+              Stock Adjustment
+            </DrawerTitle>
+            <DrawerDescription>
+              Update inventory levels for damaged, spoiled, or miscounted items
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 sm:px-6 pb-6 flex-1 bg-slate-50/50 dark:bg-slate-900/50">
+            <StockAdjustForm
+              onSuccess={() => setStockAdjustDrawerOpen(false)}
+              onCancel={() => setStockAdjustDrawerOpen(false)}
             />
           </div>
         </DrawerContent>
