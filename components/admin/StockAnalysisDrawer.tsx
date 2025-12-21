@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Drawer,
   DrawerContent,
@@ -12,56 +12,57 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
   X, TrendingUp, TrendingDown, Minus, BarChart3, Loader2, 
-  Package, DollarSign, ShoppingCart, AlertTriangle, Zap, Clock
+  Package, ArrowUpRight, ArrowDownRight, Sparkles, AlertTriangle
 } from 'lucide-react';
 import type { UnitType } from '@/lib/constants';
 
-interface StockAnalysisItem {
+interface StockItem {
   itemId: string;
   itemName: string;
   variantName: string | null;
   unitType: UnitType;
   categoryName: string;
+  initialStock: number;
   currentStock: number;
-  currentSellPrice: number;
-  inventoryValue: number;
-  totalPurchased: number;
-  totalSold: number;
-  totalRevenue: number;
-  totalProfit: number;
-  turnoverRate: number;
-  firstPurchaseDate: number | null;
-  lastSaleDate: number | null;
-  daysSinceLastSale: number | null;
-  status: 'top_seller' | 'fast_moving' | 'normal' | 'slow_moving' | 'dead_stock' | 'new';
+  stockChange: number;
+  stockChangePercent: number | null;
+  initialValue: number;
+  currentValue: number;
+  valueChange: number;
+  firstBatchDate: number | null;
+  totalEverStocked: number;
+  trend: 'growing' | 'shrinking' | 'stable' | 'new';
 }
 
 interface AnalysisData {
   summary: {
-    totalItems: number;
-    totalInventoryValue: number;
-    totalStockUnits: number;
-    totalPurchased: number;
-    totalPurchaseValue: number;
-    totalSold: number;
-    totalSalesRevenue: number;
-    totalProfit: number;
-    turnoverRate: number;
-    profitMargin: number;
     firstActivityDate: number | null;
     daysSinceStart: number;
+    trajectory: 'expanding' | 'stable' | 'declining' | 'new';
+    totalItems: number;
+    itemsWithData: number;
+    newItemsCount: number;
   };
-  healthIndicators: {
-    topSellersCount: number;
-    fastMovingCount: number;
-    slowMovingCount: number;
-    deadStockCount: number;
-    stockHealthScore: number;
+  stockGrowth: {
+    initialTotalStock: number;
+    currentTotalStock: number;
+    stockChange: number;
+    stockChangePercent: number | null;
+    initialTotalValue: number;
+    currentTotalValue: number;
+    valueChange: number;
+    valueChangePercent: number | null;
   };
-  items: StockAnalysisItem[];
-  topSellers: { itemId: string; itemName: string; totalSold: number; revenue: number; profit: number }[];
-  slowMoving: { itemId: string; itemName: string; currentStock: number; daysSinceLastSale: number | null; inventoryValue: number }[];
-  deadStock: { itemId: string; itemName: string; currentStock: number; inventoryValue: number }[];
+  trendBreakdown: {
+    growing: number;
+    shrinking: number;
+    stable: number;
+    new: number;
+  };
+  items: StockItem[];
+  topGrowing: StockItem[];
+  shrinking: StockItem[];
+  newItems: StockItem[];
 }
 
 interface StockAnalysisDrawerProps {
@@ -73,7 +74,8 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'items' | 'alerts'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'items'>('overview');
+  const [filter, setFilter] = useState<'all' | 'growing' | 'shrinking' | 'stable' | 'new'>('all');
 
   useEffect(() => {
     if (!open) return;
@@ -109,24 +111,55 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
     return num.toLocaleString('en-KE', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   };
 
-  const getBusinessHealth = (score: number) => {
-    if (score >= 70) return { label: 'Excellent', color: 'text-green-600', bg: 'bg-green-500' };
-    if (score >= 50) return { label: 'Good', color: 'text-[#259783]', bg: 'bg-[#259783]' };
-    if (score >= 30) return { label: 'Fair', color: 'text-amber-600', bg: 'bg-amber-500' };
-    return { label: 'Needs Attention', color: 'text-red-600', bg: 'bg-red-500' };
+  const formatChange = (change: number | null, showSign = true) => {
+    if (change === null) return 'N/A';
+    const sign = showSign && change >= 0 ? '+' : '';
+    return `${sign}${change.toFixed(1)}%`;
   };
 
-  const getStatusConfig = (status: string) => {
-    switch (status) {
-      case 'top_seller': return { label: 'Top Seller', color: 'bg-green-500 text-white' };
-      case 'fast_moving': return { label: 'Fast Moving', color: 'bg-[#259783] text-white' };
-      case 'normal': return { label: 'Normal', color: 'bg-slate-400 text-white' };
-      case 'slow_moving': return { label: 'Slow', color: 'bg-amber-500 text-white' };
-      case 'dead_stock': return { label: 'Dead Stock', color: 'bg-red-500 text-white' };
-      case 'new': return { label: 'New', color: 'bg-blue-500 text-white' };
-      default: return { label: 'Unknown', color: 'bg-slate-400 text-white' };
+  const formatDate = (timestamp: number | null) => {
+    if (!timestamp) return 'N/A';
+    return new Date(timestamp * 1000).toLocaleDateString('en-KE', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  const getTrajectoryConfig = (trajectory: string) => {
+    switch (trajectory) {
+      case 'expanding':
+        return { label: 'Expanding', color: 'text-green-600', bg: 'bg-green-500', icon: TrendingUp, desc: 'Your stock levels are growing!' };
+      case 'declining':
+        return { label: 'Declining', color: 'text-red-600', bg: 'bg-red-500', icon: TrendingDown, desc: 'Stock levels have decreased' };
+      case 'stable':
+        return { label: 'Stable', color: 'text-[#259783]', bg: 'bg-[#259783]', icon: Minus, desc: 'Stock levels are steady' };
+      default:
+        return { label: 'New', color: 'text-blue-600', bg: 'bg-blue-500', icon: Sparkles, desc: 'Just getting started!' };
     }
   };
+
+  const getTrendConfig = (trend: string) => {
+    switch (trend) {
+      case 'growing': return { label: 'Growing', color: 'bg-green-500 text-white', icon: TrendingUp, textColor: 'text-green-600' };
+      case 'shrinking': return { label: 'Shrinking', color: 'bg-red-500 text-white', icon: TrendingDown, textColor: 'text-red-600' };
+      case 'stable': return { label: 'Stable', color: 'bg-[#259783] text-white', icon: Minus, textColor: 'text-[#259783]' };
+      case 'new': return { label: 'New', color: 'bg-blue-500 text-white', icon: Sparkles, textColor: 'text-blue-600' };
+      default: return { label: 'Unknown', color: 'bg-slate-400 text-white', icon: Minus, textColor: 'text-slate-600' };
+    }
+  };
+
+  const getChangeColor = (change: number | null) => {
+    if (change === null) return 'text-slate-500';
+    if (change > 0) return 'text-green-600';
+    if (change < 0) return 'text-red-600';
+    return 'text-slate-600';
+  };
+
+  const filteredItems = analysisData?.items.filter(item => {
+    if (filter === 'all') return true;
+    return item.trend === filter;
+  }) || [];
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="right">
@@ -146,17 +179,17 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
             </div>
             <div>
               <DrawerTitle className="text-lg text-[#259783] dark:text-[#45d827]">
-                Business Health
+                Stock Analysis
               </DrawerTitle>
               <p className="text-xs text-slate-600 dark:text-slate-400">
-                Stock & Sales Analysis
+                Initial vs Current Stock Levels
               </p>
             </div>
           </div>
           
           {/* Tabs */}
           <div className="flex gap-1 mt-3">
-            {(['overview', 'items', 'alerts'] as const).map((tab) => (
+            {(['overview', 'items'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -166,12 +199,7 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
-                {tab === 'overview' ? 'Overview' : tab === 'items' ? 'Items' : 'Alerts'}
-                {tab === 'alerts' && analysisData && (analysisData.healthIndicators.slowMovingCount + analysisData.healthIndicators.deadStockCount) > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 text-xs bg-red-500 text-white rounded-full">
-                    {analysisData.healthIndicators.slowMovingCount + analysisData.healthIndicators.deadStockCount}
-                  </span>
-                )}
+                {tab === 'overview' ? 'Overview' : 'All Items'}
               </button>
             ))}
           </div>
@@ -182,7 +210,7 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
             <div className="flex items-center justify-center h-48">
               <div className="text-center space-y-2">
                 <Loader2 className="h-6 w-6 animate-spin mx-auto text-[#259783]" />
-                <p className="text-sm text-muted-foreground">Analyzing business...</p>
+                <p className="text-sm text-muted-foreground">Analyzing stock...</p>
               </div>
             </div>
           ) : error ? (
@@ -198,149 +226,248 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
             <div className="space-y-3 py-3">
               {activeTab === 'overview' && (
                 <>
-                  {/* Health Score */}
+                  {/* Business Trajectory */}
                   <Card className="border-[#259783]/30 bg-gradient-to-br from-[#259783]/5 to-white dark:from-[#259783]/10 dark:to-[#0f1a0d]">
                     <CardContent className="p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-slate-600 dark:text-slate-400">Stock Health Score</span>
-                        <Badge className={getBusinessHealth(analysisData.healthIndicators.stockHealthScore).color + ' text-xs'}>
-                          {getBusinessHealth(analysisData.healthIndicators.stockHealthScore).label}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-3xl font-bold text-[#259783]">
-                          {analysisData.healthIndicators.stockHealthScore}%
-                        </span>
-                        <div className="flex-1">
-                          <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
-                            <div
-                              className={`h-2 rounded-full ${getBusinessHealth(analysisData.healthIndicators.stockHealthScore).bg}`}
-                              style={{ width: `${analysisData.healthIndicators.stockHealthScore}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      {analysisData.summary.daysSinceStart > 0 && (
-                        <p className="text-xs text-slate-500 mt-2">
-                          Business running for {analysisData.summary.daysSinceStart} days
-                        </p>
-                      )}
+                      {(() => {
+                        const trajectory = getTrajectoryConfig(analysisData.summary.trajectory);
+                        const TrajectoryIcon = trajectory.icon;
+                        return (
+                          <>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <span className="text-xs text-slate-600 dark:text-slate-400">Business Growth</span>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <div className={`w-8 h-8 rounded-full ${trajectory.bg} flex items-center justify-center`}>
+                                    <TrajectoryIcon className="w-4 h-4 text-white" />
+                                  </div>
+                                  <div>
+                                    <span className={`text-xl font-bold ${trajectory.color}`}>
+                                      {trajectory.label}
+                                    </span>
+                                    <p className="text-xs text-slate-500">{trajectory.desc}</p>
+                                  </div>
+                                </div>
+                              </div>
+                              {analysisData.stockGrowth.stockChangePercent !== null && (
+                                <div className="text-right">
+                                  <span className="text-xs text-slate-500">Overall Change</span>
+                                  <p className={`text-2xl font-bold ${getChangeColor(analysisData.stockGrowth.stockChangePercent)}`}>
+                                    {formatChange(analysisData.stockGrowth.stockChangePercent)}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                            {analysisData.summary.daysSinceStart > 0 && (
+                              <p className="text-xs text-slate-500 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                                Tracking since {formatDate(analysisData.summary.firstActivityDate)} ({analysisData.summary.daysSinceStart} days)
+                              </p>
+                            )}
+                          </>
+                        );
+                      })()}
                     </CardContent>
                   </Card>
 
-                  {/* Key Metrics */}
+                  {/* Stock Comparison */}
                   <div className="grid grid-cols-2 gap-2">
-                    <Card className="bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800">
+                    <Card className="bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700">
                       <CardContent className="p-2.5">
                         <div className="flex items-center gap-1.5 mb-1">
-                          <DollarSign className="w-3.5 h-3.5 text-green-600" />
-                          <span className="text-xs text-green-700 dark:text-green-300">Revenue</span>
+                          <Package className="w-3.5 h-3.5 text-slate-500" />
+                          <span className="text-xs text-slate-600 dark:text-slate-400">Initial Stock</span>
                         </div>
-                        <p className="text-lg font-bold text-green-600">
-                          {formatCurrency(analysisData.summary.totalSalesRevenue)}
+                        <p className="text-lg font-bold text-slate-700 dark:text-slate-300">
+                          {formatNumber(analysisData.stockGrowth.initialTotalStock)} units
                         </p>
-                        <p className="text-xs text-green-600/70 mt-0.5">
-                          Profit: {formatCurrency(analysisData.summary.totalProfit)}
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Value: {formatCurrency(analysisData.stockGrowth.initialTotalValue)}
                         </p>
                       </CardContent>
                     </Card>
-                    <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                    <Card className={`border-2 ${
+                      analysisData.stockGrowth.stockChange > 0 
+                        ? 'bg-green-50 dark:bg-green-950/20 border-green-300 dark:border-green-700'
+                        : analysisData.stockGrowth.stockChange < 0
+                          ? 'bg-red-50 dark:bg-red-950/20 border-red-300 dark:border-red-700'
+                          : 'bg-[#259783]/10 dark:bg-[#259783]/20 border-[#259783]/30'
+                    }`}>
                       <CardContent className="p-2.5">
                         <div className="flex items-center gap-1.5 mb-1">
-                          <Package className="w-3.5 h-3.5 text-blue-600" />
-                          <span className="text-xs text-blue-700 dark:text-blue-300">Inventory Value</span>
+                          <Package className={`w-3.5 h-3.5 ${getChangeColor(analysisData.stockGrowth.stockChange)}`} />
+                          <span className="text-xs text-slate-600 dark:text-slate-400">Current Stock</span>
                         </div>
-                        <p className="text-lg font-bold text-blue-600">
-                          {formatCurrency(analysisData.summary.totalInventoryValue)}
+                        <p className={`text-lg font-bold ${getChangeColor(analysisData.stockGrowth.stockChange)}`}>
+                          {formatNumber(analysisData.stockGrowth.currentTotalStock)} units
                         </p>
-                        <p className="text-xs text-blue-600/70 mt-0.5">
-                          {formatNumber(analysisData.summary.totalStockUnits)} units in stock
+                        <p className="text-xs text-slate-500 mt-0.5">
+                          Value: {formatCurrency(analysisData.stockGrowth.currentTotalValue)}
                         </p>
                       </CardContent>
                     </Card>
                   </div>
 
-                  {/* Turnover & Margin */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <Card className="border-slate-200 dark:border-slate-700">
-                      <CardContent className="p-2.5">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <TrendingUp className="w-3.5 h-3.5 text-[#259783]" />
-                          <span className="text-xs text-slate-600 dark:text-slate-400">Turnover Rate</span>
-                        </div>
-                        <p className="text-lg font-bold text-[#259783]">
-                          {analysisData.summary.turnoverRate.toFixed(1)}%
-                        </p>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          Stock sold vs purchased
-                        </p>
-                      </CardContent>
-                    </Card>
-                    <Card className="border-slate-200 dark:border-slate-700">
-                      <CardContent className="p-2.5">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <Zap className="w-3.5 h-3.5 text-amber-600" />
-                          <span className="text-xs text-slate-600 dark:text-slate-400">Profit Margin</span>
-                        </div>
-                        <p className="text-lg font-bold text-amber-600">
-                          {analysisData.summary.profitMargin.toFixed(1)}%
-                        </p>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          Profit / Revenue
-                        </p>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Stock Health Breakdown */}
+                  {/* Change Summary */}
                   <Card>
                     <CardContent className="p-3">
-                      <h3 className="text-sm font-semibold mb-2">Stock Status Breakdown</h3>
-                      <div className="grid grid-cols-4 gap-2">
-                        <div className="text-center p-2 bg-green-50 dark:bg-green-950/20 rounded">
-                          <Zap className="w-4 h-4 text-green-600 mx-auto mb-1" />
-                          <p className="text-lg font-bold text-green-600">{analysisData.healthIndicators.topSellersCount}</p>
-                          <p className="text-xs text-slate-600">Top Sellers</p>
+                      <h3 className="text-sm font-semibold mb-2">Stock Change</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className={`p-2 rounded-lg ${
+                          analysisData.stockGrowth.stockChange > 0 
+                            ? 'bg-green-50 dark:bg-green-950/20' 
+                            : analysisData.stockGrowth.stockChange < 0 
+                              ? 'bg-red-50 dark:bg-red-950/20' 
+                              : 'bg-slate-50 dark:bg-slate-900'
+                        }`}>
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="text-xs text-slate-600">Units Change</span>
+                            {analysisData.stockGrowth.stockChange > 0 
+                              ? <ArrowUpRight className="w-3 h-3 text-green-600" />
+                              : analysisData.stockGrowth.stockChange < 0 
+                                ? <ArrowDownRight className="w-3 h-3 text-red-600" />
+                                : <Minus className="w-3 h-3 text-slate-400" />
+                            }
+                          </div>
+                          <p className={`text-base font-bold ${getChangeColor(analysisData.stockGrowth.stockChange)}`}>
+                            {analysisData.stockGrowth.stockChange >= 0 ? '+' : ''}{formatNumber(analysisData.stockGrowth.stockChange)}
+                          </p>
                         </div>
-                        <div className="text-center p-2 bg-[#259783]/10 dark:bg-[#259783]/20 rounded">
-                          <TrendingUp className="w-4 h-4 text-[#259783] mx-auto mb-1" />
-                          <p className="text-lg font-bold text-[#259783]">{analysisData.healthIndicators.fastMovingCount}</p>
-                          <p className="text-xs text-slate-600">Fast Moving</p>
-                        </div>
-                        <div className="text-center p-2 bg-amber-50 dark:bg-amber-950/20 rounded">
-                          <Clock className="w-4 h-4 text-amber-600 mx-auto mb-1" />
-                          <p className="text-lg font-bold text-amber-600">{analysisData.healthIndicators.slowMovingCount}</p>
-                          <p className="text-xs text-slate-600">Slow Moving</p>
-                        </div>
-                        <div className="text-center p-2 bg-red-50 dark:bg-red-950/20 rounded">
-                          <AlertTriangle className="w-4 h-4 text-red-600 mx-auto mb-1" />
-                          <p className="text-lg font-bold text-red-600">{analysisData.healthIndicators.deadStockCount}</p>
-                          <p className="text-xs text-slate-600">Dead Stock</p>
+                        <div className={`p-2 rounded-lg ${
+                          analysisData.stockGrowth.valueChange > 0 
+                            ? 'bg-green-50 dark:bg-green-950/20' 
+                            : analysisData.stockGrowth.valueChange < 0 
+                              ? 'bg-red-50 dark:bg-red-950/20' 
+                              : 'bg-slate-50 dark:bg-slate-900'
+                        }`}>
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className="text-xs text-slate-600">Value Change</span>
+                            {analysisData.stockGrowth.valueChange > 0 
+                              ? <ArrowUpRight className="w-3 h-3 text-green-600" />
+                              : analysisData.stockGrowth.valueChange < 0 
+                                ? <ArrowDownRight className="w-3 h-3 text-red-600" />
+                                : <Minus className="w-3 h-3 text-slate-400" />
+                            }
+                          </div>
+                          <p className={`text-base font-bold ${getChangeColor(analysisData.stockGrowth.valueChange)}`}>
+                            {formatCurrency(analysisData.stockGrowth.valueChange)}
+                          </p>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
 
-                  {/* Top Sellers */}
-                  {analysisData.topSellers.length > 0 && (
+                  {/* Trend Breakdown */}
+                  <Card>
+                    <CardContent className="p-3">
+                      <h3 className="text-sm font-semibold mb-2">Items by Trend</h3>
+                      <div className="grid grid-cols-4 gap-2">
+                        <div className="text-center p-2 bg-green-50 dark:bg-green-950/20 rounded">
+                          <TrendingUp className="w-4 h-4 text-green-600 mx-auto mb-1" />
+                          <p className="text-lg font-bold text-green-600">{analysisData.trendBreakdown.growing}</p>
+                          <p className="text-xs text-slate-600">Growing</p>
+                        </div>
+                        <div className="text-center p-2 bg-[#259783]/10 dark:bg-[#259783]/20 rounded">
+                          <Minus className="w-4 h-4 text-[#259783] mx-auto mb-1" />
+                          <p className="text-lg font-bold text-[#259783]">{analysisData.trendBreakdown.stable}</p>
+                          <p className="text-xs text-slate-600">Stable</p>
+                        </div>
+                        <div className="text-center p-2 bg-red-50 dark:bg-red-950/20 rounded">
+                          <TrendingDown className="w-4 h-4 text-red-600 mx-auto mb-1" />
+                          <p className="text-lg font-bold text-red-600">{analysisData.trendBreakdown.shrinking}</p>
+                          <p className="text-xs text-slate-600">Shrinking</p>
+                        </div>
+                        <div className="text-center p-2 bg-blue-50 dark:bg-blue-950/20 rounded">
+                          <Sparkles className="w-4 h-4 text-blue-600 mx-auto mb-1" />
+                          <p className="text-lg font-bold text-blue-600">{analysisData.trendBreakdown.new}</p>
+                          <p className="text-xs text-slate-600">New Items</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Top Growing Items */}
+                  {analysisData.topGrowing.length > 0 && (
                     <Card>
                       <CardContent className="p-3">
                         <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5">
-                          <Zap className="w-4 h-4 text-green-600" />
-                          Top Sellers
+                          <TrendingUp className="w-4 h-4 text-green-600" />
+                          Top Growing Items
                         </h3>
                         <div className="space-y-2">
-                          {analysisData.topSellers.map((item, i) => (
-                            <div key={item.itemId} className="flex items-center justify-between text-xs">
-                              <div className="flex items-center gap-2">
-                                <span className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold text-xs">
-                                  {i + 1}
+                          {analysisData.topGrowing.map((item) => (
+                            <div key={item.itemId} className="flex items-center justify-between text-xs bg-green-50/50 dark:bg-green-950/10 p-2 rounded">
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium truncate block">
+                                  {item.variantName ? `${item.itemName} (${item.variantName})` : item.itemName}
                                 </span>
-                                <span className="font-medium truncate max-w-[150px]">{item.itemName}</span>
+                                <span className="text-slate-500">
+                                  {formatNumber(item.initialStock)} → {formatNumber(item.currentStock)} {item.unitType}
+                                </span>
                               </div>
-                              <div className="text-right">
-                                <span className="font-bold text-green-600">{formatCurrency(item.revenue)}</span>
-                                <span className="text-slate-400 ml-1">({formatNumber(item.totalSold)} sold)</span>
+                              <div className="text-right ml-2">
+                                <span className="font-bold text-green-600">
+                                  {formatChange(item.stockChangePercent)}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Shrinking Items (Warning) */}
+                  {analysisData.shrinking.length > 0 && (
+                    <Card className="border-red-200 dark:border-red-800">
+                      <CardContent className="p-3">
+                        <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5 text-red-600">
+                          <AlertTriangle className="w-4 h-4" />
+                          Shrinking Stock
+                        </h3>
+                        <div className="space-y-2">
+                          {analysisData.shrinking.map((item) => (
+                            <div key={item.itemId} className="flex items-center justify-between text-xs bg-red-50/50 dark:bg-red-950/10 p-2 rounded">
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium truncate block">
+                                  {item.variantName ? `${item.itemName} (${item.variantName})` : item.itemName}
+                                </span>
+                                <span className="text-slate-500">
+                                  {formatNumber(item.initialStock)} → {formatNumber(item.currentStock)} {item.unitType}
+                                </span>
+                              </div>
+                              <div className="text-right ml-2">
+                                <span className="font-bold text-red-600">
+                                  {formatChange(item.stockChangePercent)}
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* New Items */}
+                  {analysisData.newItems.length > 0 && (
+                    <Card className="border-blue-200 dark:border-blue-800">
+                      <CardContent className="p-3">
+                        <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5 text-blue-600">
+                          <Sparkles className="w-4 h-4" />
+                          New Items Added
+                        </h3>
+                        <div className="space-y-2">
+                          {analysisData.newItems.map((item) => (
+                            <div key={item.itemId} className="flex items-center justify-between text-xs bg-blue-50/50 dark:bg-blue-950/10 p-2 rounded">
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium truncate block">
+                                  {item.variantName ? `${item.itemName} (${item.variantName})` : item.itemName}
+                                </span>
+                                <span className="text-slate-500">{item.categoryName}</span>
+                              </div>
+                              <div className="text-right ml-2">
+                                <span className="font-bold text-blue-600">
+                                  {formatNumber(item.currentStock)} {item.unitType}
+                                </span>
                               </div>
                             </div>
                           ))}
@@ -352,126 +479,101 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
               )}
 
               {activeTab === 'items' && (
-                <div className="space-y-2">
-                  {analysisData.items.map((item) => {
-                    const statusConfig = getStatusConfig(item.status);
-                    return (
-                      <Card key={item.itemId} className="border-l-2 border-l-slate-300">
-                        <CardContent className="p-3">
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-sm truncate">
-                                {item.variantName ? `${item.itemName} (${item.variantName})` : item.itemName}
-                              </h4>
-                              <p className="text-xs text-slate-500">{item.categoryName}</p>
-                            </div>
-                            <Badge className={`${statusConfig.color} text-xs h-5`}>
-                              {statusConfig.label}
-                            </Badge>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2 text-xs">
-                            <div>
-                              <p className="text-slate-500">Stock</p>
-                              <p className="font-semibold">{formatNumber(item.currentStock)} {item.unitType}</p>
-                            </div>
-                            <div>
-                              <p className="text-slate-500">Sold</p>
-                              <p className="font-semibold text-green-600">{formatNumber(item.totalSold)}</p>
-                            </div>
-                            <div>
-                              <p className="text-slate-500">Revenue</p>
-                              <p className="font-semibold">{formatCurrency(item.totalRevenue)}</p>
-                            </div>
-                          </div>
-                          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-slate-500">Turnover</span>
-                              <span className="font-semibold">{item.turnoverRate.toFixed(1)}%</span>
-                            </div>
-                            <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-1 mt-1">
-                              <div
-                                className="h-1 rounded-full bg-[#259783]"
-                                style={{ width: `${Math.min(item.turnoverRate, 100)}%` }}
-                              />
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
+                <>
+                  {/* Filter */}
+                  <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+                    {(['all', 'growing', 'stable', 'shrinking', 'new'] as const).map((f) => (
+                      <button
+                        key={f}
+                        onClick={() => setFilter(f)}
+                        className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                          filter === f
+                            ? 'bg-white dark:bg-slate-700 text-[#259783] shadow-sm'
+                            : 'text-slate-600 dark:text-slate-400'
+                        }`}
+                      >
+                        {f.charAt(0).toUpperCase() + f.slice(1)}
+                        <span className="ml-1 text-slate-400">
+                          ({f === 'all' ? analysisData.items.length : analysisData.trendBreakdown[f as keyof typeof analysisData.trendBreakdown]})
+                        </span>
+                      </button>
+                    ))}
+                  </div>
 
-              {activeTab === 'alerts' && (
-                <div className="space-y-3">
-                  {analysisData.deadStock.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5 text-red-600">
-                        <AlertTriangle className="w-4 h-4" />
-                        Dead Stock ({analysisData.deadStock.length})
-                      </h3>
-                      <div className="space-y-2">
-                        {analysisData.deadStock.map((item) => (
-                          <Card key={item.itemId} className="border-l-2 border-l-red-500 bg-red-50/50 dark:bg-red-950/10">
-                            <CardContent className="p-3">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="font-semibold text-sm">{item.itemName}</p>
-                                  <p className="text-xs text-slate-500">{formatNumber(item.currentStock)} units • Never sold</p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-xs text-slate-500">Value tied up</p>
-                                  <p className="font-bold text-red-600 text-sm">{formatCurrency(item.inventoryValue)}</p>
-                                </div>
+                  {/* Items List */}
+                  <div className="space-y-2">
+                    {filteredItems.map((item) => {
+                      const trendConfig = getTrendConfig(item.trend);
+                      const TrendIcon = trendConfig.icon;
+                      return (
+                        <Card key={item.itemId} className={`border-l-2 ${
+                          item.trend === 'growing' ? 'border-l-green-500' :
+                          item.trend === 'shrinking' ? 'border-l-red-500' :
+                          item.trend === 'new' ? 'border-l-blue-500' :
+                          'border-l-[#259783]'
+                        }`}>
+                          <CardContent className="p-3">
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-sm truncate">
+                                  {item.variantName ? `${item.itemName} (${item.variantName})` : item.itemName}
+                                </h4>
+                                <p className="text-xs text-slate-500">{item.categoryName}</p>
                               </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {analysisData.slowMoving.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-semibold mb-2 flex items-center gap-1.5 text-amber-600">
-                        <Clock className="w-4 h-4" />
-                        Slow Moving ({analysisData.slowMoving.length})
-                      </h3>
-                      <div className="space-y-2">
-                        {analysisData.slowMoving.map((item) => (
-                          <Card key={item.itemId} className="border-l-2 border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/10">
-                            <CardContent className="p-3">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <p className="font-semibold text-sm">{item.itemName}</p>
-                                  <p className="text-xs text-slate-500">
-                                    {item.daysSinceLastSale !== null 
-                                      ? `Last sale ${item.daysSinceLastSale} days ago`
-                                      : 'No recent sales'}
-                                  </p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-xs text-slate-500">{formatNumber(item.currentStock)} in stock</p>
-                                  <p className="font-bold text-amber-600 text-sm">{formatCurrency(item.inventoryValue)}</p>
-                                </div>
+                              <Badge className={`${trendConfig.color} text-xs h-5 gap-0.5`}>
+                                <TrendIcon className="w-3 h-3" />
+                                {trendConfig.label}
+                              </Badge>
+                            </div>
+                            
+                            <div className="grid grid-cols-3 gap-2 text-xs">
+                              <div className="bg-slate-50 dark:bg-slate-900 p-1.5 rounded">
+                                <p className="text-slate-500">Initial</p>
+                                <p className="font-semibold">{formatNumber(item.initialStock)} {item.unitType}</p>
                               </div>
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                              <div className={`p-1.5 rounded ${
+                                item.stockChange > 0 ? 'bg-green-50 dark:bg-green-950/20' :
+                                item.stockChange < 0 ? 'bg-red-50 dark:bg-red-950/20' :
+                                'bg-[#259783]/10'
+                              }`}>
+                                <p className="text-slate-500">Current</p>
+                                <p className={`font-semibold ${trendConfig.textColor}`}>
+                                  {formatNumber(item.currentStock)} {item.unitType}
+                                </p>
+                              </div>
+                              <div className={`p-1.5 rounded ${
+                                item.stockChange > 0 ? 'bg-green-50 dark:bg-green-950/20' :
+                                item.stockChange < 0 ? 'bg-red-50 dark:bg-red-950/20' :
+                                'bg-slate-50 dark:bg-slate-900'
+                              }`}>
+                                <p className="text-slate-500">Change</p>
+                                <p className={`font-semibold ${getChangeColor(item.stockChange)}`}>
+                                  {item.stockChange >= 0 ? '+' : ''}{formatNumber(item.stockChange)}
+                                  {item.stockChangePercent !== null && (
+                                    <span className="text-xs ml-0.5">({formatChange(item.stockChangePercent, false)})</span>
+                                  )}
+                                </p>
+                              </div>
+                            </div>
 
-                  {analysisData.deadStock.length === 0 && analysisData.slowMoving.length === 0 && (
-                    <div className="text-center py-12">
-                      <div className="w-16 h-16 mx-auto bg-green-100 dark:bg-green-950/30 rounded-full flex items-center justify-center mb-3">
-                        <TrendingUp className="w-8 h-8 text-green-600" />
+                            {item.firstBatchDate && (
+                              <p className="text-xs text-slate-400 mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                                First stocked: {formatDate(item.firstBatchDate)}
+                              </p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+
+                    {filteredItems.length === 0 && (
+                      <div className="text-center py-8 text-slate-500">
+                        <Package className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                        <p className="text-sm">No items match this filter</p>
                       </div>
-                      <p className="font-semibold text-green-600">All Clear!</p>
-                      <p className="text-xs text-slate-500 mt-1">No stock issues detected</p>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           ) : null}

@@ -12,32 +12,18 @@ export async function GET(request: NextRequest) {
     const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
 
-    // Get overall business metrics
-    const overallMetrics = await queryOne<{
-      total_items: number;
-      total_inventory_value: number;
-      total_stock_units: number;
-      total_purchased: number;
-      total_purchase_value: number;
-      total_sold: number;
-      total_sales_revenue: number;
-      total_profit: number;
-      first_activity_date: number | null;
-    }>(
-      `SELECT 
-        (SELECT COUNT(*) FROM items WHERE business_id = ? AND active = 1 AND parent_item_id IS NOT NULL OR (parent_item_id IS NULL AND NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = items.id AND v.business_id = items.business_id AND v.active = 1))) as total_items,
-        COALESCE((SELECT SUM(current_stock * current_sell_price) FROM items WHERE business_id = ? AND active = 1), 0) as total_inventory_value,
-        COALESCE((SELECT SUM(current_stock) FROM items WHERE business_id = ? AND active = 1), 0) as total_stock_units,
-        COALESCE((SELECT SUM(initial_quantity) FROM inventory_batches WHERE business_id = ?), 0) as total_purchased,
-        COALESCE((SELECT SUM(initial_quantity * buy_price_per_unit) FROM inventory_batches WHERE business_id = ?), 0) as total_purchase_value,
-        COALESCE((SELECT SUM(quantity_sold) FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE s.business_id = ? AND s.status = 'completed'), 0) as total_sold,
-        COALESCE((SELECT SUM(quantity_sold * sell_price_per_unit) FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE s.business_id = ? AND s.status = 'completed'), 0) as total_sales_revenue,
-        COALESCE((SELECT SUM(profit) FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE s.business_id = ? AND s.status = 'completed'), 0) as total_profit,
-        (SELECT MIN(received_at) FROM inventory_batches WHERE business_id = ?) as first_activity_date`,
-      [auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId]
+    // Get first batch date to determine business start
+    const businessStart = await queryOne<{ first_date: number | null }>(
+      `SELECT MIN(received_at) as first_date FROM inventory_batches WHERE business_id = ?`,
+      [auth.businessId]
     );
 
-    // Get per-item analysis with turnover data
+    const firstActivityDate = businessStart?.first_date || null;
+    const daysSinceStart = firstActivityDate 
+      ? Math.floor((Date.now() / 1000 - firstActivityDate) / 86400)
+      : 0;
+
+    // Get per-item stock analysis: initial stock vs current stock
     const itemAnalysis = await query<{
       item_id: string;
       item_name: string;
@@ -46,13 +32,9 @@ export async function GET(request: NextRequest) {
       category_name: string;
       current_stock: number;
       current_sell_price: number;
-      total_purchased: number;
-      total_sold: number;
-      total_revenue: number;
-      total_profit: number;
-      first_purchase_date: number | null;
-      last_sale_date: number | null;
-      days_since_last_sale: number | null;
+      initial_stock: number;
+      first_batch_date: number | null;
+      total_ever_stocked: number;
     }>(
       `SELECT 
         i.id as item_id,
@@ -62,39 +44,38 @@ export async function GET(request: NextRequest) {
         c.name as category_name,
         i.current_stock,
         i.current_sell_price,
-        COALESCE(ib_stats.total_purchased, 0) as total_purchased,
-        COALESCE(si_stats.total_sold, 0) as total_sold,
-        COALESCE(si_stats.total_revenue, 0) as total_revenue,
-        COALESCE(si_stats.total_profit, 0) as total_profit,
-        ib_stats.first_purchase_date,
-        si_stats.last_sale_date,
-        CASE WHEN si_stats.last_sale_date IS NOT NULL 
-          THEN CAST((unixepoch() - si_stats.last_sale_date) / 86400 AS INTEGER)
-          ELSE NULL 
-        END as days_since_last_sale
+        COALESCE(first_batch.initial_quantity, 0) as initial_stock,
+        first_batch.received_at as first_batch_date,
+        COALESCE(total_stats.total_ever_stocked, 0) as total_ever_stocked
       FROM items i
       LEFT JOIN categories c ON i.category_id = c.id
       LEFT JOIN (
         SELECT 
-          item_id,
-          SUM(initial_quantity) as total_purchased,
-          MIN(received_at) as first_purchase_date
+          ib1.item_id,
+          ib1.initial_quantity,
+          ib1.received_at
+        FROM inventory_batches ib1
+        WHERE ib1.business_id = ?
+          AND ib1.received_at = (
+            SELECT MIN(ib2.received_at)
+            FROM inventory_batches ib2
+            WHERE ib2.item_id = ib1.item_id
+              AND ib2.business_id = ib1.business_id
+          )
+          AND ib1.created_at = (
+            SELECT MIN(ib3.created_at)
+            FROM inventory_batches ib3
+            WHERE ib3.item_id = ib1.item_id
+              AND ib3.business_id = ib1.business_id
+              AND ib3.received_at = ib1.received_at
+          )
+      ) first_batch ON i.id = first_batch.item_id
+      LEFT JOIN (
+        SELECT item_id, SUM(initial_quantity) as total_ever_stocked
         FROM inventory_batches
         WHERE business_id = ?
         GROUP BY item_id
-      ) ib_stats ON i.id = ib_stats.item_id
-      LEFT JOIN (
-        SELECT 
-          si.item_id,
-          SUM(si.quantity_sold) as total_sold,
-          SUM(si.quantity_sold * si.sell_price_per_unit) as total_revenue,
-          SUM(si.profit) as total_profit,
-          MAX(s.sale_date) as last_sale_date
-        FROM sale_items si
-        JOIN sales s ON si.sale_id = s.id
-        WHERE s.business_id = ? AND s.status = 'completed'
-        GROUP BY si.item_id
-      ) si_stats ON i.id = si_stats.item_id
+      ) total_stats ON i.id = total_stats.item_id
       WHERE i.business_id = ?
         AND i.active = 1
         AND (
@@ -107,125 +88,143 @@ export async function GET(request: NextRequest) {
             AND v.active = 1
           ))
         )
-      ORDER BY si_stats.total_revenue DESC NULLS LAST, i.name ASC`,
+      ORDER BY (i.current_stock - COALESCE(first_batch.initial_quantity, 0)) DESC, i.name ASC`,
       [auth.businessId, auth.businessId, auth.businessId]
     );
 
-    // Calculate business health indicators
-    const totalPurchased = overallMetrics?.total_purchased || 0;
-    const totalSold = overallMetrics?.total_sold || 0;
-    const turnoverRate = totalPurchased > 0 ? (totalSold / totalPurchased) * 100 : 0;
-    const profitMargin = overallMetrics?.total_sales_revenue && overallMetrics.total_sales_revenue > 0
-      ? (overallMetrics.total_profit / overallMetrics.total_sales_revenue) * 100
-      : 0;
+    // Calculate overall stock metrics
+    let totalInitialStock = 0;
+    let totalCurrentStock = 0;
+    let totalInitialValue = 0;
+    let totalCurrentValue = 0;
+    let itemsWithInitialData = 0;
+    let growingItems = 0;
+    let shrinkingItems = 0;
+    let stableItems = 0;
 
-    // Categorize items by performance
-    const topSellers = itemAnalysis.filter(i => i.total_sold > 0).slice(0, 5);
-    const slowMoving = itemAnalysis.filter(i => {
-      if (i.total_purchased === 0) return false;
-      if (i.days_since_last_sale === null && i.total_sold === 0) return true;
-      if (i.days_since_last_sale !== null && i.days_since_last_sale > 30) return true;
-      return false;
-    });
-    const fastMoving = itemAnalysis.filter(i => {
-      const turnover = i.total_purchased > 0 ? i.total_sold / i.total_purchased : 0;
-      return turnover > 0.5 && i.total_sold > 0;
-    });
-    const deadStock = itemAnalysis.filter(i => 
-      i.current_stock > 0 && i.total_sold === 0 && i.total_purchased > 0
-    );
+    const items = itemAnalysis.map((item) => {
+      const stockChange = item.current_stock - item.initial_stock;
+      const stockChangePercent = item.initial_stock > 0 
+        ? ((item.current_stock - item.initial_stock) / item.initial_stock) * 100
+        : (item.current_stock > 0 ? 100 : null);
+      
+      const initialValue = item.initial_stock * item.current_sell_price;
+      const currentValue = item.current_stock * item.current_sell_price;
 
-    // Calculate stock value distribution
-    const stockWithValue = itemAnalysis.filter(i => i.current_stock > 0);
-    const totalStockValue = stockWithValue.reduce((sum, i) => sum + (i.current_stock * i.current_sell_price), 0);
+      let trend: 'growing' | 'shrinking' | 'stable' | 'new' = 'new';
+      
+      if (item.initial_stock > 0) {
+        itemsWithInitialData++;
+        totalInitialStock += item.initial_stock;
+        totalCurrentStock += item.current_stock;
+        totalInitialValue += initialValue;
+        totalCurrentValue += currentValue;
+
+        if (item.current_stock > item.initial_stock) {
+          trend = 'growing';
+          growingItems++;
+        } else if (item.current_stock < item.initial_stock) {
+          trend = 'shrinking';
+          shrinkingItems++;
+        } else {
+          trend = 'stable';
+          stableItems++;
+        }
+      } else if (item.current_stock > 0) {
+        trend = 'new';
+        totalCurrentStock += item.current_stock;
+        totalCurrentValue += currentValue;
+      }
+
+      return {
+        itemId: item.item_id,
+        itemName: item.item_name,
+        variantName: item.variant_name,
+        unitType: item.unit_type,
+        categoryName: item.category_name,
+        initialStock: item.initial_stock,
+        currentStock: item.current_stock,
+        stockChange,
+        stockChangePercent,
+        initialValue,
+        currentValue,
+        valueChange: currentValue - initialValue,
+        firstBatchDate: item.first_batch_date,
+        totalEverStocked: item.total_ever_stocked,
+        trend,
+      };
+    });
+
+    // Calculate overall growth
+    const overallStockChange = totalCurrentStock - totalInitialStock;
+    const overallStockChangePercent = totalInitialStock > 0 
+      ? ((totalCurrentStock - totalInitialStock) / totalInitialStock) * 100
+      : null;
+    const overallValueChange = totalCurrentValue - totalInitialValue;
+    const overallValueChangePercent = totalInitialValue > 0 
+      ? ((totalCurrentValue - totalInitialValue) / totalInitialValue) * 100
+      : null;
+
+    // Determine business trajectory based on stock growth
+    let trajectory: 'expanding' | 'stable' | 'declining' | 'new' = 'new';
+    if (itemsWithInitialData > 0) {
+      if (overallStockChangePercent !== null && overallStockChangePercent > 20) {
+        trajectory = 'expanding';
+      } else if (overallStockChangePercent !== null && overallStockChangePercent < -20) {
+        trajectory = 'declining';
+      } else {
+        trajectory = 'stable';
+      }
+    }
+
+    // Get top growing items
+    const topGrowing = items
+      .filter(i => i.trend === 'growing' && i.stockChangePercent !== null)
+      .sort((a, b) => (b.stockChangePercent ?? 0) - (a.stockChangePercent ?? 0))
+      .slice(0, 5);
+
+    // Get shrinking items (potential concern)
+    const shrinking = items
+      .filter(i => i.trend === 'shrinking')
+      .sort((a, b) => (a.stockChangePercent ?? 0) - (b.stockChangePercent ?? 0))
+      .slice(0, 5);
+
+    // Get new items (items added after business start)
+    const newItems = items
+      .filter(i => i.trend === 'new' && i.currentStock > 0)
+      .slice(0, 5);
 
     return jsonResponse({
       success: true,
       data: {
         summary: {
-          totalItems: overallMetrics?.total_items || 0,
-          totalInventoryValue: overallMetrics?.total_inventory_value || 0,
-          totalStockUnits: overallMetrics?.total_stock_units || 0,
-          totalPurchased: totalPurchased,
-          totalPurchaseValue: overallMetrics?.total_purchase_value || 0,
-          totalSold: totalSold,
-          totalSalesRevenue: overallMetrics?.total_sales_revenue || 0,
-          totalProfit: overallMetrics?.total_profit || 0,
-          turnoverRate: turnoverRate,
-          profitMargin: profitMargin,
-          firstActivityDate: overallMetrics?.first_activity_date || null,
-          daysSinceStart: overallMetrics?.first_activity_date 
-            ? Math.floor((Date.now() / 1000 - overallMetrics.first_activity_date) / 86400)
-            : 0,
+          firstActivityDate,
+          daysSinceStart,
+          trajectory,
+          totalItems: items.length,
+          itemsWithData: itemsWithInitialData,
+          newItemsCount: items.filter(i => i.trend === 'new').length,
         },
-        healthIndicators: {
-          topSellersCount: topSellers.length,
-          fastMovingCount: fastMoving.length,
-          slowMovingCount: slowMoving.length,
-          deadStockCount: deadStock.length,
-          stockHealthScore: itemAnalysis.length > 0 
-            ? Math.round(((fastMoving.length + (topSellers.length * 0.5)) / itemAnalysis.length) * 100)
-            : 0,
+        stockGrowth: {
+          initialTotalStock: totalInitialStock,
+          currentTotalStock: totalCurrentStock,
+          stockChange: overallStockChange,
+          stockChangePercent: overallStockChangePercent,
+          initialTotalValue: totalInitialValue,
+          currentTotalValue: totalCurrentValue,
+          valueChange: overallValueChange,
+          valueChangePercent: overallValueChangePercent,
         },
-        items: itemAnalysis.map((item) => {
-          const inventoryValue = item.current_stock * item.current_sell_price;
-          const turnover = item.total_purchased > 0 ? (item.total_sold / item.total_purchased) * 100 : 0;
-          
-          let status: 'top_seller' | 'fast_moving' | 'normal' | 'slow_moving' | 'dead_stock' | 'new';
-          if (item.total_sold === 0 && item.total_purchased === 0) {
-            status = 'new';
-          } else if (item.current_stock > 0 && item.total_sold === 0) {
-            status = 'dead_stock';
-          } else if (item.days_since_last_sale !== null && item.days_since_last_sale > 30) {
-            status = 'slow_moving';
-          } else if (turnover > 70) {
-            status = 'top_seller';
-          } else if (turnover > 40) {
-            status = 'fast_moving';
-          } else {
-            status = 'normal';
-          }
-
-          return {
-            itemId: item.item_id,
-            itemName: item.item_name,
-            variantName: item.variant_name,
-            unitType: item.unit_type,
-            categoryName: item.category_name,
-            currentStock: item.current_stock,
-            currentSellPrice: item.current_sell_price,
-            inventoryValue: inventoryValue,
-            totalPurchased: item.total_purchased,
-            totalSold: item.total_sold,
-            totalRevenue: item.total_revenue,
-            totalProfit: item.total_profit,
-            turnoverRate: turnover,
-            firstPurchaseDate: item.first_purchase_date,
-            lastSaleDate: item.last_sale_date,
-            daysSinceLastSale: item.days_since_last_sale,
-            status: status,
-          };
-        }),
-        topSellers: topSellers.map(i => ({
-          itemId: i.item_id,
-          itemName: i.variant_name ? `${i.item_name} (${i.variant_name})` : i.item_name,
-          totalSold: i.total_sold,
-          revenue: i.total_revenue,
-          profit: i.total_profit,
-        })),
-        slowMoving: slowMoving.slice(0, 5).map(i => ({
-          itemId: i.item_id,
-          itemName: i.variant_name ? `${i.item_name} (${i.variant_name})` : i.item_name,
-          currentStock: i.current_stock,
-          daysSinceLastSale: i.days_since_last_sale,
-          inventoryValue: i.current_stock * i.current_sell_price,
-        })),
-        deadStock: deadStock.slice(0, 5).map(i => ({
-          itemId: i.item_id,
-          itemName: i.variant_name ? `${i.item_name} (${i.variant_name})` : i.item_name,
-          currentStock: i.current_stock,
-          inventoryValue: i.current_stock * i.current_sell_price,
-        })),
+        trendBreakdown: {
+          growing: growingItems,
+          shrinking: shrinkingItems,
+          stable: stableItems,
+          new: items.filter(i => i.trend === 'new').length,
+        },
+        items,
+        topGrowing,
+        shrinking,
+        newItems,
       },
     });
   } catch (error) {
