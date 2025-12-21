@@ -1,15 +1,24 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, WifiOff, TrendingUp, TrendingDown, AlertTriangle, Download, ShoppingBag, Receipt, PieChart, Package, Target, CheckCircle2, XCircle, ChevronRight } from 'lucide-react';
+import { ArrowLeft, WifiOff, TrendingUp, TrendingDown, AlertTriangle, Download, ShoppingBag, Receipt, PieChart, Package, Target, CheckCircle2, XCircle, ChevronRight, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ProfitCalendar } from './ProfitCalendar';
 
 interface ProfitData {
   totalProfit: number;
+  grossProfit: number;
   totalSales: number;
   totalCost: number;
+  stockLosses?: {
+    total: number;
+    count: number;
+    spoilage: number;
+    theft: number;
+    damage: number;
+    other: number;
+  };
   profitMargin: number;
   itemProfits: Array<{
     item_id: string;
@@ -278,7 +287,7 @@ export function ProfitViewMobile() {
               <TrendingUp className="w-3.5 h-3.5 text-white/70" />
               <span className="text-[9px] font-black text-white/70 uppercase">Gross Profit</span>
             </div>
-            <p className="text-xl font-black text-white">{formatPrice(profitData?.totalProfit || 0)}</p>
+            <p className="text-xl font-black text-white">{formatPrice(profitData?.grossProfit || profitData?.totalProfit || 0)}</p>
           </div>
 
           {/* Margin */}
@@ -292,6 +301,46 @@ export function ProfitViewMobile() {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Stock Losses */}
+      <div className="px-4 pb-4">
+        {profitData?.stockLosses && profitData.stockLosses.total > 0 ? (
+          <div className="p-3 border-2 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1.5">
+                <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                <span className="text-[9px] font-black text-red-600 uppercase">Stock Losses</span>
+                <span className="text-[8px] font-bold text-red-500 bg-red-100 px-1 rounded">
+                  {profitData.stockLosses.count}
+                </span>
+              </div>
+              <p className="text-base font-black text-red-600">-{formatPrice(profitData.stockLosses.total)}</p>
+            </div>
+            <div className="flex gap-2 text-[9px]">
+              {profitData.stockLosses.spoilage > 0 && (
+                <span className="text-red-600">Spoilage: {formatPrice(profitData.stockLosses.spoilage)}</span>
+              )}
+              {profitData.stockLosses.theft > 0 && (
+                <span className="text-red-600">Theft: {formatPrice(profitData.stockLosses.theft)}</span>
+              )}
+              {profitData.stockLosses.damage > 0 && (
+                <span className="text-red-600">Damage: {formatPrice(profitData.stockLosses.damage)}</span>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="p-2.5 border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <Trash2 className="w-3.5 h-3.5 text-slate-400" />
+                <span className="text-[9px] font-bold text-slate-500">Stock Losses</span>
+              </div>
+              <span className="text-sm font-black text-[#259783]">KES 0</span>
+            </div>
+            <p className="text-[9px] text-slate-400 mt-1">No spoilage, theft, or damage recorded</p>
+          </div>
+        )}
       </div>
 
       {/* Expenses Row */}

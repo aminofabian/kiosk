@@ -273,9 +273,77 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Get stock losses (spoilage, theft, damage, other - NOT restock or counting_error)
+    // These are losses that should reduce profit
+    // Try to get buy price from: 1) inventory_batches, 2) purchase_breakdowns, 3) sale_items (last sold price)
+    const stockLosses = await queryOne<{
+      total_loss: number;
+      loss_count: number;
+      spoilage_loss: number;
+      theft_loss: number;
+      damage_loss: number;
+      other_loss: number;
+    }>(
+      `SELECT 
+        COALESCE(SUM(
+          CASE WHEN sa.difference < 0 AND sa.reason IN ('spoilage', 'theft', 'damage', 'other') THEN
+            ABS(sa.difference) * COALESCE(
+              (SELECT ib.buy_price_per_unit 
+               FROM inventory_batches ib 
+               WHERE ib.item_id = sa.item_id 
+               ORDER BY ib.received_at DESC 
+               LIMIT 1),
+              (SELECT pb.buy_price_per_unit 
+               FROM purchase_breakdowns pb
+               JOIN purchase_items pi ON pb.purchase_item_id = pi.id
+               JOIN purchases p ON pi.purchase_id = p.id
+               WHERE pb.item_id = sa.item_id AND p.business_id = ?
+               ORDER BY pb.confirmed_at DESC 
+               LIMIT 1),
+              (SELECT si.buy_price_per_unit 
+               FROM sale_items si 
+               JOIN sales s ON si.sale_id = s.id
+               WHERE si.item_id = sa.item_id AND s.business_id = ? AND si.buy_price_per_unit > 0
+               ORDER BY s.sale_date DESC 
+               LIMIT 1),
+              0
+            )
+          ELSE 0 END
+        ), 0) as total_loss,
+        COUNT(CASE WHEN sa.difference < 0 AND sa.reason IN ('spoilage', 'theft', 'damage', 'other') THEN 1 END) as loss_count,
+        COALESCE(SUM(CASE WHEN sa.reason = 'spoilage' AND sa.difference < 0 THEN ABS(sa.difference) * COALESCE(
+          (SELECT ib.buy_price_per_unit FROM inventory_batches ib WHERE ib.item_id = sa.item_id ORDER BY ib.received_at DESC LIMIT 1),
+          (SELECT si.buy_price_per_unit FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.item_id = sa.item_id AND s.business_id = ? AND si.buy_price_per_unit > 0 ORDER BY s.sale_date DESC LIMIT 1),
+          0
+        ) ELSE 0 END), 0) as spoilage_loss,
+        COALESCE(SUM(CASE WHEN sa.reason = 'theft' AND sa.difference < 0 THEN ABS(sa.difference) * COALESCE(
+          (SELECT ib.buy_price_per_unit FROM inventory_batches ib WHERE ib.item_id = sa.item_id ORDER BY ib.received_at DESC LIMIT 1),
+          (SELECT si.buy_price_per_unit FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.item_id = sa.item_id AND s.business_id = ? AND si.buy_price_per_unit > 0 ORDER BY s.sale_date DESC LIMIT 1),
+          0
+        ) ELSE 0 END), 0) as theft_loss,
+        COALESCE(SUM(CASE WHEN sa.reason = 'damage' AND sa.difference < 0 THEN ABS(sa.difference) * COALESCE(
+          (SELECT ib.buy_price_per_unit FROM inventory_batches ib WHERE ib.item_id = sa.item_id ORDER BY ib.received_at DESC LIMIT 1),
+          (SELECT si.buy_price_per_unit FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.item_id = sa.item_id AND s.business_id = ? AND si.buy_price_per_unit > 0 ORDER BY s.sale_date DESC LIMIT 1),
+          0
+        ) ELSE 0 END), 0) as damage_loss,
+        COALESCE(SUM(CASE WHEN sa.reason = 'other' AND sa.difference < 0 THEN ABS(sa.difference) * COALESCE(
+          (SELECT ib.buy_price_per_unit FROM inventory_batches ib WHERE ib.item_id = sa.item_id ORDER BY ib.received_at DESC LIMIT 1),
+          (SELECT si.buy_price_per_unit FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.item_id = sa.item_id AND s.business_id = ? AND si.buy_price_per_unit > 0 ORDER BY s.sale_date DESC LIMIT 1),
+          0
+        ) ELSE 0 END), 0) as other_loss
+       FROM stock_adjustments sa
+       WHERE sa.business_id = ?
+         AND sa.created_at >= ?
+         AND sa.created_at <= ?`,
+      [auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp]
+    );
+
+    const totalStockLoss = stockLosses?.total_loss || 0;
+    const adjustedProfit = summaryData.total_profit - totalStockLoss;
+    
     const profitMargin =
       summaryData.total_sales > 0
-        ? summaryData.total_profit / summaryData.total_sales
+        ? adjustedProfit / summaryData.total_sales
         : 0;
 
     const totalCustomers = uniqueCustomers?.count || 0;
@@ -290,9 +358,18 @@ export async function GET(request: NextRequest) {
     return jsonResponse({
       success: true,
       data: {
-        totalProfit: summaryData.total_profit,
+        totalProfit: adjustedProfit,
+        grossProfit: summaryData.total_profit,
         totalSales: summaryData.total_sales,
         totalCost: summaryData.total_cost,
+        stockLosses: {
+          total: totalStockLoss,
+          count: stockLosses?.loss_count || 0,
+          spoilage: stockLosses?.spoilage_loss || 0,
+          theft: stockLosses?.theft_loss || 0,
+          damage: stockLosses?.damage_loss || 0,
+          other: stockLosses?.other_loss || 0,
+        },
         profitMargin,
         totalQuantitySold: summaryData.total_quantity_sold || 0,
         totalTransactions: summaryData.total_transactions || 0,

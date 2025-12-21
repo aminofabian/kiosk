@@ -16,7 +16,7 @@ interface CalendarData {
   stats: {
     maxProfit: number;
     minProfit: number;
-    totalDaysWithSales: number;
+    totalDaysWithActivity: number;
     profitableDays: number;
     lossDays: number;
     neutralDays: number;

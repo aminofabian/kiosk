@@ -101,29 +101,101 @@ export async function GET(request: NextRequest) {
       [tzOffsetSeconds, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp]
     );
 
-    // Transform to a map for easy lookup
+    // Get daily stock losses (spoilage, theft, damage, other)
+    // Try to get buy price from: 1) inventory_batches, 2) purchase_breakdowns, 3) sale_items
+    const dailyLosses = await query<{
+      loss_day: string;
+      total_loss: number;
+    }>(
+      `SELECT 
+        DATE(sa.created_at - ?, 'unixepoch') as loss_day,
+        COALESCE(SUM(
+          CASE WHEN sa.difference < 0 AND sa.reason IN ('spoilage', 'theft', 'damage', 'other') THEN
+            ABS(sa.difference) * COALESCE(
+              (SELECT ib.buy_price_per_unit 
+               FROM inventory_batches ib 
+               WHERE ib.item_id = sa.item_id 
+               ORDER BY ib.received_at DESC 
+               LIMIT 1),
+              (SELECT pb.buy_price_per_unit 
+               FROM purchase_breakdowns pb
+               JOIN purchase_items pi ON pb.purchase_item_id = pi.id
+               JOIN purchases p ON pi.purchase_id = p.id
+               WHERE pb.item_id = sa.item_id AND p.business_id = ?
+               ORDER BY pb.confirmed_at DESC 
+               LIMIT 1),
+              (SELECT si.buy_price_per_unit 
+               FROM sale_items si 
+               JOIN sales s ON si.sale_id = s.id
+               WHERE si.item_id = sa.item_id AND s.business_id = ? AND si.buy_price_per_unit > 0
+               ORDER BY s.sale_date DESC 
+               LIMIT 1),
+              0
+            )
+          ELSE 0 END
+        ), 0) as total_loss
+       FROM stock_adjustments sa
+       WHERE sa.business_id = ?
+         AND sa.created_at >= ?
+         AND sa.created_at <= ?
+       GROUP BY loss_day
+       HAVING total_loss > 0
+       ORDER BY loss_day ASC`,
+      [tzOffsetSeconds, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp]
+    );
+
+    // Create a map of daily losses
+    const lossByDate: Record<string, number> = {};
+    for (const row of dailyLosses) {
+      lossByDate[row.loss_day] = row.total_loss;
+    }
+
+    // Transform to a map for easy lookup, subtracting losses from profit
     const profitByDate: Record<string, DailyProfit> = {};
     let maxProfit = 0;
     let minProfit = 0;
-    let totalDaysWithSales = 0;
+    let totalDaysWithActivity = 0;
     let profitableDays = 0;
     let lossDays = 0;
 
+    // Process sales data
     for (const row of dailyData) {
-      const profit = row.total_profit;
+      const stockLoss = lossByDate[row.sale_day] || 0;
+      const adjustedProfit = row.total_profit - stockLoss;
+      
       profitByDate[row.sale_day] = {
         date: row.sale_day,
-        profit,
+        profit: adjustedProfit,
         revenue: row.total_revenue,
-        cost: row.total_cost,
+        cost: row.total_cost + stockLoss,
         transactions: row.transaction_count,
       };
       
-      if (profit > maxProfit) maxProfit = profit;
-      if (profit < minProfit) minProfit = profit;
-      totalDaysWithSales++;
-      if (profit > 0) profitableDays++;
-      if (profit < 0) lossDays++;
+      // Remove from losses map since we've processed it
+      delete lossByDate[row.sale_day];
+      
+      if (adjustedProfit > maxProfit) maxProfit = adjustedProfit;
+      if (adjustedProfit < minProfit) minProfit = adjustedProfit;
+      totalDaysWithActivity++;
+      if (adjustedProfit > 0) profitableDays++;
+      if (adjustedProfit < 0) lossDays++;
+    }
+
+    // Add days that only have losses (no sales)
+    for (const [lossDay, lossAmount] of Object.entries(lossByDate)) {
+      const adjustedProfit = -lossAmount;
+      
+      profitByDate[lossDay] = {
+        date: lossDay,
+        profit: adjustedProfit,
+        revenue: 0,
+        cost: lossAmount,
+        transactions: 0,
+      };
+      
+      if (adjustedProfit < minProfit) minProfit = adjustedProfit;
+      totalDaysWithActivity++;
+      lossDays++;
     }
 
     return jsonResponse({
@@ -133,10 +205,10 @@ export async function GET(request: NextRequest) {
         stats: {
           maxProfit,
           minProfit,
-          totalDaysWithSales,
+          totalDaysWithActivity,
           profitableDays,
           lossDays,
-          neutralDays: totalDaysWithSales - profitableDays - lossDays,
+          neutralDays: totalDaysWithActivity - profitableDays - lossDays,
         },
         dateRange: {
           start: startDate.toISOString().split('T')[0],
