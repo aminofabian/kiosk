@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import type { CreditAccount } from '@/lib/db/types';
+import { apiGet } from '@/lib/utils/api-client';
 
 export default function PaymentPage() {
   const params = useParams();
@@ -21,10 +22,9 @@ export default function PaymentPage() {
     async function fetchAccount() {
       try {
         setLoading(true);
-        const response = await fetch(`/api/credits/${creditAccountId}`);
-        const result = await response.json();
+        const result = await apiGet<CreditAccount>(`/api/credits/${creditAccountId}`);
 
-        if (result.success) {
+        if (result.success && result.data) {
           setAccount(result.data);
         } else {
           setError(result.message || 'Failed to load credit account');

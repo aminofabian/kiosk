@@ -1,26 +1,27 @@
 import { NextRequest } from 'next/server';
 import { query, queryOne } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
+import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
 import type { CreditAccount, CreditTransaction } from '@/lib/db/types';
-
-// For Phase 4, we'll use hardcoded business ID
-const DEMO_BUSINESS_ID = '8527dbc7-3229-489b-82a7-f8d11532acaa';
 
 export async function OPTIONS() {
   return optionsResponse();
 }
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if (isAuthResponse(auth)) return auth;
+
     const { id: accountId } = await params;
 
     const account = await queryOne<CreditAccount>(
       `SELECT * FROM credit_accounts 
        WHERE id = ? AND business_id = ?`,
-      [accountId, DEMO_BUSINESS_ID]
+      [accountId, auth.businessId]
     );
 
     if (!account) {
@@ -48,10 +49,8 @@ export async function GET(
 
     return jsonResponse({
       success: true,
-      data: {
-        account,
-        transactions,
-      },
+      data: account,
+      transactions,
     });
   } catch (error) {
     console.error('Error fetching credit account:', error);

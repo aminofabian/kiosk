@@ -4,10 +4,17 @@ import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import { ArrowRight, User, Loader2, CreditCard, CheckCircle } from 'lucide-react';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+} from '@/components/ui/drawer';
+import { ArrowRight, User, Loader2, CreditCard, CheckCircle, DollarSign } from 'lucide-react';
 import type { CreditAccount } from '@/lib/db/types';
 import { SearchFilterSection } from './SearchFilterSection';
+import { PaymentForm } from './PaymentForm';
 import { apiGet } from '@/lib/utils/api-client';
 
 export function CreditList() {
@@ -16,6 +23,8 @@ export function CreditList() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'amount' | 'date'>('amount');
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<CreditAccount | null>(null);
 
   useEffect(() => {
     async function fetchCredits() {
@@ -51,6 +60,25 @@ export function CreditList() {
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  const handleOpenPaymentDrawer = (account: CreditAccount) => {
+    setSelectedAccount(account);
+    setDrawerOpen(true);
+  };
+
+  const handlePaymentSuccess = async () => {
+    setDrawerOpen(false);
+    setSelectedAccount(null);
+    // Refresh the credits list
+    try {
+      const result = await apiGet<CreditAccount[]>('/api/credits');
+      if (result.success) {
+        setAccounts(result.data ?? []);
+      }
+    } catch (err) {
+      console.error('Error refreshing credits:', err);
+    }
   };
 
   const outstandingAccounts = useMemo(() => {
@@ -190,18 +218,40 @@ export function CreditList() {
                   <p className="text-xl font-bold text-red-500">
                     {formatPrice(account.total_credit)}
                   </p>
-                  <Link href={`/admin/credits/${account.id}/payment`}>
-                    <Button className="bg-[#259783] hover:bg-[#45d827] text-white" size="sm">
-                      Collect
-                      <ArrowRight className="ml-2 h-3 w-3" />
-                    </Button>
-                  </Link>
+                  <Button 
+                    className="bg-[#259783] hover:bg-[#45d827] text-white" 
+                    size="sm"
+                    onClick={() => handleOpenPaymentDrawer(account)}
+                  >
+                    Collect
+                    <ArrowRight className="ml-2 h-3 w-3" />
+                  </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      {/* Payment Drawer */}
+      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
+        <DrawerContent className="!w-full sm:!w-[600px] !max-w-none h-full max-h-screen">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
+            <DrawerTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+              <DollarSign className="w-5 h-5 text-[#259783]" />
+              Collect Payment
+            </DrawerTitle>
+            <DrawerDescription className="text-slate-600 dark:text-slate-400">
+              {selectedAccount && `Record payment for ${selectedAccount.customer_name}`}
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="overflow-y-auto p-6 flex-1 bg-white dark:bg-[#0f1a0d]">
+            {selectedAccount && (
+              <PaymentForm account={selectedAccount} onSuccess={handlePaymentSuccess} />
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

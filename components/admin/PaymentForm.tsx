@@ -1,7 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,15 +14,23 @@ import { apiPost } from '@/lib/utils/api-client';
 
 interface PaymentFormProps {
   account: CreditAccount;
+  onSuccess?: () => void;
 }
 
-export function PaymentForm({ account }: PaymentFormProps) {
-  const router = useRouter();
+export function PaymentForm({ account, onSuccess }: PaymentFormProps) {
   const [amount, setAmount] = useState<string>(account.total_credit.toString());
   const [paymentMethod, setPaymentMethod] = useState<CreditPaymentMethod>('cash');
   const [notes, setNotes] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Reset form when account changes
+  useEffect(() => {
+    setAmount(account.total_credit.toString());
+    setPaymentMethod('cash');
+    setNotes('');
+    setError(null);
+  }, [account.id]);
 
   const paymentAmount = parseFloat(amount) || 0;
   const isFullPayment = paymentAmount >= account.total_credit;
@@ -57,7 +64,9 @@ export function PaymentForm({ account }: PaymentFormProps) {
       });
 
       if (result.success) {
-        router.push('/admin/credits');
+        if (onSuccess) {
+          onSuccess();
+        }
       } else {
         setError(result.message || 'Failed to record payment');
         setIsSubmitting(false);
