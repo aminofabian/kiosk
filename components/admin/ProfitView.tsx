@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
 import {
   TrendingUp,
   TrendingDown,
@@ -18,6 +19,11 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   BarChart3,
+  Receipt,
+  Target,
+  Wallet,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 
 interface ProfitData {
@@ -45,15 +51,25 @@ interface ProfitData {
   }>;
 }
 
+interface ExpenseSummary {
+  dailyOperatingCost: number;
+  fixedDailyCost: number;
+  variableDailyCost: number;
+  weeklyOperatingCost: number;
+  monthlyOperatingCost: number;
+  expenseCount: number;
+}
+
 type DatePreset = 'today' | 'week' | 'month' | 'custom';
 
 export function ProfitView() {
   const [profitData, setProfitData] = useState<ProfitData | null>(null);
+  const [expenseData, setExpenseData] = useState<ExpenseSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [datePreset, setDatePreset] = useState<DatePreset>('month');
+  const [datePreset, setDatePreset] = useState<DatePreset>('today');
   const [dateRange, setDateRange] = useState({
-    start: new Date(new Date().setDate(1)).toISOString().split('T')[0],
+    start: new Date().toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0],
   });
 
@@ -63,7 +79,20 @@ export function ProfitView() {
 
   useEffect(() => {
     fetchProfitData();
+    fetchExpenseData();
   }, [dateRange]);
+
+  async function fetchExpenseData() {
+    try {
+      const response = await fetch('/api/expenses/daily-cost');
+      const result = await response.json();
+      if (result.success) {
+        setExpenseData(result.data);
+      }
+    } catch (err) {
+      console.error('Error fetching expenses:', err);
+    }
+  }
 
   function updateDateRangeFromPreset(preset: DatePreset) {
     const today = new Date();
@@ -124,6 +153,35 @@ export function ProfitView() {
 
   const formatPercent = (value: number) => {
     return `${(value * 100).toFixed(1)}%`;
+  };
+
+  // Calculate period multiplier based on date range
+  const getPeriodDays = () => {
+    const start = new Date(dateRange.start);
+    const end = new Date(dateRange.end);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return diffDays;
+  };
+
+  // Get daily expense scaled to the current period
+  const getDailyExpense = () => {
+    if (!expenseData) return 0;
+    return expenseData.dailyOperatingCost * getPeriodDays();
+  };
+
+  // Net Profit = Gross Profit - Operating Expenses (scaled to period)
+  const getNetProfit = () => {
+    if (!profitData) return 0;
+    return profitData.totalProfit - getDailyExpense();
+  };
+
+  // Break-even sales = Daily Operating Cost ÷ Average Margin
+  const getBreakEvenSales = () => {
+    if (!expenseData || !profitData) return 0;
+    const avgMargin = profitData.profitMargin || 0.25; // Default 25% if no data
+    if (avgMargin <= 0) return 0;
+    return (expenseData.dailyOperatingCost * getPeriodDays()) / avgMargin;
   };
 
   if (loading) {
@@ -226,9 +284,67 @@ export function ProfitView() {
         </div>
       </div>
 
+      {/* Profitability Status Banner */}
+      {expenseData && expenseData.expenseCount > 0 && (
+        <Card className={`border-2 ${
+          getNetProfit() >= 0 
+            ? 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-200 dark:border-green-800' 
+            : 'bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border-red-200 dark:border-red-800'
+        }`}>
+          <CardContent className="p-5">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
+                  getNetProfit() >= 0 
+                    ? 'bg-green-500 shadow-lg shadow-green-500/30' 
+                    : 'bg-red-500 shadow-lg shadow-red-500/30'
+                }`}>
+                  {getNetProfit() >= 0 ? (
+                    <CheckCircle2 className="w-7 h-7 text-white" />
+                  ) : (
+                    <XCircle className="w-7 h-7 text-white" />
+                  )}
+                </div>
+                <div>
+                  <Badge className={`mb-1 ${
+                    getNetProfit() >= 0 
+                      ? 'bg-green-500 text-white' 
+                      : 'bg-red-500 text-white'
+                  }`}>
+                    {getNetProfit() >= 0 ? '🟢 PROFITABLE' : '🔴 RUNNING AT A LOSS'}
+                  </Badge>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    {datePreset === 'today' ? "Today's" : datePreset === 'week' ? 'This week\'s' : 'This period\'s'} net profit after operating expenses
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-6">
+                <div className="text-center lg:text-right">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-semibold mb-1">Net Profit</p>
+                  <p className={`text-3xl font-black ${
+                    getNetProfit() >= 0 
+                      ? 'text-green-600 dark:text-green-400' 
+                      : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {getNetProfit() >= 0 ? '+' : ''}{formatPrice(getNetProfit())}
+                  </p>
+                </div>
+                <div className="hidden lg:block w-px h-12 bg-slate-200 dark:bg-slate-700" />
+                <div className="text-center lg:text-right">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 uppercase font-semibold mb-1">Safe to Bank</p>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                    {formatPrice(Math.max(0, getNetProfit()))}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Main Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Profit Card */}
+        {/* Gross Profit Card */}
         <Card className="bg-[#259783] border-0 shadow-lg shadow-[#259783]/20 col-span-2 lg:col-span-1">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
@@ -239,8 +355,9 @@ export function ProfitView() {
                 {formatPercent(profitData.profitMargin)} margin
               </Badge>
             </div>
-            <p className="text-white/90 text-sm font-medium mb-1">Total Profit</p>
+            <p className="text-white/90 text-sm font-medium mb-1">Gross Profit</p>
             <p className="text-3xl font-black text-white">{formatPrice(profitData.totalProfit)}</p>
+            <p className="text-white/70 text-xs mt-1">Sales - Cost of Goods</p>
           </CardContent>
         </Card>
 
@@ -258,7 +375,7 @@ export function ProfitView() {
           </CardContent>
         </Card>
 
-        {/* Cost Card */}
+        {/* Cost of Goods Card */}
         <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
@@ -267,7 +384,7 @@ export function ProfitView() {
               </div>
               <ArrowDownRight className="w-5 h-5 text-orange-500" />
             </div>
-            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">Total Cost</p>
+            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">Cost of Goods</p>
             <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatPrice(profitData.totalCost)}</p>
           </CardContent>
         </Card>
@@ -285,6 +402,104 @@ export function ProfitView() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Operating Expenses & Break-even Section */}
+      {expenseData && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Daily Operating Cost */}
+          <Card className="bg-gradient-to-br from-orange-500 to-red-600 border-0 shadow-lg shadow-orange-500/20">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                  <Receipt className="w-5 h-5 text-white" />
+                </div>
+                <Link href="/admin/expenses">
+                  <Badge className="bg-white/20 text-white border-0 hover:bg-white/30 cursor-pointer">
+                    Manage →
+                  </Badge>
+                </Link>
+              </div>
+              <p className="text-white/90 text-sm font-medium mb-1">Daily Operating Cost</p>
+              <p className="text-3xl font-black text-white">{formatPrice(getDailyExpense())}</p>
+              <p className="text-white/70 text-xs mt-1">
+                {expenseData.expenseCount} expense{expenseData.expenseCount !== 1 ? 's' : ''} configured
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Break-even Sales */}
+          <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center">
+                  <Target className="w-5 h-5 text-amber-500" />
+                </div>
+                {profitData.totalSales >= getBreakEvenSales() && (
+                  <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                    ✓ Achieved
+                  </Badge>
+                )}
+              </div>
+              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">Break-even Sales</p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">{formatPrice(getBreakEvenSales())}</p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
+                Min. daily sales to survive
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Safe to Bank */}
+          <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
+            <CardContent className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-900/20 flex items-center justify-center">
+                  <Wallet className="w-5 h-5 text-green-500" />
+                </div>
+              </div>
+              <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">Safe to Bank</p>
+              <p className={`text-2xl font-bold ${
+                getNetProfit() >= 0 
+                  ? 'text-green-600 dark:text-green-400' 
+                  : 'text-red-500'
+              }`}>
+                {formatPrice(Math.max(0, getNetProfit()))}
+              </p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs mt-1">
+                Keep {formatPrice(getDailyExpense())} for expenses
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* No Expenses Configured Banner */}
+      {(!expenseData || expenseData.expenseCount === 0) && (
+        <Card className="bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-200 dark:border-amber-800">
+          <CardContent className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                  <Receipt className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                  <p className="font-semibold text-amber-800 dark:text-amber-200">
+                    Set up your operating expenses
+                  </p>
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    Add expenses like rent, salaries, and utilities to see your true daily profit
+                  </p>
+                </div>
+              </div>
+              <Link href="/admin/expenses">
+                <Button className="bg-amber-600 hover:bg-amber-700 text-white">
+                  <Receipt className="w-4 h-4 mr-2" />
+                  Add Expenses
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Secondary Stats */}
       <div className="grid grid-cols-3 lg:grid-cols-6 gap-3">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, WifiOff, TrendingUp, TrendingDown, AlertTriangle, Download, ShoppingBag, Receipt, PieChart, Package } from 'lucide-react';
+import { ArrowLeft, WifiOff, TrendingUp, TrendingDown, AlertTriangle, Download, ShoppingBag, Receipt, PieChart, Package, Target, Wallet, CheckCircle2, XCircle, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -20,6 +20,15 @@ interface ProfitData {
   }>;
 }
 
+interface ExpenseSummary {
+  dailyOperatingCost: number;
+  fixedDailyCost: number;
+  variableDailyCost: number;
+  weeklyOperatingCost: number;
+  monthlyOperatingCost: number;
+  expenseCount: number;
+}
+
 interface LowStockItem {
   id: string;
   name: string;
@@ -32,6 +41,7 @@ type DatePreset = 'today' | 'week' | 'month';
 export function ProfitViewMobile() {
   const router = useRouter();
   const [profitData, setProfitData] = useState<ProfitData | null>(null);
+  const [expenseData, setExpenseData] = useState<ExpenseSummary | null>(null);
   const [lowStockItems, setLowStockItems] = useState<LowStockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -53,11 +63,24 @@ export function ProfitViewMobile() {
 
   useEffect(() => {
     fetchProfitData();
+    fetchExpenseData();
   }, [dateRange]);
 
   useEffect(() => {
     fetchLowStockItems();
   }, []);
+
+  async function fetchExpenseData() {
+    try {
+      const response = await fetch('/api/expenses/daily-cost');
+      const result = await response.json();
+      if (result.success) {
+        setExpenseData(result.data);
+      }
+    } catch (err) {
+      console.error('Error fetching expenses:', err);
+    }
+  }
 
   function updateDateRangeFromPreset(preset: DatePreset) {
     const today = new Date();
@@ -138,8 +161,33 @@ export function ProfitViewMobile() {
     return `KES ${price.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   };
 
-  const formatCurrency = (price: number) => {
-    return `$${price.toFixed(2)}`;
+  // Calculate period multiplier based on date range
+  const getPeriodDays = () => {
+    const start = new Date(dateRange.start);
+    const end = new Date(dateRange.end);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return diffDays;
+  };
+
+  // Get daily expense scaled to the current period
+  const getDailyExpense = () => {
+    if (!expenseData) return 0;
+    return expenseData.dailyOperatingCost * getPeriodDays();
+  };
+
+  // Net Profit = Gross Profit - Operating Expenses (scaled to period)
+  const getNetProfit = () => {
+    if (!profitData) return 0;
+    return profitData.totalProfit - getDailyExpense();
+  };
+
+  // Break-even sales = Daily Operating Cost ÷ Average Margin
+  const getBreakEvenSales = () => {
+    if (!expenseData || !profitData) return 0;
+    const avgMargin = profitData.profitMargin || 0.25;
+    if (avgMargin <= 0) return 0;
+    return (expenseData.dailyOperatingCost * getPeriodDays()) / avgMargin;
   };
 
   const getStockStatus = (stock: number) => {
@@ -304,10 +352,49 @@ export function ProfitViewMobile() {
         </div>
       </div>
 
+      {/* Profitability Status Banner */}
+      {expenseData && expenseData.expenseCount > 0 && (
+        <div className="px-4 pt-4">
+          <div className={`p-4 rounded-2xl ${
+            getNetProfit() >= 0 
+              ? 'bg-gradient-to-r from-green-500 to-emerald-600' 
+              : 'bg-gradient-to-r from-red-500 to-orange-600'
+          } shadow-lg relative overflow-hidden`}>
+            <div className="absolute right-[-20px] top-[-20px] w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+            <div className="flex items-center justify-between relative z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                  {getNetProfit() >= 0 ? (
+                    <CheckCircle2 className="w-6 h-6 text-white" />
+                  ) : (
+                    <XCircle className="w-6 h-6 text-white" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-white/90 text-xs font-bold uppercase tracking-wider mb-0.5">
+                    {getNetProfit() >= 0 ? '🟢 PROFITABLE' : '🔴 AT A LOSS'}
+                  </p>
+                  <p className="text-white text-2xl font-black">
+                    {getNetProfit() >= 0 ? '+' : ''}{formatPrice(getNetProfit())}
+                  </p>
+                  <p className="text-white/70 text-xs">Net Profit</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-white/70 text-xs font-semibold uppercase mb-1">Safe to Bank</p>
+                <p className="text-white text-xl font-bold">
+                  {formatPrice(Math.max(0, getNetProfit()))}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Today at a Glance */}
       <div className="px-4 pt-4 pb-2">
         <h2 className="text-slate-900 dark:text-white tracking-tight text-lg font-bold leading-tight mb-3">
-          Today at a Glance
+          {datePreset === 'today' ? 'Today' : datePreset === 'week' ? 'This Week' : 'This Month'} at a Glance
         </h2>
         <div className="grid grid-cols-2 gap-3">
           {/* Sales */}
@@ -323,12 +410,12 @@ export function ProfitViewMobile() {
             </span>
           </div>
 
-          {/* Cost */}
+          {/* Cost of Goods */}
           <div className="flex flex-col p-4 bg-white dark:bg-[#1c2e18] rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800">
             <div className="flex items-center gap-1.5 mb-1">
               <Receipt className="w-4 h-4 text-slate-400" />
               <span className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider">
-                Cost
+                COGS
               </span>
             </div>
             <span className="text-slate-900 dark:text-white text-2xl font-black">
@@ -336,13 +423,13 @@ export function ProfitViewMobile() {
             </span>
           </div>
 
-          {/* Profit */}
+          {/* Gross Profit */}
           <div className="flex flex-col p-4 bg-[#259783] rounded-2xl shadow-lg shadow-[#259783]/20 relative overflow-hidden">
             <div className="absolute right-[-10px] top-[-10px] w-16 h-16 bg-white/20 rounded-full blur-xl pointer-events-none"></div>
             <div className="flex items-center gap-1.5 mb-1 z-10">
               <TrendingUp className="w-4 h-4 text-white/90" />
               <span className="text-white/90 text-xs font-bold uppercase tracking-wider">
-                Profit
+                Gross Profit
               </span>
             </div>
             <span className="text-white text-3xl font-black z-10">
@@ -364,6 +451,80 @@ export function ProfitViewMobile() {
           </div>
         </div>
       </div>
+
+      {/* Operating Expenses Section */}
+      {expenseData && expenseData.expenseCount > 0 && (
+        <div className="px-4 pt-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-slate-900 dark:text-white tracking-tight text-lg font-bold leading-tight">
+              Operating Costs
+            </h2>
+            <Link
+              href="/admin/expenses"
+              className="text-[#259783] text-xs font-bold bg-[#259783]/10 px-3 py-1.5 rounded-full flex items-center gap-1"
+            >
+              Manage
+              <ChevronRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {/* Daily Operating Cost */}
+            <div className="flex flex-col p-4 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl shadow-lg shadow-orange-500/20 relative overflow-hidden">
+              <div className="absolute right-[-10px] top-[-10px] w-16 h-16 bg-white/20 rounded-full blur-xl pointer-events-none"></div>
+              <div className="flex items-center gap-1.5 mb-1 z-10">
+                <Receipt className="w-4 h-4 text-white/90" />
+                <span className="text-white/90 text-xs font-bold uppercase tracking-wider">
+                  Expenses
+                </span>
+              </div>
+              <span className="text-white text-2xl font-black z-10">
+                {formatPrice(getDailyExpense())}
+              </span>
+              <span className="text-white/70 text-xs z-10">
+                {getPeriodDays()} day{getPeriodDays() !== 1 ? 's' : ''}
+              </span>
+            </div>
+
+            {/* Break-even Sales */}
+            <div className="flex flex-col p-4 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-100 dark:border-amber-900/30">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Target className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+                <span className="text-amber-600 dark:text-amber-400 text-xs font-bold uppercase tracking-wider">
+                  Break-even
+                </span>
+              </div>
+              <span className="text-amber-800 dark:text-amber-200 text-2xl font-black">
+                {formatPrice(getBreakEvenSales())}
+              </span>
+              <span className="text-amber-600/70 dark:text-amber-400/70 text-xs">
+                Min. to survive
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* No Expenses Banner */}
+      {(!expenseData || expenseData.expenseCount === 0) && (
+        <div className="px-4 pt-4">
+          <Link href="/admin/expenses">
+            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-200 dark:border-amber-800 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                <Receipt className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-amber-800 dark:text-amber-200 text-sm">
+                  Add Operating Expenses
+                </p>
+                <p className="text-amber-700 dark:text-amber-300 text-xs">
+                  See your true profit after rent, salaries, etc.
+                </p>
+              </div>
+              <ChevronRight className="w-5 h-5 text-amber-500 flex-shrink-0" />
+            </div>
+          </Link>
+        </div>
+      )}
 
       {/* Top Profit Items */}
       {topProfitItems.length > 0 && (
