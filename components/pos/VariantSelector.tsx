@@ -48,15 +48,15 @@ export function VariantSelector({
   const outOfStockVariants = variants.filter((v) => v.current_stock <= 0);
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="max-h-[85vh]">
-        <DrawerHeader className="border-b bg-gradient-to-r from-purple-500/10 to-[#259783]/10">
+    <Drawer open={open} onOpenChange={onOpenChange} direction="right">
+      <DrawerContent className="!w-full sm:!w-[500px] md:!w-[600px] !max-w-none h-full max-h-screen">
+        <DrawerHeader className="border-b bg-[#259783]/10 dark:bg-[#259783]/20">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-              <Layers className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+            <div className="w-12 h-12 rounded-xl bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center">
+              <Layers className="w-6 h-6 text-[#259783]" />
             </div>
             <div>
-              <DrawerTitle className="text-xl">{parentItem.name}</DrawerTitle>
+              <DrawerTitle className="text-xl text-slate-900 dark:text-white">{parentItem.name}</DrawerTitle>
               <DrawerDescription>
                 Select a variant to add to cart
               </DrawerDescription>
@@ -64,7 +64,7 @@ export function VariantSelector({
           </div>
         </DrawerHeader>
 
-        <div className="p-4 overflow-y-auto">
+        <div className="overflow-y-auto px-4 sm:px-6 pb-6 flex-1 bg-slate-50/50 dark:bg-slate-900/50">
           {variants.length === 0 ? (
             <div className="text-center py-8">
               <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
@@ -155,16 +155,6 @@ export function VariantSelector({
               )}
             </div>
           )}
-        </div>
-
-        <div className="p-4 border-t bg-gray-50 dark:bg-slate-900">
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => onOpenChange(false)}
-          >
-            Cancel
-          </Button>
         </div>
       </DrawerContent>
     </Drawer>
