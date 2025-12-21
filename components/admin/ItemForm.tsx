@@ -14,19 +14,91 @@ import type { UnitType } from '@/lib/constants';
 
 type FormMode = 'standalone' | 'parent' | 'variant';
 
+// Kenyan market product suggestions by category
 const CATEGORY_ITEM_SUGGESTIONS: Record<string, string[]> = {
-  'Vegetables': ['Tomatoes', 'Onions', 'Potatoes', 'Carrots', 'Cabbage', 'Bell Peppers', 'Eggplant', 'Okra', 'Green Beans', 'Cauliflower', 'Broccoli', 'Spinach', 'Lettuce', 'Cucumber', 'Zucchini'],
-  'Fruits': ['Bananas', 'Apples', 'Oranges', 'Mangoes', 'Grapes', 'Strawberries', 'Watermelon', 'Pineapple', 'Papaya', 'Avocado', 'Pears', 'Cherries', 'Peaches', 'Plums', 'Berries'],
-  'Grains & Cereals': ['Rice', 'Wheat', 'Maize', 'Oats', 'Barley', 'Quinoa', 'Millet', 'Sorghum', 'Flour', 'Pasta', 'Noodles'],
-  'Spices': ['Salt', 'Black Pepper', 'Turmeric', 'Cumin', 'Coriander', 'Garlic', 'Ginger', 'Chili Powder', 'Paprika', 'Cinnamon', 'Cardamom', 'Cloves'],
-  'Beverages': ['Water', 'Juice', 'Soda', 'Tea', 'Coffee', 'Milk', 'Yogurt Drink', 'Energy Drink', 'Soft Drink', 'Mineral Water'],
-  'Snacks': ['Chips', 'Biscuits', 'Cookies', 'Crackers', 'Nuts', 'Popcorn', 'Chocolate', 'Candy', 'Cakes', 'Pastries'],
-  'Green Grocery': ['Spinach', 'Kale', 'Lettuce', 'Coriander', 'Parsley', 'Mint', 'Basil', 'Arugula', 'Spring Onions', 'Dill', 'Chives'],
-  'Dairy': ['Milk', 'Cheese', 'Yogurt', 'Butter', 'Eggs', 'Cream', 'Sour Cream', 'Cottage Cheese', 'Mozzarella'],
-  'Meat': ['Beef', 'Chicken', 'Pork', 'Lamb', 'Fish', 'Turkey', 'Bacon', 'Sausages', 'Ham', 'Mince'],
-  'Bakery': ['Bread', 'White Bread', 'Brown Bread', 'Baguette', 'Croissant', 'Donuts', 'Muffins', 'Cookies', 'Cakes', 'Pastries'],
-  'Frozen Foods': ['Ice Cream', 'Frozen Vegetables', 'Frozen Fruits', 'Frozen Meat', 'Frozen Fish', 'Frozen Pizza'],
-  'Canned Goods': ['Canned Tomatoes', 'Canned Beans', 'Canned Corn', 'Canned Peas', 'Canned Fish', 'Canned Fruits'],
+  'Vegetables': [
+    'Tomatoes', 'Onions', 'Potatoes', 'Cabbage', 'Carrots', 'Hoho', 'Capsicum', 
+    'Cucumber', 'Eggplant', 'Okra', 'French Beans', 'Cauliflower', 'Broccoli', 
+    'Courgette', 'Butternut', 'Pumpkin', 'Sweet Potatoes', 'Beetroot', 'Celery',
+    'Mushrooms', 'Garlic', 'Ginger', 'Leeks', 'Radish', 'Turnips'
+  ],
+  'Fruits': [
+    'Bananas', 'Mangoes', 'Oranges', 'Apples', 'Avocado', 'Pineapple', 'Pawpaw',
+    'Watermelon', 'Passion Fruit', 'Grapes', 'Strawberries', 'Lemons', 'Limes',
+    'Tangerines', 'Coconut', 'Guava', 'Tree Tomato', 'Melons', 'Pears', 'Plums',
+    'Kiwi', 'Pomegranate', 'Dragon Fruit', 'Berries', 'Peaches'
+  ],
+  'Grains & Cereals': [
+    'Rice', 'Maize', 'Maize Flour', 'Wheat Flour', 'Flour', 'Millet', 'Sorghum',
+    'Oats', 'Barley', 'Pasta', 'Spaghetti', 'Noodles', 'Chapati Flour', 
+    'Ugali Flour', 'Weetabix', 'Cornflakes', 'Muesli', 'Bread Flour'
+  ],
+  'Spices': [
+    'Salt', 'Black Pepper', 'Turmeric', 'Cumin', 'Coriander Seeds', 'Pilipili',
+    'Paprika', 'Cinnamon', 'Cardamom', 'Cloves', 'Royco', 'Knorr', 'Curry Powder',
+    'Mixed Spice', 'Nutmeg', 'Garam Masala', 'Thyme', 'Rosemary', 'Oregano',
+    'Bay Leaves', 'Vanilla', 'Sesame Seeds'
+  ],
+  'Beverages': [
+    'Water', 'Juice', 'Soda', 'Tea', 'Coffee', 'Milk', 'Mala', 'Yogurt Drink',
+    'Energy Drink', 'Mineral Water', 'Cocoa', 'Drinking Chocolate', 'Milo',
+    'Ribena', 'Lucozade', 'Afia Juice', 'Pick N Peel', 'Del Monte'
+  ],
+  'Snacks': [
+    'Chips', 'Crisps', 'Biscuits', 'Cookies', 'Crackers', 'Nuts', 'Cashew Nuts',
+    'Groundnuts', 'Popcorn', 'Chocolate', 'Sweets', 'Chewing Gum', 'Cakes',
+    'Chevda', 'Samosa', 'Bhajia', 'Mandazi', 'Mabuyu', 'Njugu Karanga'
+  ],
+  'Green Grocery': [
+    'Sukuma Wiki', 'Spinach', 'Kale', 'Dhania', 'Parsley', 'Mint', 'Spring Onions',
+    'Lettuce', 'Managu', 'Terere', 'Mrenda', 'Kunde', 'Saga', 'Mchicha',
+    'Rosemary', 'Thyme', 'Basil', 'Arugula', 'Leeks'
+  ],
+  'Dairy': [
+    'Milk', 'Mala', 'Yogurt', 'Cheese', 'Butter', 'Eggs', 'Cream', 'Ghee',
+    'Margarine', 'Cottage Cheese', 'Mozzarella', 'Cheddar', 'Blue Band',
+    'Fresh Cream', 'Sour Cream', 'Paneer'
+  ],
+  'Meat': [
+    'Beef', 'Chicken', 'Goat', 'Lamb', 'Pork', 'Fish', 'Tilapia', 'Nile Perch',
+    'Omena', 'Sausages', 'Bacon', 'Mince', 'Liver', 'Tripe', 'Oxtail', 
+    'Kienyeji Chicken', 'Turkey', 'Duck', 'Prawns', 'Calamari'
+  ],
+  'Bakery': [
+    'Bread', 'Chapati', 'Mandazi', 'Cakes', 'Buns', 'Doughnuts', 'Muffins',
+    'Croissants', 'Scones', 'Samosa', 'Sausage Roll', 'Meat Pie', 'Cookies',
+    'Danish', 'Swiss Roll', 'Queen Cakes', 'Mahamri', 'Naan'
+  ],
+  'Frozen Foods': [
+    'Ice Cream', 'Frozen Chicken', 'Frozen Fish', 'Frozen Vegetables', 'French Fries',
+    'Frozen Prawns', 'Frozen Samosa', 'Frozen Chapati', 'Frozen Pizza', 
+    'Fish Fingers', 'Chicken Nuggets', 'Sausages', 'Frozen Chips'
+  ],
+  'Canned Goods': [
+    'Baked Beans', 'Tuna', 'Sardines', 'Corned Beef', 'Canned Tomatoes', 
+    'Tomato Paste', 'Canned Peas', 'Canned Corn', 'Canned Fruits', 'Pilchards',
+    'Canned Beans', 'Coconut Milk', 'Evaporated Milk', 'Condensed Milk'
+  ],
+  'Legumes': [
+    'Beans', 'Green Grams', 'Ndengu', 'Lentils', 'Chickpeas', 'Peas', 'Cowpeas',
+    'Mbaazi', 'Groundnuts', 'Soya Beans', 'Black Beans', 'Red Kidney Beans',
+    'Yellow Beans', 'Rose Coco', 'Njahi'
+  ],
+  'Cooking Essentials': [
+    'Cooking Oil', 'Sugar', 'Salt', 'Flour', 'Rice', 'Maize Flour', 'Honey',
+    'Vinegar', 'Tomato Paste', 'Soy Sauce', 'Cooking Cream', 'Baking Powder',
+    'Yeast', 'Cocoa Powder', 'Custard Powder', 'Corn Starch', 'Coconut Cream'
+  ],
+  'Personal Care': [
+    'Soap', 'Toothpaste', 'Shampoo', 'Lotion', 'Deodorant', 'Tissue Paper',
+    'Sanitary Pads', 'Diapers', 'Cotton Wool', 'Vaseline', 'Hair Oil',
+    'Shower Gel', 'Hand Sanitizer', 'Face Cream', 'Body Cream'
+  ],
+  'Household': [
+    'Detergent', 'Bleach', 'Dish Soap', 'Floor Cleaner', 'Air Freshener',
+    'Toilet Cleaner', 'Matches', 'Candles', 'Charcoal', 'Firewood',
+    'Bin Liners', 'Foil Paper', 'Cling Film', 'Briquettes'
+  ],
 };
 
 // Product-specific variant suggestions - these make sense for each product type
@@ -174,8 +246,13 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Lentils': ['Per Kg', '500g', '1 Kg', 'Red', 'Green', 'Brown', 'Black'],
   'Chickpeas': ['Per Kg', '500g', '1 Kg', 'Dried', 'Canned'],
   'Peas': ['Per Kg', '500g', '1 Kg', 'Green', 'Yellow', 'Split', 'Dried'],
-  'Cowpeas': ['Per Kg', '500g', '1 Kg'],
-  'Pigeon Peas': ['Per Kg', '500g', '1 Kg', 'Mbaazi'],
+  'Cowpeas': ['Per Kg', '500g', '1 Kg', '2 Kg', '5 Kg'],
+  'Pigeon Peas': ['Per Kg', '500g', '1 Kg', '2 Kg', 'Fresh', 'Dried'],
+  'Mbaazi': ['Per Kg', '500g', '1 Kg', '2 Kg', 'Fresh', 'Dried'],
+  'Yellow Beans': ['Per Kg', '500g', '1 Kg', '2 Kg', '5 Kg'],
+  'Rose Coco': ['Per Kg', '500g', '1 Kg', '2 Kg', '5 Kg'],
+  'Red Kidney Beans': ['Per Kg', '500g', '1 Kg', '2 Kg'],
+  'Black Beans': ['Per Kg', '500g', '1 Kg', '2 Kg'],
   'Groundnuts': ['Per Kg', '250g', '500g', 'Raw', 'Roasted', 'Salted'],
   'Peanuts': ['Per Kg', '250g', '500g', 'Raw', 'Roasted', 'Salted', 'Shelled'],
   
@@ -261,6 +338,116 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Canned Fruits': ['400g', '800g', 'Peaches', 'Pineapple', 'Mixed Fruit', 'Pears'],
   'Corned Beef': ['200g', '340g'],
   'Baked Beans': ['200g', '400g', '800g'],
+  'Tuna': ['150g', '185g', '400g', 'In Oil', 'In Water', 'In Brine', 'Chunks', 'Flakes'],
+  'Sardines': ['125g', '155g', 'In Oil', 'In Tomato Sauce', 'In Water'],
+  'Pilchards': ['155g', '400g', 'In Tomato Sauce', 'In Chili'],
+  'Coconut Milk': ['200ml', '400ml', 'Light', 'Regular'],
+  'Evaporated Milk': ['170g', '400g'],
+  'Condensed Milk': ['200g', '400g', 'Sweetened'],
+  
+  // ===== LEGUMES (Kenyan Market) =====
+  'Njahi': ['Per Kg', '500g', '1 Kg', '2 Kg', '5 Kg'],
+  'Soya Beans': ['Per Kg', '500g', '1 Kg', '2 Kg'],
+  'Mwitemania': ['Per Kg', '500g', '1 Kg', '2 Kg'],
+  
+  // ===== PERSONAL CARE =====
+  'Soap': ['Per Piece', 'Pack (3)', 'Pack (6)', 'Bar', 'Liquid', 'Antibacterial'],
+  'Toothpaste': ['50ml', '75ml', '100ml', '150ml', 'Colgate', 'Closeup', 'Aquafresh', 'Sensodyne'],
+  'Shampoo': ['100ml', '200ml', '400ml', '1 Litre', 'Anti-Dandruff', 'Regular', 'Herbal'],
+  'Lotion': ['100ml', '200ml', '400ml', '1 Litre', 'Body', 'Hand', 'Moisturizing'],
+  'Deodorant': ['50ml', '100ml', '150ml', 'Roll On', 'Spray', 'Stick'],
+  'Tissue Paper': ['Single Roll', 'Pack (4)', 'Pack (6)', 'Pack (12)', 'Toilet', 'Facial'],
+  'Sanitary Pads': ['Pack (8)', 'Pack (10)', 'Pack (16)', 'Regular', 'Overnight', 'Panty Liners'],
+  'Diapers': ['Small', 'Medium', 'Large', 'Extra Large', 'Pack (10)', 'Pack (20)', 'Pack (40)', 'Jumbo'],
+  'Cotton Wool': ['50g', '100g', '200g', '500g'],
+  'Vaseline': ['50g', '100g', '250g', '500g', 'Pure', 'Blue Seal', 'Cocoa Butter'],
+  'Hair Oil': ['50ml', '100ml', '200ml', 'Coconut', 'Olive', 'Argan'],
+  'Shower Gel': ['250ml', '500ml', '1 Litre'],
+  'Hand Sanitizer': ['50ml', '100ml', '250ml', '500ml', '1 Litre'],
+  'Face Cream': ['25ml', '50ml', '100ml', 'Day', 'Night', 'Moisturizing'],
+  'Body Cream': ['100ml', '200ml', '400ml', '1 Litre'],
+  
+  // ===== HOUSEHOLD =====
+  'Detergent': ['500g', '1 Kg', '2 Kg', '5 Kg', 'Powder', 'Liquid', 'Omo', 'Ariel', 'Sunlight'],
+  'Bleach': ['250ml', '500ml', '1 Litre', '5 Litre', 'Jik', 'Regular', 'Thick'],
+  'Dish Soap': ['250ml', '500ml', '1 Litre', 'Liquid', 'Bar'],
+  'Floor Cleaner': ['500ml', '1 Litre', '5 Litre', 'Tile', 'Wood', 'Multi-Surface'],
+  'Air Freshener': ['250ml', '300ml', 'Spray', 'Gel', 'Automatic'],
+  'Toilet Cleaner': ['500ml', '750ml', '1 Litre', 'Harpic', 'Liquid', 'Block'],
+  'Matches': ['Small Box', 'Large Box', 'Pack (10)', 'Pack (20)'],
+  'Candles': ['Per Piece', 'Pack (6)', 'Pack (12)', 'White', 'Colored', 'Emergency'],
+  'Charcoal': ['Per Kg', '5 Kg', '10 Kg', '20 Kg', 'Bag (Small)', 'Bag (Large)'],
+  'Firewood': ['Per Piece', 'Per Bundle', 'Small Bundle', 'Large Bundle'],
+  'Bin Liners': ['Pack (10)', 'Pack (20)', 'Pack (50)', 'Small', 'Medium', 'Large'],
+  'Foil Paper': ['5m', '10m', '20m', 'Roll'],
+  'Cling Film': ['30m', '50m', '100m', 'Roll'],
+  'Briquettes': ['Per Kg', '5 Kg', '10 Kg'],
+  
+  // ===== MORE COOKING ESSENTIALS =====
+  'Baking Powder': ['50g', '100g', '250g', '500g'],
+  'Yeast': ['Per Packet', '50g', '100g', 'Instant', 'Active Dry'],
+  'Cocoa Powder': ['50g', '100g', '250g', '500g'],
+  'Custard Powder': ['100g', '250g', '500g'],
+  'Corn Starch': ['100g', '250g', '500g'],
+  'Coconut Cream': ['200ml', '400ml', 'Light', 'Regular'],
+  'Weetabix': ['Pack (12)', 'Pack (24)', 'Pack (48)'],
+  'Cornflakes': ['250g', '500g', '750g', '1 Kg'],
+  'Muesli': ['250g', '500g', '750g', 'Original', 'Fruit & Nut'],
+  
+  // ===== KENYAN SNACKS =====
+  'Samosa': ['Per Piece', 'Pack (6)', 'Pack (12)', 'Beef', 'Chicken', 'Vegetable'],
+  'Bhajia': ['Per Piece', 'Per Portion', 'Small', 'Large'],
+  'Mabuyu': ['50g', '100g', '250g', 'Per Packet'],
+  'Njugu Karanga': ['50g', '100g', '250g', '500g', 'Roasted', 'Salted', 'Coated'],
+  'Chevda': ['100g', '250g', '500g', 'Per Packet'],
+  
+  // ===== KENYAN BAKERY =====
+  'Buns': ['Per Piece', 'Pack (6)', 'Pack (12)', 'Plain', 'Coconut', 'Raisin'],
+  'Scones': ['Per Piece', 'Pack (6)', 'Plain', 'Raisin', 'Cheese'],
+  'Sausage Roll': ['Per Piece', 'Pack (6)', 'Beef', 'Chicken'],
+  'Meat Pie': ['Per Piece', 'Pack (4)', 'Beef', 'Chicken'],
+  'Swiss Roll': ['Per Piece', 'Whole', 'Slice', 'Chocolate', 'Vanilla', 'Strawberry'],
+  'Queen Cakes': ['Per Piece', 'Pack (6)', 'Pack (12)'],
+  'Mahamri': ['Per Piece', 'Pack (6)', 'Pack (12)'],
+  'Naan': ['Per Piece', 'Plain', 'Garlic', 'Butter'],
+  'Doughnuts': ['Per Piece', 'Pack (6)', 'Glazed', 'Sugar', 'Chocolate'],
+  
+  // ===== KENYAN BEVERAGES =====
+  'Milo': ['100g', '200g', '400g', '1 Kg', 'Sachet'],
+  'Drinking Chocolate': ['100g', '250g', '500g'],
+  'Cocoa': ['100g', '250g', '500g', 'Pure', 'Sweetened'],
+  'Ribena': ['250ml', '500ml', '1 Litre', 'Concentrate'],
+  'Lucozade': ['250ml', '380ml', '500ml', 'Orange', 'Original'],
+  'Afia Juice': ['250ml', '500ml', '1 Litre', '2 Litre'],
+  'Pick N Peel': ['250ml', '500ml', '1 Litre'],
+  'Del Monte': ['250ml', '500ml', '1 Litre', '2 Litre'],
+  
+  // ===== MORE KENYAN PRODUCE =====
+  'Nduma': ['Per Kg', 'Per Piece', 'Small', 'Medium', 'Large'],
+  'Arrow Roots': ['Per Kg', 'Per Piece', 'Small', 'Medium', 'Large'],
+  'Cassava': ['Per Kg', 'Per Piece', 'Small', 'Medium', 'Large', 'Fresh', 'Dried'],
+  'Yams': ['Per Kg', 'Per Piece', 'Small', 'Medium', 'Large'],
+  'Plantain': ['Per Piece', 'Per Bunch', 'Per Kg', 'Ripe', 'Green'],
+  'Matoke': ['Per Piece', 'Per Bunch', 'Per Kg', 'Small Bunch', 'Large Bunch'],
+  'Mukimo': ['Per Portion', 'Small', 'Medium', 'Large'],
+  'Ugali': ['Per Portion', 'Small', 'Medium', 'Large'],
+  
+  // ===== KENYAN DAIRY =====
+  'Blue Band': ['100g', '250g', '500g', '1 Kg', 'Original', 'Low Fat'],
+  'Margarine': ['100g', '250g', '500g', '1 Kg'],
+  'Paneer': ['200g', '400g', 'Fresh'],
+  
+  // ===== MORE KENYAN VEGETABLES =====
+  'Mushrooms': ['Per Punnet', 'Per Kg', '200g', '250g', 'Button', 'Oyster', 'Shiitake'],
+  'Celery': ['Per Bunch', 'Per Kg', 'Sticks'],
+  'Leeks': ['Per Piece', 'Per Bunch', 'Per Kg'],
+  'Radish': ['Per Bunch', 'Per Kg', 'Red', 'White'],
+  'Turnips': ['Per Kg', 'Per Piece', 'Small', 'Medium', 'Large'],
+  'Beetroot': ['Per Kg', 'Per Piece', 'Small', 'Medium', 'Large', 'Fresh', 'Pickled'],
+  
+  // ===== KENYAN GREENS =====
+  'Saga': ['Per Bunch', 'Small Bunch', 'Large Bunch'],
+  'Mchicha': ['Per Bunch', 'Small Bunch', 'Large Bunch'],
 };
 
 // Category-based fallback suggestions when product isn't in the specific list
@@ -270,13 +457,17 @@ const CATEGORY_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Grains & Cereals': ['500g', '1 Kg', '2 Kg', '5 Kg', '10 Kg', '25 Kg', '50 Kg'],
   'Spices': ['50g', '100g', '250g', '500g', 'Ground', 'Whole'],
   'Beverages': ['250ml', '500ml', '1 Litre', '2 Litre', '5 Litre'],
-  'Snacks': ['Small', 'Medium', 'Large', 'Family Pack', '50g', '100g', '200g'],
-  'Green Grocery': ['Per Bunch', 'Per Kg', '100g', '250g'],
-  'Dairy': ['250ml', '500ml', '1 Litre', '100g', '250g', '500g'],
-  'Meat': ['Per Kg', '500g', '1 Kg', 'Whole', 'Half', 'Portion'],
-  'Bakery': ['Small', 'Medium', 'Large', 'Sliced', 'Unsliced', 'Per Piece'],
-  'Frozen Foods': ['500g', '1 Kg', 'Small Pack', 'Family Pack'],
-  'Canned Goods': ['Small', 'Medium', 'Large', '400g', '800g'],
+  'Snacks': ['Small', 'Medium', 'Large', 'Family Pack', '50g', '100g', '200g', 'Per Piece'],
+  'Green Grocery': ['Per Bunch', 'Per Kg', 'Small Bunch', 'Large Bunch', '100g', '250g'],
+  'Dairy': ['250ml', '500ml', '1 Litre', '100g', '250g', '500g', '1 Kg'],
+  'Meat': ['Per Kg', '500g', '1 Kg', 'Whole', 'Half', 'Quarter', 'Per Piece'],
+  'Bakery': ['Per Piece', 'Pack (6)', 'Pack (12)', 'Small', 'Medium', 'Large', 'Sliced'],
+  'Frozen Foods': ['250g', '500g', '1 Kg', 'Small Pack', 'Family Pack'],
+  'Canned Goods': ['200g', '400g', '800g', 'Small', 'Medium', 'Large'],
+  'Legumes': ['Per Kg', '500g', '1 Kg', '2 Kg', '5 Kg'],
+  'Cooking Essentials': ['250ml', '500ml', '1 Litre', '500g', '1 Kg', '2 Kg', '5 Kg'],
+  'Personal Care': ['50ml', '100ml', '200ml', '500ml', 'Small', 'Medium', 'Large', 'Per Piece'],
+  'Household': ['250ml', '500ml', '1 Litre', '5 Litre', 'Small', 'Medium', 'Large', 'Per Piece'],
 };
 
 // Helper function to get contextual variant suggestions
@@ -304,6 +495,61 @@ function getVariantSuggestions(productName: string, categoryName: string): strin
   
   // Generic fallback
   return ['Per Kg', 'Per Piece', 'Small', 'Medium', 'Large', '500g', '1 Kg'];
+}
+
+// Helper function to auto-detect unit type from variant name
+function getUnitTypeFromVariant(variantName: string): UnitType | null {
+  const variant = variantName.toLowerCase().trim();
+  
+  // Kilogram patterns
+  if (variant.includes('per kg') || variant.includes('kg') || 
+      variant.match(/^\d+\s*kg$/i) || variant === '1 kg' || variant === '2 kg' || 
+      variant === '5 kg' || variant === '10 kg') {
+    return 'kg';
+  }
+  
+  // Gram patterns  
+  if (variant.includes('per g') || variant.match(/^\d+\s*g$/i) || 
+      variant === '100g' || variant === '250g' || variant === '500g') {
+    return 'g';
+  }
+  
+  // Piece patterns
+  if (variant.includes('per piece') || variant === 'small' || variant === 'medium' || 
+      variant === 'large' || variant === 'extra large' || variant.includes('whole') ||
+      variant.includes('half') || variant.includes('quarter') || variant.includes('slice')) {
+    return 'piece';
+  }
+  
+  // Bunch patterns
+  if (variant.includes('per bunch') || variant.includes('bunch') || 
+      variant === 'small bunch' || variant === 'large bunch') {
+    return 'bunch';
+  }
+  
+  // Tray patterns
+  if (variant.includes('tray') || variant.includes('crate')) {
+    return 'tray';
+  }
+  
+  // Litre patterns
+  if (variant.includes('litre') || variant.includes('liter') || variant.includes('l') ||
+      variant.match(/^\d+\s*l$/i) || variant === '500ml' || variant === '1 litre' || 
+      variant === '2 litre' || variant === '5 litre') {
+    return 'litre';
+  }
+  
+  // Millilitre patterns
+  if (variant.includes('ml') || variant.match(/^\d+\s*ml$/i)) {
+    return 'ml';
+  }
+  
+  // Dozen patterns (use piece)
+  if (variant.includes('dozen') || variant.includes('pack')) {
+    return 'piece';
+  }
+  
+  return null; // No auto-detection possible
 }
 
 interface ItemFormProps {
@@ -458,11 +704,13 @@ export function ItemForm({
           setError('Variant name is required');
           return;
         }
-      }
-
-      if (!categoryId && !isCustomCategory) {
-        setError('Category is required');
-        return;
+        // Category is inherited from parent for variants - no need to validate
+      } else {
+        // Category validation only for non-variants
+        if (!categoryId && !isCustomCategory) {
+          setError('Category is required');
+          return;
+        }
       }
 
       if (!sellPrice || parseFloat(sellPrice) <= 0) {
@@ -819,6 +1067,11 @@ export function ItemForm({
                             setIsCustomVariantName(false);
                             setSelectedVariantSuggestion(suggestion);
                             setVariantName(suggestion);
+                            // Auto-set unit type based on variant
+                            const detectedUnit = getUnitTypeFromVariant(suggestion);
+                            if (detectedUnit) {
+                              setUnitType(detectedUnit);
+                            }
                           }}
                           disabled={isSubmitting}
                           className={`
@@ -915,146 +1168,150 @@ export function ItemForm({
           );
         })()}
 
-        <Separator />
+        {/* Category Selection - only show for non-variant modes */}
+        {mode !== 'variant' && (
+          <>
+            <Separator />
 
-        {/* Category Selection */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Grid3x3 className="h-4 w-4 text-muted-foreground" />
-            <Label className="text-base font-semibold">Which category does this belong to? *</Label>
-          </div>
-          
-          {categories.length > 0 && !isCustomCategory ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {categories.map((category) => {
-                const isSelected = categoryId === category.id;
-                return (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Grid3x3 className="h-4 w-4 text-muted-foreground" />
+                <Label className="text-base font-semibold">Which category does this belong to? *</Label>
+              </div>
+              
+              {categories.length > 0 && !isCustomCategory ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {categories.map((category) => {
+                    const isSelected = categoryId === category.id;
+                    return (
+                      <button
+                        key={category.id}
+                        type="button"
+                        onClick={() => {
+                          setCategoryId(category.id);
+                          setIsCustomCategory(false);
+                          setCustomCategoryName('');
+                          // Reset item name selection when category changes
+                          setSelectedItemSuggestion('');
+                          setIsCustomItemName(true);
+                          setName('');
+                        }}
+                        disabled={isSubmitting}
+                        className={`
+                          relative p-3 rounded-lg border-2 transition-all duration-200
+                          text-left hover:shadow-sm
+                          ${isSelected 
+                            ? 'border-[#259783] bg-[#259783]/5 dark:bg-[#259783]/10 shadow-sm' 
+                            : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
+                          }
+                          ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                        `}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">{category.icon || '📦'}</span>
+                          <span className="font-medium text-sm flex-1">{category.name}</span>
+                        </div>
+                        {isSelected && (
+                          <div className="absolute top-1.5 right-1.5">
+                            <div className="h-1.5 w-1.5 rounded-full bg-[#259783] animate-pulse" />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
                   <button
-                    key={category.id}
                     type="button"
                     onClick={() => {
-                      setCategoryId(category.id);
-                      setIsCustomCategory(false);
+                      setIsCustomCategory(true);
+                      setCategoryId('');
                       setCustomCategoryName('');
-                      // Reset item name selection when category changes
-                      setSelectedItemSuggestion('');
-                      setIsCustomItemName(true);
-                      setName('');
                     }}
-                    disabled={isSubmitting || (mode === 'variant' && !!parentItemId)}
+                    disabled={isSubmitting}
                     className={`
-                      relative p-3 rounded-lg border-2 transition-all duration-200
+                      relative p-3 rounded-lg border-2 border-dashed transition-all duration-200
                       text-left hover:shadow-sm
-                      ${isSelected 
-                        ? 'border-[#259783] bg-[#259783]/5 dark:bg-[#259783]/10 shadow-sm' 
+                      ${isCustomCategory
+                        ? 'border-[#259783] bg-[#259783]/5 dark:bg-[#259783]/10 shadow-sm'
                         : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
                       }
-                      ${isSubmitting || (mode === 'variant' && !!parentItemId) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                      ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                     `}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-xl">{category.icon || '📦'}</span>
-                      <span className="font-medium text-sm flex-1">{category.name}</span>
+                      <Sparkles className="h-5 w-5 text-muted-foreground" />
+                      <span className="font-medium text-sm">New Category</span>
                     </div>
-                    {isSelected && (
+                    {isCustomCategory && (
                       <div className="absolute top-1.5 right-1.5">
                         <div className="h-1.5 w-1.5 rounded-full bg-[#259783] animate-pulse" />
                       </div>
                     )}
                   </button>
-                );
-              })}
-              <button
-                type="button"
-                onClick={() => {
-                  setIsCustomCategory(true);
-                  setCategoryId('');
-                  setCustomCategoryName('');
-                }}
-                disabled={isSubmitting || (mode === 'variant' && !!parentItemId)}
-                className={`
-                  relative p-3 rounded-lg border-2 border-dashed transition-all duration-200
-                  text-left hover:shadow-sm
-                  ${isCustomCategory
-                    ? 'border-[#259783] bg-[#259783]/5 dark:bg-[#259783]/10 shadow-sm'
-                    : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
-                  }
-                  ${isSubmitting || (mode === 'variant' && !!parentItemId) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                `}
-              >
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-muted-foreground" />
-                  <span className="font-medium text-sm">New Category</span>
                 </div>
-                {isCustomCategory && (
-                  <div className="absolute top-1.5 right-1.5">
-                    <div className="h-1.5 w-1.5 rounded-full bg-[#259783] animate-pulse" />
-                  </div>
-                )}
-              </button>
+              ) : (
+                <Select 
+                  value={isCustomCategory ? 'custom' : categoryId} 
+                  onValueChange={(value) => {
+                    if (value === 'custom') {
+                      setIsCustomCategory(true);
+                      setCategoryId('');
+                      setCustomCategoryName('');
+                    } else {
+                      setIsCustomCategory(false);
+                      setCategoryId(value);
+                      setSelectedItemSuggestion('');
+                      setIsCustomItemName(true);
+                      setName('');
+                    }
+                  }}
+                  disabled={isSubmitting}
+                >
+                  <SelectTrigger className="h-12">
+                    <SelectValue placeholder="Choose a category..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category.id} value={category.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{category.icon || '📦'}</span>
+                          <span>{category.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="custom">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4" />
+                        <span>Create New Category</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+              
+              {isCustomCategory && (
+                <div className="mt-2 p-4 rounded-lg bg-muted/50 border">
+                  <Label htmlFor="customCategory" className="text-sm font-medium mb-2 block">
+                    New Category Name
+                  </Label>
+                  <Input
+                    id="customCategory"
+                    value={customCategoryName}
+                    onChange={(e) => setCustomCategoryName(e.target.value)}
+                    placeholder="e.g., Electronics, Stationery"
+                    disabled={isSubmitting}
+                    className="h-11 focus-visible:ring-[#259783]"
+                  />
+                  <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                    <Info className="h-3 w-3" />
+                    A new category will be created automatically
+                  </p>
+                </div>
+              )}
             </div>
-          ) : (
-            <Select 
-              value={isCustomCategory ? 'custom' : categoryId} 
-              onValueChange={(value) => {
-                if (value === 'custom') {
-                  setIsCustomCategory(true);
-                  setCategoryId('');
-                  setCustomCategoryName('');
-                } else {
-                  setIsCustomCategory(false);
-                  setCategoryId(value);
-                  setSelectedItemSuggestion('');
-                  setIsCustomItemName(true);
-                  setName('');
-                }
-              }}
-              disabled={isSubmitting || (mode === 'variant' && !!parentItemId)}
-            >
-              <SelectTrigger className="h-12">
-                <SelectValue placeholder="Choose a category..." />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((category) => (
-                  <SelectItem key={category.id} value={category.id}>
-                    <div className="flex items-center gap-2">
-                      <span>{category.icon || '📦'}</span>
-                      <span>{category.name}</span>
-                    </div>
-                  </SelectItem>
-                ))}
-                <SelectItem value="custom">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4" />
-                    <span>Create New Category</span>
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          )}
-          
-          {isCustomCategory && (
-            <div className="mt-2 p-4 rounded-lg bg-muted/50 border">
-              <Label htmlFor="customCategory" className="text-sm font-medium mb-2 block">
-                New Category Name
-              </Label>
-              <Input
-                id="customCategory"
-                value={customCategoryName}
-                onChange={(e) => setCustomCategoryName(e.target.value)}
-                placeholder="e.g., Electronics, Stationery"
-                disabled={isSubmitting}
-                className="h-11 focus-visible:ring-[#259783]"
-              />
-              <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                <Info className="h-3 w-3" />
-                A new category will be created automatically
-              </p>
-            </div>
-          )}
-        </div>
 
-        <Separator />
+            <Separator />
+          </>
+        )}
 
         {/* Item Name (for standalone and parent modes) */}
         {mode !== 'variant' && (
@@ -1165,9 +1422,16 @@ export function ItemForm({
         {/* Unit Type - only for non-parent items */}
         {mode !== 'parent' && (
           <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Box className="h-4 w-4 text-muted-foreground" />
-              <Label htmlFor="unit" className="text-base font-semibold">How do you sell this? *</Label>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Box className="h-4 w-4 text-muted-foreground" />
+                <Label htmlFor="unit" className="text-base font-semibold">How do you sell this? *</Label>
+              </div>
+              {mode === 'variant' && variantName && getUnitTypeFromVariant(variantName) && (
+                <Badge variant="secondary" className="text-xs">
+                  Auto-detected from "{variantName}"
+                </Badge>
+              )}
             </div>
             <Select 
               value={unitType} 
@@ -1189,7 +1453,9 @@ export function ItemForm({
             </Select>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <Info className="h-3 w-3" />
-              This determines how you measure and price the product
+              {mode === 'variant' && variantName && getUnitTypeFromVariant(variantName) 
+                ? 'Auto-set based on variant. Change if needed.'
+                : 'This determines how you measure and price the product'}
             </p>
           </div>
         )}
