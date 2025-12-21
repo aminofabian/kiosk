@@ -84,7 +84,7 @@ function SelectItemStep({
   const selectedItem = items.find((i) => i.id === selectedItemId);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-24">
       <div className="relative">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
         <Input
@@ -144,7 +144,7 @@ function SelectItemStep({
         <Button
           type="button"
           onClick={onNext}
-          className="w-full h-14 text-base bg-gradient-to-r from-emerald-600 to-teal-600"
+          className="fixed bottom-16 left-0 right-0 mx-4 h-14 text-base bg-gradient-to-r from-emerald-600 to-teal-600 z-[60] shadow-lg"
           size="lg"
         >
           Continue with {selectedItem.name}

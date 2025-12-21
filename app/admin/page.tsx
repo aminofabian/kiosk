@@ -244,7 +244,7 @@ export default function AdminDashboardPage() {
         },
       };
     }
-    if (button.label === 'Stock Adjustment' && !button.onClick) {
+    if (button.label === 'Add Stock' && !button.onClick) {
       return {
         ...button,
         onClick: () => {
