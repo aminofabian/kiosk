@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
@@ -113,11 +114,22 @@ const ACTION_BUTTONS: ActionButton[] = [
 
 export default function AdminDashboardPage() {
   const { user } = useCurrentUser();
+  const router = useRouter();
   const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
   const [itemDrawerOpen, setItemDrawerOpen] = useState(false);
   const [stockAdjustDrawerOpen, setStockAdjustDrawerOpen] = useState(false);
   const [stockTakeDrawerOpen, setStockTakeDrawerOpen] = useState(false);
   const [existingCategories, setExistingCategories] = useState<Category[]>([]);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     if (categoryDrawerOpen) {
@@ -139,16 +151,52 @@ export default function AdminDashboardPage() {
     return user && button.roles.includes(user.role);
   }).map((button) => {
     if (button.label === 'Create Category' && !button.onClick) {
-      return { ...button, onClick: () => setCategoryDrawerOpen(true) };
+      return {
+        ...button,
+        onClick: () => {
+          if (isMobile) {
+            router.push('/admin/categories?new=true');
+          } else {
+            setCategoryDrawerOpen(true);
+          }
+        },
+      };
     }
     if (button.label === 'Add Item' && !button.onClick) {
-      return { ...button, onClick: () => setItemDrawerOpen(true) };
+      return {
+        ...button,
+        onClick: () => {
+          if (isMobile) {
+            router.push('/admin/items/new');
+          } else {
+            setItemDrawerOpen(true);
+          }
+        },
+      };
     }
     if (button.label === 'Stock Adjustment' && !button.onClick) {
-      return { ...button, onClick: () => setStockAdjustDrawerOpen(true) };
+      return {
+        ...button,
+        onClick: () => {
+          if (isMobile) {
+            router.push('/admin/stock/adjust');
+          } else {
+            setStockAdjustDrawerOpen(true);
+          }
+        },
+      };
     }
     if (button.label === 'Stock Take' && !button.onClick) {
-      return { ...button, onClick: () => setStockTakeDrawerOpen(true) };
+      return {
+        ...button,
+        onClick: () => {
+          if (isMobile) {
+            router.push('/admin/stock/take');
+          } else {
+            setStockTakeDrawerOpen(true);
+          }
+        },
+      };
     }
     return button;
   });
@@ -156,7 +204,7 @@ export default function AdminDashboardPage() {
   return (
     <AdminLayout>
       <div className="min-h-screen bg-slate-50 dark:bg-[#0f1a0d] flex items-center justify-center p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-w-5xl w-full">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 max-w-5xl w-full">
           {visibleButtons.map((button, index) => {
             const Icon = button.icon;
             const ButtonContent = (
@@ -193,7 +241,7 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      <Drawer open={categoryDrawerOpen} onOpenChange={setCategoryDrawerOpen} direction="right">
+      <Drawer open={categoryDrawerOpen && !isMobile} onOpenChange={setCategoryDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[500px] md:!w-[600px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
           <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-blue-50 to-[#259783]/10 dark:from-blue-950/20 dark:to-[#259783]/20 px-6 py-5">
             <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
@@ -219,7 +267,7 @@ export default function AdminDashboardPage() {
         </DrawerContent>
       </Drawer>
 
-      <Drawer open={itemDrawerOpen} onOpenChange={setItemDrawerOpen} direction="right">
+      <Drawer open={itemDrawerOpen && !isMobile} onOpenChange={setItemDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
           <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-6 py-5">
             <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
@@ -241,7 +289,7 @@ export default function AdminDashboardPage() {
         </DrawerContent>
       </Drawer>
 
-      <Drawer open={stockAdjustDrawerOpen} onOpenChange={setStockAdjustDrawerOpen} direction="right">
+      <Drawer open={stockAdjustDrawerOpen && !isMobile} onOpenChange={setStockAdjustDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
           <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-orange-50 dark:from-[#259783]/20 dark:to-orange-950/20 px-6 py-5">
             <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
@@ -263,7 +311,7 @@ export default function AdminDashboardPage() {
         </DrawerContent>
       </Drawer>
 
-      <Drawer open={stockTakeDrawerOpen} onOpenChange={setStockTakeDrawerOpen} direction="right">
+      <Drawer open={stockTakeDrawerOpen && !isMobile} onOpenChange={setStockTakeDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
           <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-indigo-50 dark:from-[#259783]/20 dark:to-indigo-950/20 px-6 py-5">
             <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { CategoryList } from '@/components/admin/CategoryList';
 import { CategoryForm } from '@/components/admin/CategoryForm';
@@ -8,10 +9,11 @@ import { Loader2 } from 'lucide-react';
 import type { Category } from '@/lib/db/types';
 
 export default function CategoriesPage() {
+  const searchParams = useSearchParams();
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(searchParams.get('new') === 'true');
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
