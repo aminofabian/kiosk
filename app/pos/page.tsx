@@ -374,7 +374,7 @@ export default function POSPage() {
 
         {!selectedCategoryId ? (
           <>
-            <header className="flex items-center justify-between p-4 pt-6 bg-[#f6f8f6] dark:bg-[#132210] sticky top-0 z-20">
+            <header className="flex items-center justify-between p-4 pt-6 bg-[#f6f8f6] dark:bg-[#132210] sticky top-0 z-20 border-b border-black/5 dark:border-white/5">
               <div className="flex items-center gap-2">
                 <button
                   aria-label="Menu"
@@ -382,21 +382,22 @@ export default function POSPage() {
                 >
                   <Menu className="w-8 h-8" />
                 </button>
-                {isOwnerOrAdmin && (
-                  <Link
-                    href="/admin"
-                    className="flex items-center justify-center gap-2 px-4 h-12 rounded-full bg-[#259783] hover:bg-[#3bd522] active:scale-95 transition-all shadow-lg shadow-[#259783]/30 text-white"
-                    aria-label="Admin"
-                  >
-                    <Settings className="w-5 h-5 text-[#101b0d]" />
-                    <span className="font-bold text-sm text-[#101b0d]">Admin</span>
-                  </Link>
-                )}
               </div>
               <h1 className="text-xl font-extrabold tracking-tight uppercase text-[#101b0d]/80 dark:text-[#259783]/90">
                 Kiosk POS
               </h1>
               <div className="flex items-center gap-2">
+                {isOwnerOrAdmin && (
+                  <Link
+                    href="/admin"
+                    className="flex items-center justify-center gap-2 px-4 h-12 rounded-full bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] active:scale-95 transition-all shadow-lg shadow-[#259783]/40 hover:shadow-[#3bd522]/40 text-white font-bold text-sm relative overflow-hidden group"
+                    aria-label="Admin"
+                  >
+                    <div className="absolute inset-0 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
+                    <Settings className="w-5 h-5 relative z-10" />
+                    <span className="relative z-10">Admin</span>
+                  </Link>
+                )}
                 <button
                   aria-label="Search"
                   onClick={() => setShowSearch(!showSearch)}
@@ -416,7 +417,7 @@ export default function POSPage() {
             </header>
 
             {showSearch && (
-              <div className="px-4 pb-4 bg-[#f6f8f6] dark:bg-[#132210] sticky top-[72px] z-20">
+              <div className="px-4 pb-4 bg-[#f6f8f6] dark:bg-[#132210] sticky top-[72px] z-20 border-b border-black/5 dark:border-white/5">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                   <Input
@@ -425,14 +426,14 @@ export default function POSPage() {
                     placeholder="Search items..."
                     value={searchQuery}
                     onChange={(e) => handleSearchChange(e.target.value)}
-                    className="pl-10 pr-10 h-10 bg-white dark:bg-[#1c2e18]"
+                    className="pl-10 pr-10 h-12 bg-white dark:bg-[#1c2e18] rounded-full border-gray-200 dark:border-gray-700 focus:border-[#259783] focus:ring-2 focus:ring-[#259783]/20"
                   />
                   <button
                     onClick={() => {
                       setShowSearch(false);
                       setSearchQuery('');
                     }}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -444,11 +445,11 @@ export default function POSPage() {
               {!searchQuery && (
                 <>
                   <div className="flex gap-3 py-2 overflow-x-auto no-scrollbar w-full mb-4">
-                    <button className="flex h-12 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-[#1c2e18] border border-black/5 dark:border-white/5 shadow-sm px-6 active:scale-95 transition-transform">
+                    <button className="flex h-12 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-[#1c2e18] border-2 border-gray-200 dark:border-gray-700 hover:border-[#259783] dark:hover:border-[#259783] shadow-sm hover:shadow-md px-6 active:scale-95 transition-all">
                       <DollarSign className="w-6 h-6 text-[#259783]" />
                       <p className="font-bold text-base whitespace-nowrap">Custom Amount</p>
                     </button>
-                    <button className="flex h-12 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-[#1c2e18] border border-black/5 dark:border-white/5 shadow-sm px-6 active:scale-95 transition-transform">
+                    <button className="flex h-12 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-[#1c2e18] border-2 border-gray-200 dark:border-gray-700 hover:border-[#259783] dark:hover:border-[#259783] shadow-sm hover:shadow-md px-6 active:scale-95 transition-all">
                       <QrCode className="w-6 h-6 text-[#259783]" />
                       <p className="font-bold text-base whitespace-nowrap">Scan Barcode</p>
                     </button>
@@ -464,7 +465,7 @@ export default function POSPage() {
                         <button
                           key={category.id}
                           onClick={() => setSelectedCategoryId(category.id)}
-                          className="group relative flex flex-col justify-between p-5 h-48 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border-2 border-transparent hover:border-[#259783] active:scale-[0.98] transition-all overflow-hidden text-left"
+                          className="group relative flex flex-col justify-between p-5 h-48 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border-2 border-transparent hover:border-[#259783] hover:shadow-lg active:scale-[0.98] transition-all overflow-hidden text-left"
                         >
                           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-40 group-hover:opacity-30 transition-opacity z-10 rounded-xl"></div>
                           {imageUrl && (
@@ -494,7 +495,7 @@ export default function POSPage() {
                         <button
                           key={category.id}
                           onClick={() => setSelectedCategoryId(category.id)}
-                          className="group relative flex flex-col justify-between p-5 h-40 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border-2 border-transparent hover:border-[#259783] active:scale-[0.98] transition-all overflow-hidden text-left"
+                          className="group relative flex flex-col justify-between p-5 h-40 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border-2 border-transparent hover:border-[#259783] hover:shadow-lg active:scale-[0.98] transition-all overflow-hidden text-left"
                         >
                           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-40 group-hover:opacity-30 transition-opacity z-10 rounded-xl"></div>
                           {imageUrl && (
@@ -518,7 +519,7 @@ export default function POSPage() {
                     {miscCategory && (
                       <button
                         onClick={() => setSelectedCategoryId(miscCategory.id)}
-                        className="col-span-2 group relative flex flex-row items-center justify-between p-5 h-32 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border-2 border-transparent hover:border-[#259783] active:scale-[0.98] transition-all overflow-hidden text-left"
+                        className="col-span-2 group relative flex flex-row items-center justify-between p-5 h-32 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border-2 border-transparent hover:border-[#259783] hover:shadow-lg active:scale-[0.98] transition-all overflow-hidden text-left"
                       >
                         <div className="absolute inset-0 bg-gradient-to-r from-gray-600 to-gray-400 dark:from-gray-800 dark:to-gray-700 opacity-100 z-0 rounded-xl"></div>
                         <div
@@ -567,7 +568,7 @@ export default function POSPage() {
           </>
         ) : (
           <>
-            <header className="flex items-center justify-between p-4 pt-6 bg-[#f6f8f6] dark:bg-[#132210] sticky top-0 z-20">
+            <header className="flex items-center justify-between p-4 pt-6 bg-[#f6f8f6] dark:bg-[#132210] sticky top-0 z-20 border-b border-black/5 dark:border-white/5">
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setSelectedCategoryId(null)}
@@ -575,31 +576,34 @@ export default function POSPage() {
                 >
                   <ArrowLeft className="w-8 h-8" />
                 </button>
-                {isOwnerOrAdmin && (
-                  <Link
-                    href="/admin"
-                    className="flex items-center justify-center gap-2 px-4 h-12 rounded-full bg-[#259783] hover:bg-[#3bd522] active:scale-95 transition-all shadow-lg shadow-[#259783]/30 text-white"
-                    aria-label="Admin"
-                  >
-                    <Settings className="w-5 h-5 text-[#101b0d]" />
-                    <span className="font-bold text-sm text-[#101b0d]">Admin</span>
-                  </Link>
-                )}
               </div>
               <h1 className="text-xl font-bold text-[#101b0d] dark:text-[#f0fdf4]">
                 {selectedCategory?.name || 'Category'}
               </h1>
-              <button
-                aria-label="Logout"
-                onClick={() => signOut({ callbackUrl: '/pos/login' })}
-                className="flex size-12 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform"
-                title="Logout"
-              >
-                <LogOut className="w-7 h-7" />
-              </button>
+              <div className="flex items-center gap-2">
+                {isOwnerOrAdmin && (
+                  <Link
+                    href="/admin"
+                    className="flex items-center justify-center gap-2 px-4 h-12 rounded-full bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] active:scale-95 transition-all shadow-lg shadow-[#259783]/40 hover:shadow-[#3bd522]/40 text-white font-bold text-sm relative overflow-hidden group"
+                    aria-label="Admin"
+                  >
+                    <div className="absolute inset-0 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
+                    <Settings className="w-5 h-5 relative z-10" />
+                    <span className="relative z-10">Admin</span>
+                  </Link>
+                )}
+                <button
+                  aria-label="Logout"
+                  onClick={() => signOut({ callbackUrl: '/pos/login' })}
+                  className="flex size-12 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform"
+                  title="Logout"
+                >
+                  <LogOut className="w-7 h-7" />
+                </button>
+              </div>
             </header>
 
-            <div className="px-4 pb-4 bg-[#f6f8f6] dark:bg-[#132210] sticky top-[72px] z-20">
+            <div className="px-4 pb-4 bg-[#f6f8f6] dark:bg-[#132210] sticky top-[72px] z-20 border-b border-black/5 dark:border-white/5">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
@@ -607,7 +611,7 @@ export default function POSPage() {
                   placeholder={`Search ${selectedCategory?.name.toLowerCase()}...`}
                   value={categorySearchQuery}
                   onChange={(e) => setCategorySearchQuery(e.target.value)}
-                  className="pl-10 pr-10 h-10 bg-white dark:bg-[#1c2e18] rounded-full"
+                  className="pl-10 pr-10 h-12 bg-white dark:bg-[#1c2e18] rounded-full border-gray-200 dark:border-gray-700 focus:border-[#259783] focus:ring-2 focus:ring-[#259783]/20"
                 />
               </div>
             </div>
@@ -724,25 +728,14 @@ export default function POSPage() {
       <div className="hidden md:block">
         <POSLayout
           header={
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center justify-between gap-4 border-b border-gray-200 dark:border-gray-800 pb-3">
               <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-10 h-10 bg-[#259783] rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
+                <div className="w-10 h-10 bg-gradient-to-br from-[#259783] to-[#3bd522] rounded-xl flex items-center justify-center shadow-md shadow-[#259783]/30 flex-shrink-0">
                   <ShoppingCart className="w-5 h-5 text-white" />
                 </div>
-                <h1 className="text-2xl font-bold text-[#259783] hidden sm:block">
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-[#259783] to-[#3bd522] bg-clip-text text-transparent hidden sm:block">
                   Grocery POS
                 </h1>
-                {isOwnerOrAdmin && (
-                  <Link href="/admin">
-                    <Button
-                      size="sm"
-                      className="hidden sm:flex items-center gap-2 bg-[#259783] hover:bg-[#3bd522] text-white font-semibold shadow-md shadow-[#259783]/30"
-                    >
-                      <Settings className="w-4 h-4" />
-                      <span className="hidden md:inline">Admin</span>
-                    </Button>
-                  </Link>
-                )}
                 {showSearch ? (
                   <div className="flex-1 max-w-md relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -752,7 +745,7 @@ export default function POSPage() {
                       placeholder="Search items... (Press Esc to close)"
                       value={searchQuery}
                       onChange={(e) => handleSearchChange(e.target.value)}
-                      className="pl-10 pr-10 h-10"
+                      className="pl-10 pr-10 h-10 border-gray-200 focus:border-[#259783] focus:ring-[#259783]"
                     />
                     <Button
                       variant="ghost"
@@ -771,7 +764,7 @@ export default function POSPage() {
                     variant="outline"
                     size="sm"
                     onClick={() => setShowSearch(true)}
-                    className="hidden sm:flex items-center gap-2 bg-white hover:bg-[#259783]/10 border-gray-200 hover:border-[#259783]"
+                    className="hidden sm:flex items-center gap-2 bg-white hover:bg-[#259783]/10 border-gray-200 hover:border-[#259783] transition-smooth"
                   >
                     <Search className="w-4 h-4" />
                     <span className="hidden md:inline">Search</span>
@@ -781,17 +774,29 @@ export default function POSPage() {
                   </Button>
                 )}
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-3 flex-shrink-0">
+                {isOwnerOrAdmin && (
+                  <Link href="/admin">
+                    <Button
+                      size="sm"
+                      className="flex items-center gap-2 bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] text-white font-semibold shadow-lg shadow-[#259783]/40 hover:shadow-[#3bd522]/40 transition-all relative overflow-hidden group"
+                    >
+                      <div className="absolute inset-0 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
+                      <Settings className="w-4 h-4 relative z-10" />
+                      <span className="hidden md:inline relative z-10">Admin</span>
+                    </Button>
+                  </Link>
+                )}
                 <DownloadButton
                   variant="outline"
                   size="sm"
-                  className="hidden lg:flex bg-white hover:bg-[#259783]/10 border-gray-200 hover:border-[#259783]"
+                  className="hidden lg:flex bg-white hover:bg-[#259783]/10 border-gray-200 hover:border-[#259783] transition-smooth"
                 />
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => signOut({ callbackUrl: '/pos/login' })}
-                  className="hidden sm:flex bg-white hover:bg-red-50 border-gray-200 hover:border-red-300 text-gray-700 hover:text-red-600"
+                  className="hidden sm:flex bg-white hover:bg-red-50 border-gray-200 hover:border-red-300 text-gray-700 hover:text-red-600 transition-smooth"
                   title="Logout"
                 >
                   <LogOut className="w-4 h-4 mr-2" />
