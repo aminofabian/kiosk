@@ -15,6 +15,7 @@ import {
 import { CategoryForm } from '@/components/admin/CategoryForm';
 import { ItemForm } from '@/components/admin/ItemForm';
 import { StockAdjustForm } from '@/components/admin/StockAdjustForm';
+import { StockTakeForm } from '@/components/admin/StockTakeForm';
 import {
   Plus,
   Package,
@@ -55,7 +56,6 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: Scale,
   },
   {
-    href: '/admin/stock/take',
     label: 'Stock Take',
     description: 'Physical inventory count',
     icon: ClipboardList,
@@ -116,6 +116,7 @@ export default function AdminDashboardPage() {
   const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
   const [itemDrawerOpen, setItemDrawerOpen] = useState(false);
   const [stockAdjustDrawerOpen, setStockAdjustDrawerOpen] = useState(false);
+  const [stockTakeDrawerOpen, setStockTakeDrawerOpen] = useState(false);
   const [existingCategories, setExistingCategories] = useState<Category[]>([]);
 
   useEffect(() => {
@@ -145,6 +146,9 @@ export default function AdminDashboardPage() {
     }
     if (button.label === 'Stock Adjustment' && !button.onClick) {
       return { ...button, onClick: () => setStockAdjustDrawerOpen(true) };
+    }
+    if (button.label === 'Stock Take' && !button.onClick) {
+      return { ...button, onClick: () => setStockTakeDrawerOpen(true) };
     }
     return button;
   });
@@ -190,39 +194,45 @@ export default function AdminDashboardPage() {
       </div>
 
       <Drawer open={categoryDrawerOpen} onOpenChange={setCategoryDrawerOpen} direction="right">
-        <DrawerContent className="!w-full sm:!w-[500px] md:!w-[600px] !max-w-none h-full max-h-screen">
-          <DrawerHeader className="border-b bg-gradient-to-r from-blue-500/10 to-[#259783]/10">
-            <DrawerTitle className="flex items-center gap-2">
-              <FolderTree className="w-5 h-5 text-blue-500" />
+        <DrawerContent className="!w-full sm:!w-[500px] md:!w-[600px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-blue-50 to-[#259783]/10 dark:from-blue-950/20 dark:to-[#259783]/20 px-6 py-5">
+            <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-[#259783] flex items-center justify-center shadow-sm">
+                <FolderTree className="w-5 h-5 text-white" />
+              </div>
               Add New Category
             </DrawerTitle>
-            <DrawerDescription>
+            <DrawerDescription className="mt-2 text-sm text-slate-600 dark:text-slate-400">
               Create a new category to organize your products
             </DrawerDescription>
           </DrawerHeader>
-          <div className="overflow-y-auto px-6 pb-6 flex-1 bg-slate-50/50 dark:bg-slate-900/50">
-            <CategoryForm
-              category={null}
-              existingCategories={existingCategories}
-              onClose={() => setCategoryDrawerOpen(false)}
-              onSuccess={() => setCategoryDrawerOpen(false)}
-            />
+          <div className="overflow-y-auto px-6 py-6 flex-1 bg-slate-50 dark:bg-slate-900/50">
+            <div className="max-w-2xl mx-auto">
+              <CategoryForm
+                category={null}
+                existingCategories={existingCategories}
+                onClose={() => setCategoryDrawerOpen(false)}
+                onSuccess={() => setCategoryDrawerOpen(false)}
+              />
+            </div>
           </div>
         </DrawerContent>
       </Drawer>
 
       <Drawer open={itemDrawerOpen} onOpenChange={setItemDrawerOpen} direction="right">
-        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen">
-          <DrawerHeader className="border-b bg-gradient-to-r from-[#259783]/10 to-blue-500/10">
-            <DrawerTitle className="flex items-center gap-2">
-              <Package className="w-5 h-5 text-[#259783]" />
+        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-6 py-5">
+            <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm">
+                <Package className="w-5 h-5 text-white" />
+              </div>
               Add New Item
             </DrawerTitle>
-            <DrawerDescription>
+            <DrawerDescription className="mt-2 text-sm text-slate-600 dark:text-slate-400">
               Create a new product item for your inventory
             </DrawerDescription>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 sm:px-6 pb-6 flex-1 bg-slate-50/50 dark:bg-slate-900/50">
+          <div className="overflow-y-auto px-4 sm:px-6 py-6 flex-1 bg-slate-50 dark:bg-slate-900/50">
             <ItemForm
               onSuccess={() => setItemDrawerOpen(false)}
               onCancel={() => setItemDrawerOpen(false)}
@@ -232,20 +242,44 @@ export default function AdminDashboardPage() {
       </Drawer>
 
       <Drawer open={stockAdjustDrawerOpen} onOpenChange={setStockAdjustDrawerOpen} direction="right">
-        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen">
-          <DrawerHeader className="border-b bg-gradient-to-r from-[#259783]/10 to-blue-500/10">
-            <DrawerTitle className="flex items-center gap-2">
-              <Scale className="w-5 h-5 text-[#259783]" />
+        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-orange-50 dark:from-[#259783]/20 dark:to-orange-950/20 px-6 py-5">
+            <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-orange-500 flex items-center justify-center shadow-sm">
+                <Scale className="w-5 h-5 text-white" />
+              </div>
               Stock Adjustment
             </DrawerTitle>
-            <DrawerDescription>
+            <DrawerDescription className="mt-2 text-sm text-slate-600 dark:text-slate-400">
               Update inventory levels for damaged, spoiled, or miscounted items
             </DrawerDescription>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 sm:px-6 pb-6 flex-1 bg-slate-50/50 dark:bg-slate-900/50">
+          <div className="overflow-y-auto px-4 sm:px-6 py-6 flex-1 bg-slate-50 dark:bg-slate-900/50">
             <StockAdjustForm
               onSuccess={() => setStockAdjustDrawerOpen(false)}
               onCancel={() => setStockAdjustDrawerOpen(false)}
+            />
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      <Drawer open={stockTakeDrawerOpen} onOpenChange={setStockTakeDrawerOpen} direction="right">
+        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-indigo-50 dark:from-[#259783]/20 dark:to-indigo-950/20 px-6 py-5">
+            <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-indigo-500 flex items-center justify-center shadow-sm">
+                <ClipboardList className="w-5 h-5 text-white" />
+              </div>
+              Stock Take
+            </DrawerTitle>
+            <DrawerDescription className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              Count physical inventory and record actual stock levels
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 sm:px-6 py-6 flex-1 bg-slate-50 dark:bg-slate-900/50">
+            <StockTakeForm
+              onSuccess={() => setStockTakeDrawerOpen(false)}
+              onCancel={() => setStockTakeDrawerOpen(false)}
             />
           </div>
         </DrawerContent>

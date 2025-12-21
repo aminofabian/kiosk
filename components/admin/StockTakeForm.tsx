@@ -46,7 +46,13 @@ interface StockTakeItem {
   notes: string;
 }
 
-export function StockTakeForm() {
+interface StockTakeFormProps {
+  onSuccess?: () => void;
+  onCancel?: () => void;
+}
+
+export function StockTakeForm(props: StockTakeFormProps = {}) {
+  const { onSuccess, onCancel } = props;
   const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
   const [stockTakeItems, setStockTakeItems] = useState<StockTakeItem[]>([]);
@@ -62,7 +68,7 @@ export function StockTakeForm() {
     async function fetchItems() {
       try {
         setLoadingItems(true);
-        const response = await fetch('/api/items?all=true');
+        const response = await fetch('/api/items?all=true&sellableOnly=true');
         const result = await response.json();
         if (result.success) {
           setItems(result.data);
@@ -203,7 +209,11 @@ export function StockTakeForm() {
       if (result.success) {
         setShowSuccess(true);
         setTimeout(() => {
-          router.push('/admin/stock');
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            router.push('/admin/stock');
+          }
         }, 2000);
       } else {
         setError(result.message || 'Failed to complete stock take');
