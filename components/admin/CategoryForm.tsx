@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Sparkles, Grid3x3 } from 'lucide-react';
+import { Loader2, Sparkles, Grid3x3, Plus, X, Check } from 'lucide-react';
 import type { Category } from '@/lib/db/types';
 import { apiPost, apiPut } from '@/lib/utils/api-client';
 
@@ -15,6 +15,12 @@ interface CategoryFormProps {
   existingCategories?: Category[];
   onClose: () => void;
   onSuccess: () => void;
+}
+
+interface PendingCategory {
+  id: string;
+  name: string;
+  icon: string;
 }
 
 const COMMON_CATEGORIES = [
@@ -54,14 +60,9 @@ export function CategoryForm({ category, existingCategories = [], onClose, onSuc
     existingCategories.map(cat => cat.name.toLowerCase().trim())
   );
   
-  const availableCategories = COMMON_CATEGORIES.filter(
-    cat => !existingCategoryNames.has(cat.toLowerCase().trim())
-  );
-  
-  const [selectedCategory, setSelectedCategory] = useState<string>(
-    category?.name || 'custom'
-  );
-  const [isCustom, setIsCustom] = useState(!category || !COMMON_CATEGORIES.includes(category.name));
+  const [pendingCategories, setPendingCategories] = useState<PendingCategory[]>([]);
+  const [customName, setCustomName] = useState('');
+  const [customIcon, setCustomIcon] = useState('');
   
   const [formData, setFormData] = useState({
     name: category?.name || '',
@@ -71,6 +72,14 @@ export function CategoryForm({ category, existingCategories = [], onClose, onSuc
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successCount, setSuccessCount] = useState(0);
+
+  const availableCategories = COMMON_CATEGORIES.filter(cat => {
+    const lowerCat = cat.toLowerCase().trim();
+    const alreadyExists = existingCategoryNames.has(lowerCat);
+    const alreadyPending = pendingCategories.some(p => p.name.toLowerCase().trim() === lowerCat);
+    return !alreadyExists && !alreadyPending;
+  });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({
@@ -79,46 +88,103 @@ export function CategoryForm({ category, existingCategories = [], onClose, onSuc
     }));
   };
 
-  const handleCategorySelect = (value: string) => {
-    setSelectedCategory(value);
-    if (value === 'custom') {
-      setIsCustom(true);
-      setFormData((prev) => ({ ...prev, name: '', icon: '' }));
+  const toggleCommonCategory = (catName: string) => {
+    const exists = pendingCategories.find(p => p.name === catName);
+    if (exists) {
+      setPendingCategories(prev => prev.filter(p => p.name !== catName));
     } else {
-      setIsCustom(false);
-      // Auto-select first emoji for the category if available
-      const suggestedEmoji = CATEGORY_EMOJIS[value]?.[0] || '';
-      setFormData((prev) => ({ ...prev, name: value, icon: suggestedEmoji }));
+      const emoji = CATEGORY_EMOJIS[catName]?.[0] || '📦';
+      setPendingCategories(prev => [
+        ...prev,
+        { id: `${catName}-${Date.now()}`, name: catName, icon: emoji }
+      ]);
     }
+  };
+
+  const addCustomCategory = () => {
+    const trimmedName = customName.trim();
+    if (!trimmedName) return;
+    
+    const lowerName = trimmedName.toLowerCase();
+    const alreadyExists = existingCategoryNames.has(lowerName);
+    const alreadyPending = pendingCategories.some(p => p.name.toLowerCase() === lowerName);
+    
+    if (alreadyExists || alreadyPending) {
+      setError(`Category "${trimmedName}" already exists`);
+      return;
+    }
+    
+    setPendingCategories(prev => [
+      ...prev,
+      { id: `custom-${Date.now()}`, name: trimmedName, icon: customIcon || '📦' }
+    ]);
+    setCustomName('');
+    setCustomIcon('');
+    setError(null);
+  };
+
+  const removePendingCategory = (id: string) => {
+    setPendingCategories(prev => prev.filter(p => p.id !== id));
+  };
+
+  const updatePendingIcon = (id: string, icon: string) => {
+    setPendingCategories(prev => 
+      prev.map(p => p.id === id ? { ...p, icon } : p)
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+    setSuccessCount(0);
 
     try {
-      const url = isEditing ? `/api/categories/${category.id}` : '/api/categories';
-
-      const payload: Record<string, unknown> = {
-        name: formData.name,
-        icon: formData.icon || null,
-      };
-
-      if (formData.position) {
-        payload.position = parseInt(formData.position);
-      }
-
       if (isEditing) {
-        payload.active = formData.active;
+        const url = `/api/categories/${category.id}`;
+        const payload: Record<string, unknown> = {
+          name: formData.name,
+          icon: formData.icon || null,
+          active: formData.active,
+        };
+        if (formData.position) {
+          payload.position = parseInt(formData.position);
+        }
+        const result = await apiPut(url, payload);
+        if (!result.success) {
+          setError(result.message || 'Update failed');
+          setIsLoading(false);
+          return;
+        }
+        onSuccess();
+        return;
       }
 
-      const result = isEditing 
-        ? await apiPut(url, payload)
-        : await apiPost(url, payload);
+      // Creating multiple categories
+      if (pendingCategories.length === 0) {
+        setError('Please select or add at least one category');
+        setIsLoading(false);
+        return;
+      }
 
-      if (!result.success) {
-        setError(result.message || 'Operation failed');
+      let created = 0;
+      const errors: string[] = [];
+
+      for (const cat of pendingCategories) {
+        const result = await apiPost('/api/categories', {
+          name: cat.name,
+          icon: cat.icon || null,
+        });
+        if (result.success) {
+          created++;
+          setSuccessCount(created);
+        } else {
+          errors.push(`${cat.name}: ${result.message || 'Failed'}`);
+        }
+      }
+
+      if (errors.length > 0 && created === 0) {
+        setError(errors.join(', '));
         setIsLoading(false);
         return;
       }
@@ -130,145 +196,56 @@ export function CategoryForm({ category, existingCategories = [], onClose, onSuc
     }
   };
 
-  return (
-    <div className="max-w-2xl mx-auto py-6">
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {!isEditing && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Grid3x3 className="h-4 w-4 text-muted-foreground" />
-              <Label className="text-base font-semibold">Choose a Category</Label>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {availableCategories.map((cat) => {
-                const isSelected = selectedCategory === cat;
-                const emoji = CATEGORY_EMOJIS[cat]?.[0] || '📦';
-                return (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => handleCategorySelect(cat)}
-                    disabled={isLoading}
-                    className={`
-                      relative p-4 rounded-lg border-2 transition-all duration-200
-                      text-left group hover:shadow-md
-                      ${isSelected 
-                        ? 'border-[#259783] bg-[#259783]/5 dark:bg-[#259783]/10 shadow-sm' 
-                        : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
-                      }
-                      ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                    `}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-3xl">{emoji}</span>
-                      <span className="font-medium text-sm flex-1">{cat}</span>
-                    </div>
-                    {isSelected && (
-                      <div className="absolute top-2 right-2">
-                        <div className="h-2 w-2 rounded-full bg-[#259783] animate-pulse" />
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-              <button
-                type="button"
-                onClick={() => handleCategorySelect('custom')}
-                disabled={isLoading}
-                className={`
-                  relative p-4 rounded-lg border-2 border-dashed transition-all duration-200
-                  text-left group hover:shadow-md
-                  ${selectedCategory === 'custom'
-                    ? 'border-[#259783] bg-[#259783]/5 dark:bg-[#259783]/10 shadow-sm'
-                    : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
-                  }
-                  ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                `}
-              >
-                <div className="flex items-center gap-3">
-                  <Sparkles className="h-6 w-6 text-muted-foreground" />
-                  <span className="font-medium text-sm">Custom</span>
-                </div>
-                {selectedCategory === 'custom' && (
-                  <div className="absolute top-2 right-2">
-                    <div className="h-2 w-2 rounded-full bg-[#259783] animate-pulse" />
-                  </div>
-                )}
-              </button>
-            </div>
-          </div>
-        )}
-
-        <Separator />
-
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name" className="text-base font-semibold">
-              Category Name
-              {!isEditing && isCustom && (
-                <Badge variant="outline" className="ml-2">Custom</Badge>
-              )}
-            </Label>
-            <Input
-              id="name"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              placeholder={isCustom ? "Enter your custom category name" : "Category name"}
-              required
-              disabled={isLoading || (!isEditing && !isCustom)}
-              className="h-11 text-base focus-visible:ring-[#259783]"
-            />
-            {!isEditing && !isCustom && formData.name && (
-              <p className="text-sm text-muted-foreground flex items-center gap-1">
-                <span>Selected:</span>
-                <Badge variant="secondary">{formData.name}</Badge>
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-3">
-            <Label htmlFor="icon" className="text-base font-semibold">
-              Category Icon
-              <span className="text-xs font-normal text-muted-foreground ml-2">(Optional)</span>
-            </Label>
-            
-            {formData.name && CATEGORY_EMOJIS[formData.name] && (
-              <div className="space-y-3">
-                <div className="p-4 rounded-lg bg-muted/50 border">
-                  <p className="text-sm font-medium mb-3 text-muted-foreground">
-                    Suggested icons for <span className="font-semibold text-foreground">{formData.name}</span>
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {CATEGORY_EMOJIS[formData.name].map((emoji, idx) => {
-                      const isSelected = formData.icon === emoji;
-                      return (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => setFormData((prev) => ({ ...prev, icon: emoji }))}
-                          disabled={isLoading}
-                          className={`
-                            text-3xl p-3 rounded-lg border-2 transition-all duration-200
-                            hover:scale-110 hover:shadow-md
-                            ${isSelected 
-                              ? 'border-[#259783] bg-[#259783]/10 scale-105 shadow-sm' 
-                              : 'border-border bg-background hover:border-[#259783]/50'
-                            }
-                            ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                          `}
-                          title={`Select ${emoji}`}
-                        >
-                          {emoji}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
+  // Edit mode UI
+  if (isEditing) {
+    return (
+      <div className="max-w-2xl mx-auto py-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="name" className="text-base font-semibold">Category Name</Label>
+              <Input
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="Category name"
+                required
+                disabled={isLoading}
+                className="h-11 text-base focus-visible:ring-[#259783]"
+              />
+            </div>
+
+            <div className="space-y-3">
+              <Label htmlFor="icon" className="text-base font-semibold">
+                Category Icon
+                <span className="text-xs font-normal text-muted-foreground ml-2">(Optional)</span>
+              </Label>
+              
+              {CATEGORY_EMOJIS[formData.name] && (
+                <div className="p-4 rounded-lg bg-muted/50 border">
+                  <p className="text-sm font-medium mb-3 text-muted-foreground">Suggested icons</p>
+                  <div className="flex flex-wrap gap-2">
+                    {CATEGORY_EMOJIS[formData.name].map((emoji, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, icon: emoji }))}
+                        disabled={isLoading}
+                        className={`text-3xl p-3 rounded-lg border-2 transition-all duration-200
+                          hover:scale-110 hover:shadow-md
+                          ${formData.icon === emoji 
+                            ? 'border-[#259783] bg-[#259783]/10 scale-105 shadow-sm' 
+                            : 'border-border bg-background hover:border-[#259783]/50'
+                          }`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <Input
                 id="icon"
                 name="icon"
@@ -279,96 +256,214 @@ export function CategoryForm({ category, existingCategories = [], onClose, onSuc
                 disabled={isLoading}
                 className="h-11 text-lg focus-visible:ring-[#259783]"
               />
-              <p className="text-xs text-muted-foreground">
-                {formData.name && CATEGORY_EMOJIS[formData.name]
-                  ? 'Click an icon above or type your own emoji'
-                  : 'Enter an emoji to represent this category visually'}
-              </p>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="position" className="text-base font-semibold">
-              Display Position
-              <span className="text-xs font-normal text-muted-foreground ml-2">(Optional)</span>
-            </Label>
-            <Input
-              id="position"
-              name="position"
-              type="number"
-              value={formData.position}
-              onChange={handleChange}
-              placeholder="Auto (will be added at the end)"
-              min="0"
-              disabled={isLoading}
-              className="h-11 focus-visible:ring-[#259783]"
-            />
-            <p className="text-xs text-muted-foreground">
-              Lower numbers appear first in the category list. Leave empty to add at the end automatically.
-            </p>
-          </div>
+            <Separator />
+            
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/30 border">
+              <input
+                type="checkbox"
+                id="active"
+                checked={formData.active === 1}
+                onChange={(e) => setFormData(prev => ({ ...prev, active: e.target.checked ? 1 : 0 }))}
+                className="h-5 w-5 rounded border-gray-300 text-[#259783] focus:ring-[#259783]"
+                disabled={isLoading}
+              />
+              <Label htmlFor="active" className="text-base font-medium cursor-pointer">
+                Category is Active
+              </Label>
+              <Badge variant={formData.active === 1 ? 'default' : 'secondary'} className="ml-auto">
+                {formData.active === 1 ? 'Enabled' : 'Disabled'}
+              </Badge>
+            </div>
 
-          {isEditing && (
-            <>
-              <Separator />
-              <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/30 border">
-                <input
-                  type="checkbox"
-                  id="active"
-                  checked={formData.active === 1}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      active: e.target.checked ? 1 : 0,
-                    }))
-                  }
-                  className="h-5 w-5 rounded border-gray-300 text-[#259783] focus:ring-[#259783] focus:ring-2"
-                  disabled={isLoading}
-                />
-                <Label htmlFor="active" className="text-base font-medium cursor-pointer">
-                  Category is Active
-                </Label>
-                <Badge variant={formData.active === 1 ? 'default' : 'secondary'} className="ml-auto">
-                  {formData.active === 1 ? 'Enabled' : 'Disabled'}
-                </Badge>
+            {error && (
+              <div className="p-4 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg">
+                ⚠️ {error}
               </div>
-            </>
-          )}
+            )}
 
-          {error && (
-            <div className="p-4 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg flex items-start gap-2">
-              <span className="text-destructive">⚠️</span>
-              <span>{error}</span>
+            <div className="flex gap-3 pt-4 border-t">
+              <Button type="button" variant="outline" className="flex-1 h-11" onClick={onClose} disabled={isLoading}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1 h-11 bg-[#259783] hover:bg-[#45d827] text-white font-semibold"
+                disabled={isLoading}
+              >
+                {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Updating...</> : 'Update Category'}
+              </Button>
             </div>
-          )}
+          </div>
+        </form>
+      </div>
+    );
+  }
 
-          <div className="flex gap-3 pt-4 border-t">
+  // Create mode UI (supports multiple)
+  return (
+    <div className="max-w-2xl mx-auto py-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Quick Select Common Categories */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Grid3x3 className="h-4 w-4 text-muted-foreground" />
+            <Label className="text-base font-semibold">Quick Select Categories</Label>
+            <Badge variant="secondary" className="ml-auto">Click to add</Badge>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {availableCategories.map((cat) => {
+              const emoji = CATEGORY_EMOJIS[cat]?.[0] || '📦';
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => toggleCommonCategory(cat)}
+                  disabled={isLoading}
+                  className={`
+                    relative p-4 rounded-lg border-2 transition-all duration-200
+                    text-left group hover:shadow-md
+                    border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50
+                    ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                  `}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">{emoji}</span>
+                    <span className="font-medium text-sm flex-1">{cat}</span>
+                    <Plus className="h-4 w-4 text-muted-foreground group-hover:text-[#259783]" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          {availableCategories.length === 0 && (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              All common categories have been added or already exist
+            </p>
+          )}
+        </div>
+
+        <Separator />
+
+        {/* Add Custom Category */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-muted-foreground" />
+            <Label className="text-base font-semibold">Add Custom Category</Label>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              value={customIcon}
+              onChange={(e) => setCustomIcon(e.target.value)}
+              placeholder="📦"
+              maxLength={2}
+              disabled={isLoading}
+              className="w-16 h-11 text-xl text-center focus-visible:ring-[#259783]"
+            />
+            <Input
+              value={customName}
+              onChange={(e) => setCustomName(e.target.value)}
+              placeholder="Enter custom category name"
+              disabled={isLoading}
+              className="flex-1 h-11 focus-visible:ring-[#259783]"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addCustomCategory();
+                }
+              }}
+            />
             <Button
               type="button"
-              variant="outline"
-              className="flex-1 h-11"
-              onClick={onClose}
-              disabled={isLoading}
+              onClick={addCustomCategory}
+              disabled={isLoading || !customName.trim()}
+              className="h-11 bg-[#259783] hover:bg-[#45d827] text-white"
             >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="flex-1 h-11 bg-[#259783] hover:bg-[#45d827] text-white font-semibold shadow-md shadow-[#259783]/20"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isEditing ? 'Updating...' : 'Creating...'}
-                </>
-              ) : isEditing ? (
-                'Update Category'
-              ) : (
-                'Create Category'
-              )}
+              <Plus className="h-4 w-4" />
             </Button>
           </div>
+        </div>
+
+        <Separator />
+
+        {/* Pending Categories List */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-base font-semibold">Categories to Create</Label>
+            <Badge variant={pendingCategories.length > 0 ? 'default' : 'secondary'}>
+              {pendingCategories.length} selected
+            </Badge>
+          </div>
+
+          {pendingCategories.length === 0 ? (
+            <div className="p-8 text-center border-2 border-dashed rounded-lg bg-muted/30">
+              <p className="text-sm text-muted-foreground">
+                Click on categories above or add custom ones
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+              {pendingCategories.map((cat) => (
+                <div
+                  key={cat.id}
+                  className="flex items-center gap-3 p-3 rounded-lg bg-[#259783]/5 border border-[#259783]/20"
+                >
+                  <Input
+                    value={cat.icon}
+                    onChange={(e) => updatePendingIcon(cat.id, e.target.value)}
+                    maxLength={2}
+                    disabled={isLoading}
+                    className="w-14 h-10 text-xl text-center border-[#259783]/30"
+                  />
+                  <span className="flex-1 font-medium">{cat.name}</span>
+                  <Check className="h-4 w-4 text-[#259783]" />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removePendingCategory(cat.id)}
+                    disabled={isLoading}
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {error && (
+          <div className="p-4 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg">
+            ⚠️ {error}
+          </div>
+        )}
+
+        {isLoading && successCount > 0 && (
+          <div className="p-4 text-sm text-[#259783] bg-[#259783]/10 border border-[#259783]/20 rounded-lg">
+            ✓ Created {successCount} of {pendingCategories.length} categories...
+          </div>
+        )}
+
+        <div className="flex gap-3 pt-4 border-t">
+          <Button type="button" variant="outline" className="flex-1 h-11" onClick={onClose} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            className="flex-1 h-11 bg-[#259783] hover:bg-[#45d827] text-white font-semibold shadow-md shadow-[#259783]/20"
+            disabled={isLoading || pendingCategories.length === 0}
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating {pendingCategories.length}...
+              </>
+            ) : (
+              <>Create {pendingCategories.length} {pendingCategories.length === 1 ? 'Category' : 'Categories'}</>
+            )}
+          </Button>
         </div>
       </form>
     </div>

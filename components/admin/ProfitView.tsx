@@ -22,9 +22,8 @@ import {
   CheckCircle2,
   XCircle,
   ChevronRight,
-  ArrowUpRight,
-  ArrowDownRight,
 } from 'lucide-react';
+import { ProfitCalendar } from './ProfitCalendar';
 
 interface ProfitData {
   totalProfit: number;
@@ -422,6 +421,9 @@ export function ProfitView() {
           </div>
         ))}
       </div>
+
+      {/* Profit Calendar Heatmap */}
+      <ProfitCalendar />
 
       {/* Item Performance Cards */}
       <div className="grid lg:grid-cols-3 gap-4">

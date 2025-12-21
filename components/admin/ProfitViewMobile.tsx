@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, WifiOff, TrendingUp, TrendingDown, AlertTriangle, Download, ShoppingBag, Receipt, PieChart, Package, Target, CheckCircle2, XCircle, ChevronRight, Wallet } from 'lucide-react';
+import { ArrowLeft, WifiOff, TrendingUp, TrendingDown, AlertTriangle, Download, ShoppingBag, Receipt, PieChart, Package, Target, CheckCircle2, XCircle, ChevronRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { ProfitCalendar } from './ProfitCalendar';
 
 interface ProfitData {
   totalProfit: number;
@@ -218,6 +219,11 @@ export function ProfitViewMobile() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Profit Calendar Heatmap */}
+      <div className="px-4 pb-4">
+        <ProfitCalendar compact />
       </div>
 
       {/* Net Profit Status */}

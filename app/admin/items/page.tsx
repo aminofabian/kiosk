@@ -936,12 +936,12 @@ export default function ItemsPage() {
             <DrawerHeader className="border-b bg-gradient-to-r from-blue-500/10 to-[#259783]/10">
               <DrawerTitle className="flex items-center gap-2">
                 <FolderTree className="w-5 h-5 text-blue-500" />
-                {editingCategory ? `Edit: ${editingCategory.name}` : 'Add New Category'}
+                {editingCategory ? `Edit: ${editingCategory.name}` : 'Add Categories'}
               </DrawerTitle>
               <DrawerDescription>
                 {editingCategory
                   ? 'Update category details below'
-                  : 'Create a new category to organize your products'}
+                  : 'Select multiple categories or add custom ones'}
               </DrawerDescription>
             </DrawerHeader>
             <div className="overflow-y-auto px-6 pb-6 flex-1 bg-slate-50/50 dark:bg-slate-900/50">
