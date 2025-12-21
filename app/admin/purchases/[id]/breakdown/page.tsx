@@ -81,7 +81,7 @@ export default function BreakdownPage() {
           </Link>
           <h1 className="text-2xl font-bold">Purchase Breakdown</h1>
         </div>
-        <BreakdownView purchase={purchaseData.purchase} items={purchaseData.items} />
+        <BreakdownView purchase={purchaseData.purchase} items={purchaseData.items} purchaseId={purchaseId} />
       </div>
     </AdminLayout>
   );
