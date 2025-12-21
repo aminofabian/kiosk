@@ -37,12 +37,35 @@ import { Settings } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
 const CATEGORY_IMAGE_MAP: Record<string, string> = {
-  Vegetables: '/images/vegetables.jpeg',
-  Fruits: '/images/fruits.jpeg',
-  'Grains & Cereals': '/images/grains and cereals.jpeg',
-  Spices: '/images/spices.jpeg',
-  Beverages: '/images/beverages.jpeg',
-  Snacks: '/images/snacks.jpeg',
+  Vegetables: '/category/vegetables.jpeg',
+  'Green Grocery': '/category/Green Grocery.jpg',
+  'green grocery': '/category/Green Grocery.jpg',
+  'GREEN GROCERY': '/category/Green Grocery.jpg',
+  Fruits: '/category/fruits.jpeg',
+  'Grains & Cereals': '/category/Grain & Cereal.webp',
+  'Grains and Cereals': '/category/Grain & Cereal.webp',
+  'grains & cereals': '/category/Grain & Cereal.webp',
+  'grains and cereals': '/category/Grain & Cereal.webp',
+  'Cereals & Grains': '/category/Cereals & Grain.webp',
+  'Cereals and Grains': '/category/Cereals & Grain.webp',
+  'cereals & grains': '/category/Cereals & Grain.webp',
+  'cereals and grains': '/category/Cereals & Grain.webp',
+  'Cereals & Grain': '/category/Cereals & Grain.webp',
+  'Cereals and Grain': '/category/Cereals & Grain.webp',
+  'cereals & grain': '/category/Cereals & Grain.webp',
+  'cereals and grain': '/category/Cereals & Grain.webp',
+  'Grain & Cereal': '/category/Grain & Cereal.webp',
+  'Grain and Cereal': '/category/Grain & Cereal.webp',
+  'grain & cereal': '/category/Grain & Cereal.webp',
+  'grain and cereal': '/category/Grain & Cereal.webp',
+  Spices: '/category/spices.webp',
+  Beverages: '/category/beverages.avif',
+  Snacks: '/category/snacks.jpg',
+  Bakery: '/category/bakery.webp',
+  'Canned Goods': '/category/canned goods.jpeg',
+  Dairy: '/category/Dairy.jpeg',
+  'Frozen Foods': '/category/frozen foods.jpg',
+  Meat: '/category/meat.jpg',
 };
 
 const CATEGORY_ICON_MAP: Record<string, React.ReactNode> = {
@@ -169,7 +192,61 @@ export default function POSPage() {
   );
 
   const getCategoryImage = (categoryName: string) => {
-    return CATEGORY_IMAGE_MAP[categoryName] || null;
+    if (!categoryName) return null;
+    
+    const normalizedName = categoryName.trim();
+    
+    if (CATEGORY_IMAGE_MAP[normalizedName]) {
+      return CATEGORY_IMAGE_MAP[normalizedName];
+    }
+    
+    const lowerName = normalizedName.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, ' ').trim();
+    
+    const nameVariations: Array<[string, string]> = [
+      ['green grocery', '/category/Green Grocery.jpg'],
+      ['grains and cereals', '/category/Grain & Cereal.webp'],
+      ['cereals and grains', '/category/Cereals & Grain.webp'],
+      ['cereals and grain', '/category/Cereals & Grain.webp'],
+      ['grain and cereal', '/category/Grain & Cereal.webp'],
+      ['grain and cereals', '/category/Grain & Cereal.webp'],
+      ['grains and cereal', '/category/Grain & Cereal.webp'],
+      ['frozen foods', '/category/frozen foods.jpg'],
+      ['frozen food', '/category/frozen foods.jpg'],
+      ['canned goods', '/category/canned goods.jpeg'],
+      ['canned good', '/category/canned goods.jpeg'],
+      ['baked goods', '/category/bakery.webp'],
+      ['vegetables', '/category/vegetables.jpeg'],
+      ['vegetable', '/category/vegetables.jpeg'],
+      ['fruits', '/category/fruits.jpeg'],
+      ['fruit', '/category/fruits.jpeg'],
+      ['spices', '/category/spices.webp'],
+      ['spice', '/category/spices.webp'],
+      ['beverages', '/category/beverages.avif'],
+      ['beverage', '/category/beverages.avif'],
+      ['drinks', '/category/beverages.avif'],
+      ['drink', '/category/beverages.avif'],
+      ['snacks', '/category/snacks.jpg'],
+      ['snack', '/category/snacks.jpg'],
+      ['bakery', '/category/bakery.webp'],
+      ['canned', '/category/canned goods.jpeg'],
+      ['dairy', '/category/Dairy.jpeg'],
+      ['milk', '/category/Dairy.jpeg'],
+      ['frozen', '/category/frozen foods.jpg'],
+      ['meat', '/category/meat.jpg'],
+    ];
+    
+    const exactMatch = nameVariations.find(([key]) => lowerName === key);
+    if (exactMatch) {
+      return exactMatch[1];
+    }
+    
+    for (const [key, value] of nameVariations) {
+      if (lowerName === key || lowerName.includes(key) || key.includes(lowerName)) {
+        return value;
+      }
+    }
+    
+    return null;
   };
 
   const getCategoryIcon = (categoryName: string) => {
