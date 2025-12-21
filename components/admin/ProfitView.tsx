@@ -260,38 +260,38 @@ export function ProfitView() {
 
       {/* Profitability Status Banner */}
       {hasExpenses && (
-        <div className={`flex items-center justify-between p-5 border-2 ${
+        <div className={`flex items-center justify-between p-4 border-2 ${
           isProfitable 
             ? 'border-[#259783] bg-[#259783]/5' 
             : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10'
         }`}>
-          <div className="flex items-center gap-4">
-            <div className={`w-12 h-12 flex items-center justify-center border-2 ${
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 flex items-center justify-center border-2 ${
               isProfitable ? 'border-[#259783] bg-[#259783]' : 'border-red-500 bg-red-500'
             }`}>
-              {isProfitable ? <CheckCircle2 className="w-6 h-6 text-white" /> : <XCircle className="w-6 h-6 text-white" />}
+              {isProfitable ? <CheckCircle2 className="w-5 h-5 text-white" /> : <XCircle className="w-5 h-5 text-white" />}
             </div>
             <div>
-              <p className={`text-xs font-black uppercase tracking-wide mb-1 ${
+              <p className={`text-[10px] font-black uppercase tracking-wide mb-0.5 ${
                 isProfitable ? 'text-[#259783]' : 'text-red-600 dark:text-red-400'
               }`}>
                 {isProfitable ? '✓ PROFITABLE' : '✗ AT A LOSS'}
               </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">
                 Net profit after {getPeriodDays()} day{getPeriodDays() !== 1 ? 's' : ''} expenses
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-6">
-            <div className="text-right border-r-2 border-slate-200 dark:border-slate-700 pr-6">
-              <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Net Profit</p>
-              <p className={`text-2xl font-black ${isProfitable ? 'text-[#259783]' : 'text-red-600 dark:text-red-400'}`}>
+          <div className="flex items-center gap-4">
+            <div className="text-right border-r-2 border-slate-200 dark:border-slate-700 pr-4">
+              <p className="text-[10px] text-slate-500 uppercase font-bold mb-0.5">Net Profit</p>
+              <p className={`text-lg font-black ${isProfitable ? 'text-[#259783]' : 'text-red-600 dark:text-red-400'}`}>
                 {isProfitable ? '+' : ''}{formatPrice(getNetProfit())}
               </p>
             </div>
             <div className="text-right">
-              <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Safe to Bank</p>
-              <p className="text-2xl font-black text-slate-900 dark:text-white">
+              <p className="text-[10px] text-slate-500 uppercase font-bold mb-0.5">Safe to Bank</p>
+              <p className="text-lg font-black text-slate-900 dark:text-white">
                 {formatPrice(Math.max(0, getNetProfit()))}
               </p>
             </div>
@@ -301,92 +301,92 @@ export function ProfitView() {
 
       {/* Main Stats - 4 Column Grid */}
       <div className="grid grid-cols-4 gap-3">
-        <div className="border-2 border-[#259783] bg-[#259783] p-5">
-          <div className="flex items-center justify-between mb-3">
-            <TrendingUp className="w-5 h-5 text-white" />
-            <span className="text-white/70 text-[10px] font-bold bg-white/20 px-1.5 py-0.5">
+        <div className="border-2 border-[#259783] bg-[#259783] p-3.5">
+          <div className="flex items-center justify-between mb-2">
+            <TrendingUp className="w-4 h-4 text-white" />
+            <span className="text-white/70 text-[9px] font-bold bg-white/20 px-1 py-0.5">
               {formatPercent(profitData.profitMargin)}
             </span>
           </div>
-          <p className="text-white/80 text-[10px] font-bold uppercase tracking-wide mb-1">Gross Profit</p>
-          <p className="text-3xl font-black text-white">{formatPrice(profitData.totalProfit)}</p>
-          <p className="text-white/60 text-xs mt-1">Sales - Cost of Goods</p>
+          <p className="text-white/80 text-[9px] font-bold uppercase tracking-wide mb-0.5">Gross Profit</p>
+          <p className="text-xl font-black text-white">{formatPrice(profitData.totalProfit)}</p>
+          <p className="text-white/60 text-[9px] mt-0.5">Sales - Cost of Goods</p>
         </div>
 
-        <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
-          <div className="flex items-center justify-between mb-3">
-            <ShoppingCart className="w-5 h-5 text-[#259783]" />
+        <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
+          <div className="flex items-center justify-between mb-2">
+            <ShoppingCart className="w-4 h-4 text-[#259783]" />
           </div>
-          <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-1">Revenue</p>
-          <p className="text-3xl font-black text-slate-900 dark:text-white">{formatPrice(profitData.totalSales)}</p>
+          <p className="text-slate-500 dark:text-slate-400 text-[9px] font-bold uppercase tracking-wide mb-0.5">Revenue</p>
+          <p className="text-xl font-black text-slate-900 dark:text-white">{formatPrice(profitData.totalSales)}</p>
         </div>
 
-        <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
-          <div className="flex items-center justify-between mb-3">
-            <DollarSign className="w-5 h-5 text-[#259783]" />
+        <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
+          <div className="flex items-center justify-between mb-2">
+            <DollarSign className="w-4 h-4 text-[#259783]" />
           </div>
-          <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-1">Cost of Goods</p>
-          <p className="text-3xl font-black text-slate-900 dark:text-white">{formatPrice(profitData.totalCost)}</p>
+          <p className="text-slate-500 dark:text-slate-400 text-[9px] font-bold uppercase tracking-wide mb-0.5">Cost of Goods</p>
+          <p className="text-xl font-black text-slate-900 dark:text-white">{formatPrice(profitData.totalCost)}</p>
         </div>
 
-        <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
-          <div className="flex items-center justify-between mb-3">
-            <Users className="w-5 h-5 text-[#259783]" />
+        <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
+          <div className="flex items-center justify-between mb-2">
+            <Users className="w-4 h-4 text-[#259783]" />
           </div>
-          <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-1">Customers</p>
-          <p className="text-3xl font-black text-slate-900 dark:text-white">{profitData.totalCustomers}</p>
+          <p className="text-slate-500 dark:text-slate-400 text-[9px] font-bold uppercase tracking-wide mb-0.5">Customers</p>
+          <p className="text-xl font-black text-slate-900 dark:text-white">{profitData.totalCustomers}</p>
         </div>
       </div>
 
       {/* Operating Expenses Row */}
       {hasExpenses ? (
         <div className="grid grid-cols-3 gap-3">
-          <div className="border-2 border-[#259783] bg-[#259783] p-5">
-            <div className="flex items-center justify-between mb-3">
-              <Receipt className="w-5 h-5 text-white" />
-              <Link href="/admin/expenses" className="text-white/70 text-[10px] hover:text-white flex items-center gap-0.5">
+          <div className="border-2 border-[#259783] bg-[#259783] p-3.5">
+            <div className="flex items-center justify-between mb-2">
+              <Receipt className="w-4 h-4 text-white" />
+              <Link href="/admin/expenses" className="text-white/70 text-[9px] hover:text-white flex items-center gap-0.5">
                 Manage <ChevronRight className="w-3 h-3" />
               </Link>
             </div>
-            <p className="text-white/80 text-[10px] font-bold uppercase tracking-wide mb-1">Operating Expenses</p>
-            <p className="text-3xl font-black text-white">{formatPrice(getDailyExpense())}</p>
-            <p className="text-white/60 text-[10px] mt-1">{expenseData?.expenseCount} expense{expenseData?.expenseCount !== 1 ? 's' : ''} • {getPeriodDays()} days</p>
+            <p className="text-white/80 text-[9px] font-bold uppercase tracking-wide mb-0.5">Operating Expenses</p>
+            <p className="text-xl font-black text-white">{formatPrice(getDailyExpense())}</p>
+            <p className="text-white/60 text-[9px] mt-0.5">{expenseData?.expenseCount} expense{expenseData?.expenseCount !== 1 ? 's' : ''} • {getPeriodDays()} days</p>
           </div>
 
-          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
-            <div className="flex items-center justify-between mb-3">
-              <Target className="w-5 h-5 text-[#259783]" />
+          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
+            <div className="flex items-center justify-between mb-2">
+              <Target className="w-4 h-4 text-[#259783]" />
               {profitData.totalSales >= getBreakEvenSales() && (
-                <span className="text-[10px] font-bold text-[#259783] bg-[#259783]/10 px-1.5 py-0.5">✓</span>
+                <span className="text-[9px] font-bold text-[#259783] bg-[#259783]/10 px-1 py-0.5">✓</span>
               )}
             </div>
-            <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-1">Break-even Sales</p>
-            <p className="text-3xl font-black text-slate-900 dark:text-white">{formatPrice(getBreakEvenSales())}</p>
-            <p className="text-slate-400 text-[10px] mt-1">Min. to survive</p>
+            <p className="text-slate-500 dark:text-slate-400 text-[9px] font-bold uppercase tracking-wide mb-0.5">Break-even Sales</p>
+            <p className="text-xl font-black text-slate-900 dark:text-white">{formatPrice(getBreakEvenSales())}</p>
+            <p className="text-slate-400 text-[9px] mt-0.5">Min. to survive</p>
           </div>
 
-          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
-            <div className="flex items-center justify-between mb-3">
-              <Wallet className="w-5 h-5 text-[#259783]" />
+          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
+            <div className="flex items-center justify-between mb-2">
+              <Wallet className="w-4 h-4 text-[#259783]" />
             </div>
-            <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-1">Safe to Bank</p>
-            <p className={`text-3xl font-black ${isProfitable ? 'text-[#259783]' : 'text-red-500'}`}>
+            <p className="text-slate-500 dark:text-slate-400 text-[9px] font-bold uppercase tracking-wide mb-0.5">Safe to Bank</p>
+            <p className={`text-xl font-black ${isProfitable ? 'text-[#259783]' : 'text-red-500'}`}>
               {formatPrice(Math.max(0, getNetProfit()))}
             </p>
-            <p className="text-slate-400 text-[10px] mt-1">Keep {formatPrice(getDailyExpense())} for expenses</p>
+            <p className="text-slate-400 text-[9px] mt-0.5">Keep {formatPrice(getDailyExpense())} for expenses</p>
           </div>
         </div>
       ) : (
         <Link href="/admin/expenses" className="block">
-          <div className="flex items-center justify-between p-5 border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+          <div className="flex items-center justify-between p-4 border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
             <div className="flex items-center gap-3">
-              <Receipt className="w-5 h-5 text-[#259783]" />
+              <Receipt className="w-4 h-4 text-[#259783]" />
               <div>
-                <p className="font-black text-sm text-slate-900 dark:text-white">Add Operating Expenses</p>
-                <p className="text-xs text-slate-500 dark:text-slate-400">See true profit after rent, salaries, etc.</p>
+                <p className="font-black text-xs text-slate-900 dark:text-white">Add Operating Expenses</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">See true profit after rent, salaries, etc.</p>
               </div>
             </div>
-            <ChevronRight className="w-5 h-5 text-[#259783]" />
+            <ChevronRight className="w-4 h-4 text-[#259783]" />
           </div>
         </Link>
       )}
@@ -401,9 +401,9 @@ export function ProfitView() {
           { label: 'Repeat', value: profitData.repeatCustomers.toString() },
           { label: 'New', value: profitData.newCustomers.toString() },
         ].map((stat, index) => (
-          <div key={index} className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 text-center">
-            <p className="text-xl font-black text-slate-900 dark:text-white mb-1">{stat.value}</p>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold">{stat.label}</p>
+          <div key={index} className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-2.5 text-center">
+            <p className="text-base font-black text-slate-900 dark:text-white mb-0.5">{stat.value}</p>
+            <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">{stat.label}</p>
           </div>
         ))}
       </div>
