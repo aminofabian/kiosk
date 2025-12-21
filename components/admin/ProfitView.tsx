@@ -68,9 +68,13 @@ export function ProfitView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [datePreset, setDatePreset] = useState<DatePreset>('today');
-  const [dateRange, setDateRange] = useState({
-    start: new Date().toISOString().split('T')[0],
-    end: new Date().toISOString().split('T')[0],
+  const [dateRange, setDateRange] = useState(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`;
+    return { start: today, end: today };
   });
 
   useEffect(() => {
@@ -95,35 +99,41 @@ export function ProfitView() {
   }
 
   function updateDateRangeFromPreset(preset: DatePreset) {
-    const today = new Date();
-    const start = new Date();
-
-    switch (preset) {
-      case 'today':
-        start.setHours(0, 0, 0, 0);
-        break;
-      case 'week':
-        start.setDate(today.getDate() - 7);
-        break;
-      case 'month':
-        start.setDate(1);
-        break;
-      case 'custom':
-        return;
+    if (preset === 'custom') return;
+    
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const start = new Date(todayStart);
+    
+    if (preset === 'week') {
+      start.setDate(start.getDate() - 6);
+    } else if (preset === 'month') {
+      start.setDate(1);
     }
-
-    setDateRange({
-      start: start.toISOString().split('T')[0],
-      end: today.toISOString().split('T')[0],
-    });
+    
+    const formatDate = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    setDateRange({ start: formatDate(start), end: formatDate(todayStart) });
   }
 
   async function fetchProfitData() {
     try {
       setLoading(true);
       setError(null);
-      const startTimestamp = Math.floor(new Date(dateRange.start).getTime() / 1000);
-      const endTimestamp = Math.floor(new Date(dateRange.end + 'T23:59:59').getTime() / 1000);
+      
+      const [startYear, startMonth, startDay] = dateRange.start.split('-').map(Number);
+      const [endYear, endMonth, endDay] = dateRange.end.split('-').map(Number);
+      
+      const startDate = new Date(startYear, startMonth - 1, startDay, 0, 0, 0);
+      const endDate = new Date(endYear, endMonth - 1, endDay, 23, 59, 59);
+      
+      const startTimestamp = Math.floor(startDate.getTime() / 1000);
+      const endTimestamp = Math.floor(endDate.getTime() / 1000);
 
       const response = await fetch(`/api/profit?start=${startTimestamp}&end=${endTimestamp}`);
       const result = await response.json();
@@ -150,10 +160,15 @@ export function ProfitView() {
   };
 
   const getPeriodDays = () => {
-    const start = new Date(dateRange.start);
-    const end = new Date(dateRange.end);
+    const [startYear, startMonth, startDay] = dateRange.start.split('-').map(Number);
+    const [endYear, endMonth, endDay] = dateRange.end.split('-').map(Number);
+    
+    const start = new Date(startYear, startMonth - 1, startDay);
+    const end = new Date(endYear, endMonth - 1, endDay);
+    
     const diffTime = Math.abs(end.getTime() - start.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return diffDays;
   };
 
   const getDailyExpense = () => {
