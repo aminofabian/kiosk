@@ -11,7 +11,7 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from '@/components/ui/drawer';
-import { ArrowRight, User, Loader2, CreditCard, CheckCircle, DollarSign } from 'lucide-react';
+import { ArrowRight, User, Loader2, CreditCard, CheckCircle, DollarSign, X } from 'lucide-react';
 import type { CreditAccount } from '@/lib/db/types';
 import { SearchFilterSection } from './SearchFilterSection';
 import { PaymentForm } from './PaymentForm';
@@ -236,8 +236,17 @@ export function CreditList() {
       {/* Payment Drawer */}
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[600px] !max-w-none h-full max-h-screen">
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900">
-            <DrawerTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 relative pr-12">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setDrawerOpen(false)}
+              className="absolute right-4 top-4 h-10 w-10 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 border-2 border-slate-300 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-700 transition-all shadow-sm hover:shadow-md"
+            >
+              <X className="h-5 w-5" />
+              <span className="sr-only">Close</span>
+            </Button>
+            <DrawerTitle className="flex items-center gap-2 text-slate-900 dark:text-white pr-8">
               <DollarSign className="w-5 h-5 text-[#259783]" />
               Collect Payment
             </DrawerTitle>
