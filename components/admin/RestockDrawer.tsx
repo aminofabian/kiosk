@@ -104,6 +104,21 @@ export function RestockDrawer({ open, onOpenChange }: RestockDrawerProps) {
     return `${stock.toFixed(2)} ${unitType}`;
   };
 
+  const formatCurrency = (amount: number) => {
+    return `KES ${amount.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  };
+
+  const calculateRestockValue = (item: RestockItem) => {
+    // Estimate buy price from sell price (assuming ~30% margin)
+    const estimatedBuyPrice = item.current_sell_price * 0.7;
+    return item.suggestedRestock * estimatedBuyPrice;
+  };
+
+  const getBuyPricePerUnit = (item: RestockItem) => {
+    // Estimate buy price from sell price (assuming ~30% margin)
+    return item.current_sell_price * 0.7;
+  };
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="right">
       <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen flex flex-col">
@@ -166,6 +181,28 @@ export function RestockDrawer({ open, onOpenChange }: RestockDrawerProps) {
             </div>
           ) : (
             <div className="space-y-3 py-4">
+              {/* Summary */}
+              <Card className="bg-gradient-to-r from-amber-100 to-orange-100 dark:from-amber-950/30 dark:to-orange-950/30 border-amber-300 dark:border-amber-800">
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-amber-700 dark:text-amber-300 mb-1">Total Items to Restock</p>
+                      <p className="text-2xl font-bold text-amber-900 dark:text-amber-100">
+                        {restockItems.length}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-amber-700 dark:text-amber-300 mb-1">Estimated Total Cost</p>
+                      <p className="text-2xl font-bold text-amber-900 dark:text-amber-100">
+                        {formatCurrency(
+                          restockItems.reduce((sum, item) => sum + calculateRestockValue(item), 0)
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
               {restockItems.map((item) => {
                 const isOutOfStock = item.current_stock <= 0;
                 const currentVsMin = item.min_stock_level
@@ -224,8 +261,8 @@ export function RestockDrawer({ open, onOpenChange }: RestockDrawerProps) {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3 mt-3">
-                        <div className="bg-white dark:bg-slate-800/50 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
+                      <div className="grid grid-cols-3 gap-2 mt-3">
+                        <div className="bg-white dark:bg-slate-800/50 rounded-lg p-2.5 border border-slate-200 dark:border-slate-700">
                           <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">
                             Current Stock
                           </p>
@@ -236,29 +273,55 @@ export function RestockDrawer({ open, onOpenChange }: RestockDrawerProps) {
                           >
                             {formatStock(item.current_stock, item.unit_type)}
                           </p>
-                          {currentVsMin && !isOutOfStock && (
-                            <p className="text-xs text-slate-400 mt-1">
-                              {currentVsMin}% of minimum
+                        </div>
+                        <div className="bg-rose-50 dark:bg-rose-950/30 rounded-lg p-2.5 border border-rose-200 dark:border-rose-800">
+                          <p className="text-xs text-rose-700 dark:text-rose-300 mb-1 font-semibold">
+                            Need to Restock
+                          </p>
+                          <p className="font-bold text-base text-rose-900 dark:text-rose-100">
+                            {item.min_stock_level 
+                              ? Math.max(0, item.min_stock_level - item.current_stock).toFixed(1)
+                              : item.suggestedRestock.toFixed(1)
+                            } {item.unit_type}
+                          </p>
+                          {item.min_stock_level && item.current_stock < item.min_stock_level && (
+                            <p className="text-xs text-rose-600 dark:text-rose-400 mt-0.5">
+                              Deficit
                             </p>
                           )}
                         </div>
-                        <div className="bg-amber-100 dark:bg-amber-900/30 rounded-lg p-3 border border-amber-300 dark:border-amber-700">
+                        <div className="bg-amber-100 dark:bg-amber-900/30 rounded-lg p-2.5 border border-amber-300 dark:border-amber-700">
                           <p className="text-xs text-amber-700 dark:text-amber-300 mb-1 font-semibold">
-                            Suggested Restock
+                            Suggested
                           </p>
                           <p className="font-bold text-base text-amber-900 dark:text-amber-100">
                             {item.suggestedRestock} {item.unit_type}
                           </p>
                           {item.min_stock_level && (
-                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
-                              Target: {item.min_stock_level} {item.unit_type}
+                            <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                              {item.min_stock_level} min
                             </p>
                           )}
                         </div>
                       </div>
 
+                      {/* Restock Value */}
+                      <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-slate-500 dark:text-slate-400">
+                            Estimated Cost to Restock:
+                          </span>
+                          <span className="text-sm font-bold text-amber-700 dark:text-amber-300">
+                            {formatCurrency(calculateRestockValue(item))}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          {item.suggestedRestock} {item.unit_type} × {formatCurrency(getBuyPricePerUnit(item))} per {item.unit_type}
+                        </p>
+                      </div>
+
                       {item.min_stock_level && (
-                        <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700">
+                        <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
                           <div className="flex items-center justify-between text-xs">
                             <span className="text-slate-500 dark:text-slate-400">
                               Stock vs Minimum:
