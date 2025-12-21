@@ -15,50 +15,58 @@ export default function StockPage() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen">
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-white/80 dark:bg-[#0f1a0d]/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800">
-          <div className="px-4 md:px-6 py-4">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-500/20">
-                  <PackageCheck className="w-5 h-5 text-white" />
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-[#0a1208] dark:to-[#0f1a0d]">
+        {/* Compact Header */}
+        <div className="sticky top-0 z-10 bg-white/90 dark:bg-[#0f1a0d]/90 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-800/50">
+          <div className="px-3 md:px-4 py-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#259783] to-[#45d827] flex items-center justify-center shadow-md shadow-[#259783]/20">
+                  <PackageCheck className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">Stock Levels</h1>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Monitor your inventory</p>
+                  <h1 className="text-base md:text-lg font-bold text-slate-900 dark:text-white">Stock</h1>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">Inventory & Growth</p>
                 </div>
               </div>
-              <div className="flex gap-2">
+              
+              {/* Action Buttons */}
+              <div className="flex items-center gap-1.5">
                 <Button
                   onClick={() => setAnalysisDrawerOpen(true)}
-                  variant="outline"
-                  className="border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20"
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 px-2 text-[#259783] hover:bg-[#259783]/10"
                 >
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  <span className="hidden sm:inline">Stock Analysis</span>
-                  <span className="sm:hidden">Analysis</span>
+                  <BarChart3 className="w-4 h-4" />
+                  <span className="hidden lg:inline ml-1.5 text-xs">Analysis</span>
                 </Button>
                 <Button
                   onClick={() => setRestockDrawerOpen(true)}
-                  className="bg-amber-500 hover:bg-amber-600 text-white font-semibold shadow-lg shadow-amber-500/20"
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 px-2 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20"
                 >
-                  <ShoppingCart className="w-4 h-4 mr-2" />
-                  <span className="hidden sm:inline">What Needs Restocking</span>
-                  <span className="sm:hidden">Restock</span>
+                  <ShoppingCart className="w-4 h-4" />
+                  <span className="hidden lg:inline ml-1.5 text-xs">Restock</span>
                 </Button>
                 <Link href="/admin/stock/take">
-                  <Button className="bg-[#259783] hover:bg-[#45d827] text-white font-semibold shadow-lg shadow-[#259783]/20">
-                    <ClipboardList className="w-4 h-4 mr-2" />
-                    <span className="hidden sm:inline">Stock Take</span>
-                    <span className="sm:hidden">Take</span>
+                  <Button 
+                    size="sm"
+                    className="h-8 px-2.5 bg-[#259783] hover:bg-[#45d827] text-white text-xs shadow-sm"
+                  >
+                    <ClipboardList className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline ml-1.5">Take</span>
                   </Button>
                 </Link>
                 <Link href="/admin/stock/adjust">
-                  <Button variant="outline" className="border-slate-200 dark:border-slate-700">
-                    <Settings className="w-4 h-4 mr-2" />
-                    <span className="hidden sm:inline">Adjust Stock</span>
-                    <span className="sm:hidden">Adjust</span>
+                  <Button 
+                    size="sm"
+                    variant="outline" 
+                    className="h-8 px-2.5 text-xs border-slate-200 dark:border-slate-700"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline ml-1.5">Adjust</span>
                   </Button>
                 </Link>
               </div>
@@ -67,14 +75,11 @@ export default function StockPage() {
         </div>
 
         {/* Content */}
-        <div className="p-4 md:p-6 pb-24 md:pb-6">
+        <div className="p-3 md:p-4 pb-24 md:pb-6">
           <StockList />
         </div>
 
-        {/* Restock Drawer */}
         <RestockDrawer open={restockDrawerOpen} onOpenChange={setRestockDrawerOpen} />
-
-        {/* Stock Analysis Drawer */}
         <StockAnalysisDrawer open={analysisDrawerOpen} onOpenChange={setAnalysisDrawerOpen} />
       </div>
     </AdminLayout>

@@ -1,16 +1,59 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { SearchFilterSection } from './SearchFilterSection';
-import { Loader2, Package, AlertTriangle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Loader2, Package, AlertTriangle, TrendingUp, TrendingDown, Minus, Sparkles, Search, ChevronDown } from 'lucide-react';
 import type { Item, Category } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
 
 interface StockItem extends Item {
   category_name?: string;
+  initial_stock: number;
+  stock_change: number;
+  stock_change_percent: number | null;
+  trend: 'growing' | 'shrinking' | 'stable' | 'new';
 }
+
+const TREND_CONFIG = {
+  growing: { 
+    label: 'Growing', 
+    shortLabel: '↑',
+    icon: TrendingUp, 
+    color: 'text-emerald-600', 
+    bg: 'bg-emerald-50 dark:bg-emerald-950/30',
+    ring: 'ring-emerald-500/20',
+    gradient: 'from-emerald-500 to-green-500',
+  },
+  shrinking: { 
+    label: 'Shrinking', 
+    shortLabel: '↓',
+    icon: TrendingDown, 
+    color: 'text-rose-600', 
+    bg: 'bg-rose-50 dark:bg-rose-950/30',
+    ring: 'ring-rose-500/20',
+    gradient: 'from-rose-500 to-red-500',
+  },
+  stable: { 
+    label: 'Stable', 
+    shortLabel: '—',
+    icon: Minus, 
+    color: 'text-[#259783]', 
+    bg: 'bg-[#259783]/10',
+    ring: 'ring-[#259783]/20',
+    gradient: 'from-[#259783] to-[#45d827]',
+  },
+  new: { 
+    label: 'New', 
+    shortLabel: '✦',
+    icon: Sparkles, 
+    color: 'text-violet-600', 
+    bg: 'bg-violet-50 dark:bg-violet-950/30',
+    ring: 'ring-violet-500/20',
+    gradient: 'from-violet-500 to-purple-500',
+  },
+};
 
 export function StockList() {
   const [items, setItems] = useState<StockItem[]>([]);
@@ -19,7 +62,8 @@ export function StockList() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'name' | 'stock'>('name');
+  const [selectedTrend, setSelectedTrend] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'name' | 'stock' | 'growth'>('growth');
 
   useEffect(() => {
     async function fetchData() {
@@ -54,8 +98,14 @@ export function StockList() {
   }, []);
 
   const formatStock = (stock: number, unitType: UnitType) => {
-    if (stock <= 0) return 'Out of stock';
-    return `${stock.toFixed(2)} ${unitType}`;
+    if (stock <= 0) return '0';
+    return stock.toFixed(1);
+  };
+
+  const formatChange = (change: number | null) => {
+    if (change === null) return '—';
+    const sign = change >= 0 ? '+' : '';
+    return `${sign}${change.toFixed(0)}%`;
   };
 
   const isLowStock = (item: StockItem) => {
@@ -63,39 +113,40 @@ export function StockList() {
     return item.current_stock <= item.min_stock_level;
   };
 
-  const filteredItems = items
-    .filter((item) => {
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        if (
-          !item.name.toLowerCase().includes(query) &&
-          !item.category_name?.toLowerCase().includes(query)
-        ) {
-          return false;
+  const filteredItems = useMemo(() => {
+    return items
+      .filter((item) => {
+        if (searchQuery) {
+          const query = searchQuery.toLowerCase();
+          if (!item.name.toLowerCase().includes(query) && !item.category_name?.toLowerCase().includes(query)) {
+            return false;
+          }
         }
-      }
+        if (selectedCategory !== 'all' && item.category_id !== selectedCategory) return false;
+        if (selectedTrend !== 'all' && item.trend !== selectedTrend) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'stock') return a.current_stock - b.current_stock;
+        if (sortBy === 'growth') return (b.stock_change_percent ?? -999) - (a.stock_change_percent ?? -999);
+        return a.name.localeCompare(b.name);
+      });
+  }, [items, searchQuery, selectedCategory, selectedTrend, sortBy]);
 
-      if (selectedCategory !== 'all' && item.category_id !== selectedCategory) {
-        return false;
-      }
-
-      return true;
-    })
-    .sort((a, b) => {
-      if (sortBy === 'stock') {
-        return a.current_stock - b.current_stock;
-      }
-      return a.name.localeCompare(b.name);
-    });
+  const stats = useMemo(() => ({
+    growing: items.filter(i => i.trend === 'growing').length,
+    stable: items.filter(i => i.trend === 'stable').length,
+    shrinking: items.filter(i => i.trend === 'shrinking').length,
+    new: items.filter(i => i.trend === 'new').length,
+    total: items.length,
+  }), [items]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-orange-50 dark:bg-orange-900/20 flex items-center justify-center mx-auto">
-            <Loader2 className="h-8 w-8 text-orange-500 animate-spin" />
-          </div>
-          <p className="text-slate-500 dark:text-slate-400 font-medium">Loading stock...</p>
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 text-[#259783] animate-spin mx-auto mb-2" />
+          <p className="text-sm text-slate-500">Loading stock...</p>
         </div>
       </div>
     );
@@ -104,197 +155,261 @@ export function StockList() {
   if (error) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-center space-y-3">
-          <div className="w-16 h-16 mx-auto bg-red-50 dark:bg-red-900/20 rounded-2xl flex items-center justify-center">
-            <span className="text-2xl">⚠️</span>
-          </div>
-          <p className="text-red-600 dark:text-red-400 font-semibold">{error}</p>
+        <div className="text-center">
+          <span className="text-2xl mb-2 block">⚠️</span>
+          <p className="text-sm text-red-600">{error}</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <SearchFilterSection
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        searchPlaceholder="Search items by name or category..."
-        filters={[
-          {
-            label: 'Category',
-            value: selectedCategory,
-            options: [
-              { value: 'all', label: 'All Categories' },
-              ...categories.map((cat) => ({
-                value: cat.id,
-                label: cat.name,
-              })),
-            ],
-            onChange: setSelectedCategory,
-          },
-        ]}
-        sortOptions={[
-          { value: 'name', label: 'Sort by Name' },
-          { value: 'stock', label: 'Sort by Stock (Lowest)' },
-        ]}
-        sortValue={sortBy}
-        onSortChange={(v) => setSortBy(v as 'name' | 'stock')}
-      />
+    <div className="space-y-3">
+      {/* Compact Stats Row */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+        {(['growing', 'stable', 'shrinking', 'new'] as const).map((trend) => {
+          const config = TREND_CONFIG[trend];
+          const count = stats[trend];
+          const isActive = selectedTrend === trend;
+          const Icon = config.icon;
+          
+          return (
+            <button
+              key={trend}
+              onClick={() => setSelectedTrend(isActive ? 'all' : trend)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+                isActive
+                  ? `bg-gradient-to-r ${config.gradient} text-white shadow-md`
+                  : `${config.bg} ${config.color} hover:ring-2 ${config.ring}`
+              }`}
+            >
+              <Icon className="w-3 h-3" />
+              <span>{count}</span>
+              <span className="hidden sm:inline">{config.label}</span>
+            </button>
+          );
+        })}
+        {selectedTrend !== 'all' && (
+          <button
+            onClick={() => setSelectedTrend('all')}
+            className="px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {/* Search & Filters Row */}
+      <div className="flex gap-2 items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+          <Input
+            type="text"
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-8 pl-8 text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
+          />
+        </div>
+        <div className="relative">
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="h-8 pl-2 pr-6 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md appearance-none cursor-pointer focus:ring-2 focus:ring-[#259783]/20 focus:border-[#259783]"
+          >
+            <option value="all">All</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+        </div>
+        <div className="relative">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as 'name' | 'stock' | 'growth')}
+            className="h-8 pl-2 pr-6 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md appearance-none cursor-pointer focus:ring-2 focus:ring-[#259783]/20 focus:border-[#259783]"
+          >
+            <option value="growth">By Growth</option>
+            <option value="name">By Name</option>
+            <option value="stock">By Stock</option>
+          </select>
+          <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+        </div>
+      </div>
+
+      {/* Items Count */}
+      <p className="text-xs text-slate-500 px-1">
+        {filteredItems.length} of {stats.total} items
+      </p>
 
       {filteredItems.length === 0 ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="text-center space-y-4">
-            <div className="w-20 h-20 mx-auto bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center">
-              <Package className="w-10 h-10 text-slate-300 dark:text-slate-600" />
-            </div>
-            <p className="text-lg font-semibold text-slate-600 dark:text-slate-300">No items found</p>
+        <div className="flex items-center justify-center h-40">
+          <div className="text-center">
+            <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm text-slate-500">No items found</p>
           </div>
         </div>
       ) : (
         <>
-          {/* Mobile: Cards */}
-          <div className="grid grid-cols-1 gap-3 md:hidden">
+          {/* Mobile: Compact Cards */}
+          <div className="grid grid-cols-1 gap-2 md:hidden">
             {filteredItems.map((item) => {
               const low = isLowStock(item);
               const outOfStock = item.current_stock <= 0;
+              const trendConfig = TREND_CONFIG[item.trend];
+              const TrendIcon = trendConfig.icon;
+              
               return (
-                <Card
+                <div
                   key={item.id}
-                  className={`bg-white dark:bg-[#1c2e18] border transition-all ${
+                  className={`bg-white dark:bg-[#1c2e18] rounded-xl p-3 border transition-all ${
                     outOfStock
-                      ? 'border-red-200 dark:border-red-800'
+                      ? 'border-rose-200 dark:border-rose-800/50'
                       : low
-                      ? 'border-orange-200 dark:border-orange-800'
-                      : 'border-slate-200 dark:border-slate-800'
+                      ? 'border-amber-200 dark:border-amber-800/50'
+                      : 'border-slate-100 dark:border-slate-800'
                   }`}
                 >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                          outOfStock
-                            ? 'bg-red-50 dark:bg-red-900/20'
-                            : low
-                            ? 'bg-orange-50 dark:bg-orange-900/20'
-                            : 'bg-[#259783]/10'
-                        }`}>
-                          {outOfStock || low ? (
-                            <AlertTriangle className={`w-5 h-5 ${outOfStock ? 'text-red-500' : 'text-orange-500'}`} />
-                          ) : (
-                            <Package className="w-5 h-5 text-[#259783]" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-slate-900 dark:text-white truncate">{item.name}</h3>
-                          <p className="text-sm text-slate-500 dark:text-slate-400">
-                            {item.category_name || 'Uncategorized'}
-                          </p>
-                        </div>
-                      </div>
-                      {outOfStock ? (
-                        <Badge variant="destructive">Out</Badge>
-                      ) : low ? (
-                        <Badge className="bg-orange-500 hover:bg-orange-600">Low</Badge>
-                      ) : (
-                        <Badge className="bg-[#259783] hover:bg-[#45d827] text-white">OK</Badge>
-                      )}
+                  <div className="flex items-center gap-3">
+                    {/* Trend Indicator */}
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${trendConfig.bg}`}>
+                      <TrendIcon className={`w-5 h-5 ${trendConfig.color}`} />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-slate-50 dark:bg-slate-800/30 rounded-lg p-3">
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Current Stock</p>
-                        <p className={`font-bold ${
-                          outOfStock ? 'text-red-500' : low ? 'text-orange-500' : 'text-[#259783]'
+                    
+                    {/* Item Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-sm text-slate-900 dark:text-white truncate">
+                          {item.name}
+                        </h3>
+                        {outOfStock && <Badge variant="destructive" className="h-4 text-[10px] px-1">OUT</Badge>}
+                        {!outOfStock && low && <Badge className="h-4 text-[10px] px-1 bg-amber-500">LOW</Badge>}
+                      </div>
+                      <p className="text-xs text-slate-500 truncate">{item.category_name || 'Uncategorized'}</p>
+                    </div>
+                    
+                    {/* Stock & Growth */}
+                    <div className="text-right">
+                      <div className="flex items-baseline gap-1 justify-end">
+                        <span className={`text-lg font-bold ${
+                          outOfStock ? 'text-rose-500' : low ? 'text-amber-500' : 'text-slate-900 dark:text-white'
                         }`}>
                           {formatStock(item.current_stock, item.unit_type)}
-                        </p>
+                        </span>
+                        <span className="text-[10px] text-slate-400">{item.unit_type}</span>
                       </div>
-                      <div className="bg-slate-50 dark:bg-slate-800/30 rounded-lg p-3">
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Min Level</p>
-                        <p className="font-bold text-slate-900 dark:text-white">
-                          {item.min_stock_level ? `${item.min_stock_level} ${item.unit_type}` : '—'}
-                        </p>
+                      <div className={`text-xs font-medium ${trendConfig.color}`}>
+                        {formatChange(item.stock_change_percent)}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-[10px] text-slate-400 w-12">{item.initial_stock.toFixed(0)}</span>
+                    <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      {item.initial_stock > 0 && (
+                        <div
+                          className={`h-full rounded-full bg-gradient-to-r ${trendConfig.gradient}`}
+                          style={{ 
+                            width: `${Math.min(Math.max((item.current_stock / item.initial_stock) * 100, 0), 200)}%`,
+                            maxWidth: '100%'
+                          }}
+                        />
+                      )}
+                    </div>
+                    <span className="text-[10px] text-slate-400 w-12 text-right">{item.current_stock.toFixed(0)}</span>
+                  </div>
+                </div>
               );
             })}
           </div>
 
-          {/* Desktop: Table */}
-          <Card className="hidden md:block bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
+          {/* Desktop: Compact Table */}
+          <Card className="hidden md:block bg-white dark:bg-[#1c2e18] border-slate-200 dark:border-slate-800 overflow-hidden">
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30">
-                      <th className="text-left p-4 font-semibold text-slate-600 dark:text-slate-300 text-sm">Item Name</th>
-                      <th className="text-left p-4 font-semibold text-slate-600 dark:text-slate-300 text-sm">Category</th>
-                      <th className="text-right p-4 font-semibold text-slate-600 dark:text-slate-300 text-sm">Current Stock</th>
-                      <th className="text-right p-4 font-semibold text-slate-600 dark:text-slate-300 text-sm">Min Level</th>
-                      <th className="text-center p-4 font-semibold text-slate-600 dark:text-slate-300 text-sm">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredItems.map((item) => {
-                      const low = isLowStock(item);
-                      const outOfStock = item.current_stock <= 0;
-                      return (
-                        <tr
-                          key={item.id}
-                          className={`border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors ${
-                            outOfStock
-                              ? 'bg-red-50/50 dark:bg-red-950/10'
-                              : low
-                              ? 'bg-orange-50/50 dark:bg-orange-950/10'
-                              : ''
-                          }`}
-                        >
-                          <td className="p-4">
-                            <div className="flex items-center gap-3">
-                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                outOfStock
-                                  ? 'bg-red-100 dark:bg-red-900/30'
-                                  : low
-                                  ? 'bg-orange-100 dark:bg-orange-900/30'
-                                  : 'bg-[#259783]/10'
-                              }`}>
-                                <Package className={`w-4 h-4 ${
-                                  outOfStock ? 'text-red-500' : low ? 'text-orange-500' : 'text-[#259783]'
-                                }`} />
-                              </div>
-                              <span className="font-semibold text-slate-900 dark:text-white">{item.name}</span>
-                            </div>
-                          </td>
-                          <td className="p-4 text-sm text-slate-500 dark:text-slate-400">
-                            {item.category_name || 'Uncategorized'}
-                          </td>
-                          <td className="p-4 text-right">
-                            <span className={`font-bold ${
-                              outOfStock ? 'text-red-500' : low ? 'text-orange-500' : 'text-[#259783]'
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+                    <th className="text-left p-3 font-medium text-slate-500 text-xs">Item</th>
+                    <th className="text-left p-3 font-medium text-slate-500 text-xs">Category</th>
+                    <th className="text-center p-3 font-medium text-slate-500 text-xs">Initial</th>
+                    <th className="text-center p-3 font-medium text-slate-500 text-xs">Current</th>
+                    <th className="text-center p-3 font-medium text-slate-500 text-xs w-32">Growth</th>
+                    <th className="text-center p-3 font-medium text-slate-500 text-xs">Trend</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredItems.map((item, i) => {
+                    const low = isLowStock(item);
+                    const outOfStock = item.current_stock <= 0;
+                    const trendConfig = TREND_CONFIG[item.trend];
+                    const TrendIcon = trendConfig.icon;
+                    
+                    return (
+                      <tr
+                        key={item.id}
+                        className={`border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors ${
+                          i % 2 === 0 ? '' : 'bg-slate-25 dark:bg-slate-900/20'
+                        }`}
+                      >
+                        <td className="p-3">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-6 h-6 rounded-md flex items-center justify-center ${
+                              outOfStock ? 'bg-rose-100 dark:bg-rose-900/30' 
+                              : low ? 'bg-amber-100 dark:bg-amber-900/30' 
+                              : trendConfig.bg
                             }`}>
-                              {formatStock(item.current_stock, item.unit_type)}
+                              {outOfStock || low ? (
+                                <AlertTriangle className={`w-3 h-3 ${outOfStock ? 'text-rose-500' : 'text-amber-500'}`} />
+                              ) : (
+                                <TrendIcon className={`w-3 h-3 ${trendConfig.color}`} />
+                              )}
+                            </div>
+                            <span className="font-medium text-slate-900 dark:text-white text-xs">{item.name}</span>
+                          </div>
+                        </td>
+                        <td className="p-3 text-xs text-slate-500">{item.category_name || '—'}</td>
+                        <td className="p-3 text-center text-xs text-slate-500">
+                          {item.initial_stock.toFixed(1)} <span className="text-slate-400">{item.unit_type}</span>
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={`font-semibold text-xs ${
+                            outOfStock ? 'text-rose-500' : low ? 'text-amber-500' : 'text-slate-900 dark:text-white'
+                          }`}>
+                            {formatStock(item.current_stock, item.unit_type)}
+                          </span>
+                          <span className="text-slate-400 text-xs ml-0.5">{item.unit_type}</span>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                              {item.initial_stock > 0 && (
+                                <div
+                                  className={`h-full rounded-full bg-gradient-to-r ${trendConfig.gradient}`}
+                                  style={{ 
+                                    width: `${Math.min(Math.max((item.current_stock / item.initial_stock) * 100, 0), 100)}%`
+                                  }}
+                                />
+                              )}
+                            </div>
+                            <span className={`text-xs font-semibold w-10 text-right ${trendConfig.color}`}>
+                              {formatChange(item.stock_change_percent)}
                             </span>
-                          </td>
-                          <td className="p-4 text-right text-sm text-slate-500 dark:text-slate-400">
-                            {item.min_stock_level ? `${item.min_stock_level} ${item.unit_type}` : '—'}
-                          </td>
-                          <td className="p-4 text-center">
-                            {outOfStock ? (
-                              <Badge variant="destructive">Out of Stock</Badge>
-                            ) : low ? (
-                              <Badge className="bg-orange-500 hover:bg-orange-600">Low Stock</Badge>
-                            ) : (
-                              <Badge className="bg-[#259783] hover:bg-[#45d827] text-white">In Stock</Badge>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          </div>
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${trendConfig.bg} ${trendConfig.color}`}>
+                            <TrendIcon className="w-3 h-3" />
+                            {trendConfig.label}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </CardContent>
           </Card>
         </>
