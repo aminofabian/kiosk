@@ -57,6 +57,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check for duplicate category name
+    const existingCategory = await queryOne<{ id: string; name: string }>(
+      `SELECT id, name FROM categories 
+       WHERE business_id = ? AND LOWER(name) = LOWER(?) AND active = 1`,
+      [auth.businessId, name.trim()]
+    );
+
+    if (existingCategory) {
+      return jsonResponse(
+        { 
+          success: false, 
+          message: `A category named "${existingCategory.name}" already exists. Please use a different name.` 
+        },
+        409
+      );
+    }
+
     // Get max position if not provided
     let categoryPosition = position;
     if (categoryPosition === undefined) {

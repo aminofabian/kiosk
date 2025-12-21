@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // If creating a variant, verify parent exists
+    // If creating a variant, verify parent exists and check for duplicate variant
     if (parentItemId) {
       const parentItem = await queryOne<{ id: string; name: string }>(
         'SELECT id, name FROM items WHERE id = ? AND business_id = ? AND parent_item_id IS NULL',
@@ -212,6 +212,44 @@ export async function POST(request: NextRequest) {
         return jsonResponse(
           { success: false, message: 'Parent item not found' },
           404
+        );
+      }
+
+      // Check for duplicate variant name under same parent
+      if (variantName) {
+        const existingVariant = await queryOne<{ id: string; variant_name: string }>(
+          `SELECT id, variant_name FROM items 
+           WHERE business_id = ? AND parent_item_id = ? 
+           AND LOWER(variant_name) = LOWER(?) AND active = 1`,
+          [auth.businessId, parentItemId, variantName.trim()]
+        );
+
+        if (existingVariant) {
+          return jsonResponse(
+            { 
+              success: false, 
+              message: `"${parentItem.name}" already has a variant called "${existingVariant.variant_name}". Please use a different variant name.` 
+            },
+            409
+          );
+        }
+      }
+    } else {
+      // Check for duplicate standalone/parent item name
+      const existingItem = await queryOne<{ id: string; name: string }>(
+        `SELECT id, name FROM items 
+         WHERE business_id = ? AND LOWER(name) = LOWER(?) 
+         AND parent_item_id IS NULL AND active = 1`,
+        [auth.businessId, name.trim()]
+      );
+
+      if (existingItem) {
+        return jsonResponse(
+          { 
+            success: false, 
+            message: `A product named "${existingItem.name}" already exists. Please use a different name.` 
+          },
+          409
         );
       }
     }
