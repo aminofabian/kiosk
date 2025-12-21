@@ -155,14 +155,14 @@ export function CreditList() {
     <div className="space-y-4">
       {/* Summary Card */}
       <Card className="bg-gradient-to-br from-red-500 to-red-600 border-0 shadow-lg shadow-red-500/20">
-        <CardContent className="p-5">
+        <CardContent className="p-3.5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-red-100 text-sm font-medium mb-1">Total Outstanding</p>
-              <p className="text-3xl font-black text-white">{formatPrice(totalOutstanding)}</p>
+              <p className="text-red-100 text-[10px] font-bold uppercase tracking-wide mb-0.5">Total Outstanding</p>
+              <p className="text-xl font-black text-white">{formatPrice(totalOutstanding)}</p>
             </div>
             <div className="flex items-center gap-2">
-              <Badge className="bg-white/20 text-white border-0 text-sm">
+              <Badge className="bg-white/20 text-white border-0 text-[9px]">
                 {outstandingAccounts.length} customers
               </Badge>
             </div>
@@ -189,37 +189,37 @@ export function CreditList() {
             key={account.id}
             className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 hover:shadow-lg hover:shadow-slate-200/50 dark:hover:shadow-slate-900/50 transition-all"
           >
-            <CardContent className="p-4">
+            <CardContent className="p-3">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
-                  <div className="w-10 h-10 rounded-xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center flex-shrink-0">
-                    <User className="w-5 h-5 text-red-500" />
+                  <div className="w-9 h-9 bg-red-50 dark:bg-red-900/20 flex items-center justify-center flex-shrink-0 border-2 border-red-200 dark:border-red-800">
+                    <User className="w-4 h-4 text-red-500" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <h3 className="font-bold text-slate-900 dark:text-white truncate">
+                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                      <h3 className="font-black text-sm text-slate-900 dark:text-white truncate">
                         {account.customer_name}
                       </h3>
-                      <Badge variant="destructive" className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                      <Badge variant="destructive" className="bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-[9px]">
                         Outstanding
                       </Badge>
                     </div>
                     {account.customer_phone && (
-                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
                         📱 {account.customer_phone}
                       </p>
                     )}
-                    <p className="text-xs text-slate-400 mt-1">
+                    <p className="text-[10px] text-slate-400 mt-0.5">
                       Last transaction: {formatDate(account.last_transaction_at)}
                     </p>
                   </div>
                 </div>
                 <div className="text-right flex flex-col items-end gap-2">
-                  <p className="text-xl font-bold text-red-500">
+                  <p className="text-lg font-black text-red-500">
                     {formatPrice(account.total_credit)}
                   </p>
                   <Button 
-                    className="bg-[#259783] hover:bg-[#45d827] text-white" 
+                    className="bg-[#259783] hover:bg-[#45d827] text-white rounded-lg" 
                     size="sm"
                     onClick={() => handleOpenPaymentDrawer(account)}
                   >

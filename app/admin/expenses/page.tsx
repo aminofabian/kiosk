@@ -248,8 +248,8 @@ export default function ExpensesPage() {
           <div className="px-4 md:px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-[#259783] flex items-center justify-center">
-                  <Receipt className="w-6 h-6 text-white" />
+                <div className="w-10 h-10 bg-[#259783] flex items-center justify-center">
+                  <Receipt className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white">Operating Expenses</h1>
@@ -289,62 +289,62 @@ export default function ExpensesPage() {
               {/* Summary Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Daily Operating Cost - THE KEY NUMBER */}
-                <div className="border-2 border-[#259783] bg-[#259783] p-6 md:col-span-1">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="w-12 h-12 bg-white/20 flex items-center justify-center">
-                      <Target className="w-6 h-6 text-white" />
+                <div className="border-2 border-[#259783] bg-[#259783] p-3.5 md:col-span-1">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="w-10 h-10 bg-white/20 flex items-center justify-center">
+                      <Target className="w-5 h-5 text-white" />
                     </div>
-                    <Badge className="bg-white/20 text-white border-0">
+                    <Badge className="bg-white/20 text-white border-0 text-[9px]">
                       Survival Rate
                     </Badge>
                   </div>
-                  <p className="text-white/80 text-[10px] font-bold uppercase tracking-wide mb-2">Daily Operating Cost</p>
-                  <p className="text-4xl font-black text-white mb-2">{formatPrice(data.summary.dailyOperatingCost)}</p>
-                  <p className="text-white/70 text-xs">
+                  <p className="text-white/80 text-[9px] font-bold uppercase tracking-wide mb-1">Daily Operating Cost</p>
+                  <p className="text-xl font-black text-white mb-1">{formatPrice(data.summary.dailyOperatingCost)}</p>
+                  <p className="text-white/70 text-[10px]">
                     You must make at least this much profit daily to survive
                   </p>
                 </div>
 
                 {/* Fixed vs Variable Split */}
-                <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
-                  <div className="flex items-center gap-3 mb-4 pb-4 border-b-2 border-slate-200 dark:border-slate-700">
-                    <div className="w-10 h-10 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                      <Building2 className="w-5 h-5 text-[#259783]" />
+                <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
+                  <div className="flex items-center gap-3 mb-3 pb-3 border-b-2 border-slate-200 dark:border-slate-700">
+                    <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                      <Building2 className="w-4 h-4 text-[#259783]" />
                     </div>
                     <div>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold">Fixed Costs</p>
-                      <p className="text-2xl font-black text-slate-900 dark:text-white">{formatPrice(data.summary.fixedDailyCost)}/day</p>
+                      <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Fixed Costs</p>
+                      <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(data.summary.fixedDailyCost)}/day</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                      <Zap className="w-5 h-5 text-[#259783]" />
+                    <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                      <Zap className="w-4 h-4 text-[#259783]" />
                     </div>
                     <div>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold">Variable Costs</p>
-                      <p className="text-2xl font-black text-slate-900 dark:text-white">{formatPrice(data.summary.variableDailyCost)}/day</p>
+                      <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Variable Costs</p>
+                      <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(data.summary.variableDailyCost)}/day</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Monthly Projection */}
-                <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
-                  <div className="flex items-center gap-3 mb-4 pb-4 border-b-2 border-slate-200 dark:border-slate-700">
-                    <div className="w-10 h-10 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                      <Calendar className="w-5 h-5 text-[#259783]" />
+                <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
+                  <div className="flex items-center gap-3 mb-3 pb-3 border-b-2 border-slate-200 dark:border-slate-700">
+                    <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                      <Calendar className="w-4 h-4 text-[#259783]" />
                     </div>
                     <div>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold">Monthly Total</p>
-                      <p className="text-2xl font-black text-slate-900 dark:text-white">{formatPrice(data.summary.monthlyOperatingCost)}</p>
+                      <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Monthly Total</p>
+                      <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(data.summary.monthlyOperatingCost)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                      <Wallet className="w-5 h-5 text-[#259783]" />
+                    <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                      <Wallet className="w-4 h-4 text-[#259783]" />
                     </div>
                     <div>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase font-bold">Weekly Total</p>
-                      <p className="text-2xl font-black text-slate-900 dark:text-white">{formatPrice(data.summary.weeklyOperatingCost)}</p>
+                      <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Weekly Total</p>
+                      <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(data.summary.weeklyOperatingCost)}</p>
                     </div>
                   </div>
                 </div>
@@ -648,49 +648,49 @@ function ExpenseCard({
   formatPrice,
 }: ExpenseCardProps) {
   return (
-    <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
+    <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className={`w-12 h-12 flex items-center justify-center flex-shrink-0 border-2 ${
+          <div className={`w-10 h-10 flex items-center justify-center flex-shrink-0 border-2 ${
             expense.category === 'fixed' 
               ? 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700' 
               : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700'
           }`}>
             {expense.category === 'fixed' ? (
-              <Building2 className="w-5 h-5 text-[#259783]" />
+              <Building2 className="w-4 h-4 text-[#259783]" />
             ) : (
-              <Zap className="w-5 h-5 text-[#259783]" />
+              <Zap className="w-4 h-4 text-[#259783]" />
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <h3 className="font-black text-slate-900 dark:text-white truncate">
+            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+              <h3 className="font-black text-sm text-slate-900 dark:text-white truncate">
                 {expense.name}
               </h3>
-              <Badge variant="outline" className="text-xs border-slate-300 dark:border-slate-600">
+              <Badge variant="outline" className="text-[9px] border-slate-300 dark:border-slate-600">
                 {FREQUENCY_LABELS[expense.frequency]}
               </Badge>
             </div>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               {formatPrice(expense.amount)} {expense.frequency}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="text-right border-r-2 border-slate-200 dark:border-slate-700 pr-4">
-            <p className="text-xl font-black text-[#259783]">
+        <div className="flex items-center gap-3">
+          <div className="text-right border-r-2 border-slate-200 dark:border-slate-700 pr-3">
+            <p className="text-lg font-black text-[#259783]">
               {formatPrice(expense.daily_cost)}
             </p>
-            <p className="text-xs text-slate-400 uppercase font-bold">/day</p>
+            <p className="text-[9px] text-slate-400 uppercase font-bold">/day</p>
           </div>
           <div className="relative">
             <Button
               variant="ghost"
               size="icon"
-              className="h-8 w-8"
+              className="h-7 w-7"
               onClick={() => setMenuOpenId(menuOpenId === expense.id ? null : expense.id)}
             >
-              <MoreVertical className="w-4 h-4" />
+              <MoreVertical className="w-3.5 h-3.5" />
             </Button>
             {menuOpenId === expense.id && (
               <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 shadow-xl z-10 py-1">
