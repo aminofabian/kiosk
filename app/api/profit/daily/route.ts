@@ -144,13 +144,33 @@ export async function GET(request: NextRequest) {
       [tzOffsetSeconds, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp]
     );
 
+    // Get daily operating cost from expenses
+    const expenses = await query<{ amount: number; frequency: string }>(
+      `SELECT amount, frequency FROM expenses 
+       WHERE business_id = ? AND active = 1`,
+      [auth.businessId]
+    );
+
+    const FREQUENCY_DIVISORS: Record<string, number> = {
+      daily: 1,
+      weekly: 7,
+      monthly: 30,
+      yearly: 365,
+    };
+
+    let dailyOperatingCost = 0;
+    for (const expense of expenses) {
+      const dailyCost = expense.amount / (FREQUENCY_DIVISORS[expense.frequency] || 1);
+      dailyOperatingCost += dailyCost;
+    }
+
     // Create a map of daily losses
     const lossByDate: Record<string, number> = {};
     for (const row of dailyLosses) {
       lossByDate[row.loss_day] = row.total_loss;
     }
 
-    // Transform to a map for easy lookup, subtracting losses from profit
+    // Transform to a map for easy lookup, subtracting losses and expenses from profit
     const profitByDate: Record<string, DailyProfit> = {};
     let maxProfit = 0;
     let minProfit = 0;
@@ -161,41 +181,44 @@ export async function GET(request: NextRequest) {
     // Process sales data
     for (const row of dailyData) {
       const stockLoss = lossByDate[row.sale_day] || 0;
-      const adjustedProfit = row.total_profit - stockLoss;
+      // Net profit = gross profit - stock losses - daily expenses
+      const netProfit = row.total_profit - stockLoss - dailyOperatingCost;
       
       profitByDate[row.sale_day] = {
         date: row.sale_day,
-        profit: adjustedProfit,
+        profit: netProfit,
         revenue: row.total_revenue,
-        cost: row.total_cost + stockLoss,
+        cost: row.total_cost + stockLoss + dailyOperatingCost,
         transactions: row.transaction_count,
       };
       
       // Remove from losses map since we've processed it
       delete lossByDate[row.sale_day];
       
-      if (adjustedProfit > maxProfit) maxProfit = adjustedProfit;
-      if (adjustedProfit < minProfit) minProfit = adjustedProfit;
+      if (netProfit > maxProfit) maxProfit = netProfit;
+      if (netProfit < minProfit) minProfit = netProfit;
       totalDaysWithActivity++;
-      if (adjustedProfit > 0) profitableDays++;
-      if (adjustedProfit < 0) lossDays++;
+      if (netProfit > 0) profitableDays++;
+      if (netProfit < 0) lossDays++;
     }
 
-    // Add days that only have losses (no sales)
+    // Add days that only have losses (no sales) - still need to deduct daily expenses
     for (const [lossDay, lossAmount] of Object.entries(lossByDate)) {
-      const adjustedProfit = -lossAmount;
+      // Net profit = -stock losses - daily expenses
+      const netProfit = -lossAmount - dailyOperatingCost;
       
       profitByDate[lossDay] = {
         date: lossDay,
-        profit: adjustedProfit,
+        profit: netProfit,
         revenue: 0,
-        cost: lossAmount,
+        cost: lossAmount + dailyOperatingCost,
         transactions: 0,
       };
       
-      if (adjustedProfit < minProfit) minProfit = adjustedProfit;
+      if (netProfit < minProfit) minProfit = netProfit;
       totalDaysWithActivity++;
-      lossDays++;
+      if (netProfit < 0) lossDays++;
+      // If net profit is exactly 0, it's a break-even day (counted in neutralDays)
     }
 
     return jsonResponse({

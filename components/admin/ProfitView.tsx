@@ -284,42 +284,97 @@ export function ProfitView() {
 
       {/* Profitability Status Banner */}
       {hasExpenses && (
-        <div className={`flex items-center justify-between p-4 border-2 ${
+        <div className={`p-4 border-2 ${
           isProfitable 
             ? 'border-[#259783] bg-[#259783]/5' 
             : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10'
         }`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 flex items-center justify-center border-2 ${
-              isProfitable ? 'border-[#259783] bg-[#259783]' : 'border-red-500 bg-red-500'
-            }`}>
-              {isProfitable ? <CheckCircle2 className="w-5 h-5 text-white" /> : <XCircle className="w-5 h-5 text-white" />}
-            </div>
-            <div>
-              <p className={`text-[10px] font-black uppercase tracking-wide mb-0.5 ${
-                isProfitable ? 'text-[#259783]' : 'text-red-600 dark:text-red-400'
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 flex items-center justify-center border-2 ${
+                isProfitable ? 'border-[#259783] bg-[#259783]' : 'border-red-500 bg-red-500'
               }`}>
-                {isProfitable ? '✓ PROFITABLE' : '✗ AT A LOSS'}
-              </p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                Net profit after {getPeriodDays()} day{getPeriodDays() !== 1 ? 's' : ''} expenses
-              </p>
+                {isProfitable ? <CheckCircle2 className="w-5 h-5 text-white" /> : <XCircle className="w-5 h-5 text-white" />}
+              </div>
+              <div>
+                <p className={`text-[10px] font-black uppercase tracking-wide mb-0.5 ${
+                  isProfitable ? 'text-[#259783]' : 'text-red-600 dark:text-red-400'
+                }`}>
+                  {isProfitable ? '✓ PROFITABLE' : '✗ AT A LOSS'}
+                </p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  Net profit after {getPeriodDays()} day{getPeriodDays() !== 1 ? 's' : ''} expenses
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="text-right border-r-2 border-slate-200 dark:border-slate-700 pr-4">
+                <p className="text-[10px] text-slate-500 uppercase font-bold mb-0.5">Net Profit</p>
+                <p className={`text-lg font-black ${isProfitable ? 'text-[#259783]' : 'text-red-600 dark:text-red-400'}`}>
+                  {isProfitable ? '+' : ''}{formatPrice(getNetProfit())}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-slate-500 uppercase font-bold mb-0.5">Safe to Bank</p>
+                <p className="text-lg font-black text-slate-900 dark:text-white">
+                  {formatPrice(Math.max(0, getNetProfit()))}
+                </p>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right border-r-2 border-slate-200 dark:border-slate-700 pr-4">
-              <p className="text-[10px] text-slate-500 uppercase font-bold mb-0.5">Net Profit</p>
-              <p className={`text-lg font-black ${isProfitable ? 'text-[#259783]' : 'text-red-600 dark:text-red-400'}`}>
-                {isProfitable ? '+' : ''}{formatPrice(getNetProfit())}
-              </p>
+          
+          {/* Stock Losses in same row */}
+          {profitData.stockLosses && profitData.stockLosses.total > 0 && (
+            <div className="flex items-center justify-between pt-3 border-t-2 border-red-200 dark:border-red-800">
+              <div className="flex items-center gap-3">
+                <Trash2 className="w-4 h-4 text-red-500" />
+                <div>
+                  <p className="text-[10px] font-black text-red-600 dark:text-red-400 mb-0.5">
+                    ✗ AT A LOSS: Stock Losses
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-bold text-red-500 bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded">
+                      {profitData.stockLosses.count} adjustment{profitData.stockLosses.count !== 1 ? 's' : ''}
+                    </span>
+                    <p className="text-sm font-black text-red-600 dark:text-red-400">
+                      -{formatPrice(profitData.stockLosses.total)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {profitData.stockLosses.spoilage > 0 && (
+                  <div className="text-right">
+                    <p className="text-[9px] text-slate-500 uppercase font-bold mb-0.5">Spoilage</p>
+                    <p className="text-sm font-black text-red-600">{formatPrice(profitData.stockLosses.spoilage)}</p>
+                  </div>
+                )}
+                {profitData.stockLosses.theft > 0 && (
+                  <div className="text-right">
+                    <p className="text-[9px] text-slate-500 uppercase font-bold mb-0.5">Theft</p>
+                    <p className="text-sm font-black text-red-600">{formatPrice(profitData.stockLosses.theft)}</p>
+                  </div>
+                )}
+                {profitData.stockLosses.damage > 0 && (
+                  <div className="text-right">
+                    <p className="text-[9px] text-slate-500 uppercase font-bold mb-0.5">Damage</p>
+                    <p className="text-sm font-black text-red-600">{formatPrice(profitData.stockLosses.damage)}</p>
+                  </div>
+                )}
+                {profitData.stockLosses.other > 0 && (
+                  <div className="text-right">
+                    <p className="text-[9px] text-slate-500 uppercase font-bold mb-0.5">Other</p>
+                    <p className="text-sm font-black text-red-600">{formatPrice(profitData.stockLosses.other)}</p>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-[10px] text-slate-500 uppercase font-bold mb-0.5">Safe to Bank</p>
-              <p className="text-lg font-black text-slate-900 dark:text-white">
-                {formatPrice(Math.max(0, getNetProfit()))}
-              </p>
-            </div>
-          </div>
+          )}
+          {profitData.stockLosses && profitData.stockLosses.total > 0 && (
+            <p className="text-[9px] text-red-600/70 dark:text-red-400/70 mt-2 pt-2 border-t border-red-200 dark:border-red-800">
+              * Losses deducted from profit based on item buy prices
+            </p>
+          )}
         </div>
       )}
 
@@ -362,65 +417,6 @@ export function ProfitView() {
         </div>
       </div>
 
-      {/* Stock Losses Row */}
-      {profitData.stockLosses && profitData.stockLosses.total > 0 ? (
-        <div className="border-2 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Trash2 className="w-4 h-4 text-red-500" />
-              <h3 className="font-black text-sm text-red-700 dark:text-red-400">Stock Losses</h3>
-              <span className="text-[9px] font-bold text-red-500 bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded">
-                {profitData.stockLosses.count} adjustment{profitData.stockLosses.count !== 1 ? 's' : ''}
-              </span>
-            </div>
-            <p className="text-lg font-black text-red-600 dark:text-red-400">
-              -{formatPrice(profitData.stockLosses.total)}
-            </p>
-          </div>
-          <div className="grid grid-cols-4 gap-2">
-            {profitData.stockLosses.spoilage > 0 && (
-              <div className="text-center p-2 bg-white dark:bg-slate-800 rounded border border-red-100 dark:border-red-900">
-                <p className="text-[9px] text-slate-500 uppercase font-bold">Spoilage</p>
-                <p className="text-sm font-black text-red-600">{formatPrice(profitData.stockLosses.spoilage)}</p>
-              </div>
-            )}
-            {profitData.stockLosses.theft > 0 && (
-              <div className="text-center p-2 bg-white dark:bg-slate-800 rounded border border-red-100 dark:border-red-900">
-                <p className="text-[9px] text-slate-500 uppercase font-bold">Theft</p>
-                <p className="text-sm font-black text-red-600">{formatPrice(profitData.stockLosses.theft)}</p>
-              </div>
-            )}
-            {profitData.stockLosses.damage > 0 && (
-              <div className="text-center p-2 bg-white dark:bg-slate-800 rounded border border-red-100 dark:border-red-900">
-                <p className="text-[9px] text-slate-500 uppercase font-bold">Damage</p>
-                <p className="text-sm font-black text-red-600">{formatPrice(profitData.stockLosses.damage)}</p>
-              </div>
-            )}
-            {profitData.stockLosses.other > 0 && (
-              <div className="text-center p-2 bg-white dark:bg-slate-800 rounded border border-red-100 dark:border-red-900">
-                <p className="text-[9px] text-slate-500 uppercase font-bold">Other</p>
-                <p className="text-sm font-black text-red-600">{formatPrice(profitData.stockLosses.other)}</p>
-              </div>
-            )}
-          </div>
-          <p className="text-[10px] text-red-600/70 dark:text-red-400/70 mt-2">
-            * Losses deducted from profit based on item buy prices
-          </p>
-        </div>
-      ) : (
-        <div className="border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Trash2 className="w-4 h-4 text-slate-400" />
-              <span className="text-xs font-bold text-slate-500">Stock Losses</span>
-            </div>
-            <span className="text-sm font-black text-[#259783]">KES 0</span>
-          </div>
-          <p className="text-[10px] text-slate-400 mt-1">
-            No spoilage, theft, or damage recorded in this period
-          </p>
-        </div>
-      )}
 
       {/* Operating Expenses Row */}
       {hasExpenses ? (

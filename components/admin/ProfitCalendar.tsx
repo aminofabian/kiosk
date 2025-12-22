@@ -221,7 +221,7 @@ export function ProfitCalendar({ compact = false }: ProfitCalendarProps) {
       <div className={`${compact ? 'p-3' : 'p-4'} border-b-2 border-slate-200 dark:border-slate-700`}>
         <div className={`flex items-center ${compact ? 'flex-col gap-2' : 'justify-between'}`}>
           <h3 className={`font-black ${compact ? 'text-xs' : 'text-sm'} text-slate-900 dark:text-white`}>
-            Daily Profit Calendar
+            Daily Net Profit Calendar
           </h3>
           <div className={`flex items-center ${compact ? 'gap-3' : 'gap-4'} text-xs`}>
             <div className="flex items-center gap-1">
@@ -311,7 +311,7 @@ export function ProfitCalendar({ compact = false }: ProfitCalendarProps) {
       <div className={`${compact ? 'px-3 pb-3' : 'px-4 pb-4'} flex items-center justify-between`}>
         {!compact && (
           <span className="text-[10px] text-slate-500 dark:text-slate-400">
-            Learn how we calculate profitability
+            Net profit after expenses, stock losses, and COGS
           </span>
         )}
         <div className={`flex items-center gap-1.5 ${compact ? 'mx-auto' : ''}`}>
@@ -345,7 +345,7 @@ export function ProfitCalendar({ compact = false }: ProfitCalendarProps) {
           </div>
           <div className="space-y-1">
             <div className="flex justify-between gap-4">
-              <span className="text-slate-400">Profit:</span>
+              <span className="text-slate-400">Net Profit:</span>
               <span className={hoveredDay.profit >= 0 ? 'text-green-400 font-bold' : 'text-red-400 font-bold'}>
                 {hoveredDay.profit >= 0 ? '+' : ''}{formatPrice(hoveredDay.profit)}
               </span>
@@ -353,6 +353,10 @@ export function ProfitCalendar({ compact = false }: ProfitCalendarProps) {
             <div className="flex justify-between gap-4">
               <span className="text-slate-400">Revenue:</span>
               <span>{formatPrice(hoveredDay.revenue)}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-400">Cost (COGS + Losses + Expenses):</span>
+              <span>{formatPrice(hoveredDay.cost)}</span>
             </div>
             <div className="flex justify-between gap-4">
               <span className="text-slate-400">Transactions:</span>
