@@ -38,34 +38,17 @@ import { apiGet } from '@/lib/utils/api-client';
 
 const CATEGORY_IMAGE_MAP: Record<string, string> = {
   Vegetables: '/category/vegetables.jpeg',
-  'Green Grocery': '/category/Green Grocery.jpg',
-  'green grocery': '/category/Green Grocery.jpg',
-  'GREEN GROCERY': '/category/Green Grocery.jpg',
   Fruits: '/category/fruits.jpeg',
-  'Grains & Cereals': '/category/Grain & Cereal.webp',
-  'Grains and Cereals': '/category/Grain & Cereal.webp',
-  'grains & cereals': '/category/Grain & Cereal.webp',
-  'grains and cereals': '/category/Grain & Cereal.webp',
-  'Cereals & Grains': '/category/Cereals & Grain.webp',
-  'Cereals and Grains': '/category/Cereals & Grain.webp',
-  'cereals & grains': '/category/Cereals & Grain.webp',
-  'cereals and grains': '/category/Cereals & Grain.webp',
-  'Cereals & Grain': '/category/Cereals & Grain.webp',
-  'Cereals and Grain': '/category/Cereals & Grain.webp',
-  'cereals & grain': '/category/Cereals & Grain.webp',
-  'cereals and grain': '/category/Cereals & Grain.webp',
-  'Grain & Cereal': '/category/Grain & Cereal.webp',
-  'Grain and Cereal': '/category/Grain & Cereal.webp',
-  'grain & cereal': '/category/Grain & Cereal.webp',
-  'grain and cereal': '/category/Grain & Cereal.webp',
+  'Grains & Cereals': '/category/grains&cereals.jpg',
   Spices: '/category/spices.webp',
-  Beverages: '/category/beverages.avif',
+  Beverages: '/category/beverages.jpeg',
   Snacks: '/category/snacks.jpg',
-  Bakery: '/category/bakery.webp',
-  'Canned Goods': '/category/canned goods.jpeg',
+  'Green Grocery': '/category/green-grocery.jpeg',
   Dairy: '/category/Dairy.jpeg',
-  'Frozen Foods': '/category/frozen foods.jpg',
   Meat: '/category/meat.jpg',
+  Bakery: '/category/bakery.webp',
+  'Frozen Foods': '/category/frozen-foods.jpg',
+  'Canned Goods': '/category/canned-goods.jpeg',
 };
 
 const CATEGORY_ICON_MAP: Record<string, React.ReactNode> = {
@@ -199,48 +182,51 @@ export default function POSPage() {
       return CATEGORY_IMAGE_MAP[normalizedName];
     }
     
-    const lowerName = normalizedName.toLowerCase().replace(/&/g, 'and').replace(/\s+/g, ' ').trim();
+    const normalized = normalizedName
+      .toLowerCase()
+      .replace(/&/g, 'and')
+      .replace(/\s+/g, ' ')
+      .trim();
     
-    const nameVariations: Array<[string, string]> = [
-      ['green grocery', '/category/Green Grocery.jpg'],
-      ['grains and cereals', '/category/Grain & Cereal.webp'],
-      ['cereals and grains', '/category/Cereals & Grain.webp'],
-      ['cereals and grain', '/category/Cereals & Grain.webp'],
-      ['grain and cereal', '/category/Grain & Cereal.webp'],
-      ['grain and cereals', '/category/Grain & Cereal.webp'],
-      ['grains and cereal', '/category/Grain & Cereal.webp'],
-      ['frozen foods', '/category/frozen foods.jpg'],
-      ['frozen food', '/category/frozen foods.jpg'],
-      ['canned goods', '/category/canned goods.jpeg'],
-      ['canned good', '/category/canned goods.jpeg'],
-      ['baked goods', '/category/bakery.webp'],
-      ['vegetables', '/category/vegetables.jpeg'],
-      ['vegetable', '/category/vegetables.jpeg'],
-      ['fruits', '/category/fruits.jpeg'],
-      ['fruit', '/category/fruits.jpeg'],
-      ['spices', '/category/spices.webp'],
-      ['spice', '/category/spices.webp'],
-      ['beverages', '/category/beverages.avif'],
-      ['beverage', '/category/beverages.avif'],
-      ['drinks', '/category/beverages.avif'],
-      ['drink', '/category/beverages.avif'],
-      ['snacks', '/category/snacks.jpg'],
-      ['snack', '/category/snacks.jpg'],
-      ['bakery', '/category/bakery.webp'],
-      ['canned', '/category/canned goods.jpeg'],
-      ['dairy', '/category/Dairy.jpeg'],
-      ['milk', '/category/Dairy.jpeg'],
-      ['frozen', '/category/frozen foods.jpg'],
-      ['meat', '/category/meat.jpg'],
-    ];
+    const variations: Record<string, string> = {
+      'vegetables': '/category/vegetables.jpeg',
+      'vegetable': '/category/vegetables.jpeg',
+      'fruits': '/category/fruits.jpeg',
+      'fruit': '/category/fruits.jpeg',
+      'grains and cereals': '/category/grains&cereals.jpg',
+      'grains & cereals': '/category/grains&cereals.jpg',
+      'cereals and grains': '/category/grains&cereals.jpg',
+      'cereals & grains': '/category/grains&cereals.jpg',
+      'grain and cereal': '/category/grains&cereals.jpg',
+      'grain & cereal': '/category/grains&cereals.jpg',
+      'grains&cereals': '/category/grains&cereals.jpg',
+      'spices': '/category/spices.webp',
+      'spice': '/category/spices.webp',
+      'beverages': '/category/beverages.jpeg',
+      'beverage': '/category/beverages.jpeg',
+      'drinks': '/category/beverages.jpeg',
+      'snacks': '/category/snacks.jpg',
+      'snack': '/category/snacks.jpg',
+      'green grocery': '/category/green-grocery.jpeg',
+      'green-grocery': '/category/green-grocery.jpeg',
+      'dairy': '/category/Dairy.jpeg',
+      'meat': '/category/meat.jpg',
+      'bakery': '/category/bakery.webp',
+      'baked goods': '/category/bakery.webp',
+      'frozen foods': '/category/frozen-foods.jpg',
+      'frozen food': '/category/frozen-foods.jpg',
+      'frozen': '/category/frozen-foods.jpg',
+      'canned goods': '/category/canned-goods.jpeg',
+      'canned good': '/category/canned-goods.jpeg',
+      'canned': '/category/canned-goods.jpeg',
+    };
     
-    const exactMatch = nameVariations.find(([key]) => lowerName === key);
-    if (exactMatch) {
-      return exactMatch[1];
+    if (variations[normalized]) {
+      return variations[normalized];
     }
     
-    for (const [key, value] of nameVariations) {
-      if (lowerName === key || lowerName.includes(key) || key.includes(lowerName)) {
+    for (const [key, value] of Object.entries(variations)) {
+      if (normalized.includes(key) || key.includes(normalized)) {
         return value;
       }
     }
@@ -256,9 +242,7 @@ export default function POSPage() {
     return CATEGORY_COLOR_MAP[categoryName] || 'text-gray-600 dark:text-gray-400';
   };
 
-  const primaryCategories = categories.slice(0, 4);
-  const secondaryCategories = categories.slice(4, 6);
-  const miscCategory = categories.length > 6 ? categories[6] : null;
+  // Show all categories in a uniform grid
 
   const selectedCategory = selectedCategoryId
     ? categories.find((c) => c.id === selectedCategoryId)
@@ -453,8 +437,8 @@ export default function POSPage() {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 auto-rows-fr">
-                    {primaryCategories.map((category) => {
+                  <div className="grid grid-cols-2 gap-3 auto-rows-fr">
+                    {categories.map((category) => {
                       const imageUrl = getCategoryImage(category.name);
                       const icon = getCategoryIcon(category.name);
                       const color = getCategoryColor(category.name);
@@ -463,37 +447,7 @@ export default function POSPage() {
                         <button
                           key={category.id}
                           onClick={() => setSelectedCategoryId(category.id)}
-                          className="group relative flex flex-col justify-between p-5 h-48 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border-2 border-transparent hover:border-[#259783] hover:shadow-lg active:scale-[0.98] transition-all overflow-hidden text-left"
-                        >
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-40 group-hover:opacity-30 transition-opacity z-10 rounded-xl"></div>
-                          {imageUrl && (
-                            <div
-                              className="absolute inset-0 bg-cover bg-center rounded-xl transition-transform duration-500 group-hover:scale-110"
-                              style={{ backgroundImage: `url(${imageUrl})` }}
-                            ></div>
-                          )}
-                          <span
-                            className={`relative z-20 flex items-center justify-center w-12 h-12 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm ${color} shadow-sm`}
-                          >
-                            {icon}
-                          </span>
-                          <span className="relative z-20 text-white font-black text-2xl tracking-tight leading-none drop-shadow-md">
-                            {category.name}
-                          </span>
-                        </button>
-                      );
-                    })}
-
-                    {secondaryCategories.map((category) => {
-                      const imageUrl = getCategoryImage(category.name);
-                      const icon = getCategoryIcon(category.name);
-                      const color = getCategoryColor(category.name);
-
-                      return (
-                        <button
-                          key={category.id}
-                          onClick={() => setSelectedCategoryId(category.id)}
-                          className="group relative flex flex-col justify-between p-5 h-40 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border-2 border-transparent hover:border-[#259783] hover:shadow-lg active:scale-[0.98] transition-all overflow-hidden text-left"
+                          className="group relative flex flex-col justify-between p-4 h-36 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border-2 border-transparent hover:border-[#259783] hover:shadow-lg active:scale-[0.98] transition-all overflow-hidden text-left"
                         >
                           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-40 group-hover:opacity-30 transition-opacity z-10 rounded-xl"></div>
                           {imageUrl && (
@@ -507,44 +461,12 @@ export default function POSPage() {
                           >
                             {icon}
                           </span>
-                          <span className="relative z-20 text-white font-bold text-xl tracking-tight leading-none drop-shadow-md">
+                          <span className="relative z-20 text-white font-bold text-lg tracking-tight leading-tight drop-shadow-md">
                             {category.name}
                           </span>
                         </button>
                       );
                     })}
-
-                    {miscCategory && (
-                      <button
-                        onClick={() => setSelectedCategoryId(miscCategory.id)}
-                        className="col-span-2 group relative flex flex-row items-center justify-between p-5 h-32 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border-2 border-transparent hover:border-[#259783] hover:shadow-lg active:scale-[0.98] transition-all overflow-hidden text-left"
-                      >
-                        <div className="absolute inset-0 bg-gradient-to-r from-gray-600 to-gray-400 dark:from-gray-800 dark:to-gray-700 opacity-100 z-0 rounded-xl"></div>
-                        <div
-                          className="absolute inset-0 opacity-10"
-                          style={{
-                            backgroundImage:
-                              "url('data:image/svg+xml,%3Csvg width=\\'20\\' height=\\'20\\' viewBox=\\'0 0 20 20\\' xmlns=\\'http://www.w3.org/2000/svg\\'%3E%3Cg fill=\\'%23ffffff\\' fill-opacity=\\'1\\' fill-rule=\\'evenodd\\'%3E%3Ccircle cx=\\'3\\' cy=\\'3\\' r=\\'3\\'/%3E%3Ccircle cx=\\'13\\' cy=\\'13\\' r=\\'3\\'/%3E%3C/g%3E%3C/svg%3E')",
-                          }}
-                        ></div>
-                        <div className="relative z-20 flex items-center gap-4">
-                          <span className="flex items-center justify-center w-14 h-14 rounded-full bg-white/20 backdrop-blur-md text-white shadow-inner">
-                            <Package className="w-8 h-8" />
-                          </span>
-                          <div className="flex flex-col">
-                            <span className="text-white font-black text-2xl tracking-tight">
-                              {miscCategory.name}
-                            </span>
-                            <span className="text-white/80 font-medium text-sm">
-                              Tap for uncategorized items
-                            </span>
-                          </div>
-                        </div>
-                        <div className="relative z-20 bg-white/20 p-2 rounded-full">
-                          <span className="text-white text-2xl">›</span>
-                        </div>
-                      </button>
-                    )}
 
                     <div className="h-24 w-full col-span-2"></div>
                   </div>
