@@ -210,12 +210,14 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
         <StockAdjustFormMobile {...sharedProps} />
       </div>
 
-      <div className="hidden md:block max-w-4xl space-y-6">
+      <div className="hidden md:block space-y-6">
         {showSuccess && (
-          <Card className="border-green-500 bg-green-50 dark:bg-green-950">
+          <Card className="border-green-500/50 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 shadow-sm">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
-                <CheckCircle2 className="h-6 w-6 text-green-600" />
+                <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
+                  <CheckCircle2 className="h-5 w-5 text-white" />
+                </div>
                 <div className="flex-1">
                   <p className="font-semibold text-green-900 dark:text-green-100">
                     Stock adjusted successfully!
@@ -230,29 +232,31 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
         )}
 
         <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5" />
+        <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+          <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+            <CardTitle className="flex items-center gap-2.5 text-lg">
+              <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                <Package className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+              </div>
               Select Item
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-6">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 placeholder="Search items..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-11"
+                className="pl-10 h-11 border-slate-200 dark:border-slate-700 focus:border-[#259783] focus:ring-[#259783]/20"
               />
             </div>
 
-            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+            <div className="space-y-2 max-h-[500px] overflow-y-auto -mx-1 px-1">
               {filteredItems.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p>No items found</p>
+                <div className="text-center py-12 text-muted-foreground">
+                  <Package className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                  <p className="text-sm">No items found</p>
                 </div>
               ) : (
                 filteredItems.map((item) => {
@@ -266,28 +270,28 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
                         setSelectedItemId(item.id);
                         setSearchQuery('');
                       }}
-                      className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                      className={`w-full text-left p-3.5 rounded-xl border-2 transition-all ${
                         isSelected
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                          ? 'border-[#259783] bg-[#259783]/5 shadow-sm ring-2 ring-[#259783]/10'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-[#259783]/50 hover:bg-slate-50 dark:hover:bg-slate-800/50'
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{item.name}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-sm text-muted-foreground">
+                          <p className="font-semibold text-slate-900 dark:text-white truncate">{item.name}</p>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className="text-sm text-slate-600 dark:text-slate-400">
                               {item.current_stock.toFixed(2)} {item.unit_type}
                             </span>
                             {isLow && (
-                              <Badge variant="destructive" className="text-xs">
+                              <Badge variant="destructive" className="text-xs px-1.5 py-0.5">
                                 Low Stock
                               </Badge>
                             )}
                           </div>
                         </div>
                         {isSelected && (
-                          <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
+                          <CheckCircle2 className="h-5 w-5 text-[#259783] shrink-0" />
                         )}
                       </div>
                     </button>
@@ -298,78 +302,82 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Adjustment Details</CardTitle>
+        <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+          <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+            <CardTitle className="text-lg">Adjustment Details</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             {selectedItem ? (
               <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-4">
-                  <div className="p-4 rounded-lg bg-muted space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-muted-foreground">Current Stock</span>
+                <div className="space-y-5">
+                  <div className="p-5 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100/50 dark:from-slate-800/50 dark:to-slate-900/50 border border-slate-200 dark:border-slate-700 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-700">
+                      <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Current Stock</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-2xl font-bold">
+                        <span className="text-2xl font-bold text-slate-900 dark:text-white">
                           {selectedItem.current_stock.toFixed(2)}
                         </span>
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-sm text-slate-500 dark:text-slate-400">
                           {selectedItem.unit_type}
                         </span>
                       </div>
                     </div>
                     {isLowStock && (
-                      <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-sm">
+                      <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-sm pt-2">
                         <AlertTriangle className="h-4 w-4" />
                         <span>Low stock warning</span>
                       </div>
                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Adjustment Type</Label>
+                  <div className="space-y-3">
+                    <Label className="text-base font-semibold">Adjustment Type</Label>
                     <div className="grid grid-cols-2 gap-3">
                       <button
                         type="button"
                         onClick={() => setAdjustmentType('increase')}
-                        className={`p-4 rounded-lg border-2 transition-all ${
+                        className={`p-4 rounded-xl border-2 transition-all ${
                           adjustmentType === 'increase'
-                            ? 'border-green-500 bg-green-50 dark:bg-green-950'
-                            : 'border-border hover:border-green-300'
+                            ? 'border-green-500 bg-green-50 dark:bg-green-950/50 shadow-sm ring-2 ring-green-500/20'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-green-300 dark:hover:border-green-700 hover:bg-slate-50 dark:hover:bg-slate-800/50'
                         }`}
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col items-center gap-2">
                           <TrendingUp
-                            className={`h-5 w-5 ${
-                              adjustmentType === 'increase' ? 'text-green-600' : 'text-muted-foreground'
+                            className={`h-6 w-6 ${
+                              adjustmentType === 'increase' ? 'text-green-600 dark:text-green-400' : 'text-slate-400'
                             }`}
                           />
-                          <span className="font-medium">Increase</span>
+                          <span className={`font-semibold ${
+                            adjustmentType === 'increase' ? 'text-green-700 dark:text-green-300' : 'text-slate-600 dark:text-slate-400'
+                          }`}>Increase</span>
                         </div>
                       </button>
                       <button
                         type="button"
                         onClick={() => setAdjustmentType('decrease')}
-                        className={`p-4 rounded-lg border-2 transition-all ${
+                        className={`p-4 rounded-xl border-2 transition-all ${
                           adjustmentType === 'decrease'
-                            ? 'border-red-500 bg-red-50 dark:bg-red-950'
-                            : 'border-border hover:border-red-300'
+                            ? 'border-red-500 bg-red-50 dark:bg-red-950/50 shadow-sm ring-2 ring-red-500/20'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-700 hover:bg-slate-50 dark:hover:bg-slate-800/50'
                         }`}
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col items-center gap-2">
                           <TrendingDown
-                            className={`h-5 w-5 ${
-                              adjustmentType === 'decrease' ? 'text-red-600' : 'text-muted-foreground'
+                            className={`h-6 w-6 ${
+                              adjustmentType === 'decrease' ? 'text-red-600 dark:text-red-400' : 'text-slate-400'
                             }`}
                           />
-                          <span className="font-medium">Decrease</span>
+                          <span className={`font-semibold ${
+                            adjustmentType === 'decrease' ? 'text-red-700 dark:text-red-300' : 'text-slate-600 dark:text-slate-400'
+                          }`}>Decrease</span>
                         </div>
                       </button>
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="quantity">
+                  <div className="space-y-3">
+                    <Label htmlFor="quantity" className="text-base font-semibold">
                       Quantity ({selectedItem.unit_type}) *
                     </Label>
                     <Input
@@ -381,39 +389,38 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
                       onChange={(e) => setQuantity(e.target.value)}
                       placeholder="0.00"
                       required
-                      className="text-lg h-12"
+                      className="text-lg h-12 border-slate-200 dark:border-slate-700 focus:border-[#259783] focus:ring-[#259783]/20"
                     />
-                  
                   </div>
 
                   {calculatedNewStock !== null && (
-                    <div className="p-4 rounded-lg bg-primary/5 border border-primary/20 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">New Stock After Adjustment</span>
+                    <div className="p-5 rounded-xl bg-gradient-to-br from-[#259783]/5 to-emerald-50/50 dark:from-[#259783]/10 dark:to-emerald-950/20 border-2 border-[#259783]/20 dark:border-[#259783]/30 space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-[#259783]/20">
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">New Stock After Adjustment</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-2xl font-bold text-primary">
+                          <span className="text-2xl font-bold text-[#259783] dark:text-[#45d827]">
                             {calculatedNewStock.toFixed(2)}
                           </span>
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-sm text-slate-500 dark:text-slate-400">
                             {selectedItem.unit_type}
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 text-xs">
-                        <ArrowRight className="h-3 w-3" />
-                        <span className="text-muted-foreground">
+                      <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                        <ArrowRight className="h-4 w-4" />
+                        <span>
                           {adjustmentType === 'increase' ? '+' : '-'}
                           {parseFloat(quantity).toFixed(2)} {selectedItem.unit_type}
                         </span>
                       </div>
                       {willGoNegative && (
-                        <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm mt-2">
+                        <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm pt-2 border-t border-red-200 dark:border-red-900">
                           <AlertTriangle className="h-4 w-4" />
                           <span>Stock cannot go negative</span>
                         </div>
                       )}
                       {willBeLowStock && !willGoNegative && (
-                        <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-sm mt-2">
+                        <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-sm pt-2 border-t border-amber-200 dark:border-amber-900">
                           <AlertTriangle className="h-4 w-4" />
                           <span>Stock will be low after adjustment</span>
                         </div>
@@ -421,15 +428,15 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
                     </div>
                   )}
 
-                  <Separator />
+                  <Separator className="my-2" />
 
-                  <div className="space-y-2">
-                    <Label htmlFor="reason">Reason *</Label>
+                  <div className="space-y-3">
+                    <Label htmlFor="reason" className="text-base font-semibold">Reason *</Label>
                     <Select
                       value={reason}
                       onValueChange={(v) => setReason(v as AdjustmentReason)}
                     >
-                      <SelectTrigger className="h-11">
+                      <SelectTrigger className="h-12 border-slate-200 dark:border-slate-700 focus:border-[#259783] focus:ring-[#259783]/20">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -442,32 +449,33 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="notes">Notes (Optional)</Label>
+                  <div className="space-y-3">
+                    <Label htmlFor="notes" className="text-base font-semibold">Notes (Optional)</Label>
                     <Textarea
                       id="notes"
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
                       placeholder="Add any additional details..."
                       rows={3}
+                      className="border-slate-200 dark:border-slate-700 focus:border-[#259783] focus:ring-[#259783]/20 resize-none"
                     />
                   </div>
                 </div>
 
                 {error && (
-                  <div className="p-3 bg-destructive/10 text-destructive rounded-md text-sm flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4" />
+                  <div className="p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 text-red-700 dark:text-red-400 rounded-xl text-sm flex items-center gap-2.5">
+                    <AlertTriangle className="h-5 w-5 shrink-0" />
                     <span>{error}</span>
                   </div>
                 )}
 
-                <div className="flex gap-3">
+                <div className="flex gap-3 pt-2">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={handleReset}
                     disabled={isSubmitting}
-                    className="flex-1"
+                    className="flex-1 h-11 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
                   >
                     <X className="h-4 w-4 mr-2" />
                     Reset
@@ -475,7 +483,7 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
                   <Button
                     type="submit"
                     disabled={isSubmitting || willGoNegative}
-                    className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600"
+                    className="flex-1 h-11 bg-gradient-to-r from-[#259783] to-[#45d827] hover:from-[#45d827] hover:to-[#259783] text-white shadow-md shadow-[#259783]/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? (
                       <>
@@ -492,9 +500,12 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
                 </div>
               </form>
             ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>Select an item to adjust stock</p>
+              <div className="text-center py-16 text-slate-400 dark:text-slate-500">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                  <Package className="h-8 w-8 opacity-50" />
+                </div>
+                <p className="text-sm font-medium">Select an item to adjust stock</p>
+                <p className="text-xs mt-1 text-slate-400 dark:text-slate-600">Choose an item from the left panel</p>
               </div>
             )}
           </CardContent>

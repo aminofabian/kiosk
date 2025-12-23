@@ -177,23 +177,40 @@ export default function StockPage() {
         
         {/* Add Stock Drawer */}
         <Drawer open={addStockDrawerOpen} onOpenChange={setAddStockDrawerOpen} direction="right">
-          <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
-            <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-orange-50 dark:from-[#259783]/20 dark:to-orange-950/20 px-6 py-5">
-              <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-orange-500 flex items-center justify-center shadow-sm">
-                  <Scale className="w-5 h-5 text-white" />
+          <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl">
+            {/* Header */}
+            <DrawerHeader className="border-b border-slate-200 dark:border-slate-800 bg-gradient-to-br from-slate-50 via-white to-slate-50/50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800/50 px-6 py-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#259783] to-[#45d827] flex items-center justify-center shadow-lg shadow-[#259783]/25 ring-2 ring-[#259783]/10">
+                    <Scale className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <DrawerTitle className="text-xl font-bold text-slate-900 dark:text-white leading-tight">
+                      Add Stock
+                    </DrawerTitle>
+                    <DrawerDescription className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                      Adjust inventory levels
+                    </DrawerDescription>
+                  </div>
                 </div>
-                Add Stock
-              </DrawerTitle>
-              <DrawerDescription className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-                Update inventory levels for damaged, spoiled, or miscounted items
-              </DrawerDescription>
+                <button
+                  onClick={() => setAddStockDrawerOpen(false)}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </DrawerHeader>
-            <div className="overflow-y-auto px-4 sm:px-6 py-6 flex-1 bg-slate-50 dark:bg-slate-900/50">
-              <StockAdjustForm
-                onSuccess={() => setAddStockDrawerOpen(false)}
-                onCancel={() => setAddStockDrawerOpen(false)}
-              />
+            
+            {/* Content */}
+            <div className="overflow-y-auto flex-1 bg-gradient-to-b from-white via-slate-50/30 to-white dark:from-slate-900 dark:via-slate-900/50 dark:to-slate-900">
+              <div className="px-4 sm:px-6 py-6 max-w-none">
+                <StockAdjustForm
+                  onSuccess={() => setAddStockDrawerOpen(false)}
+                  onCancel={() => setAddStockDrawerOpen(false)}
+                />
+              </div>
             </div>
           </DrawerContent>
         </Drawer>
