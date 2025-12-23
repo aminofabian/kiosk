@@ -25,10 +25,10 @@ const TREND_CONFIG = {
     label: 'Growing', 
     shortLabel: '↑',
     icon: TrendingUp, 
-    color: 'text-emerald-600', 
-    bg: 'bg-emerald-50 dark:bg-emerald-950/30',
-    ring: 'ring-emerald-500/20',
-    gradient: 'from-emerald-500 to-green-500',
+    color: 'text-[#259783]', 
+    bg: 'bg-[#259783]/10 dark:bg-[#259783]/20',
+    ring: 'ring-[#259783]/20',
+    gradient: 'from-[#259783] to-[#45d827]',
   },
   shrinking: { 
     label: 'Shrinking', 
@@ -261,81 +261,97 @@ export function StockList() {
       ) : (
         <>
           {/* Mobile: Compact Cards */}
-          <div className="grid grid-cols-1 gap-2 md:hidden">
+          <div className="grid grid-cols-1 gap-3 md:hidden">
             {filteredItems.map((item) => {
               const low = isLowStock(item);
               const outOfStock = item.current_stock <= 0;
               const trendConfig = TREND_CONFIG[item.trend];
               const TrendIcon = trendConfig.icon;
+              const isStable = item.trend === 'stable';
               
               return (
                 <div
                   key={item.id}
-                  className={`bg-white dark:bg-[#1c2e18] rounded-xl p-3 border transition-all ${
+                  className={`group relative bg-white dark:bg-[#1c2e18] rounded-xl p-4 border-2 transition-all hover:shadow-lg hover:shadow-[#259783]/10 ${
                     outOfStock
-                      ? 'border-rose-200 dark:border-rose-800/50'
+                      ? 'border-rose-300 dark:border-rose-800/50 bg-gradient-to-br from-rose-50/50 to-white dark:from-rose-950/20 dark:to-[#1c2e18]'
                       : low
-                      ? 'border-amber-200 dark:border-amber-800/50'
-                      : 'border-slate-100 dark:border-slate-800'
+                      ? 'border-amber-300 dark:border-amber-800/50 bg-gradient-to-br from-amber-50/50 to-white dark:from-amber-950/20 dark:to-[#1c2e18]'
+                      : isStable
+                      ? 'border-[#259783]/30 dark:border-[#259783]/40 bg-gradient-to-br from-[#259783]/5 to-white dark:from-[#259783]/10 dark:to-[#1c2e18] hover:border-[#259783]/50'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-[#259783]/30'
                   }`}
                 >
+                  {/* Theme accent bar */}
+                  {!outOfStock && !low && (
+                    <div className={`absolute top-0 left-0 right-0 h-1 rounded-t-xl bg-gradient-to-r ${trendConfig.gradient}`} />
+                  )}
+                  
                   <div className="flex items-center gap-3">
                     {/* Trend Indicator */}
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${trendConfig.bg}`}>
-                      <TrendIcon className={`w-5 h-5 ${trendConfig.color}`} />
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${
+                      isStable 
+                        ? 'bg-gradient-to-br from-[#259783] to-[#45d827]' 
+                        : trendConfig.bg
+                    }`}>
+                      <TrendIcon className={`w-6 h-6 ${isStable ? 'text-white' : trendConfig.color}`} />
                     </div>
                     
                     {/* Item Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-sm text-slate-900 dark:text-white truncate">
+                        <h3 className="font-bold text-sm text-slate-900 dark:text-white truncate">
                           {item.name}
                         </h3>
-                        {outOfStock && <Badge variant="destructive" className="h-4 text-[10px] px-1">OUT</Badge>}
-                        {!outOfStock && low && <Badge className="h-4 text-[10px] px-1 bg-amber-500">LOW</Badge>}
+                        {outOfStock && <Badge variant="destructive" className="h-4 text-[10px] px-1.5 font-semibold">OUT</Badge>}
+                        {!outOfStock && low && <Badge className="h-4 text-[10px] px-1.5 bg-amber-500 font-semibold">LOW</Badge>}
                       </div>
-                      <p className="text-xs text-slate-500 truncate">{item.category_name || 'Uncategorized'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{item.category_name || 'Uncategorized'}</p>
                     </div>
                     
                     {/* Stock & Growth */}
                     <div className="text-right">
                       <div className="flex items-baseline gap-1 justify-end">
-                        <span className={`text-lg font-bold ${
-                          outOfStock ? 'text-rose-500' : low ? 'text-amber-500' : 'text-slate-900 dark:text-white'
+                        <span className={`text-xl font-bold ${
+                          outOfStock ? 'text-rose-500' : low ? 'text-amber-500' : isStable ? 'text-[#259783]' : 'text-slate-900 dark:text-white'
                         }`}>
                           {formatStock(item.current_stock, item.unit_type)}
                         </span>
                         <span className="text-[10px] text-slate-400">{item.unit_type}</span>
                       </div>
-                      <div className={`text-xs font-medium ${trendConfig.color}`}>
+                      <div className={`text-xs font-semibold ${isStable ? 'text-[#259783]' : trendConfig.color}`}>
                         {formatChange(item.stock_change_percent)}
                       </div>
                     </div>
                   </div>
                   
                   {/* Stock Values */}
-                  <div className="mt-2 grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <div>
-                      <p className="text-[10px] text-slate-400 mb-0.5">Initial Value</p>
-                      <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                  <div className="mt-3 grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                    <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-2">
+                      <p className="text-[10px] text-slate-400 mb-1 font-medium">Initial Value</p>
+                      <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
                         {formatCurrency(item.initial_value)}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-[10px] text-slate-400 mb-0.5">Current Value</p>
-                      <p className={`text-xs font-semibold ${trendConfig.color}`}>
+                    <div className={`rounded-lg p-2 ${
+                      isStable 
+                        ? 'bg-gradient-to-br from-[#259783]/10 to-[#45d827]/10 dark:from-[#259783]/20 dark:to-[#45d827]/20' 
+                        : 'bg-slate-50 dark:bg-slate-900/50'
+                    }`}>
+                      <p className="text-[10px] text-slate-400 mb-1 font-medium">Current Value</p>
+                      <p className={`text-xs font-bold ${isStable ? 'text-[#259783]' : trendConfig.color}`}>
                         {formatCurrency(item.current_value)}
                       </p>
                     </div>
                   </div>
                   
                   {/* Progress Bar */}
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="text-[10px] text-slate-400 w-12">{item.initial_stock.toFixed(0)}</span>
-                    <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="text-[10px] text-slate-400 w-12 font-medium">{item.initial_stock.toFixed(0)}</span>
+                    <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
                       {item.initial_stock > 0 && (
                         <div
-                          className={`h-full rounded-full bg-gradient-to-r ${trendConfig.gradient}`}
+                          className={`h-full rounded-full bg-gradient-to-r ${trendConfig.gradient} shadow-sm`}
                           style={{ 
                             width: `${Math.min(Math.max((item.current_stock / item.initial_stock) * 100, 0), 200)}%`,
                             maxWidth: '100%'
@@ -343,7 +359,7 @@ export function StockList() {
                         />
                       )}
                     </div>
-                    <span className="text-[10px] text-slate-400 w-12 text-right">{item.current_stock.toFixed(0)}</span>
+                    <span className="text-[10px] text-slate-400 w-12 text-right font-medium">{item.current_stock.toFixed(0)}</span>
                   </div>
                 </div>
               );
@@ -351,19 +367,19 @@ export function StockList() {
           </div>
 
           {/* Desktop: Compact Table */}
-          <Card className="hidden md:block bg-white dark:bg-[#1c2e18] border-slate-200 dark:border-slate-800 overflow-hidden">
+          <Card className="hidden md:block bg-white dark:bg-[#1c2e18] border-2 border-slate-200 dark:border-slate-800 overflow-hidden shadow-lg shadow-slate-200/50 dark:shadow-slate-900/50">
             <CardContent className="p-0">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
-                    <th className="text-left p-3 font-medium text-slate-500 text-xs">Item</th>
-                    <th className="text-left p-3 font-medium text-slate-500 text-xs">Category</th>
-                    <th className="text-center p-3 font-medium text-slate-500 text-xs">Initial Stock</th>
-                    <th className="text-center p-3 font-medium text-slate-500 text-xs">Initial Value</th>
-                    <th className="text-center p-3 font-medium text-slate-500 text-xs">Current Stock</th>
-                    <th className="text-center p-3 font-medium text-slate-500 text-xs">Current Value</th>
-                    <th className="text-center p-3 font-medium text-slate-500 text-xs w-32">Growth</th>
-                    <th className="text-center p-3 font-medium text-slate-500 text-xs">Trend</th>
+                  <tr className="border-b-2 border-slate-200 dark:border-slate-800 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900/50 dark:to-[#1c2e18]">
+                    <th className="text-left p-4 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Item</th>
+                    <th className="text-left p-4 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Category</th>
+                    <th className="text-center p-4 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Initial Stock</th>
+                    <th className="text-center p-4 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Initial Value</th>
+                    <th className="text-center p-4 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Current Stock</th>
+                    <th className="text-center p-4 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Current Value</th>
+                    <th className="text-center p-4 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider w-32">Growth</th>
+                    <th className="text-center p-4 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Trend</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -372,69 +388,76 @@ export function StockList() {
                     const outOfStock = item.current_stock <= 0;
                     const trendConfig = TREND_CONFIG[item.trend];
                     const TrendIcon = trendConfig.icon;
+                    const isStable = item.trend === 'stable';
                     
                     return (
                       <tr
                         key={item.id}
-                        className={`border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors ${
-                          i % 2 === 0 ? '' : 'bg-slate-25 dark:bg-slate-900/20'
-                        }`}
+                        className={`border-b border-slate-100 dark:border-slate-800/50 hover:bg-gradient-to-r hover:from-[#259783]/5 hover:to-transparent dark:hover:from-[#259783]/10 dark:hover:to-transparent transition-all ${
+                          i % 2 === 0 ? 'bg-white dark:bg-[#1c2e18]' : 'bg-slate-50/30 dark:bg-slate-900/20'
+                        } ${isStable ? 'hover:border-l-2 hover:border-l-[#259783]' : ''}`}
                       >
-                        <td className="p-3">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-6 h-6 rounded-md flex items-center justify-center ${
+                        <td className="p-4">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shadow-sm ${
                               outOfStock ? 'bg-rose-100 dark:bg-rose-900/30' 
                               : low ? 'bg-amber-100 dark:bg-amber-900/30' 
+                              : isStable
+                              ? 'bg-gradient-to-br from-[#259783] to-[#45d827]'
                               : trendConfig.bg
                             }`}>
                               {outOfStock || low ? (
-                                <AlertTriangle className={`w-3 h-3 ${outOfStock ? 'text-rose-500' : 'text-amber-500'}`} />
+                                <AlertTriangle className={`w-4 h-4 ${outOfStock ? 'text-rose-500' : 'text-amber-500'}`} />
                               ) : (
-                                <TrendIcon className={`w-3 h-3 ${trendConfig.color}`} />
+                                <TrendIcon className={`w-4 h-4 ${isStable ? 'text-white' : trendConfig.color}`} />
                               )}
                             </div>
-                            <span className="font-medium text-slate-900 dark:text-white text-xs">{item.name}</span>
+                            <span className="font-semibold text-slate-900 dark:text-white text-sm">{item.name}</span>
                           </div>
                         </td>
-                        <td className="p-3 text-xs text-slate-500">{item.category_name || '—'}</td>
-                        <td className="p-3 text-center text-xs text-slate-500">
-                          {item.initial_stock.toFixed(1)} <span className="text-slate-400">{item.unit_type}</span>
+                        <td className="p-4 text-xs text-slate-600 dark:text-slate-400">{item.category_name || '—'}</td>
+                        <td className="p-4 text-center text-xs text-slate-600 dark:text-slate-400">
+                          <span className="font-medium">{item.initial_stock.toFixed(1)}</span> <span className="text-slate-400">{item.unit_type}</span>
                         </td>
-                        <td className="p-3 text-center text-xs text-slate-600 dark:text-slate-400">
-                          <span className="font-medium">{formatCurrency(item.initial_value)}</span>
+                        <td className="p-4 text-center text-xs text-slate-600 dark:text-slate-400">
+                          <span className="font-semibold">{formatCurrency(item.initial_value)}</span>
                         </td>
-                        <td className="p-3 text-center">
-                          <span className={`font-semibold text-xs ${
-                            outOfStock ? 'text-rose-500' : low ? 'text-amber-500' : 'text-slate-900 dark:text-white'
+                        <td className="p-4 text-center">
+                          <span className={`font-bold text-sm ${
+                            outOfStock ? 'text-rose-500' : low ? 'text-amber-500' : isStable ? 'text-[#259783]' : 'text-slate-900 dark:text-white'
                           }`}>
                             {formatStock(item.current_stock, item.unit_type)}
                           </span>
-                          <span className="text-slate-400 text-xs ml-0.5">{item.unit_type}</span>
+                          <span className="text-slate-400 text-xs ml-1">{item.unit_type}</span>
                         </td>
-                        <td className="p-3 text-center text-xs">
-                          <span className={`font-semibold ${trendConfig.color}`}>
+                        <td className="p-4 text-center text-xs">
+                          <span className={`font-bold ${isStable ? 'text-[#259783]' : trendConfig.color}`}>
                             {formatCurrency(item.current_value)}
                           </span>
                         </td>
-                        <td className="p-3">
+                        <td className="p-4">
                           <div className="flex items-center gap-2">
-                            <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                            <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden shadow-inner">
                               {item.initial_stock > 0 && (
                                 <div
-                                  className={`h-full rounded-full bg-gradient-to-r ${trendConfig.gradient}`}
+                                  className={`h-full rounded-full bg-gradient-to-r ${trendConfig.gradient} shadow-sm`}
                                   style={{ 
                                     width: `${Math.min(Math.max((item.current_stock / item.initial_stock) * 100, 0), 100)}%`
                                   }}
                                 />
                               )}
                             </div>
-                            <span className={`text-xs font-semibold w-10 text-right ${trendConfig.color}`}>
+                            <span className={`text-xs font-bold w-12 text-right ${isStable ? 'text-[#259783]' : trendConfig.color}`}>
                               {formatChange(item.stock_change_percent)}
                             </span>
                           </div>
                         </td>
-                        <td className="p-3 text-center">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${trendConfig.bg} ${trendConfig.color}`}>
+                        <td className="p-4 text-center">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold shadow-sm ${
+                            isStable
+                              ? 'bg-gradient-to-r from-[#259783] to-[#45d827] text-white'
+                              : `${trendConfig.bg} ${trendConfig.color}`
+                          }`}>
                             <TrendIcon className="w-3 h-3" />
                             {trendConfig.label}
                           </span>
