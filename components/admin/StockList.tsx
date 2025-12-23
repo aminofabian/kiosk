@@ -322,7 +322,7 @@ export function StockList() {
               return (
                 <div
                   key={item.id}
-                  className={`group relative bg-white dark:bg-[#1c2e18] p-2.5 border-2 transition-all hover:shadow-md hover:shadow-[#259783]/10 ${
+                  className={`group relative bg-white dark:bg-[#1c2e18] p-1.5 border-2 transition-all hover:shadow-md hover:shadow-[#259783]/10 ${
                     outOfStock
                       ? 'border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1c2e18]'
                       : low
@@ -337,70 +337,70 @@ export function StockList() {
                     <div className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${trendConfig.gradient}`} />
                   )}
                   
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     {/* Trend Indicator */}
-                    <div className={`w-10 h-10 flex items-center justify-center shadow-sm ${
+                    <div className={`w-8 h-8 flex items-center justify-center shadow-sm ${
                       isStable 
                         ? 'bg-gradient-to-br from-[#259783] to-[#45d827]' 
                         : outOfStock
                         ? 'bg-slate-100 dark:bg-slate-800'
                         : trendConfig.bg
                     }`}>
-                      <TrendIcon className={`w-5 h-5 ${isStable ? 'text-white' : outOfStock ? 'text-slate-400' : trendConfig.color}`} />
+                      <TrendIcon className={`w-4 h-4 ${isStable ? 'text-white' : outOfStock ? 'text-slate-400' : trendConfig.color}`} />
                     </div>
                     
                     {/* Item Info */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <h3 className="font-semibold text-xs text-slate-900 dark:text-white truncate">
+                      <div className="flex items-center gap-1">
+                        <h3 className="font-semibold text-[10px] text-slate-900 dark:text-white truncate">
                           {item.name}
                         </h3>
-                        {outOfStock && <Badge className="h-3.5 text-[9px] px-1 font-semibold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400">OUT</Badge>}
-                        {!outOfStock && low && <Badge className="h-3.5 text-[9px] px-1 bg-amber-500 font-semibold">LOW</Badge>}
+                        {outOfStock && <Badge className="h-3 text-[8px] px-0.5 font-semibold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400">OUT</Badge>}
+                        {!outOfStock && low && <Badge className="h-3 text-[8px] px-0.5 bg-amber-500 font-semibold">LOW</Badge>}
                       </div>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{item.category_name || 'Uncategorized'}</p>
+                      <p className="text-[9px] text-slate-500 dark:text-slate-400 truncate">{item.category_name || 'Uncategorized'}</p>
                     </div>
                     
                     {/* Stock & Growth */}
                     <div className="text-right">
                       <div className="flex items-baseline gap-0.5 justify-end">
-                        <span className={`text-base font-bold ${
+                        <span className={`text-sm font-bold ${
                           outOfStock ? 'text-slate-400 dark:text-slate-500' : low ? 'text-amber-500' : isStable ? 'text-[#259783]' : 'text-slate-900 dark:text-white'
                         }`}>
                           {formatStock(item.current_stock, item.unit_type)}
                         </span>
-                        <span className="text-[9px] text-slate-400">{item.unit_type}</span>
+                        <span className="text-[8px] text-slate-400">{item.unit_type}</span>
                       </div>
-                      <div className={`text-[10px] font-semibold ${isStable ? 'text-[#259783]' : trendConfig.color}`}>
+                      <div className={`text-[9px] font-semibold ${isStable ? 'text-[#259783]' : trendConfig.color}`}>
                         {formatChange(item.stock_change_percent)}
                       </div>
                     </div>
                   </div>
                   
                   {/* Stock Values */}
-                  <div className="mt-2 grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                    <div className="bg-slate-50 dark:bg-slate-900/50 p-1.5">
-                      <p className="text-[9px] text-slate-400 mb-0.5 font-medium">Initial Value</p>
-                      <p className="text-[10px] font-bold text-slate-600 dark:text-slate-400">
+                  <div className="mt-1 grid grid-cols-2 gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+                    <div className="bg-slate-50 dark:bg-slate-900/50 p-1">
+                      <p className="text-[8px] text-slate-400 mb-0 font-medium">Initial Value</p>
+                      <p className="text-[9px] font-bold text-slate-600 dark:text-slate-400">
                         {formatCurrency(item.initial_value)}
                       </p>
                     </div>
-                    <div className={`p-1.5 ${
+                    <div className={`p-1 ${
                       isStable 
                         ? 'bg-gradient-to-br from-[#259783]/10 to-[#45d827]/10 dark:from-[#259783]/20 dark:to-[#45d827]/20' 
                         : 'bg-slate-50 dark:bg-slate-900/50'
                     }`}>
-                      <p className="text-[9px] text-slate-400 mb-0.5 font-medium">Current Value</p>
-                      <p className={`text-[10px] font-bold ${isStable ? 'text-[#259783]' : trendConfig.color}`}>
+                      <p className="text-[8px] text-slate-400 mb-0 font-medium">Current Value</p>
+                      <p className={`text-[9px] font-bold ${isStable ? 'text-[#259783]' : trendConfig.color}`}>
                         {formatCurrency(item.current_value)}
                       </p>
                     </div>
                   </div>
                   
                   {/* Progress Bar */}
-                  <div className="mt-2 flex items-center gap-1.5">
-                    <span className="text-[9px] text-slate-400 w-10 font-medium">{item.initial_stock.toFixed(0)}</span>
-                    <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 overflow-hidden shadow-inner">
+                  <div className="mt-1 flex items-center gap-1">
+                    <span className="text-[8px] text-slate-400 w-8 font-medium">{item.initial_stock.toFixed(0)}</span>
+                    <div className="flex-1 h-1 bg-slate-100 dark:bg-slate-800 overflow-hidden shadow-inner">
                       {item.initial_stock > 0 && (
                         <div
                           className={`h-full bg-gradient-to-r ${trendConfig.gradient} shadow-sm`}
@@ -411,7 +411,7 @@ export function StockList() {
                         />
                       )}
                     </div>
-                    <span className="text-[9px] text-slate-400 w-10 text-right font-medium">{item.current_stock.toFixed(0)}</span>
+                    <span className="text-[8px] text-slate-400 w-8 text-right font-medium">{item.current_stock.toFixed(0)}</span>
                   </div>
                 </div>
               );
