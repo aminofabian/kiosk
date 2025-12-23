@@ -282,33 +282,8 @@ function AdjustDetailsStep({
           required
           className="text-xl h-14"
         />
-        <div className="grid grid-cols-3 gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => handleQuantityQuickSet(0.1)}
-            className="h-12 text-sm"
-          >
-            10%
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => handleQuantityQuickSet(0.25)}
-            className="h-12 text-sm"
-          >
-            25%
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setQuantity(selectedItem.current_stock.toFixed(2))}
-            className="h-12 text-sm"
-          >
-            Full
-          </Button>
         </div>
-      </div>
+       
 
       {calculatedNewStock !== null && (
         <div className="p-5 rounded-xl bg-primary/5 border-2 border-primary/20 space-y-3">
