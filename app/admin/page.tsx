@@ -144,6 +144,7 @@ export default function AdminDashboardPage() {
   const [stockAdjustDrawerOpen, setStockAdjustDrawerOpen] = useState(false);
   const [stockTakeDrawerOpen, setStockTakeDrawerOpen] = useState(false);
   const [guideDrawerOpen, setGuideDrawerOpen] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
   const [existingCategories, setExistingCategories] = useState<Category[]>([]);
   const [isMobile, setIsMobile] = useState(false);
   const [stats, setStats] = useState<{
@@ -487,23 +488,40 @@ export default function AdminDashboardPage() {
       </Drawer>
 
       <Drawer open={stockAdjustDrawerOpen && !isMobile} onOpenChange={setStockAdjustDrawerOpen} direction="right">
-        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-orange-50 dark:from-[#259783]/20 dark:to-orange-950/20 px-6 py-5">
-            <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-orange-500 flex items-center justify-center shadow-sm">
-                <Scale className="w-5 h-5 text-white" />
+        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl">
+          {/* Header */}
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-800 bg-gradient-to-br from-slate-50 via-white to-slate-50/50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800/50 px-6 py-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#259783] to-[#45d827] flex items-center justify-center shadow-lg shadow-[#259783]/25 ring-2 ring-[#259783]/10">
+                  <Scale className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <DrawerTitle className="text-xl font-bold text-slate-900 dark:text-white leading-tight">
+                    Add Stock
+                  </DrawerTitle>
+                  <DrawerDescription className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                    Adjust inventory levels
+                  </DrawerDescription>
+                </div>
               </div>
-              Add Stock
-            </DrawerTitle>
-            <DrawerDescription className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-              Update inventory levels for damaged, spoiled, or miscounted items
-            </DrawerDescription>
+              <button
+                onClick={() => setStockAdjustDrawerOpen(false)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 sm:px-6 py-6 flex-1 bg-slate-50 dark:bg-slate-900/50">
-            <StockAdjustForm
-              onSuccess={() => setStockAdjustDrawerOpen(false)}
-              onCancel={() => setStockAdjustDrawerOpen(false)}
-            />
+          
+          {/* Content */}
+          <div className="overflow-y-auto flex-1 bg-gradient-to-b from-white via-slate-50/30 to-white dark:from-slate-900 dark:via-slate-900/50 dark:to-slate-900">
+            <div className="px-4 sm:px-6 py-6 max-w-none">
+              <StockAdjustForm
+                onSuccess={() => setStockAdjustDrawerOpen(false)}
+                onCancel={() => setStockAdjustDrawerOpen(false)}
+              />
+            </div>
           </div>
         </DrawerContent>
       </Drawer>
@@ -837,6 +855,75 @@ export default function AdminDashboardPage() {
           </div>
         </DrawerContent>
       </Drawer>
+
+      {/* Mobile FAB Menu */}
+      <div className="md:hidden fixed bottom-20 right-4 z-30 flex flex-col-reverse items-end gap-3">
+        {/* FAB Actions - Show when open */}
+        {fabOpen && (
+          <>
+            <button
+              onClick={() => { 
+                setFabOpen(false);
+                if (isMobile) {
+                  router.push('/admin/stock/adjust');
+                } else {
+                  setStockAdjustDrawerOpen(true);
+                }
+              }}
+              className="flex items-center gap-2 pl-4 pr-5 py-2.5 bg-white dark:bg-slate-800 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 animate-in slide-in-from-bottom-2 fade-in duration-200"
+            >
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#259783] to-[#45d827] flex items-center justify-center">
+                <Scale className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Add Stock</span>
+            </button>
+            <Link
+              href="/admin/stock/take"
+              onClick={() => setFabOpen(false)}
+              className="flex items-center gap-2 pl-4 pr-5 py-2.5 bg-white dark:bg-slate-800 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 animate-in slide-in-from-bottom-2 fade-in duration-150"
+            >
+              <div className="w-8 h-8 rounded-full bg-[#259783] flex items-center justify-center">
+                <ClipboardList className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Stock Take</span>
+            </Link>
+            <Link
+              href="/admin/stock"
+              onClick={() => setFabOpen(false)}
+              className="flex items-center gap-2 pl-4 pr-5 py-2.5 bg-white dark:bg-slate-800 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 animate-in slide-in-from-bottom-2 fade-in duration-100"
+            >
+              <div className="w-8 h-8 rounded-full bg-slate-600 flex items-center justify-center">
+                <PackageCheck className="w-4 h-4 text-white" />
+              </div>
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">View Stock</span>
+            </Link>
+          </>
+        )}
+        
+        {/* Main FAB Button */}
+        <button
+          onClick={() => setFabOpen(!fabOpen)}
+          className={`w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 ${
+            fabOpen
+              ? 'bg-slate-800 dark:bg-slate-200 rotate-45'
+              : 'bg-gradient-to-br from-[#259783] to-[#45d827] shadow-[#259783]/30'
+          }`}
+        >
+          {fabOpen ? (
+            <X className="w-6 h-6 text-white dark:text-slate-900" />
+          ) : (
+            <Plus className="w-7 h-7 text-white" />
+          )}
+        </button>
+      </div>
+
+      {/* FAB Backdrop */}
+      {fabOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/20 dark:bg-black/40 z-20 animate-in fade-in duration-200"
+          onClick={() => setFabOpen(false)}
+        />
+      )}
     </AdminLayout>
   );
 }
