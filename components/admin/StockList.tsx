@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Loader2, Package, AlertTriangle, TrendingUp, TrendingDown, Minus, Sparkles, Search, ChevronDown } from 'lucide-react';
+import { Loader2, Package, AlertTriangle, TrendingUp, TrendingDown, Minus, Sparkles, Search, ChevronDown, CheckCircle2, XCircle } from 'lucide-react';
 import type { Item, Category } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
 
@@ -67,6 +67,7 @@ export function StockList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedTrend, setSelectedTrend] = useState<string>('all');
+  const [stockStatus, setStockStatus] = useState<'all' | 'in_stock' | 'out_of_stock'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'stock' | 'growth'>('growth');
 
   useEffect(() => {
@@ -132,6 +133,8 @@ export function StockList() {
         }
         if (selectedCategory !== 'all' && item.category_id !== selectedCategory) return false;
         if (selectedTrend !== 'all' && item.trend !== selectedTrend) return false;
+        if (stockStatus === 'out_of_stock' && item.current_stock > 0) return false;
+        if (stockStatus === 'in_stock' && item.current_stock <= 0) return false;
         return true;
       })
       .sort((a, b) => {
@@ -139,13 +142,15 @@ export function StockList() {
         if (sortBy === 'growth') return (b.stock_change_percent ?? -999) - (a.stock_change_percent ?? -999);
         return a.name.localeCompare(b.name);
       });
-  }, [items, searchQuery, selectedCategory, selectedTrend, sortBy]);
+  }, [items, searchQuery, selectedCategory, selectedTrend, stockStatus, sortBy]);
 
   const stats = useMemo(() => ({
     growing: items.filter(i => i.trend === 'growing').length,
     stable: items.filter(i => i.trend === 'stable').length,
     shrinking: items.filter(i => i.trend === 'shrinking').length,
     new: items.filter(i => i.trend === 'new').length,
+    inStock: items.filter(i => i.current_stock > 0).length,
+    outOfStock: items.filter(i => i.current_stock <= 0).length,
     total: items.length,
   }), [items]);
 
@@ -185,7 +190,7 @@ export function StockList() {
             <button
               key={trend}
               onClick={() => setSelectedTrend(isActive ? 'all' : trend)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap ${
                 isActive
                   ? `bg-gradient-to-r ${config.gradient} text-white shadow-md`
                   : `${config.bg} ${config.color} hover:ring-2 ${config.ring}`
@@ -200,49 +205,94 @@ export function StockList() {
         {selectedTrend !== 'all' && (
           <button
             onClick={() => setSelectedTrend('all')}
-            className="px-3 py-1.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            className="px-3 py-1.5 text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
           >
             Clear
           </button>
         )}
       </div>
 
-      {/* Search & Filters Row */}
+      {/* Stock Status Filter */}
+      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+        <button
+          onClick={() => setStockStatus('all')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap ${
+            stockStatus === 'all'
+              ? 'bg-gradient-to-r from-[#259783] to-[#45d827] text-white shadow-md'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+          }`}
+        >
+          <Package className="w-3 h-3" />
+          <span>All</span>
+          <span className="hidden sm:inline">({stats.total})</span>
+        </button>
+        <button
+          onClick={() => setStockStatus('in_stock')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap ${
+            stockStatus === 'in_stock'
+              ? 'bg-gradient-to-r from-[#259783] to-[#45d827] text-white shadow-md'
+              : 'bg-[#259783]/10 dark:bg-[#259783]/20 text-[#259783] hover:ring-2 ring-[#259783]/20'
+          }`}
+        >
+          <CheckCircle2 className="w-3 h-3" />
+          <span>In Stock</span>
+          <span className="hidden sm:inline">({stats.inStock})</span>
+        </button>
+        <button
+          onClick={() => setStockStatus('out_of_stock')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap ${
+            stockStatus === 'out_of_stock'
+              ? 'bg-gradient-to-r from-slate-500 to-slate-600 text-white shadow-md'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+          }`}
+        >
+          <XCircle className="w-3 h-3" />
+          <span>Out of Stock</span>
+          <span className="hidden sm:inline">({stats.outOfStock})</span>
+        </button>
+      </div>
+
+      {/* Search Row */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+        <Input
+          type="text"
+          placeholder="Search..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="h-12 pl-10 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 focus:border-[#259783] shadow-sm w-full"
+          style={{ fontSize: '16px', fontWeight: '500' }}
+        />
+      </div>
+
+      {/* Filters Row */}
       <div className="flex gap-2 items-center">
-        <div className="relative flex-1">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-          <Input
-            type="text"
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-8 pl-8 text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700"
-          />
-        </div>
         <div className="relative">
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="h-8 pl-2 pr-6 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md appearance-none cursor-pointer focus:ring-2 focus:ring-[#259783]/20 focus:border-[#259783]"
+            className="h-12 pl-4 pr-10 font-semibold bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 appearance-none cursor-pointer focus:ring-2 focus:ring-[#259783]/30 focus:border-[#259783] min-w-[160px] shadow-sm hover:border-[#259783]/50 transition-colors"
+            style={{ fontSize: '16px', lineHeight: '1.5', fontWeight: '600' }}
           >
-            <option value="all">All</option>
+            <option value="all" style={{ fontSize: '24px', padding: '12px' }}>All Categories</option>
             {categories.map((cat) => (
-              <option key={cat.id} value={cat.id}>{cat.name}</option>
+              <option key={cat.id} value={cat.id} style={{ fontSize: '48px', padding: '32px' }}>{cat.name}</option>
             ))}
           </select>
-          <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-600 dark:text-slate-300 pointer-events-none" />
         </div>
         <div className="relative">
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'name' | 'stock' | 'growth')}
-            className="h-8 pl-2 pr-6 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md appearance-none cursor-pointer focus:ring-2 focus:ring-[#259783]/20 focus:border-[#259783]"
+            className="h-12 pl-4 pr-10 font-semibold bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 appearance-none cursor-pointer focus:ring-2 focus:ring-[#259783]/30 focus:border-[#259783] min-w-[150px] shadow-sm hover:border-[#259783]/50 transition-colors"
+            style={{ fontSize: '16px', lineHeight: '1.5', fontWeight: '600' }}
           >
-            <option value="growth">By Growth</option>
-            <option value="name">By Name</option>
-            <option value="stock">By Stock</option>
+            <option value="growth" style={{ fontSize: '36px', padding: '24px' }}>By Growth</option>
+            <option value="name" style={{ fontSize: '36px', padding: '24px' }}>By Name</option>
+            <option value="stock" style={{ fontSize: '36px', padding: '24px' }}>By Stock</option>
           </select>
-          <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 pointer-events-none" />
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-600 dark:text-slate-300 pointer-events-none" />
         </div>
       </div>
 
@@ -261,7 +311,7 @@ export function StockList() {
       ) : (
         <>
           {/* Mobile: Compact Cards */}
-          <div className="grid grid-cols-1 gap-3 md:hidden">
+          <div className="grid grid-cols-1 gap-2 md:hidden">
             {filteredItems.map((item) => {
               const low = isLowStock(item);
               const outOfStock = item.current_stock <= 0;
@@ -272,9 +322,9 @@ export function StockList() {
               return (
                 <div
                   key={item.id}
-                  className={`group relative bg-white dark:bg-[#1c2e18] rounded-xl p-4 border-2 transition-all hover:shadow-lg hover:shadow-[#259783]/10 ${
+                  className={`group relative bg-white dark:bg-[#1c2e18] p-2.5 border-2 transition-all hover:shadow-md hover:shadow-[#259783]/10 ${
                     outOfStock
-                      ? 'border-rose-300 dark:border-rose-800/50 bg-gradient-to-br from-rose-50/50 to-white dark:from-rose-950/20 dark:to-[#1c2e18]'
+                      ? 'border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1c2e18]'
                       : low
                       ? 'border-amber-300 dark:border-amber-800/50 bg-gradient-to-br from-amber-50/50 to-white dark:from-amber-950/20 dark:to-[#1c2e18]'
                       : isStable
@@ -284,74 +334,76 @@ export function StockList() {
                 >
                   {/* Theme accent bar */}
                   {!outOfStock && !low && (
-                    <div className={`absolute top-0 left-0 right-0 h-1 rounded-t-xl bg-gradient-to-r ${trendConfig.gradient}`} />
+                    <div className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${trendConfig.gradient}`} />
                   )}
                   
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     {/* Trend Indicator */}
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm ${
+                    <div className={`w-10 h-10 flex items-center justify-center shadow-sm ${
                       isStable 
                         ? 'bg-gradient-to-br from-[#259783] to-[#45d827]' 
+                        : outOfStock
+                        ? 'bg-slate-100 dark:bg-slate-800'
                         : trendConfig.bg
                     }`}>
-                      <TrendIcon className={`w-6 h-6 ${isStable ? 'text-white' : trendConfig.color}`} />
+                      <TrendIcon className={`w-5 h-5 ${isStable ? 'text-white' : outOfStock ? 'text-slate-400' : trendConfig.color}`} />
                     </div>
                     
                     {/* Item Info */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="font-semibold text-xs text-slate-900 dark:text-white truncate">
                           {item.name}
                         </h3>
-                        {outOfStock && <Badge variant="destructive" className="h-4 text-[10px] px-1.5 font-semibold">OUT</Badge>}
-                        {!outOfStock && low && <Badge className="h-4 text-[10px] px-1.5 bg-amber-500 font-semibold">LOW</Badge>}
+                        {outOfStock && <Badge className="h-3.5 text-[9px] px-1 font-semibold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400">OUT</Badge>}
+                        {!outOfStock && low && <Badge className="h-3.5 text-[9px] px-1 bg-amber-500 font-semibold">LOW</Badge>}
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{item.category_name || 'Uncategorized'}</p>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{item.category_name || 'Uncategorized'}</p>
                     </div>
                     
                     {/* Stock & Growth */}
                     <div className="text-right">
-                      <div className="flex items-baseline gap-1 justify-end">
-                        <span className={`text-xl font-bold ${
-                          outOfStock ? 'text-rose-500' : low ? 'text-amber-500' : isStable ? 'text-[#259783]' : 'text-slate-900 dark:text-white'
+                      <div className="flex items-baseline gap-0.5 justify-end">
+                        <span className={`text-base font-bold ${
+                          outOfStock ? 'text-slate-400 dark:text-slate-500' : low ? 'text-amber-500' : isStable ? 'text-[#259783]' : 'text-slate-900 dark:text-white'
                         }`}>
                           {formatStock(item.current_stock, item.unit_type)}
                         </span>
-                        <span className="text-[10px] text-slate-400">{item.unit_type}</span>
+                        <span className="text-[9px] text-slate-400">{item.unit_type}</span>
                       </div>
-                      <div className={`text-xs font-semibold ${isStable ? 'text-[#259783]' : trendConfig.color}`}>
+                      <div className={`text-[10px] font-semibold ${isStable ? 'text-[#259783]' : trendConfig.color}`}>
                         {formatChange(item.stock_change_percent)}
                       </div>
                     </div>
                   </div>
                   
                   {/* Stock Values */}
-                  <div className="mt-3 grid grid-cols-2 gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-                    <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-2">
-                      <p className="text-[10px] text-slate-400 mb-1 font-medium">Initial Value</p>
-                      <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                  <div className="mt-2 grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    <div className="bg-slate-50 dark:bg-slate-900/50 p-1.5">
+                      <p className="text-[9px] text-slate-400 mb-0.5 font-medium">Initial Value</p>
+                      <p className="text-[10px] font-bold text-slate-600 dark:text-slate-400">
                         {formatCurrency(item.initial_value)}
                       </p>
                     </div>
-                    <div className={`rounded-lg p-2 ${
+                    <div className={`p-1.5 ${
                       isStable 
                         ? 'bg-gradient-to-br from-[#259783]/10 to-[#45d827]/10 dark:from-[#259783]/20 dark:to-[#45d827]/20' 
                         : 'bg-slate-50 dark:bg-slate-900/50'
                     }`}>
-                      <p className="text-[10px] text-slate-400 mb-1 font-medium">Current Value</p>
-                      <p className={`text-xs font-bold ${isStable ? 'text-[#259783]' : trendConfig.color}`}>
+                      <p className="text-[9px] text-slate-400 mb-0.5 font-medium">Current Value</p>
+                      <p className={`text-[10px] font-bold ${isStable ? 'text-[#259783]' : trendConfig.color}`}>
                         {formatCurrency(item.current_value)}
                       </p>
                     </div>
                   </div>
                   
                   {/* Progress Bar */}
-                  <div className="mt-3 flex items-center gap-2">
-                    <span className="text-[10px] text-slate-400 w-12 font-medium">{item.initial_stock.toFixed(0)}</span>
-                    <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <span className="text-[9px] text-slate-400 w-10 font-medium">{item.initial_stock.toFixed(0)}</span>
+                    <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 overflow-hidden shadow-inner">
                       {item.initial_stock > 0 && (
                         <div
-                          className={`h-full rounded-full bg-gradient-to-r ${trendConfig.gradient} shadow-sm`}
+                          className={`h-full bg-gradient-to-r ${trendConfig.gradient} shadow-sm`}
                           style={{ 
                             width: `${Math.min(Math.max((item.current_stock / item.initial_stock) * 100, 0), 200)}%`,
                             maxWidth: '100%'
@@ -359,7 +411,7 @@ export function StockList() {
                         />
                       )}
                     </div>
-                    <span className="text-[10px] text-slate-400 w-12 text-right font-medium">{item.current_stock.toFixed(0)}</span>
+                    <span className="text-[9px] text-slate-400 w-10 text-right font-medium">{item.current_stock.toFixed(0)}</span>
                   </div>
                 </div>
               );
@@ -399,15 +451,15 @@ export function StockList() {
                       >
                         <td className="p-4">
                           <div className="flex items-center gap-3">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shadow-sm ${
-                              outOfStock ? 'bg-rose-100 dark:bg-rose-900/30' 
+                            <div className={`w-8 h-8 flex items-center justify-center shadow-sm ${
+                              outOfStock ? 'bg-slate-100 dark:bg-slate-800' 
                               : low ? 'bg-amber-100 dark:bg-amber-900/30' 
                               : isStable
                               ? 'bg-gradient-to-br from-[#259783] to-[#45d827]'
                               : trendConfig.bg
                             }`}>
                               {outOfStock || low ? (
-                                <AlertTriangle className={`w-4 h-4 ${outOfStock ? 'text-rose-500' : 'text-amber-500'}`} />
+                                <AlertTriangle className={`w-4 h-4 ${outOfStock ? 'text-slate-400' : 'text-amber-500'}`} />
                               ) : (
                                 <TrendIcon className={`w-4 h-4 ${isStable ? 'text-white' : trendConfig.color}`} />
                               )}
@@ -424,7 +476,7 @@ export function StockList() {
                         </td>
                         <td className="p-4 text-center">
                           <span className={`font-bold text-sm ${
-                            outOfStock ? 'text-rose-500' : low ? 'text-amber-500' : isStable ? 'text-[#259783]' : 'text-slate-900 dark:text-white'
+                            outOfStock ? 'text-slate-400 dark:text-slate-500' : low ? 'text-amber-500' : isStable ? 'text-[#259783]' : 'text-slate-900 dark:text-white'
                           }`}>
                             {formatStock(item.current_stock, item.unit_type)}
                           </span>
@@ -437,10 +489,10 @@ export function StockList() {
                         </td>
                         <td className="p-4">
                           <div className="flex items-center gap-2">
-                            <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden shadow-inner">
+                            <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-700 overflow-hidden shadow-inner">
                               {item.initial_stock > 0 && (
                                 <div
-                                  className={`h-full rounded-full bg-gradient-to-r ${trendConfig.gradient} shadow-sm`}
+                                  className={`h-full bg-gradient-to-r ${trendConfig.gradient} shadow-sm`}
                                   style={{ 
                                     width: `${Math.min(Math.max((item.current_stock / item.initial_stock) * 100, 0), 100)}%`
                                   }}
@@ -453,7 +505,7 @@ export function StockList() {
                           </div>
                         </td>
                         <td className="p-4 text-center">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold shadow-sm ${
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold shadow-sm ${
                             isStable
                               ? 'bg-gradient-to-r from-[#259783] to-[#45d827] text-white'
                               : `${trendConfig.bg} ${trendConfig.color}`
