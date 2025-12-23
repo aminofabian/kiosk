@@ -53,7 +53,7 @@ export async function POST() {
         '1. Visit /superadmin/setup to create your super admin account',
         '2. Login at /superadmin/login',
         '3. Create your first business from the super admin panel',
-        '4. Add a domain mapping for kiosk.ke → your business'
+        '4. Add a domain mapping for kiosk.co.ke → your business'
       ]
     });
   } catch (error) {

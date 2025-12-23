@@ -29,7 +29,7 @@
 - ✅ **Category association** for category banners
 
 ### 4. Domain Resolution
-- ✅ Localhost automatically resolves to `kiosk.ke` default domain
+- ✅ Localhost automatically resolves to `kiosk.co.ke` default domain
 - ✅ Fixed domains table error handling in Super Admin API
 
 ## 📋 Usage
@@ -105,7 +105,7 @@
 
 ## 📝 Notes
 
-- For localhost development, the system automatically uses `kiosk.ke` as the default domain
+- For localhost development, the system automatically uses `kiosk.co.ke` as the default domain
 - Banner images are stored in S3 at `banners/{businessId}/{uuid}.{ext}`
 - Banner metadata is stored in `business.settings` JSON field
 - When a banner is deleted, the S3 object is also deleted automatically

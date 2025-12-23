@@ -58,7 +58,7 @@ export default function SettingsPage() {
     defaultCurrency: 'KES',
     defaultTimezone: 'Africa/Nairobi',
     platformName: 'Kiosk POS Platform',
-    supportEmail: 'support@kiosk.ke',
+    supportEmail: 'support@kiosk.co.ke',
   });
 
   useEffect(() => {

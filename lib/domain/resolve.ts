@@ -1,7 +1,7 @@
 import { queryOne } from '@/lib/db';
 import type { Domain, Business } from '@/lib/db/types';
 
-const DEFAULT_DOMAIN = 'kiosk.ke';
+const DEFAULT_DOMAIN = 'kiosk.co.ke';
 const DEFAULT_DOMAIN_URL = 'https://kiosk.co.ke';
 const LOCALHOST_DOMAINS = ['localhost', '127.0.0.1', '0.0.0.0'];
 

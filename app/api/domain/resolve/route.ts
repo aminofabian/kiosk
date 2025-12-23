@@ -3,7 +3,7 @@ import { queryOne } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import type { Domain, Business } from '@/lib/db/types';
 
-const DEFAULT_DOMAIN = 'kiosk.ke';
+const DEFAULT_DOMAIN = 'kiosk.co.ke';
 
 export async function OPTIONS() {
   return optionsResponse();

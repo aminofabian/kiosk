@@ -45,9 +45,9 @@
 
 ```
 1. Request arrives → Extract hostname from headers
-2. Normalize domain (localhost → kiosk.ke, lowercase, remove port)
+2. Normalize domain (localhost → kiosk.co.ke, lowercase, remove port)
 3. Query domains table → Get business_id
-4. If not found → Fallback to default business (kiosk.ke)
+4. If not found → Fallback to default business (kiosk.co.ke)
 5. If domain/business suspended → Return error
 6. Verify user belongs to resolved business (if auth required)
 7. All queries use resolved business_id (never from session/user input)
@@ -97,7 +97,7 @@ After running migrations, create the default domain mapping:
 INSERT INTO domains (id, domain, business_id, is_primary, active, created_at)
 VALUES (
   '<uuid>',
-  'kiosk.ke',
+  'kiosk.co.ke',
   '<default-business-id>',
   1,
   1,

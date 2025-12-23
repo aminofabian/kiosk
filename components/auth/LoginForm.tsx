@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 
-const DEFAULT_DOMAIN = 'kiosk.ke';
+const DEFAULT_DOMAIN = 'kiosk.co.ke';
 const LOCALHOST_DOMAINS = ['localhost', '127.0.0.1', '0.0.0.0'];
 
 export function LoginForm() {

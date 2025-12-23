@@ -124,8 +124,8 @@ POST /api/domains
 
 ## Default Domain
 
-- **Default domain**: `kiosk.ke`
-- **Localhost resolution**: `localhost`, `127.0.0.1` → `kiosk.ke`
+- **Default domain**: `kiosk.co.ke`
+- **Localhost resolution**: `localhost`, `127.0.0.1` → `kiosk.co.ke`
 - **Fallback behavior**: Unregistered domains fall back to default business
 
 ## Security Rules
@@ -159,12 +159,12 @@ const auth = await requireDomainAuth();
 3. **Business suspended** → Returns 403 with error
 4. **User belongs to different business** → Returns 403
 5. **Localhost/development** → Resolves to default domain
-6. **Subdomains** → Treated as unique domains (e.g., `shop.kiosk.ke`)
+6. **Subdomains** → Treated as unique domains (e.g., `shop.kiosk.co.ke`)
 
 ## Next Steps
 
 1. **Update existing API routes** to use `requireDomainAuth()` instead of `requireAuth()`
 2. **Add domain management UI** to Super Admin business detail page
-3. **Set default business** with domain `kiosk.ke` after migration
+3. **Set default business** with domain `kiosk.co.ke` after migration
 4. **Test domain resolution** with multiple businesses
 5. **Update middleware** to handle domain errors gracefully

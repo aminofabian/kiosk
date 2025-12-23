@@ -33,7 +33,7 @@ CREATE INDEX IF NOT EXISTS idx_super_admins_email ON super_admins(email);
 -- ============================================
 CREATE TABLE IF NOT EXISTS domains (
   id TEXT PRIMARY KEY,
-  domain TEXT NOT NULL UNIQUE, -- e.g., "biashara.co.ke", "shop.kiosk.ke"
+  domain TEXT NOT NULL UNIQUE, -- e.g., "biashara.co.ke", "shop.kiosk.co.ke"
   business_id TEXT NOT NULL,
   is_primary INTEGER NOT NULL DEFAULT 0, -- 1 = primary domain, 0 = secondary
   active INTEGER NOT NULL DEFAULT 1, -- 1 = active, 0 = suspended

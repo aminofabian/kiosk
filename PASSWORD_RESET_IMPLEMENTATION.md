@@ -16,7 +16,7 @@ Add these to your `.env.local` file:
 ```env
 # Resend API Configuration
 RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxx
-RESEND_FROM_EMAIL=noreply@yourdomain.com  # Optional, defaults to noreply@kiosk.ke
+RESEND_FROM_EMAIL=noreply@yourdomain.com  # Optional, defaults to noreply@kiosk.co.ke
 APP_NAME=POS System  # Optional, defaults to "POS System"
 NEXTAUTH_URL=http://localhost:3000  # Your app URL (required for reset links)
 ```

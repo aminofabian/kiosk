@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { PINLogin } from '@/components/pos/PINLogin';
 import { Loader2 } from 'lucide-react';
 
-const DEFAULT_DOMAIN = 'kiosk.ke';
+const DEFAULT_DOMAIN = 'kiosk.co.ke';
 const LOCALHOST_DOMAINS = ['localhost', '127.0.0.1', '0.0.0.0'];
 
 interface BusinessInfo {
