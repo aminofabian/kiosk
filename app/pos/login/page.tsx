@@ -7,6 +7,11 @@ import { Loader2 } from 'lucide-react';
 const DEFAULT_DOMAIN = 'kiosk.co.ke';
 const LOCALHOST_DOMAINS = ['localhost', '127.0.0.1', '0.0.0.0'];
 
+function isPublicDomain(hostname: string): boolean {
+  const lower = hostname.toLowerCase();
+  return lower === DEFAULT_DOMAIN || LOCALHOST_DOMAINS.includes(lower);
+}
+
 interface BusinessInfo {
   id: string;
   name: string;
@@ -24,25 +29,27 @@ function POSLoginContent() {
   const [business, setBusiness] = useState<BusinessInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isPublic, setIsPublic] = useState(false);
 
   useEffect(() => {
     const loadBusiness = async () => {
       try {
-        // Always resolve business from domain - never from URL params or localStorage
-        let hostname = window.location.hostname.toLowerCase();
+        const hostname = window.location.hostname.toLowerCase();
+        const publicDomain = isPublicDomain(hostname);
+        setIsPublic(publicDomain);
+
+        let domainToResolve = hostname;
         
-        // Map localhost to default domain
-        if (LOCALHOST_DOMAINS.includes(hostname)) {
-          hostname = DEFAULT_DOMAIN;
+        if (publicDomain && LOCALHOST_DOMAINS.includes(hostname)) {
+          domainToResolve = DEFAULT_DOMAIN;
         }
 
-        // Remove port if present
-        const portIndex = hostname.indexOf(':');
+        const portIndex = domainToResolve.indexOf(':');
         if (portIndex > -1) {
-          hostname = hostname.substring(0, portIndex);
+          domainToResolve = domainToResolve.substring(0, portIndex);
         }
 
-        const response = await fetch(`/api/domain/resolve?domain=${encodeURIComponent(hostname)}`);
+        const response = await fetch(`/api/domain/resolve?domain=${encodeURIComponent(domainToResolve)}`);
         const result = await response.json();
 
         if (result.success && result.data) {
@@ -50,8 +57,10 @@ function POSLoginContent() {
             id: result.data.businessId,
             name: result.data.businessName,
           });
-        } else {
+        } else if (!publicDomain) {
           setError('Business not found for this domain');
+        } else {
+          setError('No business found. Please register a business first.');
         }
       } catch {
         setError('Failed to load business');

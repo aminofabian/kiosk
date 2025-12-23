@@ -13,6 +13,41 @@ export interface DomainAuthContext {
   name: string;
   domain: string;
   isSuperAdmin: boolean;
+  isPublic: boolean;
+}
+
+export async function getOptionalDomainAuth(): Promise<DomainAuthContext | null> {
+  const domainContextResult = await getDomainContext();
+  
+  if ('error' in domainContextResult) {
+    return null;
+  }
+
+  const domainContext = domainContextResult;
+  const session = await getServerSession(authOptions);
+  
+  if (!session?.user) {
+    return null;
+  }
+
+  if (session.user.isSuperAdmin) {
+    return null;
+  }
+
+  if (session.user.businessId !== domainContext.businessId) {
+    return null;
+  }
+
+  return {
+    userId: session.user.id,
+    businessId: domainContext.businessId,
+    role: session.user.role as UserRole,
+    email: session.user.email,
+    name: session.user.name,
+    domain: domainContext.domain,
+    isSuperAdmin: false,
+    isPublic: domainContext.isPublic,
+  };
 }
 
 export async function requireDomainAuth(): Promise<DomainAuthContext | Response> {
@@ -27,6 +62,14 @@ export async function requireDomainAuth(): Promise<DomainAuthContext | Response>
 
   const domainContext = domainContextResult;
   
+  if (domainContext.isPublic) {
+    const auth = await getOptionalDomainAuth();
+    if (!auth) {
+      return jsonResponse({ success: false, message: 'Unauthorized' }, 401);
+    }
+    return auth;
+  }
+
   const session = await getServerSession(authOptions);
   
   if (!session?.user) {
@@ -58,6 +101,7 @@ export async function requireDomainAuth(): Promise<DomainAuthContext | Response>
     name: session.user.name,
     domain: domainContext.domain,
     isSuperAdmin: false,
+    isPublic: false,
   };
 }
 

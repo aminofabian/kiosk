@@ -4,12 +4,14 @@ import type { Domain, Business } from '@/lib/db/types';
 const DEFAULT_DOMAIN = 'kiosk.co.ke';
 const DEFAULT_DOMAIN_URL = 'https://kiosk.co.ke';
 const LOCALHOST_DOMAINS = ['localhost', '127.0.0.1', '0.0.0.0'];
+const PUBLIC_DOMAINS = [DEFAULT_DOMAIN, ...LOCALHOST_DOMAINS];
 
 export interface DomainResolutionResult {
   businessId: string;
   business: Business;
   domain: string;
   isDefault: boolean;
+  isPublic: boolean;
 }
 
 export interface DomainResolutionError {
@@ -35,6 +37,15 @@ function normalizeDomain(hostname: string | null): string {
   }
 
   return lower;
+}
+
+export function isPublicDomain(hostname: string | null): boolean {
+  if (!hostname) {
+    return true;
+  }
+
+  const normalized = normalizeDomain(hostname);
+  return normalized === DEFAULT_DOMAIN || LOCALHOST_DOMAINS.includes(normalized.toLowerCase());
 }
 
 export async function resolveDomainToBusiness(
@@ -79,6 +90,7 @@ export async function resolveDomainToBusiness(
       business: defaultBusiness,
       domain: DEFAULT_DOMAIN,
       isDefault: true,
+      isPublic: true,
     };
   }
 
@@ -108,6 +120,7 @@ export async function resolveDomainToBusiness(
     business,
     domain: normalizedDomain,
     isDefault: normalizedDomain === DEFAULT_DOMAIN,
+    isPublic: normalizedDomain === DEFAULT_DOMAIN || LOCALHOST_DOMAINS.includes(normalizedDomain.toLowerCase()),
   };
 }
 

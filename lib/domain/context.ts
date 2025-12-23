@@ -8,6 +8,7 @@ export interface DomainContext {
   business: Business;
   domain: string;
   isDefault: boolean;
+  isPublic: boolean;
 }
 
 export async function getDomainContext(): Promise<DomainContext | DomainResolutionError> {
@@ -25,6 +26,7 @@ export async function getDomainContext(): Promise<DomainContext | DomainResoluti
     business: resolution.business,
     domain: resolution.domain,
     isDefault: resolution.isDefault,
+    isPublic: resolution.isPublic,
   };
 }
 

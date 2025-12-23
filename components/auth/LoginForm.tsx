@@ -13,6 +13,11 @@ import { Loader2 } from 'lucide-react';
 const DEFAULT_DOMAIN = 'kiosk.co.ke';
 const LOCALHOST_DOMAINS = ['localhost', '127.0.0.1', '0.0.0.0'];
 
+function isPublicDomain(hostname: string): boolean {
+  const lower = hostname.toLowerCase();
+  return lower === DEFAULT_DOMAIN || LOCALHOST_DOMAINS.includes(lower);
+}
+
 export function LoginForm() {
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -22,35 +27,37 @@ export function LoginForm() {
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string | null>(null);
   const [domainLoading, setDomainLoading] = useState(true);
+  const [isPublic, setIsPublic] = useState(false);
 
   useEffect(() => {
     const resolveDomain = async () => {
       try {
-        let hostname = window.location.hostname.toLowerCase();
+        const hostname = window.location.hostname.toLowerCase();
         
-        // Map localhost to default domain
-        if (LOCALHOST_DOMAINS.includes(hostname)) {
-          hostname = DEFAULT_DOMAIN;
+        const publicDomain = isPublicDomain(hostname);
+        setIsPublic(publicDomain);
+
+        if (publicDomain) {
+          setDomainLoading(false);
+          return;
         }
 
         // Remove port if present
-        const portIndex = hostname.indexOf(':');
+        let domainToResolve = hostname;
+        const portIndex = domainToResolve.indexOf(':');
         if (portIndex > -1) {
-          hostname = hostname.substring(0, portIndex);
+          domainToResolve = domainToResolve.substring(0, portIndex);
         }
 
-        // Fetch business for this domain
-        const response = await fetch(`/api/domain/resolve?domain=${encodeURIComponent(hostname)}`);
+        const response = await fetch(`/api/domain/resolve?domain=${encodeURIComponent(domainToResolve)}`);
         const result = await response.json();
 
         if (result.success && result.data) {
           setBusinessId(result.data.businessId);
           setBusinessName(result.data.businessName);
         }
-        // If no business found, businessId stays null - fallback login will be used
       } catch (err) {
         console.error('Failed to resolve domain:', err);
-        // On error, businessId stays null - allows fallback login during initial setup
       } finally {
         setDomainLoading(false);
       }
@@ -65,12 +72,22 @@ export function LoginForm() {
     setError(null);
 
     try {
-      const result = await signIn('credentials', {
+      const signInParams: {
+        email: string;
+        password: string;
+        businessId?: string;
+        redirect: boolean;
+      } = {
         email,
         password,
-        businessId: businessId || undefined,
         redirect: false,
-      });
+      };
+
+      if (!isPublic && businessId) {
+        signInParams.businessId = businessId;
+      }
+
+      const result = await signIn('credentials', signInParams);
 
       if (result?.error) {
         if (result.error.includes('suspended')) {
@@ -99,6 +116,8 @@ export function LoginForm() {
         <CardDescription>
           {domainLoading ? (
             'Loading...'
+          ) : isPublic ? (
+            'Sign in to access your POS dashboard'
           ) : businessName ? (
             <>Sign in to <span className="font-semibold text-emerald-600">{businessName}</span></>
           ) : (

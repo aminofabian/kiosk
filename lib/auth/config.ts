@@ -97,9 +97,9 @@ export const authOptions: NextAuthOptions = {
         }
 
         // Fallback for backwards compatibility (no businessId provided)
-        // This should only be used during development or migration
-        const user = await queryOne<User & { business_name: string }>(
-          `SELECT u.*, b.name as business_name 
+        // Used for public domains like localhost and kiosk.co.ke
+        const user = await queryOne<User & { business_name: string; business_active: number }>(
+          `SELECT u.*, b.name as business_name, b.active as business_active
            FROM users u 
            JOIN businesses b ON u.business_id = b.id
            WHERE u.email = ? AND u.active = 1`,
@@ -108,6 +108,10 @@ export const authOptions: NextAuthOptions = {
 
         if (!user) {
           throw new Error('Invalid email or password');
+        }
+
+        if (user.business_active === 0) {
+          throw new Error('This business is suspended');
         }
 
         const isValidPassword = await bcrypt.compare(
