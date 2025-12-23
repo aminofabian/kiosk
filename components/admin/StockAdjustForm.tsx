@@ -383,34 +383,7 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
                       required
                       className="text-lg h-12"
                     />
-                    {selectedItem && (
-                      <div className="flex gap-2 flex-wrap">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleQuantityQuickSet(0.1)}
-                        >
-                          10%
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleQuantityQuickSet(0.25)}
-                        >
-                          25%
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setQuantity(selectedItem.current_stock.toFixed(2))}
-                        >
-                          Full Stock
-                        </Button>
-                      </div>
-                    )}
+                  
                   </div>
 
                   {calculatedNewStock !== null && (

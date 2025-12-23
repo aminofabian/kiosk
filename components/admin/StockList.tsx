@@ -177,10 +177,111 @@ export function StockList() {
   }
 
   return (
-    <div className="space-y-3">
-      {/* Compact Stats Row */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-        {(['growing', 'stable', 'shrinking', 'new'] as const).map((trend) => {
+    <div className="space-y-4">
+      {/* Mobile: Summary Stats Cards */}
+      <div className="md:hidden grid grid-cols-4 gap-2">
+        <button
+          onClick={() => setStockStatus('all')}
+          className={`flex flex-col items-center p-3 rounded-2xl transition-all ${
+            stockStatus === 'all'
+              ? 'bg-gradient-to-br from-[#259783] to-[#45d827] shadow-lg shadow-[#259783]/25'
+              : 'bg-white dark:bg-slate-800/80'
+          }`}
+        >
+          <span className={`text-lg font-bold ${stockStatus === 'all' ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+            {stats.total}
+          </span>
+          <span className={`text-[10px] font-medium ${stockStatus === 'all' ? 'text-white/80' : 'text-slate-500'}`}>
+            Total
+          </span>
+        </button>
+        <button
+          onClick={() => setStockStatus('in_stock')}
+          className={`flex flex-col items-center p-3 rounded-2xl transition-all ${
+            stockStatus === 'in_stock'
+              ? 'bg-gradient-to-br from-[#259783] to-[#45d827] shadow-lg shadow-[#259783]/25'
+              : 'bg-white dark:bg-slate-800/80'
+          }`}
+        >
+          <span className={`text-lg font-bold ${stockStatus === 'in_stock' ? 'text-white' : 'text-[#259783]'}`}>
+            {stats.inStock}
+          </span>
+          <span className={`text-[10px] font-medium ${stockStatus === 'in_stock' ? 'text-white/80' : 'text-slate-500'}`}>
+            In Stock
+          </span>
+        </button>
+        <button
+          onClick={() => setStockStatus('out_of_stock')}
+          className={`flex flex-col items-center p-3 rounded-2xl transition-all ${
+            stockStatus === 'out_of_stock'
+              ? 'bg-gradient-to-br from-slate-600 to-slate-800 shadow-lg'
+              : 'bg-white dark:bg-slate-800/80'
+          }`}
+        >
+          <span className={`text-lg font-bold ${stockStatus === 'out_of_stock' ? 'text-white' : 'text-slate-400'}`}>
+            {stats.outOfStock}
+          </span>
+          <span className={`text-[10px] font-medium ${stockStatus === 'out_of_stock' ? 'text-white/80' : 'text-slate-500'}`}>
+            Out
+          </span>
+        </button>
+        <button
+          onClick={() => setSelectedTrend(selectedTrend === 'shrinking' ? 'all' : 'shrinking')}
+          className={`flex flex-col items-center p-3 rounded-2xl transition-all ${
+            selectedTrend === 'shrinking'
+              ? 'bg-gradient-to-br from-rose-500 to-red-600 shadow-lg shadow-rose-500/25'
+              : 'bg-white dark:bg-slate-800/80'
+          }`}
+        >
+          <span className={`text-lg font-bold ${selectedTrend === 'shrinking' ? 'text-white' : 'text-rose-500'}`}>
+            {stats.shrinking}
+          </span>
+          <span className={`text-[10px] font-medium ${selectedTrend === 'shrinking' ? 'text-white/80' : 'text-slate-500'}`}>
+            Low
+          </span>
+        </button>
+      </div>
+
+      {/* Mobile: Search Bar */}
+      <div className="md:hidden relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+        <Input
+          type="text"
+          placeholder="Search items..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="h-12 pl-12 pr-4 bg-white dark:bg-slate-800/80 border-0 rounded-2xl shadow-sm focus-visible:ring-2 focus-visible:ring-[#259783]/30"
+          style={{ fontSize: '16px' }}
+        />
+      </div>
+
+      {/* Mobile: Horizontal Filter Pills */}
+      <div className="md:hidden flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-3 px-3">
+        {/* Category Filter */}
+        <select
+          value={selectedCategory}
+          onChange={(e) => setSelectedCategory(e.target.value)}
+          className="h-9 px-4 pr-8 text-sm font-medium bg-white dark:bg-slate-800 rounded-full border-0 shadow-sm appearance-none cursor-pointer flex-shrink-0"
+        >
+          <option value="all">All Categories</option>
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>{cat.name}</option>
+          ))}
+        </select>
+        
+        {/* Sort Filter */}
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as 'name' | 'stock' | 'growth')}
+          className="h-9 px-4 pr-8 text-sm font-medium bg-white dark:bg-slate-800 rounded-full border-0 shadow-sm appearance-none cursor-pointer flex-shrink-0"
+        >
+          <option value="growth">By Growth</option>
+          <option value="name">By Name</option>
+          <option value="stock">By Stock</option>
+        </select>
+
+        {/* Trend Pills */}
+        {(['growing', 'stable', 'new'] as const).map((trend) => {
           const config = TREND_CONFIG[trend];
           const count = stats[trend];
           const isActive = selectedTrend === trend;
@@ -190,109 +291,117 @@ export function StockList() {
             <button
               key={trend}
               onClick={() => setSelectedTrend(isActive ? 'all' : trend)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap ${
+              className={`flex items-center gap-1.5 h-9 px-4 text-sm font-medium rounded-full whitespace-nowrap flex-shrink-0 transition-all ${
                 isActive
                   ? `bg-gradient-to-r ${config.gradient} text-white shadow-md`
-                  : `${config.bg} ${config.color} hover:ring-2 ${config.ring}`
+                  : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300'
               }`}
             >
-              <Icon className="w-3 h-3" />
+              <Icon className="w-3.5 h-3.5" />
               <span>{count}</span>
-              <span className="hidden sm:inline">{config.label}</span>
             </button>
           );
         })}
-        {selectedTrend !== 'all' && (
+      </div>
+
+      {/* Desktop: Original Filters */}
+      <div className="hidden md:block space-y-3">
+        {/* Desktop Stats Row */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+          {(['growing', 'stable', 'shrinking', 'new'] as const).map((trend) => {
+            const config = TREND_CONFIG[trend];
+            const count = stats[trend];
+            const isActive = selectedTrend === trend;
+            const Icon = config.icon;
+            
+            return (
+              <button
+                key={trend}
+                onClick={() => setSelectedTrend(isActive ? 'all' : trend)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
+                  isActive
+                    ? `bg-gradient-to-r ${config.gradient} text-white shadow-md`
+                    : `${config.bg} ${config.color} hover:ring-2 ${config.ring}`
+                }`}
+              >
+                <Icon className="w-3 h-3" />
+                <span>{count}</span>
+                <span>{config.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Desktop Stock Status */}
+        <div className="flex gap-1.5">
           <button
-            onClick={() => setSelectedTrend('all')}
-            className="px-3 py-1.5 text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            onClick={() => setStockStatus('all')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              stockStatus === 'all'
+                ? 'bg-gradient-to-r from-[#259783] to-[#45d827] text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+            }`}
           >
-            Clear
+            <Package className="w-3 h-3" />
+            All ({stats.total})
           </button>
-        )}
-      </div>
+          <button
+            onClick={() => setStockStatus('in_stock')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              stockStatus === 'in_stock'
+                ? 'bg-gradient-to-r from-[#259783] to-[#45d827] text-white shadow-md'
+                : 'bg-[#259783]/10 text-[#259783]'
+            }`}
+          >
+            <CheckCircle2 className="w-3 h-3" />
+            In Stock ({stats.inStock})
+          </button>
+          <button
+            onClick={() => setStockStatus('out_of_stock')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              stockStatus === 'out_of_stock'
+                ? 'bg-gradient-to-r from-slate-500 to-slate-600 text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+            }`}
+          >
+            <XCircle className="w-3 h-3" />
+            Out ({stats.outOfStock})
+          </button>
+        </div>
 
-      {/* Stock Status Filter */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-        <button
-          onClick={() => setStockStatus('all')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap ${
-            stockStatus === 'all'
-              ? 'bg-gradient-to-r from-[#259783] to-[#45d827] text-white shadow-md'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-          }`}
-        >
-          <Package className="w-3 h-3" />
-          <span>All</span>
-          <span className="hidden sm:inline">({stats.total})</span>
-        </button>
-        <button
-          onClick={() => setStockStatus('in_stock')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap ${
-            stockStatus === 'in_stock'
-              ? 'bg-gradient-to-r from-[#259783] to-[#45d827] text-white shadow-md'
-              : 'bg-[#259783]/10 dark:bg-[#259783]/20 text-[#259783] hover:ring-2 ring-[#259783]/20'
-          }`}
-        >
-          <CheckCircle2 className="w-3 h-3" />
-          <span>In Stock</span>
-          <span className="hidden sm:inline">({stats.inStock})</span>
-        </button>
-        <button
-          onClick={() => setStockStatus('out_of_stock')}
-          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all whitespace-nowrap ${
-            stockStatus === 'out_of_stock'
-              ? 'bg-gradient-to-r from-slate-500 to-slate-600 text-white shadow-md'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-          }`}
-        >
-          <XCircle className="w-3 h-3" />
-          <span>Out of Stock</span>
-          <span className="hidden sm:inline">({stats.outOfStock})</span>
-        </button>
-      </div>
-
-      {/* Search Row */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-        <Input
-          type="text"
-          placeholder="Search..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="h-12 pl-10 bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 focus:border-[#259783] shadow-sm w-full"
-          style={{ fontSize: '16px', fontWeight: '500' }}
-        />
-      </div>
-
-      {/* Filters Row */}
-      <div className="flex gap-2 items-center">
+        {/* Desktop Search */}
         <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <Input
+            type="text"
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-10 pl-10 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg"
+          />
+        </div>
+
+        {/* Desktop Category/Sort */}
+        <div className="flex gap-2">
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="h-12 pl-4 pr-10 font-semibold bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 appearance-none cursor-pointer focus:ring-2 focus:ring-[#259783]/30 focus:border-[#259783] min-w-[160px] shadow-sm hover:border-[#259783]/50 transition-colors"
-            style={{ fontSize: '16px', lineHeight: '1.5', fontWeight: '600' }}
+            className="h-10 px-3 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg"
           >
-            <option value="all" style={{ fontSize: '24px', padding: '12px' }}>All Categories</option>
+            <option value="all">All Categories</option>
             {categories.map((cat) => (
-              <option key={cat.id} value={cat.id} style={{ fontSize: '48px', padding: '32px' }}>{cat.name}</option>
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
             ))}
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-600 dark:text-slate-300 pointer-events-none" />
-        </div>
-        <div className="relative">
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'name' | 'stock' | 'growth')}
-            className="h-12 pl-4 pr-10 font-semibold bg-white dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-600 appearance-none cursor-pointer focus:ring-2 focus:ring-[#259783]/30 focus:border-[#259783] min-w-[150px] shadow-sm hover:border-[#259783]/50 transition-colors"
-            style={{ fontSize: '16px', lineHeight: '1.5', fontWeight: '600' }}
+            className="h-10 px-3 text-sm bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg"
           >
-            <option value="growth" style={{ fontSize: '36px', padding: '24px' }}>By Growth</option>
-            <option value="name" style={{ fontSize: '36px', padding: '24px' }}>By Name</option>
-            <option value="stock" style={{ fontSize: '36px', padding: '24px' }}>By Stock</option>
+            <option value="growth">By Growth</option>
+            <option value="name">By Name</option>
+            <option value="stock">By Stock</option>
           </select>
-          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-600 dark:text-slate-300 pointer-events-none" />
         </div>
       </div>
 
@@ -310,108 +419,113 @@ export function StockList() {
         </div>
       ) : (
         <>
-          {/* Mobile: Compact Cards */}
-          <div className="grid grid-cols-1 gap-2 md:hidden">
+          {/* Mobile: Clean App-Style Cards */}
+          <div className="md:hidden space-y-2">
             {filteredItems.map((item) => {
               const low = isLowStock(item);
               const outOfStock = item.current_stock <= 0;
               const trendConfig = TREND_CONFIG[item.trend];
               const TrendIcon = trendConfig.icon;
               const isStable = item.trend === 'stable';
+              const stockPercentage = item.initial_stock > 0 
+                ? Math.min((item.current_stock / item.initial_stock) * 100, 100) 
+                : 0;
               
               return (
                 <div
                   key={item.id}
-                  className={`group relative bg-white dark:bg-[#1c2e18] p-1.5 border-2 transition-all hover:shadow-md hover:shadow-[#259783]/10 ${
-                    outOfStock
-                      ? 'border-slate-300 dark:border-slate-700 bg-white dark:bg-[#1c2e18]'
-                      : low
-                      ? 'border-amber-300 dark:border-amber-800/50 bg-gradient-to-br from-amber-50/50 to-white dark:from-amber-950/20 dark:to-[#1c2e18]'
-                      : isStable
-                      ? 'border-[#259783]/30 dark:border-[#259783]/40 bg-gradient-to-br from-[#259783]/5 to-white dark:from-[#259783]/10 dark:to-[#1c2e18] hover:border-[#259783]/50'
-                      : 'border-slate-200 dark:border-slate-800 hover:border-[#259783]/30'
-                  }`}
+                  className="bg-white dark:bg-slate-800/80 rounded-2xl p-4 shadow-sm"
                 >
-                  {/* Theme accent bar */}
-                  {!outOfStock && !low && (
-                    <div className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${trendConfig.gradient}`} />
-                  )}
-                  
-                  <div className="flex items-center gap-1.5">
-                    {/* Trend Indicator */}
-                    <div className={`w-8 h-8 flex items-center justify-center shadow-sm ${
-                      isStable 
-                        ? 'bg-gradient-to-br from-[#259783] to-[#45d827]' 
-                        : outOfStock
-                        ? 'bg-slate-100 dark:bg-slate-800'
-                        : trendConfig.bg
-                    }`}>
-                      <TrendIcon className={`w-4 h-4 ${isStable ? 'text-white' : outOfStock ? 'text-slate-400' : trendConfig.color}`} />
-                    </div>
-                    
-                    {/* Item Info */}
+                  {/* Top Row: Name, Category, Stock */}
+                  <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1">
-                        <h3 className="font-semibold text-[10px] text-slate-900 dark:text-white truncate">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-[15px] text-slate-900 dark:text-white truncate">
                           {item.name}
                         </h3>
-                        {outOfStock && <Badge className="h-3 text-[8px] px-0.5 font-semibold bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400">OUT</Badge>}
-                        {!outOfStock && low && <Badge className="h-3 text-[8px] px-0.5 bg-amber-500 font-semibold">LOW</Badge>}
+                        {outOfStock && (
+                          <span className="px-2 py-0.5 text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-500 rounded-full">
+                            OUT
+                          </span>
+                        )}
+                        {!outOfStock && low && (
+                          <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-600 rounded-full">
+                            LOW
+                          </span>
+                        )}
                       </div>
-                      <p className="text-[9px] text-slate-500 dark:text-slate-400 truncate">{item.category_name || 'Uncategorized'}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        {item.category_name || 'Uncategorized'}
+                      </p>
                     </div>
                     
-                    {/* Stock & Growth */}
-                    <div className="text-right">
-                      <div className="flex items-baseline gap-0.5 justify-end">
-                        <span className={`text-sm font-bold ${
-                          outOfStock ? 'text-slate-400 dark:text-slate-500' : low ? 'text-amber-500' : isStable ? 'text-[#259783]' : 'text-slate-900 dark:text-white'
+                    {/* Stock Amount */}
+                    <div className="text-right flex-shrink-0">
+                      <div className="flex items-baseline gap-1 justify-end">
+                        <span className={`text-xl font-bold tabular-nums ${
+                          outOfStock 
+                            ? 'text-slate-300 dark:text-slate-600' 
+                            : low 
+                            ? 'text-amber-500' 
+                            : 'text-slate-900 dark:text-white'
                         }`}>
                           {formatStock(item.current_stock, item.unit_type)}
                         </span>
-                        <span className="text-[8px] text-slate-400">{item.unit_type}</span>
+                        <span className="text-xs text-slate-400 font-medium">{item.unit_type}</span>
                       </div>
-                      <div className={`text-[9px] font-semibold ${isStable ? 'text-[#259783]' : trendConfig.color}`}>
-                        {formatChange(item.stock_change_percent)}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Stock Values */}
-                  <div className="mt-1 grid grid-cols-2 gap-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
-                    <div className="bg-slate-50 dark:bg-slate-900/50 p-1">
-                      <p className="text-[8px] text-slate-400 mb-0 font-medium">Initial Value</p>
-                      <p className="text-[9px] font-bold text-slate-600 dark:text-slate-400">
-                        {formatCurrency(item.initial_value)}
-                      </p>
-                    </div>
-                    <div className={`p-1 ${
-                      isStable 
-                        ? 'bg-gradient-to-br from-[#259783]/10 to-[#45d827]/10 dark:from-[#259783]/20 dark:to-[#45d827]/20' 
-                        : 'bg-slate-50 dark:bg-slate-900/50'
-                    }`}>
-                      <p className="text-[8px] text-slate-400 mb-0 font-medium">Current Value</p>
-                      <p className={`text-[9px] font-bold ${isStable ? 'text-[#259783]' : trendConfig.color}`}>
-                        {formatCurrency(item.current_value)}
-                      </p>
                     </div>
                   </div>
                   
                   {/* Progress Bar */}
-                  <div className="mt-1 flex items-center gap-1">
-                    <span className="text-[8px] text-slate-400 w-8 font-medium">{item.initial_stock.toFixed(0)}</span>
-                    <div className="flex-1 h-1 bg-slate-100 dark:bg-slate-800 overflow-hidden shadow-inner">
-                      {item.initial_stock > 0 && (
-                        <div
-                          className={`h-full bg-gradient-to-r ${trendConfig.gradient} shadow-sm`}
-                          style={{ 
-                            width: `${Math.min(Math.max((item.current_stock / item.initial_stock) * 100, 0), 200)}%`,
-                            maxWidth: '100%'
-                          }}
-                        />
-                      )}
+                  <div className="mt-3">
+                    <div className="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${
+                          outOfStock
+                            ? 'bg-slate-300 dark:bg-slate-600'
+                            : low
+                            ? 'bg-gradient-to-r from-amber-400 to-amber-500'
+                            : 'bg-gradient-to-r from-[#259783] to-[#45d827]'
+                        }`}
+                        style={{ width: `${stockPercentage}%` }}
+                      />
                     </div>
-                    <span className="text-[8px] text-slate-400 w-8 text-right font-medium">{item.current_stock.toFixed(0)}</span>
+                  </div>
+                  
+                  {/* Bottom Row: Value & Trend */}
+                  <div className="mt-3 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Value</p>
+                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                          {formatCurrency(item.current_value)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Change</p>
+                        <p className={`text-sm font-semibold ${
+                          item.stock_change_percent === null 
+                            ? 'text-slate-400' 
+                            : item.stock_change_percent >= 0 
+                            ? 'text-[#259783]' 
+                            : 'text-rose-500'
+                        }`}>
+                          {formatChange(item.stock_change_percent)}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Trend Badge */}
+                    <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
+                      isStable
+                        ? 'bg-gradient-to-r from-[#259783]/10 to-[#45d827]/10'
+                        : trendConfig.bg
+                    }`}>
+                      <TrendIcon className={`w-3.5 h-3.5 ${trendConfig.color}`} />
+                      <span className={`text-xs font-semibold ${trendConfig.color}`}>
+                        {trendConfig.label}
+                      </span>
+                    </div>
                   </div>
                 </div>
               );
