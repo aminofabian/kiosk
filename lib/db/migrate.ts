@@ -3,6 +3,7 @@ import { join } from 'path';
 import { execute, query } from './index';
 import { migrateItemVariants } from './migrate-item-variants';
 import { migrateDomains } from './migrate-domains';
+import { migratePasswordResetTokens } from './migrate-password-reset';
 
 const SCHEMA_PATH = join(process.cwd(), 'lib', 'db', 'sql', 'schema.sql');
 
@@ -248,6 +249,12 @@ export async function runMigrations() {
       await migrateDomains();
     } catch (error) {
       console.error('⚠ domains migration skipped:', error);
+    }
+
+    try {
+      await migratePasswordResetTokens();
+    } catch (error) {
+      console.error('⚠ password_reset_tokens migration skipped:', error);
     }
 
     console.log('✅ Migration completed successfully!');

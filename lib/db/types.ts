@@ -243,6 +243,15 @@ export interface Expense {
   created_at: number;
 }
 
+export interface PasswordResetToken {
+  id: string;
+  user_id: string;
+  token: string;
+  expires_at: number;
+  used: number;
+  created_at: number;
+}
+
 // ============================================
 // Helper Types
 // ============================================
@@ -265,3 +274,4 @@ export type InsertCreditAccount = Omit<CreditAccount, 'created_at'>;
 export type InsertCreditTransaction = Omit<CreditTransaction, 'created_at'>;
 export type InsertStockAdjustment = Omit<StockAdjustment, 'created_at'>;
 export type InsertExpense = Omit<Expense, 'created_at'>;
+export type InsertPasswordResetToken = Omit<PasswordResetToken, 'created_at'>;

@@ -32,6 +32,8 @@ export default withAuth(
         const publicRoutes = [
           '/login', 
           '/register', 
+          '/forgot-password',
+          '/reset-password',
           '/api/auth', 
           '/api/domain',
           '/api/db',

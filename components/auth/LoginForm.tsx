@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -158,14 +159,23 @@ export function LoginForm() {
           </Button>
         </form>
 
+        <div className="mt-4 text-center">
+          <Link
+            href="/forgot-password"
+            className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+          >
+            Forgot your password?
+          </Link>
+        </div>
+
         <div className="mt-6 text-center text-sm text-muted-foreground">
           Don&apos;t have an account?{' '}
-          <a
+          <Link
             href="/register"
             className="text-emerald-600 hover:text-emerald-700 font-medium"
           >
             Register your business
-          </a>
+          </Link>
         </div>
       </CardContent>
     </Card>
