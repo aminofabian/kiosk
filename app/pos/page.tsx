@@ -709,7 +709,7 @@ export default function POSPage() {
                 </span>
               </div>
             </div>
-            <span className="text-[#101b0d] font-black text-2xl tracking-tight">
+            <span className="text-[#101b0d] font-black text-2xl tracking-tight text-teal-50">
               KES {cartTotal.toFixed(0)}
             </span>
           </Link>
