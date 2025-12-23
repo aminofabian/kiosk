@@ -48,12 +48,15 @@ export async function POST(request: NextRequest) {
 
     try {
       await sendPasswordResetEmail(user.email, token, resetUrl);
+      console.log(`✅ Password reset email sent successfully to ${user.email}`);
     } catch (emailError) {
-      console.error('Failed to send password reset email:', emailError);
+      console.error('❌ Failed to send password reset email:', emailError);
+      const errorMessage = emailError instanceof Error ? emailError.message : String(emailError);
       return jsonResponse(
         {
           success: false,
           message: 'Failed to send password reset email. Please try again later.',
+          error: errorMessage,
         },
         500
       );

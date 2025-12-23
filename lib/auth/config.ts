@@ -55,6 +55,8 @@ export const authOptions: NextAuthOptions = {
           throw new Error('Email and password are required');
         }
 
+        const normalizedEmail = credentials.email.toLowerCase().trim();
+
         // If businessId is provided, validate user belongs to that business
         // This ensures users can only login to their own business's domain
         if (credentials.businessId) {
@@ -63,7 +65,7 @@ export const authOptions: NextAuthOptions = {
              FROM users u 
              JOIN businesses b ON u.business_id = b.id
              WHERE u.email = ? AND u.business_id = ? AND u.active = 1`,
-            [credentials.email, credentials.businessId]
+            [normalizedEmail, credentials.businessId]
           );
 
           if (!user) {
@@ -101,7 +103,7 @@ export const authOptions: NextAuthOptions = {
            FROM users u 
            JOIN businesses b ON u.business_id = b.id
            WHERE u.email = ? AND u.active = 1`,
-          [credentials.email]
+          [normalizedEmail]
         );
 
         if (!user) {

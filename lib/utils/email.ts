@@ -6,7 +6,7 @@ if (!process.env.RESEND_API_KEY) {
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'noreply@kiosk.ke';
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'noreply@kiosk.co.ke';
 const APP_NAME = process.env.APP_NAME || 'POS System';
 
 export async function sendPasswordResetEmail(
@@ -15,7 +15,11 @@ export async function sendPasswordResetEmail(
   resetUrl: string
 ): Promise<void> {
   try {
-    await resend.emails.send({
+    console.log(`Attempting to send password reset email to: ${email}`);
+    console.log(`From email: ${FROM_EMAIL}`);
+    console.log(`Reset URL: ${resetUrl}`);
+    
+    const result = await resend.emails.send({
       from: FROM_EMAIL,
       to: email,
       subject: `Reset Your ${APP_NAME} Password`,
@@ -50,9 +54,23 @@ export async function sendPasswordResetEmail(
         </html>
       `,
     });
+
+    console.log('Resend API response:', JSON.stringify(result, null, 2));
+    
+    if (result.error) {
+      console.error('Resend API error:', result.error);
+      throw new Error(`Resend API error: ${JSON.stringify(result.error)}`);
+    }
+
+    if (result.data) {
+      console.log(`✅ Email sent successfully. Email ID: ${result.data.id}`);
+    }
   } catch (error) {
     console.error('Failed to send password reset email:', error);
-    throw new Error('Failed to send password reset email');
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error(`Failed to send password reset email: ${String(error)}`);
   }
 }
 

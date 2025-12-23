@@ -72,6 +72,8 @@ export async function POST(request: NextRequest) {
       [resetToken.id]
     );
 
+    console.log(`✅ Password reset successful for user ID: ${user.id}`);
+
     return jsonResponse({
       success: true,
       message: 'Password has been reset successfully. You can now log in with your new password.',
