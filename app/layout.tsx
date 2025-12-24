@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
 import { SessionProvider } from "@/components/providers/SessionProvider";
+import { DynamicMetaTags } from "@/components/DynamicMetaTags";
+import { getCurrentUser } from "@/lib/auth";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -10,21 +12,26 @@ const outfit = Outfit({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "Grocery POS",
-  description: "Simple, intuitive grocery-focused POS system",
-  manifest: "/manifest.json",
-  themeColor: "#259783",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Grocery POS",
-  },
-  icons: {
-    icon: "/icon-192.png",
-    apple: "/icon-192.png",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const user = await getCurrentUser();
+  const businessName = user?.businessName || "POS System";
+  
+  return {
+    title: businessName,
+    description: `Simple, intuitive point-of-sale system for ${businessName}`,
+    manifest: "/manifest.json",
+    themeColor: "#259783",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: businessName,
+    },
+    icons: {
+      icon: "/icon-192.png",
+      apple: "/icon-192.png",
+    },
+  };
+}
 
 export default function RootLayout({
   children,
@@ -38,11 +45,13 @@ export default function RootLayout({
         <meta name="theme-color" content="#259783" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Grocery POS" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className={`${outfit.variable} font-sans antialiased`}>
-        <SessionProvider>{children}</SessionProvider>
+        <SessionProvider>
+          <DynamicMetaTags />
+          {children}
+        </SessionProvider>
       </body>
     </html>
   );
