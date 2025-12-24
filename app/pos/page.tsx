@@ -38,7 +38,7 @@ import { apiGet } from '@/lib/utils/api-client';
 import { ShopTypeSelector } from '@/components/pos/ShopTypeSelector';
 import { getShopType, shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
 
-const CATEGORY_IMAGE_MAP: Record<string, string> = {
+const GROCERY_CATEGORY_IMAGE_MAP: Record<string, string> = {
   Vegetables: '/category/vegetables.jpeg',
   Fruits: '/category/fruits.jpeg',
   'Grains & Cereals': '/category/grains&cereals.jpg',
@@ -51,6 +51,22 @@ const CATEGORY_IMAGE_MAP: Record<string, string> = {
   Bakery: '/category/bakery.webp',
   'Frozen Foods': '/category/frozen-foods.jpg',
   'Canned Goods': '/category/canned-goods.jpeg',
+};
+
+const RETAIL_CATEGORY_IMAGE_MAP: Record<string, string> = {
+  'Food Essentials': '/retail/food%20essentials.jpeg',
+  'Beverages': '/retail/beverages.jpg',
+  'Snacks & Confectionery': '/retail/Snacks-Confectionary.jpg',
+  'Cleaning Products': '/retail/cleaning%20products.webp',
+  'Personal Care': '/retail/beverages.jpg', // Using beverages as placeholder, can be updated later
+  'Household Items': '/retail/beverages.jpg', // Using beverages as placeholder, can be updated later
+  'Paper Products': '/retail/paper%20products.jpeg',
+  'General Merchandise': '/retail/general%20merchandize.jpeg',
+};
+
+const CATEGORY_IMAGE_MAP: Record<string, string> = {
+  ...GROCERY_CATEGORY_IMAGE_MAP,
+  ...RETAIL_CATEGORY_IMAGE_MAP,
 };
 
 const CATEGORY_ICON_MAP: Record<string, React.ReactNode> = {
@@ -181,8 +197,16 @@ export default function POSPage() {
     
     const normalizedName = categoryName.trim();
     
+    // Direct match first
     if (CATEGORY_IMAGE_MAP[normalizedName]) {
       return CATEGORY_IMAGE_MAP[normalizedName];
+    }
+    
+    // Try case-insensitive match
+    for (const [key, value] of Object.entries(CATEGORY_IMAGE_MAP)) {
+      if (key.toLowerCase() === normalizedName.toLowerCase()) {
+        return value;
+      }
     }
     
     const normalized = normalizedName
@@ -205,9 +229,9 @@ export default function POSPage() {
       'grains&cereals': '/category/grains&cereals.jpg',
       'spices': '/category/spices.webp',
       'spice': '/category/spices.webp',
-      'beverages': '/category/beverages.jpeg',
-      'beverage': '/category/beverages.jpeg',
-      'drinks': '/category/beverages.jpeg',
+      'beverages': shopType === 'retail' ? '/retail/beverages.jpg' : '/category/beverages.jpeg',
+      'beverage': shopType === 'retail' ? '/retail/beverages.jpg' : '/category/beverages.jpeg',
+      'drinks': shopType === 'retail' ? '/retail/beverages.jpg' : '/category/beverages.jpeg',
       'snacks': '/category/snacks.jpg',
       'snack': '/category/snacks.jpg',
       'green grocery': '/category/green-grocery.jpeg',
@@ -222,6 +246,23 @@ export default function POSPage() {
       'canned goods': '/category/canned-goods.jpeg',
       'canned good': '/category/canned-goods.jpeg',
       'canned': '/category/canned-goods.jpeg',
+      // Retail variations
+      'food essentials': '/retail/food%20essentials.jpeg',
+      'food essential': '/retail/food%20essentials.jpeg',
+      'snacks & confectionery': '/retail/Snacks-Confectionary.jpg',
+      'snacks and confectionery': '/retail/Snacks-Confectionary.jpg',
+      'confectionery': '/retail/Snacks-Confectionary.jpg',
+      'cleaning products': '/retail/cleaning%20products.webp',
+      'cleaning product': '/retail/cleaning%20products.webp',
+      'personal care': '/retail/beverages.jpg', // Using beverages as placeholder
+      'household items': '/retail/beverages.jpg', // Using beverages as placeholder
+      'household item': '/retail/beverages.jpg',
+      'paper products': '/retail/paper%20products.jpeg',
+      'paper product': '/retail/paper%20products.jpeg',
+      'general merchandise': '/retail/general%20merchandize.jpeg',
+      'general merchandize': '/retail/general%20merchandize.jpeg', // Note: filename has typo
+      'merchandise': '/retail/general%20merchandize.jpeg',
+      'merchandize': '/retail/general%20merchandize.jpeg',
     };
     
     if (variations[normalized]) {
