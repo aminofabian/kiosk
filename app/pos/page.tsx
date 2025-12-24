@@ -648,7 +648,7 @@ export default function POSPage() {
                   <ShoppingCart className="w-5 h-5 text-white" />
                 </div>
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-[#259783] to-[#3bd522] bg-clip-text text-transparent hidden sm:block">
-                  Grocery POS
+                  {user?.businessName || 'POS'}
                 </h1>
                 {showSearch ? (
                   <div className="flex-1 max-w-md relative">

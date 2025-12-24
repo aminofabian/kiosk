@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download, X } from 'lucide-react';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -13,6 +14,7 @@ export function InstallApp() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showInstallButton, setShowInstallButton] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const { user } = useCurrentUser();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -67,7 +69,7 @@ export function InstallApp() {
       <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 p-4 flex items-center gap-3">
         <div className="flex-1">
           <p className="font-semibold text-sm text-slate-900 dark:text-slate-100">
-            Install Grocery POS
+            Install {user?.businessName || 'POS'}
           </p>
           <p className="text-xs text-slate-600 dark:text-slate-400">
             Add to your home screen for quick access

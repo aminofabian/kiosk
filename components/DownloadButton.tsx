@@ -10,6 +10,7 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { Download, Smartphone, Share2 } from 'lucide-react';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -28,6 +29,7 @@ export function DownloadButton({ className, variant = 'default', size = 'default
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const { user } = useCurrentUser();
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -109,7 +111,7 @@ export function DownloadButton({ className, variant = 'default', size = 'default
             </DrawerTitle>
             <DrawerDescription>
               {isIOS
-                ? 'Follow these steps to add Grocery POS to your home screen:'
+                ? `Follow these steps to add ${user?.businessName || 'POS'} to your home screen:`
                 : 'Installation may not be available in this browser. Please use Chrome, Edge, or Safari on mobile devices.'}
             </DrawerDescription>
           </DrawerHeader>

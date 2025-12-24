@@ -2,8 +2,10 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ShoppingCart, Store, TrendingUp, Zap } from 'lucide-react';
 import { InstallApp } from '@/components/InstallApp';
+import { getCurrentUser } from '@/lib/auth';
 
-export default function HomePage() {
+export default async function HomePage() {
+  const user = await getCurrentUser();
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
       <div className="container mx-auto px-4 py-16">
@@ -13,7 +15,7 @@ export default function HomePage() {
               <ShoppingCart className="w-16 h-16 text-emerald-600" />
             </div>
             <h1 className="text-6xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-              Grocery POS
+              {user?.businessName || 'POS System'}
             </h1>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Modern, intuitive point-of-sale system designed for grocery stores.
