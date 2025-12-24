@@ -18,6 +18,7 @@ export async function GET() {
         category_name: string;
         initial_stock: number | null;
         initial_buy_price: number | null;
+        initial_sell_price: number | null;
         current_buy_price: number | null;
         first_batch_date: number | null;
       }
@@ -28,7 +29,8 @@ export async function GET() {
         first_batch.initial_quantity as initial_stock,
         first_batch.buy_price_per_unit as initial_buy_price,
         first_batch.received_at as first_batch_date,
-        current_batch.buy_price_per_unit as current_buy_price
+        current_batch.buy_price_per_unit as current_buy_price,
+        first_price.price as initial_sell_price
        FROM items i
        LEFT JOIN categories c ON i.category_id = c.id
        LEFT JOIN (
@@ -76,6 +78,17 @@ export async function GET() {
                AND ib3.quantity_remaining > 0
            )
        ) current_batch ON i.id = current_batch.item_id
+       LEFT JOIN (
+         SELECT 
+           sp1.item_id,
+           sp1.price
+         FROM selling_prices sp1
+         WHERE sp1.effective_from = (
+           SELECT MIN(sp2.effective_from)
+           FROM selling_prices sp2
+           WHERE sp2.item_id = sp1.item_id
+         )
+       ) first_price ON i.id = first_price.item_id
        WHERE i.business_id = ? 
          AND i.active = 1
          AND (
@@ -138,6 +151,10 @@ export async function GET() {
       const initialBuyPrice = item.initial_buy_price ?? 0;
       const initialValue = initialStock * initialBuyPrice;
       
+      // Initial sales value uses initial sell price (or current as fallback)
+      const initialSellPrice = item.initial_sell_price ?? item.current_sell_price;
+      const initialSalesValue = initialStock * initialSellPrice;
+      
       // Stock value uses current buy price (current cost basis)
       const stockValue = currentStock * currentBuyPrice;
       
@@ -167,6 +184,7 @@ export async function GET() {
         stock_change: stockChange,
         stock_change_percent: stockChangePercent,
         initial_value: initialValue,
+        initial_sales_value: initialSalesValue,
         stock_value: stockValue,
         sales_value: salesValue,
         current_value: salesValue, // Keep for backward compatibility

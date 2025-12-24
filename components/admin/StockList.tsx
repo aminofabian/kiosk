@@ -14,6 +14,7 @@ interface StockItem extends Item {
   stock_change: number;
   stock_change_percent: number | null;
   initial_value: number;
+  initial_sales_value: number;
   stock_value: number;
   sales_value: number;
   current_value: number; // Backward compatibility
@@ -154,6 +155,9 @@ export function StockList() {
     inStock: items.filter(i => i.current_stock > 0).length,
     outOfStock: items.filter(i => i.current_stock <= 0).length,
     total: items.length,
+    totalInitialStock: items.reduce((sum, i) => sum + i.initial_stock, 0),
+    totalInitialSalesValue: items.reduce((sum, i) => sum + (i.initial_sales_value || 0), 0),
+    totalCurrentStock: items.reduce((sum, i) => sum + i.current_stock, 0),
     totalInitialValue: items.reduce((sum, i) => sum + i.initial_value, 0),
     totalStockValue: items.reduce((sum, i) => sum + (i.stock_value || 0), 0),
     totalSalesValue: items.reduce((sum, i) => sum + (i.sales_value || i.current_value || 0), 0),
@@ -183,21 +187,51 @@ export function StockList() {
 
   return (
     <div className="space-y-4">
-      {/* Mobile: Value Summary Cards */}
+      {/* Mobile: Summary Cards */}
       <div className="md:hidden grid grid-cols-2 gap-2 mb-3">
-        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-4 shadow-lg shadow-blue-500/25">
-          <p className="text-[10px] font-medium text-white/80 uppercase tracking-wide mb-1">Stock Value</p>
-          <p className="text-xl font-bold text-white tabular-nums">
-            {formatCurrency(stats.totalStockValue)}
-          </p>
-          <p className="text-[9px] text-white/60 mt-0.5">Cost Basis</p>
+        <div className="relative bg-gradient-to-br from-[#259783] via-[#259783]/95 to-[#259783]/90 rounded-xl px-2.5 py-2 shadow-md shadow-[#259783]/20 border border-white/10 overflow-hidden">
+          <div className="absolute top-0 right-0 w-12 h-12 bg-white/5 rounded-full -mr-6 -mt-6"></div>
+          <p className="text-[9px] font-semibold text-white/80 uppercase tracking-wider mb-1 relative z-10">Initial Stock</p>
+          <div className="flex items-baseline gap-1.5 relative z-10">
+            <p className="text-base font-bold text-white tabular-nums leading-none drop-shadow-sm">
+              {stats.totalInitialStock.toFixed(1)}
+            </p>
+            <div className="flex flex-col items-start pl-1 border-l border-white/20">
+              <p className="text-[7px] font-medium text-white/60 uppercase tracking-tight leading-tight antialiased">Value</p>
+              <p className="text-[8px] font-bold text-white/90 tabular-nums leading-tight mt-0.5 antialiased">
+                {formatCurrency(stats.totalInitialValue)}
+              </p>
+            </div>
+          </div>
         </div>
-        <div className="bg-gradient-to-br from-[#259783] to-[#45d827] rounded-2xl p-4 shadow-lg shadow-[#259783]/25">
-          <p className="text-[10px] font-medium text-white/80 uppercase tracking-wide mb-1">Sales Value</p>
-          <p className="text-xl font-bold text-white tabular-nums">
+        <div className="relative bg-gradient-to-br from-[#45d827] via-[#45d827]/95 to-[#45d827]/90 rounded-xl px-2.5 py-2 shadow-md shadow-[#45d827]/20 border border-white/10 overflow-hidden">
+          <div className="absolute top-0 right-0 w-12 h-12 bg-white/5 rounded-full -mr-6 -mt-6"></div>
+          <p className="text-[9px] font-semibold text-white/80 uppercase tracking-wider mb-1 relative z-10">Current Stock</p>
+          <div className="flex items-baseline gap-1.5 relative z-10">
+            <p className="text-base font-bold text-white tabular-nums leading-none drop-shadow-sm">
+              {stats.totalCurrentStock.toFixed(1)}
+            </p>
+            <div className="flex flex-col items-start pl-1 border-l border-white/20">
+              <p className="text-[7px] font-medium text-white/60 uppercase tracking-tight leading-tight antialiased">Value</p>
+              <p className="text-[8px] font-bold text-white/90 tabular-nums leading-tight mt-0.5 antialiased">
+                {formatCurrency(stats.totalStockValue)}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="relative bg-gradient-to-br from-[#259783]/85 via-[#259783]/80 to-[#259783]/75 rounded-xl px-2.5 py-2 shadow-md shadow-[#259783]/15 border border-white/10 overflow-hidden">
+          <div className="absolute top-0 right-0 w-12 h-12 bg-white/5 rounded-full -mr-6 -mt-6"></div>
+          <p className="text-[9px] font-semibold text-white/80 uppercase tracking-wider mb-1 relative z-10">Initial Sales</p>
+          <p className="text-sm font-bold text-white tabular-nums leading-tight drop-shadow-sm relative z-10">
+            {formatCurrency(stats.totalInitialSalesValue)}
+          </p>
+        </div>
+        <div className="relative bg-gradient-to-br from-[#45d827]/85 via-[#45d827]/80 to-[#45d827]/75 rounded-xl px-2.5 py-2 shadow-md shadow-[#45d827]/15 border border-white/10 overflow-hidden">
+          <div className="absolute top-0 right-0 w-12 h-12 bg-white/5 rounded-full -mr-6 -mt-6"></div>
+          <p className="text-[9px] font-semibold text-white/80 uppercase tracking-wider mb-1 relative z-10">Current Sales</p>
+          <p className="text-sm font-bold text-white tabular-nums leading-tight drop-shadow-sm relative z-10">
             {formatCurrency(stats.totalSalesValue)}
           </p>
-          <p className="text-[9px] text-white/60 mt-0.5">Potential Revenue</p>
         </div>
       </div>
 
@@ -205,125 +239,203 @@ export function StockList() {
       <div className="md:hidden grid grid-cols-4 gap-2">
         <button
           onClick={() => setStockStatus('all')}
-          className={`flex flex-col items-center p-3 rounded-2xl transition-all ${
+          className={`relative flex flex-col items-center justify-center p-2.5 rounded-xl transition-all duration-200 overflow-hidden ${
             stockStatus === 'all'
-              ? 'bg-gradient-to-br from-[#259783] to-[#45d827] shadow-lg shadow-[#259783]/25'
-              : 'bg-white dark:bg-slate-800/80'
+              ? 'bg-gradient-to-br from-[#259783] via-[#259783]/95 to-[#45d827] shadow-md shadow-[#259783]/30 border border-white/20'
+              : 'bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/50 hover:border-[#259783]/30'
           }`}
         >
-          <span className={`text-lg font-bold ${stockStatus === 'all' ? 'text-white' : 'text-slate-900 dark:text-white'}`}>
+          {stockStatus === 'all' && (
+            <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -mr-8 -mt-8"></div>
+          )}
+          <span className={`text-xl font-bold tabular-nums relative z-10 drop-shadow-sm ${
+            stockStatus === 'all' ? 'text-white' : 'text-slate-900 dark:text-white'
+          }`}>
             {stats.total}
           </span>
-          <span className={`text-[10px] font-medium ${stockStatus === 'all' ? 'text-white/80' : 'text-slate-500'}`}>
+          <span className={`text-[9px] font-semibold uppercase tracking-wider mt-0.5 relative z-10 ${
+            stockStatus === 'all' ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'
+          }`}>
             Total
           </span>
         </button>
         <button
           onClick={() => setStockStatus('in_stock')}
-          className={`flex flex-col items-center p-3 rounded-2xl transition-all ${
+          className={`relative flex flex-col items-center justify-center p-2.5 rounded-xl transition-all duration-200 overflow-hidden ${
             stockStatus === 'in_stock'
-              ? 'bg-gradient-to-br from-[#259783] to-[#45d827] shadow-lg shadow-[#259783]/25'
-              : 'bg-white dark:bg-slate-800/80'
+              ? 'bg-gradient-to-br from-[#259783] via-[#259783]/95 to-[#45d827] shadow-md shadow-[#259783]/30 border border-white/20'
+              : 'bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/50 hover:border-[#259783]/30'
           }`}
         >
-          <span className={`text-lg font-bold ${stockStatus === 'in_stock' ? 'text-white' : 'text-[#259783]'}`}>
+          {stockStatus === 'in_stock' && (
+            <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -mr-8 -mt-8"></div>
+          )}
+          <span className={`text-xl font-bold tabular-nums relative z-10 drop-shadow-sm ${
+            stockStatus === 'in_stock' ? 'text-white' : 'text-[#259783]'
+          }`}>
             {stats.inStock}
           </span>
-          <span className={`text-[10px] font-medium ${stockStatus === 'in_stock' ? 'text-white/80' : 'text-slate-500'}`}>
+          <span className={`text-[9px] font-semibold uppercase tracking-wider mt-0.5 relative z-10 ${
+            stockStatus === 'in_stock' ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'
+          }`}>
             In Stock
           </span>
         </button>
         <button
           onClick={() => setStockStatus('out_of_stock')}
-          className={`flex flex-col items-center p-3 rounded-2xl transition-all ${
+          className={`relative flex flex-col items-center justify-center p-2.5 rounded-xl transition-all duration-200 overflow-hidden ${
             stockStatus === 'out_of_stock'
-              ? 'bg-gradient-to-br from-slate-600 to-slate-800 shadow-lg'
-              : 'bg-white dark:bg-slate-800/80'
+              ? 'bg-gradient-to-br from-slate-500 via-slate-600 to-slate-700 shadow-md shadow-slate-500/30 border border-white/20'
+              : 'bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/50 hover:border-slate-400/30'
           }`}
         >
-          <span className={`text-lg font-bold ${stockStatus === 'out_of_stock' ? 'text-white' : 'text-slate-400'}`}>
+          {stockStatus === 'out_of_stock' && (
+            <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -mr-8 -mt-8"></div>
+          )}
+          <span className={`text-xl font-bold tabular-nums relative z-10 drop-shadow-sm ${
+            stockStatus === 'out_of_stock' ? 'text-white' : 'text-slate-400 dark:text-slate-500'
+          }`}>
             {stats.outOfStock}
           </span>
-          <span className={`text-[10px] font-medium ${stockStatus === 'out_of_stock' ? 'text-white/80' : 'text-slate-500'}`}>
+          <span className={`text-[9px] font-semibold uppercase tracking-wider mt-0.5 relative z-10 ${
+            stockStatus === 'out_of_stock' ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'
+          }`}>
             Out
           </span>
         </button>
         <button
           onClick={() => setSelectedTrend(selectedTrend === 'shrinking' ? 'all' : 'shrinking')}
-          className={`flex flex-col items-center p-3 rounded-2xl transition-all ${
+          className={`relative flex flex-col items-center justify-center p-2.5 rounded-xl transition-all duration-200 overflow-hidden ${
             selectedTrend === 'shrinking'
-              ? 'bg-gradient-to-br from-rose-500 to-red-600 shadow-lg shadow-rose-500/25'
-              : 'bg-white dark:bg-slate-800/80'
+              ? 'bg-gradient-to-br from-rose-500 via-rose-600 to-red-600 shadow-md shadow-rose-500/30 border border-white/20'
+              : 'bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/50 hover:border-rose-400/30'
           }`}
         >
-          <span className={`text-lg font-bold ${selectedTrend === 'shrinking' ? 'text-white' : 'text-rose-500'}`}>
+          {selectedTrend === 'shrinking' && (
+            <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -mr-8 -mt-8"></div>
+          )}
+          <span className={`text-xl font-bold tabular-nums relative z-10 drop-shadow-sm ${
+            selectedTrend === 'shrinking' ? 'text-white' : 'text-rose-500 dark:text-rose-400'
+          }`}>
             {stats.shrinking}
           </span>
-          <span className={`text-[10px] font-medium ${selectedTrend === 'shrinking' ? 'text-white/80' : 'text-slate-500'}`}>
+          <span className={`text-[9px] font-semibold uppercase tracking-wider mt-0.5 relative z-10 ${
+            selectedTrend === 'shrinking' ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'
+          }`}>
             Low
           </span>
         </button>
       </div>
 
 
-      {/* Desktop: Value Summary Cards */}
-      <div className="hidden md:grid grid-cols-2 gap-4 mb-4">
-        <Card className="bg-gradient-to-br from-blue-600 to-blue-700 border-0 shadow-lg shadow-blue-500/25">
-          <CardContent className="p-6">
-            <p className="text-xs font-medium text-white/80 uppercase tracking-wide mb-2">Total Stock Value</p>
-            <p className="text-3xl font-bold text-white tabular-nums">
-              {formatCurrency(stats.totalStockValue)}
+      {/* Desktop: All Stats in One Row */}
+      <div className="hidden md:grid grid-cols-4 gap-3 mb-4">
+        <div className="relative bg-gradient-to-br from-[#259783] via-[#259783]/95 to-[#259783]/90 rounded-xl px-4 py-3 shadow-lg shadow-[#259783]/25 border border-white/10 overflow-hidden transition-all hover:shadow-xl hover:shadow-[#259783]/30 hover:scale-[1.02]">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10"></div>
+          <p className="text-[10px] font-semibold text-white/80 uppercase tracking-wider mb-1.5 relative z-10">Initial Stock</p>
+          <div className="flex items-baseline gap-2 relative z-10">
+            <p className="text-xl font-bold text-white tabular-nums leading-none drop-shadow-sm">
+              {stats.totalInitialStock.toFixed(1)}
             </p>
-            <p className="text-xs text-white/60 mt-1">Cost Basis (Current Buy Price)</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-[#259783] to-[#45d827] border-0 shadow-lg shadow-[#259783]/25">
-          <CardContent className="p-6">
-            <p className="text-xs font-medium text-white/80 uppercase tracking-wide mb-2">Total Sales Value</p>
-            <p className="text-3xl font-bold text-white tabular-nums">
-              {formatCurrency(stats.totalSalesValue)}
+            <div className="flex flex-col items-start pl-2 border-l border-white/20">
+              <p className="text-[8px] font-medium text-white/60 uppercase tracking-tight leading-tight antialiased">Value</p>
+              <p className="text-[9px] font-bold text-white/90 tabular-nums leading-tight mt-0.5 antialiased">
+                {formatCurrency(stats.totalInitialValue)}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="relative bg-gradient-to-br from-[#45d827] via-[#45d827]/95 to-[#45d827]/90 rounded-xl px-4 py-3 shadow-lg shadow-[#45d827]/25 border border-white/10 overflow-hidden transition-all hover:shadow-xl hover:shadow-[#45d827]/30 hover:scale-[1.02]">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10"></div>
+          <p className="text-[10px] font-semibold text-white/80 uppercase tracking-wider mb-1.5 relative z-10">Current Stock</p>
+          <div className="flex items-baseline gap-2 relative z-10">
+            <p className="text-xl font-bold text-white tabular-nums leading-none drop-shadow-sm">
+              {stats.totalCurrentStock.toFixed(1)}
             </p>
-            <p className="text-xs text-white/60 mt-1">Potential Revenue (Current Sell Price)</p>
-          </CardContent>
-        </Card>
+            <div className="flex flex-col items-start pl-2 border-l border-white/20">
+              <p className="text-[8px] font-medium text-white/60 uppercase tracking-tight leading-tight antialiased">Value</p>
+              <p className="text-[9px] font-bold text-white/90 tabular-nums leading-tight mt-0.5 antialiased">
+                {formatCurrency(stats.totalStockValue)}
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="relative bg-gradient-to-br from-[#259783]/85 via-[#259783]/80 to-[#259783]/75 rounded-xl px-4 py-3 shadow-lg shadow-[#259783]/20 border border-white/10 overflow-hidden transition-all hover:shadow-xl hover:shadow-[#259783]/25 hover:scale-[1.02]">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10"></div>
+          <p className="text-[10px] font-semibold text-white/80 uppercase tracking-wider mb-1.5 relative z-10">Initial Sales</p>
+          <p className="text-lg font-bold text-white tabular-nums leading-tight drop-shadow-sm relative z-10">
+            {formatCurrency(stats.totalInitialSalesValue)}
+          </p>
+        </div>
+        <div className="relative bg-gradient-to-br from-[#45d827]/85 via-[#45d827]/80 to-[#45d827]/75 rounded-xl px-4 py-3 shadow-lg shadow-[#45d827]/20 border border-white/10 overflow-hidden transition-all hover:shadow-xl hover:shadow-[#45d827]/25 hover:scale-[1.02]">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10"></div>
+          <p className="text-[10px] font-semibold text-white/80 uppercase tracking-wider mb-1.5 relative z-10">Current Sales</p>
+          <p className="text-lg font-bold text-white tabular-nums leading-tight drop-shadow-sm relative z-10">
+            {formatCurrency(stats.totalSalesValue)}
+          </p>
+        </div>
       </div>
 
       {/* Desktop: Original Filters */}
       <div className="hidden md:block space-y-3">
         {/* Desktop Stock Status */}
-        <div className="flex gap-1.5">
+        <div className="flex gap-2">
           <button
             onClick={() => setStockStatus('all')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 overflow-hidden ${
               stockStatus === 'all'
-                ? 'bg-gradient-to-r from-[#259783] to-[#45d827] text-white shadow-md'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                ? 'bg-gradient-to-r from-[#259783] via-[#259783]/95 to-[#45d827] text-white shadow-lg shadow-[#259783]/25 border border-white/20'
+                : 'bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-[#259783]/40 hover:bg-slate-50 dark:hover:bg-slate-800'
             }`}
           >
-            <Package className="w-3 h-3" />
-            All ({stats.total})
+            {stockStatus === 'all' && (
+              <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+            )}
+            <Package className={`w-4 h-4 relative z-10 ${stockStatus === 'all' ? 'text-white' : 'text-slate-500 dark:text-slate-400'}`} />
+            <span className="relative z-10">All</span>
+            <span className={`relative z-10 font-bold tabular-nums ${
+              stockStatus === 'all' ? 'text-white' : 'text-slate-900 dark:text-white'
+            }`}>
+              ({stats.total})
+            </span>
           </button>
           <button
             onClick={() => setStockStatus('in_stock')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 overflow-hidden ${
               stockStatus === 'in_stock'
-                ? 'bg-gradient-to-r from-[#259783] to-[#45d827] text-white shadow-md'
-                : 'bg-[#259783]/10 text-[#259783]'
+                ? 'bg-gradient-to-r from-[#259783] via-[#259783]/95 to-[#45d827] text-white shadow-lg shadow-[#259783]/25 border border-white/20'
+                : 'bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-[#259783] hover:border-[#259783]/40 hover:bg-[#259783]/5'
             }`}
           >
-            <CheckCircle2 className="w-3 h-3" />
-            In Stock ({stats.inStock})
+            {stockStatus === 'in_stock' && (
+              <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+            )}
+            <CheckCircle2 className={`w-4 h-4 relative z-10 ${stockStatus === 'in_stock' ? 'text-white' : 'text-[#259783]'}`} />
+            <span className="relative z-10">In Stock</span>
+            <span className={`relative z-10 font-bold tabular-nums ${
+              stockStatus === 'in_stock' ? 'text-white' : 'text-[#259783]'
+            }`}>
+              ({stats.inStock})
+            </span>
           </button>
           <button
             onClick={() => setStockStatus('out_of_stock')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 overflow-hidden ${
               stockStatus === 'out_of_stock'
-                ? 'bg-gradient-to-r from-slate-500 to-slate-600 text-white shadow-md'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                ? 'bg-gradient-to-r from-slate-500 via-slate-600 to-slate-700 text-white shadow-lg shadow-slate-500/25 border border-white/20'
+                : 'bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-400/40 hover:bg-slate-50 dark:hover:bg-slate-800'
             }`}
           >
-            <XCircle className="w-3 h-3" />
-            Out ({stats.outOfStock})
+            {stockStatus === 'out_of_stock' && (
+              <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
+            )}
+            <XCircle className={`w-4 h-4 relative z-10 ${stockStatus === 'out_of_stock' ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
+            <span className="relative z-10">Out</span>
+            <span className={`relative z-10 font-bold tabular-nums ${
+              stockStatus === 'out_of_stock' ? 'text-white' : 'text-slate-400 dark:text-slate-500'
+            }`}>
+              ({stats.outOfStock})
+            </span>
           </button>
         </div>
 
