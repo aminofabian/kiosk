@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Sparkles, Grid3x3, Plus, X, Check } from 'lucide-react';
 import type { Category } from '@/lib/db/types';
 import { apiPost, apiPut } from '@/lib/utils/api-client';
+import { getShopType, type ShopType } from '@/lib/utils/shop-type';
 
 interface CategoryFormProps {
   category?: Category | null;
@@ -23,7 +24,7 @@ interface PendingCategory {
   icon: string;
 }
 
-const COMMON_CATEGORIES = [
+const GROCERY_CATEGORIES = [
   'Vegetables',
   'Fruits',
   'Grains & Cereals',
@@ -38,7 +39,19 @@ const COMMON_CATEGORIES = [
   'Canned Goods',
 ];
 
+const RETAIL_CATEGORIES = [
+  'Food Essentials',
+  'Beverages',
+  'Snacks & Confectionery',
+  'Cleaning Products',
+  'Personal Care',
+  'Household Items',
+  'Paper Products',
+  'General Merchandise',
+];
+
 const CATEGORY_EMOJIS: Record<string, string[]> = {
+  // Grocery categories
   'Vegetables': ['🥬', '🥕', '🥦', '🥒', '🌶️', '🫑', '🍅', '🥔', '🧅', '🥑', '🫒', '🌽'],
   'Fruits': ['🍎', '🍌', '🍊', '🍇', '🍓', '🥭', '🍑', '🥝', '🍍', '🍉', '🍐', '🍒'],
   'Grains & Cereals': ['🌾', '🌽', '🍞', '🥖', '🍚', '🌾', '🌾', '🥐', '🫘', '🫘', '🥨'],
@@ -51,10 +64,19 @@ const CATEGORY_EMOJIS: Record<string, string[]> = {
   'Bakery': ['🍞', '🥖', '🥐', '🥨', '🥯', '🧁', '🍰', '🥧', '🧇', '🥞'],
   'Frozen Foods': ['🧊', '❄️', '🧊', '🍦', '🍧', '🧊'],
   'Canned Goods': ['🥫', '🥫', '🥫', '🍯', '🥫'],
+  // Retail categories (broader)
+  'Food Essentials': ['🍚', '🧂', '🫒', '🍵', '☕', '🌾', '🥖'],
+  'Snacks & Confectionery': ['🍪', '🍫', '🍬', '🍭', '🍿', '🥨'],
+  'Cleaning Products': ['🧼', '🧽', '🧴', '🧹', '🧺'],
+  'Personal Care': ['🧴', '🧼', '🪥', '🧴', '🧴'],
+  'Household Items': ['🏠', '📦', '🔋', '💡', '🛍️'],
+  'Paper Products': ['🧻', '📄', '📋', '📝', '📰'],
+  'General Merchandise': ['📝', '✏️', '🔋', '💡', '🔥', '🕯️'],
 };
 
 export function CategoryForm({ category, existingCategories = [], onClose, onSuccess }: CategoryFormProps) {
   const isEditing = !!category;
+  const [shopType, setShopType] = useState<ShopType>(() => getShopType());
   
   const existingCategoryNames = new Set(
     existingCategories.map(cat => cat.name.toLowerCase().trim())
@@ -73,6 +95,12 @@ export function CategoryForm({ category, existingCategories = [], onClose, onSuc
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successCount, setSuccessCount] = useState(0);
+
+  useEffect(() => {
+    setShopType(getShopType());
+  }, []);
+
+  const COMMON_CATEGORIES = shopType === 'retail' ? RETAIL_CATEGORIES : GROCERY_CATEGORIES;
 
   const availableCategories = COMMON_CATEGORIES.filter(cat => {
     const lowerCat = cat.toLowerCase().trim();

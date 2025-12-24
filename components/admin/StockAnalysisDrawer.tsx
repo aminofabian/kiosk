@@ -15,6 +15,8 @@ import {
   Package, ArrowUpRight, ArrowDownRight, Sparkles, AlertTriangle
 } from 'lucide-react';
 import type { UnitType } from '@/lib/constants';
+import type { Category } from '@/lib/db/types';
+import { getShopType, shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
 
 interface StockItem {
   itemId: string;
@@ -72,10 +74,12 @@ interface StockAnalysisDrawerProps {
 
 export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerProps) {
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'items'>('overview');
   const [filter, setFilter] = useState<'all' | 'growing' | 'shrinking' | 'stable' | 'new'>('all');
+  const [shopType, setShopType] = useState<ShopType>(() => getShopType());
 
   useEffect(() => {
     if (!open) return;
@@ -84,13 +88,74 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch('/api/stock/analysis');
-        const result = await response.json();
+        const shopTypeValue = getShopType();
+        setShopType(shopTypeValue);
+        
+        const [analysisResponse, categoriesResponse] = await Promise.all([
+          fetch('/api/stock/analysis'),
+          fetch('/api/categories'),
+        ]);
 
-        if (result.success) {
-          setAnalysisData(result.data);
+        const analysisResult = await analysisResponse.json();
+        const categoriesResult = await categoriesResponse.json();
+
+        if (categoriesResult.success) {
+          setCategories(categoriesResult.data);
+        }
+
+        if (analysisResult.success) {
+          const data = analysisResult.data;
+          
+          if (categoriesResult.success) {
+            const categoryMap = new Map<string, string>();
+            categoriesResult.data.forEach((cat: Category) => {
+              categoryMap.set(cat.id, cat.name);
+            });
+
+            const filteredItems = data.items.filter((item: StockItem) => {
+              const categoryName = item.categoryName;
+              if (!categoryName) return true;
+              return shouldShowCategory(categoryName, shopTypeValue);
+            });
+
+            const filteredData = {
+              ...data,
+              items: filteredItems,
+              topGrowing: data.topGrowing.filter((item: StockItem) => {
+                const categoryName = item.categoryName;
+                if (!categoryName) return true;
+                return shouldShowCategory(categoryName, shopTypeValue);
+              }),
+              shrinking: data.shrinking.filter((item: StockItem) => {
+                const categoryName = item.categoryName;
+                if (!categoryName) return true;
+                return shouldShowCategory(categoryName, shopTypeValue);
+              }),
+              newItems: data.newItems.filter((item: StockItem) => {
+                const categoryName = item.categoryName;
+                if (!categoryName) return true;
+                return shouldShowCategory(categoryName, shopTypeValue);
+              }),
+              summary: {
+                ...data.summary,
+                totalItems: filteredItems.length,
+                itemsWithData: filteredItems.filter((item: StockItem) => item.firstBatchDate !== null).length,
+                newItemsCount: filteredItems.filter((item: StockItem) => item.trend === 'new').length,
+              },
+              trendBreakdown: {
+                growing: filteredItems.filter((item: StockItem) => item.trend === 'growing').length,
+                shrinking: filteredItems.filter((item: StockItem) => item.trend === 'shrinking').length,
+                stable: filteredItems.filter((item: StockItem) => item.trend === 'stable').length,
+                new: filteredItems.filter((item: StockItem) => item.trend === 'new').length,
+              },
+            };
+
+            setAnalysisData(filteredData);
+          } else {
+            setAnalysisData(data);
+          }
         } else {
-          setError(result.message || 'Failed to load stock analysis');
+          setError(analysisResult.message || 'Failed to load stock analysis');
         }
       } catch (err) {
         setError('Failed to load stock analysis');

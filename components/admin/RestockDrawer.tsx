@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { X, ShoppingCart, AlertTriangle, Package, Loader2 } from 'lucide-react';
 import type { Item, Category } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
+import { getShopType, shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
 
 interface StockItem extends Item {
   category_name?: string;
@@ -31,8 +32,10 @@ interface RestockDrawerProps {
 
 export function RestockDrawer({ open, onOpenChange }: RestockDrawerProps) {
   const [items, setItems] = useState<StockItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [shopType, setShopType] = useState<ShopType>(() => getShopType());
 
   useEffect(() => {
     if (!open) return;
@@ -41,13 +44,42 @@ export function RestockDrawer({ open, onOpenChange }: RestockDrawerProps) {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch('/api/stock');
-        const result = await response.json();
+        const shopTypeValue = getShopType();
+        setShopType(shopTypeValue);
+        
+        const [stockResponse, categoriesResponse] = await Promise.all([
+          fetch('/api/stock'),
+          fetch('/api/categories'),
+        ]);
 
-        if (result.success) {
-          setItems(result.data);
+        const stockResult = await stockResponse.json();
+        const categoriesResult = await categoriesResponse.json();
+
+        if (categoriesResult.success) {
+          setCategories(categoriesResult.data);
+        }
+
+        if (stockResult.success) {
+          const allItems = stockResult.data;
+          
+          if (categoriesResult.success) {
+            const categoryMap = new Map<string, string>();
+            categoriesResult.data.forEach((cat: Category) => {
+              categoryMap.set(cat.id, cat.name);
+            });
+
+            const filteredItems = allItems.filter((item: StockItem) => {
+              const categoryName = categoryMap.get(item.category_id);
+              if (!categoryName) return true;
+              return shouldShowCategory(categoryName, shopTypeValue);
+            });
+
+            setItems(filteredItems);
+          } else {
+            setItems(allItems);
+          }
         } else {
-          setError(result.message || 'Failed to load stock');
+          setError(stockResult.message || 'Failed to load stock');
         }
       } catch (err) {
         setError('Failed to load stock');

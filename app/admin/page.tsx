@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { ShopTypeSelector } from '@/components/pos/ShopTypeSelector';
+import { getShopType, setShopType, type ShopType } from '@/lib/utils/shop-type';
 import type { Category } from '@/lib/db/types';
 import {
   Drawer,
@@ -156,6 +158,17 @@ export default function AdminDashboardPage() {
     profitMargin: number;
   } | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const [shopType, setShopType] = useState<ShopType>(() => getShopType());
+
+  useEffect(() => {
+    const currentShopType = getShopType();
+    setShopType(currentShopType);
+  }, []);
+
+  const handleShopTypeChange = (newShopType: ShopType) => {
+    setShopType(newShopType);
+    window.location.reload();
+  };
 
   useEffect(() => {
     const checkMobile = () => {
@@ -275,8 +288,17 @@ export default function AdminDashboardPage() {
   return (
     <AdminLayout>
       <div className="min-h-screen bg-slate-50 dark:bg-[#0f1a0d] flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 pt-2 sm:pt-4 pb-20 sm:pb-4">
-        {/* POS Quick Access - Prominent at top */}
-        <div className="mb-2 sm:mb-6 w-full max-w-5xl mt-0 sm:mt-0">
+        {/* Shop Type Selector and POS Quick Access */}
+        <div className="mb-2 sm:mb-6 w-full max-w-5xl mt-0 sm:mt-0 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1">
+              <ShopTypeSelector 
+                key={shopType}
+                onShopTypeChange={handleShopTypeChange}
+                className="w-full sm:w-auto"
+              />
+            </div>
+          </div>
           <Link href="/pos">
             <div className="group relative w-full bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-lg sm:rounded-xl px-3 py-2 sm:px-6 sm:py-6 text-center transition-all duration-200 hover:shadow-lg hover:shadow-[#259783]/30 active:scale-98 cursor-pointer">
               <div className="flex flex-row items-center justify-center gap-2 sm:gap-4">

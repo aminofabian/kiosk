@@ -35,6 +35,8 @@ import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { Settings } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { apiGet } from '@/lib/utils/api-client';
+import { ShopTypeSelector } from '@/components/pos/ShopTypeSelector';
+import { getShopType, shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
 
 const CATEGORY_IMAGE_MAP: Record<string, string> = {
   Vegetables: '/category/vegetables.jpeg',
@@ -78,6 +80,7 @@ export default function POSPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [shopType, setShopType] = useState<ShopType>(() => getShopType());
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { items: cartItems } = useCartStore();
   const { user } = useCurrentUser();
@@ -244,9 +247,18 @@ export default function POSPage() {
 
   // Show all categories in a uniform grid
 
+  const filteredCategories = categories.filter(cat => 
+    shouldShowCategory(cat.name, shopType)
+  );
+
   const selectedCategory = selectedCategoryId
-    ? categories.find((c) => c.id === selectedCategoryId)
+    ? filteredCategories.find((c) => c.id === selectedCategoryId)
     : null;
+
+  const handleShopTypeChange = (newShopType: ShopType) => {
+    setShopType(newShopType);
+    setSelectedCategoryId(null);
+  };
 
   interface ItemWithVariants extends Item {
     isParent?: boolean;
@@ -365,9 +377,15 @@ export default function POSPage() {
                   <Menu className="w-8 h-8" />
                 </button>
               </div>
-              <h1 className="text-xl font-extrabold tracking-tight uppercase text-[#101b0d]/80 dark:text-[#259783]/90">
-                Kiosk POS
-              </h1>
+              <div className="flex flex-col items-center gap-1">
+                <h1 className="text-xl font-extrabold tracking-tight uppercase text-[#101b0d]/80 dark:text-[#259783]/90">
+                  Kiosk POS
+                </h1>
+                <ShopTypeSelector 
+                  onShopTypeChange={handleShopTypeChange}
+                  className="scale-90"
+                />
+              </div>
               <div className="flex items-center gap-2">
                 {isOwnerOrAdmin && (
                   <Link
@@ -438,7 +456,7 @@ export default function POSPage() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 auto-rows-fr">
-                    {categories.map((category) => {
+                    {filteredCategories.map((category) => {
                       const imageUrl = getCategoryImage(category.name);
                       const icon = getCategoryIcon(category.name);
                       const color = getCategoryColor(category.name);
@@ -481,6 +499,7 @@ export default function POSPage() {
                     onSelectItem={handleSelectItem}
                     onSelectParent={handleSelectParent}
                     onQuickAdd={handleQuickAdd}
+                    shopType={shopType}
                   />
                 </div>
               )}
@@ -497,9 +516,15 @@ export default function POSPage() {
                   <ArrowLeft className="w-8 h-8" />
                 </button>
               </div>
-              <h1 className="text-xl font-bold text-[#101b0d] dark:text-[#f0fdf4]">
-                {selectedCategory?.name || 'Category'}
-              </h1>
+              <div className="flex flex-col items-center gap-1">
+                <h1 className="text-xl font-bold text-[#101b0d] dark:text-[#f0fdf4]">
+                  {selectedCategory?.name || 'Category'}
+                </h1>
+                <ShopTypeSelector 
+                  onShopTypeChange={handleShopTypeChange}
+                  className="scale-90"
+                />
+              </div>
               <div className="flex items-center gap-2">
                 {isOwnerOrAdmin && (
                   <Link
@@ -647,9 +672,15 @@ export default function POSPage() {
                 <div className="w-10 h-10 bg-gradient-to-br from-[#259783] to-[#3bd522] rounded-xl flex items-center justify-center shadow-md shadow-[#259783]/30 flex-shrink-0">
                   <ShoppingCart className="w-5 h-5 text-white" />
                 </div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-[#259783] to-[#3bd522] bg-clip-text text-transparent hidden sm:block">
-                  {user?.businessName || 'POS'}
-                </h1>
+                <div className="flex flex-col gap-1">
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-[#259783] to-[#3bd522] bg-clip-text text-transparent hidden sm:block">
+                    {user?.businessName || 'POS'}
+                  </h1>
+                  <ShopTypeSelector 
+                    onShopTypeChange={handleShopTypeChange}
+                    className="hidden sm:flex"
+                  />
+                </div>
                 {showSearch ? (
                   <div className="flex-1 max-w-md relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -744,6 +775,7 @@ export default function POSPage() {
                 <CategoryList
                   onSelectCategory={setSelectedCategoryId}
                   selectedCategoryId={selectedCategoryId || undefined}
+                  shopType={shopType}
                 />
               </div>
             )}
@@ -754,6 +786,7 @@ export default function POSPage() {
                 onSelectItem={handleSelectItem}
                 onSelectParent={handleSelectParent}
                 onQuickAdd={handleQuickAdd}
+                shopType={shopType}
               />
             </div>
           </div>

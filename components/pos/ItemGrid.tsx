@@ -6,7 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Zap, Layers } from 'lucide-react';
 import type { Item } from '@/lib/db/types';
+import type { Category } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
+import { shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
 
 interface ItemWithVariants extends Item {
   isParent?: boolean;
@@ -20,6 +22,7 @@ interface ItemGridProps {
   onSelectItem: (item: Item) => void;
   onSelectParent?: (item: ItemWithVariants) => void; // Called when parent item is clicked
   onQuickAdd?: (item: Item, quantity: number) => void;
+  shopType?: ShopType;
 }
 
 export function ItemGrid({
@@ -28,10 +31,27 @@ export function ItemGrid({
   onSelectItem,
   onSelectParent,
   onQuickAdd,
+  shopType = 'grocery',
 }: ItemGridProps) {
   const [items, setItems] = useState<ItemWithVariants[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        const response = await fetch('/api/categories');
+        const result = await response.json();
+        if (result.success) {
+          setCategories(result.data);
+        }
+      } catch (err) {
+        console.error('Error fetching categories:', err);
+      }
+    }
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     if (searchQuery) {
@@ -40,15 +60,39 @@ export function ItemGrid({
           setLoading(true);
           setError(null);
           // Search returns sellable items only
-          const response = await fetch(
-            `/api/items?search=${encodeURIComponent(searchQuery || '')}&sellableOnly=true`
-          );
-          const result = await response.json();
+          const [itemsResponse, categoriesResponse] = await Promise.all([
+            fetch(
+              `/api/items?search=${encodeURIComponent(searchQuery || '')}&sellableOnly=true`
+            ),
+            fetch('/api/categories'),
+          ]);
 
-          if (result.success) {
-            setItems(result.data);
+          const itemsResult = await itemsResponse.json();
+          const categoriesResult = await categoriesResponse.json();
+
+          if (categoriesResult.success) {
+            setCategories(categoriesResult.data);
+          }
+
+          if (itemsResult.success) {
+            const allItems: Item[] = itemsResult.data;
+            const categoryMap = new Map<string, string>();
+            
+            if (categoriesResult.success) {
+              categoriesResult.data.forEach((cat: Category) => {
+                categoryMap.set(cat.id, cat.name);
+              });
+            }
+
+            const filteredItems = allItems.filter(item => {
+              const categoryName = categoryMap.get(item.category_id);
+              if (!categoryName) return true;
+              return shouldShowCategory(categoryName, shopType);
+            });
+
+            setItems(filteredItems);
           } else {
-            setError(result.message || 'Failed to search items');
+            setError(itemsResult.message || 'Failed to search items');
           }
         } catch (err) {
           setError('Failed to search items');
@@ -129,7 +173,7 @@ export function ItemGrid({
     }
 
     fetchItems();
-  }, [categoryId, searchQuery]);
+  }, [categoryId, searchQuery, shopType]);
 
   if (!categoryId && !searchQuery) {
     return (

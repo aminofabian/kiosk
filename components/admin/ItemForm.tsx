@@ -12,6 +12,7 @@ import { Loader2, Package, Layers, ShoppingCart, DollarSign, Box, AlertCircle, I
 import type { Category, Item } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
 import { apiGet, apiPost, apiPut } from '@/lib/utils/api-client';
+import { getShopType, shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
 
 interface ItemWithParentFlag extends Item {
   isParent?: boolean;
@@ -47,7 +48,10 @@ const CATEGORY_ITEM_SUGGESTIONS: Record<string, string[]> = {
   'Beverages': [
     'Water', 'Juice', 'Soda', 'Tea', 'Coffee', 'Milk', 'Mala', 'Yogurt Drink',
     'Energy Drink', 'Mineral Water', 'Cocoa', 'Drinking Chocolate', 'Milo',
-    'Ribena', 'Lucozade', 'Afia Juice', 'Pick N Peel', 'Del Monte'
+    'Ribena', 'Lucozade', 'Afia Juice', 'Pick N Peel', 'Del Monte',
+    'Soft Drinks (Coca Cola, Pepsi, Fanta, Sprite, Mirinda, Krest, Stoney)',
+    'Water (Keringet, Dasani, Aquamist, Alpine, Softa)',
+    'Juice (Del Monte, Afia, Pick N Peel, Ribena, Lucozade)'
   ],
   'Snacks': [
     'Chips', 'Crisps', 'Biscuits', 'Cookies', 'Crackers', 'Nuts', 'Cashew Nuts',
@@ -94,26 +98,62 @@ const CATEGORY_ITEM_SUGGESTIONS: Record<string, string[]> = {
     'Vinegar', 'Tomato Paste', 'Soy Sauce', 'Cooking Cream', 'Baking Powder',
     'Yeast', 'Cocoa Powder', 'Custard Powder', 'Corn Starch', 'Coconut Cream'
   ],
-  'Personal Care': [
-    'Soap', 'Toothpaste', 'Shampoo', 'Lotion', 'Deodorant', 'Tissue Paper',
-    'Sanitary Pads', 'Diapers', 'Cotton Wool', 'Vaseline', 'Hair Oil',
-    'Shower Gel', 'Hand Sanitizer', 'Face Cream', 'Body Cream'
-  ],
   'Household': [
     'Detergent', 'Bleach', 'Dish Soap', 'Floor Cleaner', 'Air Freshener',
     'Toilet Cleaner', 'Matches', 'Candles', 'Charcoal', 'Firewood',
     'Bin Liners', 'Foil Paper', 'Cling Film', 'Briquettes'
+  ],
+  // Retail Categories (Broader)
+  'Food Essentials': [
+    'Sugar (Mumias, Kibos, Nzoia, Sony, Chemelil)', 'Salt (Kensalt, Krystalline, Sunrise)', 
+    'Flour (Maize, Wheat, All Purpose)', 'Cooking Oil (Elianto, Golden Fry, Fresh Fri, Rina, Kasuku)',
+    'Tea (Ketepa, Kericho Gold, Fahari Ya Kenya, Jambo, Melvin\'s)', 
+    'Coffee (Dormans, Java, Nescafe, Mocca, Kahawa)'
+  ],
+  'Snacks & Confectionery': [
+    'Biscuits (Marie, Digestive, Cream Crackers, Rich Tea, Hobnobs, Oreo)',
+    'Candies (Cadbury, Nestle, Halls, Mentos, Tic Tac)',
+    'Chocolates', 'Sweets', 'Lollipops', 'Chewing Gum'
+  ],
+  'Cleaning Products': [
+    'Detergents (Omo, Ariel, Sunlight)', 'Soap (Sunlight, Menengai, Jamaa, White Wash, Ndume)',
+    'Cleaning Supplies (Star Shine, Scotch-Brite, Sawa, Sparkle, Cleanmate)',
+    'Bleach (Jik)', 'Dish Soap', 'Floor Cleaner', 'Toilet Cleaner'
+  ],
+  'Personal Care': [
+    'Colgate Toothpaste', 'Closeup Toothpaste', 'Sensodyne', 'Aquafresh',
+    'Head & Shoulders Shampoo', 'Pantene', 'Dove Soap', 'Lifebuoy Soap',
+    'Vaseline', 'Nivea Lotion', 'Johnson\'s Baby', 'Pampers', 'Always'
+  ],
+  'Household Items': [
+    'Rhino Steel Wire', 'Lion Brand Wire', 'Strong Wire', 'Power Plus Wire', 'Nyati Wire',
+    'Super Bright Steel Wool', 'Shine Steel Wool', 'Star Steel Wool', 'Clean Max Steel Wool', 'Golden Wool',
+    'Plastic Buckets', 'Basins', 'Brooms', 'Mops', 'Dustpans',
+    'Plastic Bags (Shopping, Garbage, Bin Liners, Refuse Bags)'
+  ],
+  'Paper Products': [
+    'Tissue Paper', 'Toilet Paper (Soft & Gentle, Kleenex, Prestige, Nice & Soft, Tender Care)',
+    'Paper Towels (Kitchen Towels, Absorbent Paper, Kitchen Roll, Serviettes)',
+    'Facial Tissues', 'Kitchen Towels'
+  ],
+  'General Merchandise': [
+    'Stationery (Bic Pens, Pilot Pens, Exercise Books, Notebooks, Rulers, Erasers)',
+    'Batteries (Energizer, Duracell, Eveready, Panasonic - AA, AAA, C, D, 9V)',
+    'Light Bulbs (Philips, Osram, GE - LED, Energy Saving, Incandescent)',
+    'Matches (Super Match, Lion Match, Safari Match, Power Match, Sunrise Match)',
+    'Candles (Paraffin, Wax, Emergency, Tea Light, Pillar, Votive)'
   ],
 };
 
 // Product-specific variant suggestions - these make sense for each product type
 const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   // ===== GRAINS & CEREALS - strains/types/sizes =====
-  'Rice': ['Pishori', 'Pakistani', 'Basmati', 'Jasmine', 'Brown Rice', 'White Rice', 'Long Grain', 'Short Grain', 'Sindano', '1 Kg', '2 Kg', '5 Kg'],
+  'Rice': ['Pishori', 'Pakistani', 'Basmati', 'Jasmine', 'Brown Rice', 'White Rice', 'Long Grain', 'Short Grain', 'Sindano', 'Nice Rice', 'Pishori (Mwea)', 'Daawat', 'Sunrise', 'Pearl', '1 Kg', '2 Kg', '5 Kg'],
   'Wheat': ['Whole Wheat', 'Refined', 'Durum', '1 Kg', '2 Kg', '5 Kg', '10 Kg'],
+  'Wheat Flour': ['EXE', 'Hostess', 'Raha', 'Golden Cloud', 'Ndovu', '500g', '1 Kg', '2 Kg', '5 Kg'],
   'Flour': ['All Purpose', 'Whole Wheat', 'Self Rising', 'Bread Flour', 'Cake Flour', 'Chapati Flour', '500g', '1 Kg', '2 Kg', '5 Kg'],
   'Maize': ['White Maize', 'Yellow Maize', '1 Kg', '2 Kg', '5 Kg', '10 Kg', '90 Kg'],
-  'Maize Flour': ['Sifted', 'Unsifted', '500g', '1 Kg', '2 Kg', '5 Kg', 'Jogoo', 'Pembe', 'Hostess'],
+  'Maize Flour': ['Sifted', 'Unsifted', '500g', '1 Kg', '2 Kg', '5 Kg', 'Jogoo', 'Pembe', 'Hostess', 'Soko', 'Raha'],
   'Ugali Flour': ['Sifted', 'Unsifted', '1 Kg', '2 Kg', '5 Kg'],
   'Oats': ['Rolled Oats', 'Instant Oats', 'Steel Cut', '500g', '1 Kg'],
   'Barley': ['Pearl Barley', 'Hulled', '500g', '1 Kg'],
@@ -204,7 +244,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Tamarillo': ['Per Piece', 'Per Kg', 'Red', 'Yellow'],
   
   // ===== SPICES & HERBS =====
-  'Salt': ['500g', '1 Kg', '2 Kg', 'Table Salt', 'Sea Salt', 'Rock Salt', 'Iodized', 'Pink Himalayan'],
+  'Salt': ['500g', '1 Kg', '2 Kg', 'Table Salt', 'Sea Salt', 'Rock Salt', 'Iodized', 'Pink Himalayan', 'Kensalt', 'Krystalline', 'Sunrise Salt', 'Naturel', 'Bob'],
   'Black Pepper': ['50g', '100g', '250g', 'Ground', 'Whole', 'Peppercorns'],
   'Pepper': ['50g', '100g', '250g', 'Black', 'White', 'Ground', 'Whole'],
   'Turmeric': ['50g', '100g', '250g', 'Ground', 'Fresh Root', 'Per Piece'],
@@ -229,10 +269,11 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Knorr': ['Per Cube', 'Per Packet', 'Beef', 'Chicken'],
   
   // ===== EGGS - quantities =====
-  'Eggs': ['Per Piece', 'Half Dozen', 'Dozen', 'Tray (30)', 'Kienyeji', 'Grade A', 'Grade B', 'Free Range', 'Organic'],
+  'Eggs': ['Per Piece', 'Half Dozen', 'Dozen', 'Tray (30)', 'Kienyeji', 'Grade A', 'Grade B', 'Free Range', 'Organic', 'Kenchic Eggs', 'Muguku Poultry', 'Isinya Feeds', 'Sigma Feeds', 'Farmers\' Choice Eggs'],
   
   // ===== DAIRY - sizes/volumes =====
-  'Milk': ['250ml', '500ml', '1 Litre', '2 Litre', '5 Litre', 'Fresh', 'UHT', 'Full Cream', 'Skimmed', 'Semi-Skimmed', 'Maziwa Lala'],
+  'Milk': ['250ml', '500ml', '1 Litre', '2 Litre', '5 Litre', 'Fresh', 'UHT', 'Full Cream', 'Skimmed', 'Semi-Skimmed', 'Maziwa Lala', 'Brookside', 'New KCC', 'Tuzo', 'Daima', 'Molo Milk'],
+  'Long-Life Milk': ['250ml', '500ml', '1 Litre', '2 Litre', 'Brookside', 'New KCC', 'Tuzo', 'Daima', 'Molo Milk'],
   'Yogurt': ['150ml', '250ml', '500ml', '1 Litre', 'Plain', 'Vanilla', 'Strawberry', 'Mixed Fruit', 'Greek'],
   'Yogurt Drink': ['250ml', '500ml', '1 Litre'],
   'Mala': ['250ml', '500ml', '1 Litre', '2 Litre'],
@@ -276,17 +317,29 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Mince': ['Per Kg', '500g', 'Beef', 'Chicken', 'Pork', 'Lamb'],
   
   // ===== BEVERAGES - sizes =====
-  'Water': ['250ml', '500ml', '1 Litre', '1.5 Litre', '5 Litre', '10 Litre', '20 Litre', 'Still', 'Sparkling'],
-  'Mineral Water': ['250ml', '500ml', '1 Litre', '1.5 Litre', '5 Litre'],
-  'Juice': ['250ml', '500ml', '1 Litre', '2 Litre', 'Orange', 'Mango', 'Apple', 'Mixed Fruit', 'Tropical', 'Fresh'],
-  'Soda': ['300ml', '350ml', '500ml', '1 Litre', '1.5 Litre', '2 Litre', 'Coke', 'Fanta', 'Sprite', 'Pepsi', 'Krest', 'Stoney'],
-  'Soft Drink': ['300ml', '500ml', '1 Litre', '2 Litre'],
+  'Water': ['250ml', '500ml', '1 Litre', '1.5 Litre', '5 Litre', '10 Litre', '20 Litre', 'Still', 'Sparkling', 'Keringet', 'Dasani', 'Aquamist', 'Alpine', 'Softa'],
+  'Mineral Water': ['250ml', '500ml', '1 Litre', '1.5 Litre', '5 Litre', 'Keringet', 'Dasani', 'Aquamist', 'Alpine', 'Softa'],
+  'Bottled Water': ['250ml', '500ml', '1 Litre', '1.5 Litre', '5 Litre', 'Keringet', 'Dasani', 'Aquamist', 'Alpine', 'Softa'],
+  'Juice': ['250ml', '500ml', '1 Litre', '2 Litre', 'Orange', 'Mango', 'Apple', 'Mixed Fruit', 'Tropical', 'Fresh', 'Del Monte', 'Afia', 'Pick N Peel', 'Ribena', 'Lucozade'],
+  'Del Monte Juice': ['250ml', '500ml', '1 Litre', 'Orange', 'Mango', 'Pineapple', 'Mixed Fruit'],
+  'Afia Juice': ['250ml', '500ml', '1 Litre', 'Orange', 'Mango', 'Passion'],
+  'Pick N Peel': ['250ml', '500ml', '1 Litre', 'Orange', 'Mango', 'Mixed Fruit'],
+  'Soda': ['300ml', '350ml', '500ml', '1 Litre', '1.5 Litre', '2 Litre', 'Coke', 'Fanta', 'Sprite', 'Pepsi', 'Krest', 'Stoney', 'Mirinda', 'Mountain Dew', '7Up'],
+  'Soft Drink': ['300ml', '500ml', '1 Litre', '2 Litre', 'Coca Cola', 'Pepsi', 'Fanta', 'Sprite', 'Mirinda'],
+  'Soft Drinks': ['300ml', '350ml', '500ml', '1 Litre', '1.5 Litre', '2 Litre', 'Coca Cola', 'Pepsi', 'Fanta', 'Sprite', 'Mirinda', 'Krest', 'Stoney', 'Mountain Dew', '7Up'],
+  'Coca Cola': ['300ml', '350ml', '500ml', '1 Litre', '1.5 Litre', '2 Litre', 'Coke', 'Diet Coke', 'Zero'],
+  'Pepsi': ['300ml', '350ml', '500ml', '1 Litre', '1.5 Litre', '2 Litre', 'Regular', 'Diet', 'Max'],
+  'Fanta': ['300ml', '350ml', '500ml', '1 Litre', '1.5 Litre', '2 Litre', 'Orange', 'Grape', 'Pineapple'],
   'Energy Drink': ['250ml', '350ml', '500ml', 'Red Bull', 'Monster', 'Power Horse'],
-  'Tea': ['50g', '100g', '250g', '500g', 'Tea Bags (25)', 'Tea Bags (50)', 'Tea Bags (100)', 'Green Tea', 'Black Tea', 'Herbal'],
-  'Coffee': ['50g', '100g', '250g', '500g', 'Instant', 'Ground', 'Beans', 'Decaf', 'Sachets (10)', 'Sachets (25)'],
+  'Tea': ['50g', '100g', '250g', '500g', 'Tea Bags (25)', 'Tea Bags (50)', 'Tea Bags (100)', 'Green Tea', 'Black Tea', 'Herbal', 'Ketepa', 'Kericho Gold', 'Fahari Ya Kenya', 'Jambo Tea', 'Melvin\'s'],
+  'Tea Leaves': ['50g', '100g', '250g', '500g', 'Ketepa', 'Kericho Gold', 'Fahari Ya Kenya', 'Jambo Tea', 'Melvin\'s'],
+  'Coffee': ['50g', '100g', '250g', '500g', 'Instant', 'Ground', 'Beans', 'Decaf', 'Sachets (10)', 'Sachets (25)', 'Dormans', 'Java', 'Nescafe', 'Mocca', 'Kahawa'],
+  'Dormans Coffee': ['50g', '100g', '250g', '500g', 'Instant', 'Ground', 'Beans'],
+  'Java Coffee': ['50g', '100g', '250g', '500g', 'Ground', 'Beans'],
+  'Nescafe': ['50g', '100g', '200g', 'Instant', 'Classic', 'Gold', 'Sachets (10)', 'Sachets (25)'],
   
   // ===== BAKERY =====
-  'Bread': ['White', 'Brown', 'Whole Wheat', 'Sliced', 'Unsliced', '400g', '600g', '800g', 'Small', 'Large'],
+  'Bread': ['White', 'Brown', 'Whole Wheat', 'Sliced', 'Unsliced', '400g', '600g', '800g', 'Small', 'Large', 'Blue Band Bread', 'Super Loaf', 'Festive', 'Broadways', 'Mini Baker'],
   'White Bread': ['400g', '600g', '800g', 'Sliced', 'Unsliced'],
   'Brown Bread': ['400g', '600g', '800g', 'Sliced', 'Unsliced'],
   'Baguette': ['Per Piece', 'Small', 'Large', 'French'],
@@ -302,22 +355,28 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   // ===== SNACKS =====
   'Chips': ['50g', '100g', '150g', '200g', 'Family Pack', 'Ready Salted', 'Salt & Vinegar', 'BBQ', 'Cheese'],
   'Crisps': ['50g', '100g', '150g', '200g', 'Family Pack'],
-  'Biscuits': ['100g', '200g', '400g', 'Per Packet', 'Cream', 'Chocolate', 'Digestive', 'Marie'],
+  'Biscuits': ['100g', '200g', '400g', 'Per Packet', 'Cream', 'Chocolate', 'Digestive', 'Marie', 'Rich Tea', 'Ginger Nuts', 'Hobnobs', 'Oreo', 'Custard Creams', 'Shortbread'],
+  'Marie Biscuits': ['100g', '200g', '400g', 'Per Packet', 'Pack (12)', 'Pack (24)'],
+  'Digestive Biscuits': ['100g', '200g', '400g', 'Per Packet', 'Plain', 'Chocolate'],
+  'Cream Crackers': ['100g', '200g', '400g', 'Per Packet', 'Pack (12)', 'Pack (24)'],
   'Crackers': ['100g', '200g', '300g', 'Salted', 'Plain', 'Whole Wheat'],
   'Nuts': ['100g', '250g', '500g', 'Mixed', 'Cashews', 'Almonds', 'Peanuts', 'Roasted', 'Salted'],
   'Cashew Nuts': ['100g', '250g', '500g', 'Raw', 'Roasted', 'Salted'],
   'Almonds': ['100g', '250g', '500g', 'Raw', 'Roasted', 'Sliced'],
   'Popcorn': ['50g', '100g', '200g', 'Salted', 'Sweet', 'Butter', 'Caramel'],
   'Chocolate': ['50g', '100g', '200g', 'Milk', 'Dark', 'White', 'With Nuts', 'Bar', 'Block'],
-  'Candy': ['Per Piece', '100g', '250g', '500g', 'Hard', 'Soft', 'Chewy'],
-  'Sweets': ['Per Piece', '100g', '250g', 'Mixed', 'Fruit', 'Mint'],
+  'Candy': ['Per Piece', '100g', '250g', '500g', 'Hard', 'Soft', 'Chewy', 'Cadbury', 'Nestle', 'Halls', 'Mentos', 'Tic Tac'],
+  'Sweets': ['Per Piece', '100g', '250g', 'Mixed', 'Fruit', 'Mint', 'Cadbury', 'Nestle'],
+  'Chocolates': ['50g', '100g', '200g', 'Milk', 'Dark', 'White', 'With Nuts', 'Cadbury', 'Nestle', 'Bar', 'Block'],
+  'Chewing Gum': ['Per Piece', 'Pack (5)', 'Pack (10)', 'Halls', 'Mentos', 'Tic Tac'],
   
   // ===== COOKING ESSENTIALS =====
-  'Cooking Oil': ['500ml', '1 Litre', '2 Litre', '3 Litre', '5 Litre', '10 Litre', '20 Litre', 'Sunflower', 'Vegetable', 'Corn'],
+  'Cooking Oil': ['500ml', '1 Litre', '2 Litre', '3 Litre', '5 Litre', '10 Litre', '20 Litre', 'Sunflower', 'Vegetable', 'Corn', 'Elianto', 'Golden Fry', 'Fresh Fri', 'Rina', 'Kasuku'],
+  'Vegetable Oil': ['500ml', '1 Litre', '2 Litre', '3 Litre', '5 Litre', 'Elianto', 'Golden Fry', 'Fresh Fri', 'Rina', 'Kasuku'],
   'Oil': ['500ml', '1 Litre', '2 Litre', '5 Litre', 'Sunflower', 'Vegetable', 'Olive', 'Coconut', 'Corn'],
   'Olive Oil': ['250ml', '500ml', '1 Litre', 'Extra Virgin', 'Virgin', 'Regular'],
   'Coconut Oil': ['250ml', '500ml', '1 Litre', 'Virgin', 'Refined'],
-  'Sugar': ['500g', '1 Kg', '2 Kg', '5 Kg', 'White', 'Brown', 'Icing', 'Caster'],
+  'Sugar': ['500g', '1 Kg', '2 Kg', '5 Kg', 'White', 'Brown', 'Icing', 'Caster', 'Mumias', 'Kibos', 'Nzoia', 'Sony', 'Chemelil'],
   'Honey': ['250g', '500g', '1 Kg', 'Pure', 'Raw', 'Local', 'Imported'],
   'Vinegar': ['250ml', '500ml', '1 Litre', 'White', 'Apple Cider', 'Balsamic'],
   'Soy Sauce': ['150ml', '250ml', '500ml', 'Light', 'Dark'],
@@ -356,16 +415,20 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Mwitemania': ['Per Kg', '500g', '1 Kg', '2 Kg'],
   
   // ===== PERSONAL CARE =====
-  'Soap': ['Per Piece', 'Pack (3)', 'Pack (6)', 'Bar', 'Liquid', 'Antibacterial'],
-  'Toothpaste': ['50ml', '75ml', '100ml', '150ml', 'Colgate', 'Closeup', 'Aquafresh', 'Sensodyne'],
-  'Shampoo': ['100ml', '200ml', '400ml', '1 Litre', 'Anti-Dandruff', 'Regular', 'Herbal'],
-  'Lotion': ['100ml', '200ml', '400ml', '1 Litre', 'Body', 'Hand', 'Moisturizing'],
-  'Deodorant': ['50ml', '100ml', '150ml', 'Roll On', 'Spray', 'Stick'],
-  'Tissue Paper': ['Single Roll', 'Pack (4)', 'Pack (6)', 'Pack (12)', 'Toilet', 'Facial'],
-  'Sanitary Pads': ['Pack (8)', 'Pack (10)', 'Pack (16)', 'Regular', 'Overnight', 'Panty Liners'],
-  'Diapers': ['Small', 'Medium', 'Large', 'Extra Large', 'Pack (10)', 'Pack (20)', 'Pack (40)', 'Jumbo'],
-  'Cotton Wool': ['50g', '100g', '200g', '500g'],
-  'Vaseline': ['50g', '100g', '250g', '500g', 'Pure', 'Blue Seal', 'Cocoa Butter'],
+  'Soap': ['Per Piece', 'Pack (3)', 'Pack (6)', 'Bar', 'Liquid', 'Antibacterial', 'Sunlight', 'Menengai', 'Jamaa', 'White Wash', 'Ndume'],
+  'Multi-Purpose Bar Soap': ['Sunlight', 'Menengai', 'Jamaa', 'White Wash', 'Ndume', 'Per Bar', '100g', '150g', '200g', '250g'],
+  'Toothpaste': ['50ml', '75ml', '100ml', '150ml', 'Colgate', 'Closeup', 'Aquafresh', 'Sensodyne', 'Crest', 'Oral-B'],
+  'Shampoo': ['100ml', '200ml', '400ml', '1 Litre', 'Anti-Dandruff', 'Regular', 'Herbal', 'Head & Shoulders', 'Pantene', 'Dove', 'Tresemme'],
+  'Lotion': ['100ml', '200ml', '400ml', '1 Litre', 'Body', 'Hand', 'Moisturizing', 'Nivea', 'Vaseline', 'Johnson\'s Baby'],
+  'Deodorant': ['50ml', '100ml', '150ml', 'Roll On', 'Spray', 'Stick', 'Rexona', 'Dove', 'Nivea', 'Axe'],
+  'Personal Care': ['Soap', 'Toothpaste', 'Shampoo', 'Lotion', 'Deodorant', 'Tissue Paper', 'Sanitary Pads', 'Diapers', 'Cotton Wool', 'Vaseline'],
+  'Tissue Paper': ['Single Roll', 'Pack (4)', 'Pack (6)', 'Pack (12)', 'Toilet', 'Facial', 'Soft & Gentle', 'Kleenex', 'Prestige', 'Nice & Soft', 'Tender Care'],
+  'Toilet Paper': ['Single Roll', 'Pack (4)', 'Pack (6)', 'Pack (12)', '2-Ply', '3-Ply', '4-Ply', 'Soft & Gentle', 'Kleenex', 'Prestige', 'Nice & Soft', 'Tender Care'],
+  'Paper Towels': ['Single Roll', 'Pack (2)', 'Pack (4)', 'Pack (6)', 'Kitchen Towels', 'Absorbent Paper', 'Kitchen Roll', 'Serviettes'],
+  'Sanitary Pads': ['Pack (8)', 'Pack (10)', 'Pack (16)', 'Regular', 'Overnight', 'Panty Liners', 'Always', 'Kotex', 'Stayfree'],
+  'Diapers': ['Small', 'Medium', 'Large', 'Extra Large', 'Pack (10)', 'Pack (20)', 'Pack (40)', 'Jumbo', 'Pampers', 'Huggies', 'Molfix'],
+  'Cotton Wool': ['50g', '100g', '200g', '500g', 'Sterile', 'Non-Sterile'],
+  'Vaseline': ['50g', '100g', '250g', '500g', 'Pure', 'Blue Seal', 'Cocoa Butter', 'Aloe Vera', 'Total Moisture'],
   'Hair Oil': ['50ml', '100ml', '200ml', 'Coconut', 'Olive', 'Argan'],
   'Shower Gel': ['250ml', '500ml', '1 Litre'],
   'Hand Sanitizer': ['50ml', '100ml', '250ml', '500ml', '1 Litre'],
@@ -373,20 +436,63 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Body Cream': ['100ml', '200ml', '400ml', '1 Litre'],
   
   // ===== HOUSEHOLD =====
-  'Detergent': ['500g', '1 Kg', '2 Kg', '5 Kg', 'Powder', 'Liquid', 'Omo', 'Ariel', 'Sunlight'],
+  'Detergent': ['500g', '1 Kg', '2 Kg', '5 Kg', 'Powder', 'Liquid', 'Omo', 'Ariel', 'Sunlight', 'Persil', 'Tide'],
+  'Sponge & Scrub': ['Star Shine', 'Scotch-Brite', 'Sawa', 'Sparkle', 'Cleanmate', 'Per Piece', 'Pack (2)', 'Pack (3)', 'Scrub Pads', 'Dish Sponges'],
+  'Cleaning Supplies': ['Star Shine Sponge', 'Scotch-Brite Sponge', 'Sawa Sponge', 'Sparkle Sponge', 'Cleanmate Sponge', 'Scrub Pads', 'Dish Sponges', 'Cleaning Cloths', 'Scrub Brushes', 'Steel Wool'],
+  'Steel Wire': ['Rhino', 'Lion Brand', 'Strong Wire', 'Power Plus', 'Nyati', 'Per Roll', 'Per Meter', '50m', '100m'],
+  'Steel Wool': ['Super Bright', 'Shine', 'Star Steel', 'Clean Max', 'Golden Wool', 'Per Pack', 'Fine', 'Coarse', 'Extra Fine', 'Medium'],
+  'Household Items': ['Rhino Steel Wire', 'Lion Brand Wire', 'Strong Wire', 'Power Plus Wire', 'Nyati Wire', 'Super Bright Steel Wool', 'Shine Steel Wool', 'Star Steel Wool', 'Clean Max Steel Wool', 'Golden Wool', 'Plastic Buckets', 'Basins', 'Brooms', 'Mops', 'Dustpans'],
   'Bleach': ['250ml', '500ml', '1 Litre', '5 Litre', 'Jik', 'Regular', 'Thick'],
   'Dish Soap': ['250ml', '500ml', '1 Litre', 'Liquid', 'Bar'],
   'Floor Cleaner': ['500ml', '1 Litre', '5 Litre', 'Tile', 'Wood', 'Multi-Surface'],
   'Air Freshener': ['250ml', '300ml', 'Spray', 'Gel', 'Automatic'],
   'Toilet Cleaner': ['500ml', '750ml', '1 Litre', 'Harpic', 'Liquid', 'Block'],
-  'Matches': ['Small Box', 'Large Box', 'Pack (10)', 'Pack (20)'],
-  'Candles': ['Per Piece', 'Pack (6)', 'Pack (12)', 'White', 'Colored', 'Emergency'],
+  'Matches': ['Small Box', 'Large Box', 'Pack (10)', 'Pack (20)', 'Super Match', 'Lion Match', 'Safari Match', 'Power Match', 'Sunrise Match'],
+  'Matchboxes': ['Super Match', 'Lion Match', 'Safari Match', 'Power Match', 'Sunrise Match', 'Small Box', 'Large Box', 'Pack (10)', 'Pack (20)'],
+  'Candles': ['Per Piece', 'Pack (6)', 'Pack (12)', 'White', 'Colored', 'Emergency', 'Paraffin Candles', 'Wax Candles', 'Tea Light Candles', 'Pillar Candles', 'Votive Candles', 'Birthday Candles', 'Church Candles'],
+  'Plastic Bags': ['Shopping Bags', 'Garbage Bags', 'Bin Liners', 'Refuse Bags', 'Carrier Bags', 'Polythene Bags', 'Ziploc Bags', 'Freezer Bags', 'Small', 'Medium', 'Large', 'Extra Large'],
   'Charcoal': ['Per Kg', '5 Kg', '10 Kg', '20 Kg', 'Bag (Small)', 'Bag (Large)'],
   'Firewood': ['Per Piece', 'Per Bundle', 'Small Bundle', 'Large Bundle'],
   'Bin Liners': ['Pack (10)', 'Pack (20)', 'Pack (50)', 'Small', 'Medium', 'Large'],
   'Foil Paper': ['5m', '10m', '20m', 'Roll'],
   'Cling Film': ['30m', '50m', '100m', 'Roll'],
   'Briquettes': ['Per Kg', '5 Kg', '10 Kg'],
+  
+  // ===== STATIONERY =====
+  'Stationery': ['Bic Pens', 'Pilot Pens', 'Reynolds Pens', 'Staedtler Pencils', 'HB Pencils', 'Exercise Books', 'Notebooks', 'Rulers', 'Erasers', 'Sharpeners', 'Staplers', 'Paper Clips', 'Rubber Bands', 'Glue Sticks', 'Markers'],
+  'Pens': ['Bic', 'Pilot', 'Reynolds', 'Blue', 'Black', 'Red', 'Pack (2)', 'Pack (5)', 'Pack (10)'],
+  'Pencils': ['Staedtler', 'HB', '2B', '4B', 'Pack (2)', 'Pack (5)', 'Pack (12)'],
+  'Exercise Books': ['40 Pages', '60 Pages', '80 Pages', '96 Pages', 'Single Line', 'Double Line', 'Squared'],
+  'Notebooks': ['A4', 'A5', 'A6', 'Spiral', 'Hard Cover', 'Soft Cover'],
+  'Rulers': ['15cm', '30cm', '50cm', 'Plastic', 'Metal', 'Wooden'],
+  'Erasers': ['Per Piece', 'Pack (2)', 'Pack (5)', 'White', 'Colored'],
+  'Sharpeners': ['Single Hole', 'Double Hole', 'Plastic', 'Metal'],
+  'Staplers': ['Mini', 'Standard', 'Heavy Duty'],
+  'Paper Clips': ['Small', 'Medium', 'Large', 'Pack (100)', 'Pack (500)'],
+  'Rubber Bands': ['Small', 'Medium', 'Large', 'Pack (100)', 'Pack (500)'],
+  'Glue Sticks': ['10g', '20g', '40g', 'UHU', 'Pritt'],
+  'Markers': ['Fine Tip', 'Broad Tip', 'Permanent', 'Washable', 'Pack (4)', 'Pack (8)'],
+  
+  // ===== BATTERIES =====
+  'Batteries': ['Energizer', 'Duracell', 'Eveready', 'Panasonic', 'AA', 'AAA', 'C', 'D', '9V', 'Pack (2)', 'Pack (4)', 'Pack (8)'],
+  'Energizer Batteries': ['AA', 'AAA', 'C', 'D', '9V', 'Pack (2)', 'Pack (4)', 'Pack (8)'],
+  'Duracell Batteries': ['AA', 'AAA', 'C', 'D', '9V', 'Pack (2)', 'Pack (4)', 'Pack (8)'],
+  'Eveready Batteries': ['AA', 'AAA', 'C', 'D', '9V', 'Pack (2)', 'Pack (4)', 'Pack (8)'],
+  'Panasonic Batteries': ['AA', 'AAA', 'C', 'D', '9V', 'Pack (2)', 'Pack (4)'],
+  'AA Batteries': ['Energizer', 'Duracell', 'Eveready', 'Panasonic', 'Pack (2)', 'Pack (4)', 'Pack (8)'],
+  'AAA Batteries': ['Energizer', 'Duracell', 'Eveready', 'Panasonic', 'Pack (2)', 'Pack (4)', 'Pack (8)'],
+  
+  // ===== LIGHT BULBS =====
+  'Light Bulbs': ['Philips', 'Osram', 'GE', 'LED', 'Energy Saving', 'Incandescent', 'Fluorescent', 'Halogen', 'CFL', '5W', '7W', '9W', '11W', '15W', '20W', '40W', '60W', '100W'],
+  'Philips Bulbs': ['LED', 'Energy Saving', 'Incandescent', '5W', '7W', '9W', '11W', '15W', '20W', '40W', '60W', '100W'],
+  'Osram Bulbs': ['LED', 'Energy Saving', 'Incandescent', '5W', '7W', '9W', '11W', '15W', '20W', '40W', '60W', '100W'],
+  'GE Bulbs': ['LED', 'Energy Saving', 'Incandescent', '5W', '7W', '9W', '11W', '15W', '20W', '40W', '60W', '100W'],
+  'LED Bulbs': ['5W', '7W', '9W', '11W', '15W', '20W', '40W', '60W', '100W', 'Warm White', 'Cool White', 'Daylight'],
+  'Energy Saving Bulbs': ['5W', '7W', '9W', '11W', '15W', '20W', '40W', '60W', 'Warm White', 'Cool White'],
+  'Incandescent Bulbs': ['40W', '60W', '100W', 'Clear', 'Frosted'],
+  'Fluorescent Bulbs': ['T5', 'T8', 'T12', '18W', '36W', '58W'],
+  'Halogen Bulbs': ['20W', '35W', '50W', '100W'],
+  'CFL Bulbs': ['5W', '7W', '9W', '11W', '15W', '20W', 'Warm White', 'Cool White'],
   
   // ===== MORE COOKING ESSENTIALS =====
   'Baking Powder': ['50g', '100g', '250g', '500g'],
@@ -423,10 +529,6 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Cocoa': ['100g', '250g', '500g', 'Pure', 'Sweetened'],
   'Ribena': ['250ml', '500ml', '1 Litre', 'Concentrate'],
   'Lucozade': ['250ml', '380ml', '500ml', 'Orange', 'Original'],
-  'Afia Juice': ['250ml', '500ml', '1 Litre', '2 Litre'],
-  'Pick N Peel': ['250ml', '500ml', '1 Litre'],
-  'Del Monte': ['250ml', '500ml', '1 Litre', '2 Litre'],
-  
   // ===== MORE KENYAN PRODUCE =====
   'Nduma': ['Per Kg', 'Per Piece', 'Small', 'Medium', 'Large'],
   'Arrow Roots': ['Per Kg', 'Per Piece', 'Small', 'Medium', 'Large'],
@@ -586,6 +688,7 @@ export function ItemForm({
 }: ItemFormProps) {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [shopType, setShopType] = useState<ShopType>(() => getShopType());
   const [parentItems, setParentItems] = useState<Item[]>([]);
   const [mode, setMode] = useState<FormMode>(
     parentItemId ? 'variant' : 
@@ -621,7 +724,13 @@ export function ItemForm({
         ]);
         
         if (categoriesResult.success) {
-          setCategories(categoriesResult.data ?? []);
+          const allCategories = categoriesResult.data ?? [];
+          const currentShopType = getShopType();
+          setShopType(currentShopType);
+          const filteredCategories = allCategories.filter(cat => 
+            shouldShowCategory(cat.name, currentShopType)
+          );
+          setCategories(filteredCategories);
         }
         if (parentsResult.success) {
           setParentItems(parentsResult.data ?? []);

@@ -4,15 +4,18 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import type { Category } from '@/lib/db/types';
+import { shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
 
 interface CategoryListProps {
   onSelectCategory: (categoryId: string | null) => void;
   selectedCategoryId?: string;
+  shopType?: ShopType;
 }
 
 export function CategoryList({
   onSelectCategory,
   selectedCategoryId,
+  shopType = 'grocery',
 }: CategoryListProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +43,10 @@ export function CategoryList({
 
     fetchCategories();
   }, []);
+
+  const filteredCategories = categories.filter(cat => 
+    shouldShowCategory(cat.name, shopType)
+  );
 
   if (loading) {
     return (
@@ -83,7 +90,7 @@ export function CategoryList({
         )}
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
-        {categories.map((category) => {
+        {filteredCategories.map((category) => {
           const isSelected = selectedCategoryId === category.id;
           return (
             <Button
