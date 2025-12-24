@@ -14,7 +14,9 @@ interface StockItem extends Item {
   stock_change: number;
   stock_change_percent: number | null;
   initial_value: number;
-  current_value: number;
+  stock_value: number;
+  sales_value: number;
+  current_value: number; // Backward compatibility
   value_change: number;
   value_change_percent: number | null;
   trend: 'growing' | 'shrinking' | 'stable' | 'new';
@@ -152,6 +154,9 @@ export function StockList() {
     inStock: items.filter(i => i.current_stock > 0).length,
     outOfStock: items.filter(i => i.current_stock <= 0).length,
     total: items.length,
+    totalInitialValue: items.reduce((sum, i) => sum + i.initial_value, 0),
+    totalStockValue: items.reduce((sum, i) => sum + (i.stock_value || 0), 0),
+    totalSalesValue: items.reduce((sum, i) => sum + (i.sales_value || i.current_value || 0), 0),
   }), [items]);
 
   if (loading) {
@@ -178,6 +183,24 @@ export function StockList() {
 
   return (
     <div className="space-y-4">
+      {/* Mobile: Value Summary Cards */}
+      <div className="md:hidden grid grid-cols-2 gap-2 mb-3">
+        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-4 shadow-lg shadow-blue-500/25">
+          <p className="text-[10px] font-medium text-white/80 uppercase tracking-wide mb-1">Stock Value</p>
+          <p className="text-xl font-bold text-white tabular-nums">
+            {formatCurrency(stats.totalStockValue)}
+          </p>
+          <p className="text-[9px] text-white/60 mt-0.5">Cost Basis</p>
+        </div>
+        <div className="bg-gradient-to-br from-[#259783] to-[#45d827] rounded-2xl p-4 shadow-lg shadow-[#259783]/25">
+          <p className="text-[10px] font-medium text-white/80 uppercase tracking-wide mb-1">Sales Value</p>
+          <p className="text-xl font-bold text-white tabular-nums">
+            {formatCurrency(stats.totalSalesValue)}
+          </p>
+          <p className="text-[9px] text-white/60 mt-0.5">Potential Revenue</p>
+        </div>
+      </div>
+
       {/* Mobile: Summary Stats Cards */}
       <div className="md:hidden grid grid-cols-4 gap-2">
         <button
@@ -242,6 +265,28 @@ export function StockList() {
         </button>
       </div>
 
+
+      {/* Desktop: Value Summary Cards */}
+      <div className="hidden md:grid grid-cols-2 gap-4 mb-4">
+        <Card className="bg-gradient-to-br from-blue-600 to-blue-700 border-0 shadow-lg shadow-blue-500/25">
+          <CardContent className="p-6">
+            <p className="text-xs font-medium text-white/80 uppercase tracking-wide mb-2">Total Stock Value</p>
+            <p className="text-3xl font-bold text-white tabular-nums">
+              {formatCurrency(stats.totalStockValue)}
+            </p>
+            <p className="text-xs text-white/60 mt-1">Cost Basis (Current Buy Price)</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-[#259783] to-[#45d827] border-0 shadow-lg shadow-[#259783]/25">
+          <CardContent className="p-6">
+            <p className="text-xs font-medium text-white/80 uppercase tracking-wide mb-2">Total Sales Value</p>
+            <p className="text-3xl font-bold text-white tabular-nums">
+              {formatCurrency(stats.totalSalesValue)}
+            </p>
+            <p className="text-xs text-white/60 mt-1">Potential Revenue (Current Sell Price)</p>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Desktop: Original Filters */}
       <div className="hidden md:block space-y-3">
@@ -367,13 +412,19 @@ export function StockList() {
                     </div>
                   </div>
                   
-                  {/* Bottom Row: Value & Trend */}
+                  {/* Bottom Row: Values & Trend */}
                   <div className="mt-3 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                       <div>
-                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Value</p>
-                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                          {formatCurrency(item.current_value)}
+                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Stock Value</p>
+                        <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                          {formatCurrency(item.stock_value || 0)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Sales Value</p>
+                        <p className="text-sm font-semibold text-[#259783]">
+                          {formatCurrency(item.sales_value || item.current_value || 0)}
                         </p>
                       </div>
                       <div>
@@ -418,7 +469,8 @@ export function StockList() {
                     <th className="text-center p-4 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Initial Stock</th>
                     <th className="text-center p-4 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Initial Value</th>
                     <th className="text-center p-4 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Current Stock</th>
-                    <th className="text-center p-4 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Current Value</th>
+                    <th className="text-center p-4 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Stock Value</th>
+                    <th className="text-center p-4 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Sales Value</th>
                     <th className="text-center p-4 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider w-32">Growth</th>
                     <th className="text-center p-4 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Trend</th>
                   </tr>
@@ -472,8 +524,13 @@ export function StockList() {
                           <span className="text-slate-400 text-xs ml-1">{item.unit_type}</span>
                         </td>
                         <td className="p-4 text-center text-xs">
+                          <span className="font-bold text-blue-600 dark:text-blue-400">
+                            {formatCurrency(item.stock_value || 0)}
+                          </span>
+                        </td>
+                        <td className="p-4 text-center text-xs">
                           <span className={`font-bold ${isStable ? 'text-[#259783]' : trendConfig.color}`}>
-                            {formatCurrency(item.current_value)}
+                            {formatCurrency(item.sales_value || item.current_value || 0)}
                           </span>
                         </td>
                         <td className="p-4">
