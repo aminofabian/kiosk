@@ -7,16 +7,39 @@ const AUTH_ERROR_MESSAGES = [
   'Forbidden',
 ] as const;
 
+import { getUserRole } from './user-role-storage';
+
+const DEFAULT_DOMAIN = 'kiosk.co.ke';
+const LOCALHOST_DOMAINS = ['localhost', '127.0.0.1', '0.0.0.0'];
+
+function isPublicDomain(hostname: string): boolean {
+  const lower = hostname.toLowerCase();
+  return lower === DEFAULT_DOMAIN || LOCALHOST_DOMAINS.includes(lower);
+}
+
+function isKioskDomain(hostname: string): boolean {
+  return !isPublicDomain(hostname);
+}
+
 function getLoginUrl(): string {
   if (typeof window === 'undefined') return '/login';
   
   const pathname = window.location.pathname;
+  const hostname = window.location.hostname;
   
   if (pathname.startsWith('/superadmin')) {
     return '/superadmin/login';
   }
   
-  if (pathname.startsWith('/pos')) {
+  // Only redirect to /pos/login if:
+  // 1. We're on a kiosk domain (business-specific)
+  // 2. The stored user role is 'cashier' (if available)
+  // This ensures PIN login is only shown for cashiers on kiosk/business-specific domains
+  const storedRole = getUserRole();
+  const isCashier = storedRole === 'cashier';
+  const shouldUsePosLogin = pathname.startsWith('/pos') && isKioskDomain(hostname) && (isCashier || !storedRole);
+  
+  if (shouldUsePosLogin) {
     return '/pos/login';
   }
   

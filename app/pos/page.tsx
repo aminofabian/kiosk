@@ -37,6 +37,7 @@ import { signOut } from 'next-auth/react';
 import { apiGet } from '@/lib/utils/api-client';
 import { ShopTypeSelector } from '@/components/pos/ShopTypeSelector';
 import { getShopType, shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
+import { storeUserRole, clearUserRole } from '@/lib/utils/user-role-storage';
 
 const GROCERY_CATEGORY_IMAGE_MAP: Record<string, string> = {
   Vegetables: '/category/vegetables.jpeg',
@@ -101,6 +102,14 @@ export default function POSPage() {
   const { items: cartItems } = useCartStore();
   const { user } = useCurrentUser();
   const isOwnerOrAdmin = user?.role === 'owner' || user?.role === 'admin';
+  
+  useEffect(() => {
+    if (user?.role) {
+      storeUserRole(user.role);
+    } else {
+      clearUserRole();
+    }
+  }, [user?.role]);
   
   // Variant selector state
   const [selectedParentItem, setSelectedParentItem] = useState<{

@@ -25,24 +25,40 @@ function LoadingSpinner() {
   );
 }
 
+import { getUserRole } from '@/lib/utils/user-role-storage';
+
 function POSLoginContent() {
   const [business, setBusiness] = useState<BusinessInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isPublic, setIsPublic] = useState(false);
+  const [isKioskDomain, setIsKioskDomain] = useState(false);
 
   useEffect(() => {
     const loadBusiness = async () => {
       try {
         const hostname = window.location.hostname.toLowerCase();
         const publicDomain = isPublicDomain(hostname);
+        const kioskDomain = !publicDomain;
         setIsPublic(publicDomain);
+        setIsKioskDomain(kioskDomain);
+
+        // If this is a public domain, redirect to regular login
+        // PIN login should only be shown on kiosk/business-specific domains
+        if (publicDomain) {
+          window.location.href = '/login';
+          return;
+        }
+
+        // Check if user role is stored and if they're not a cashier, redirect to regular login
+        // PIN login should only be shown to cashiers
+        const storedRole = getUserRole();
+        if (storedRole && storedRole !== 'cashier') {
+          window.location.href = '/login';
+          return;
+        }
 
         let domainToResolve = hostname;
-        
-        if (publicDomain && LOCALHOST_DOMAINS.includes(hostname)) {
-          domainToResolve = DEFAULT_DOMAIN;
-        }
 
         const portIndex = domainToResolve.indexOf(':');
         if (portIndex > -1) {
@@ -57,10 +73,8 @@ function POSLoginContent() {
             id: result.data.businessId,
             name: result.data.businessName,
           });
-        } else if (!publicDomain) {
-          setError('Business not found for this domain');
         } else {
-          setError('No business found. Please register a business first.');
+          setError('Business not found for this domain');
         }
       } catch {
         setError('Failed to load business');
@@ -86,6 +100,25 @@ function POSLoginContent() {
           <p className="text-slate-600 mb-4">
             Please sign in with your email to continue.
           </p>
+          <a
+            href="/login"
+            className="text-emerald-600 hover:text-emerald-700 font-medium"
+          >
+            Go to Login
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  // Only show PIN login on kiosk domains (business-specific domains)
+  if (!isKioskDomain) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+        <div className="text-center">
+          <h1 className="text-xl font-semibold text-slate-900 mb-2">
+            Redirecting to login...
+          </h1>
           <a
             href="/login"
             className="text-emerald-600 hover:text-emerald-700 font-medium"

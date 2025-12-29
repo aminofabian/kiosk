@@ -1,12 +1,13 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminBottomNav } from '@/components/admin/AdminBottomNav';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { signOut } from 'next-auth/react';
 import { LogOut } from 'lucide-react';
 import { InstallApp } from '@/components/InstallApp';
+import { storeUserRole, clearUserRole } from '@/lib/utils/user-role-storage';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -15,6 +16,14 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ children, sidebar }: AdminLayoutProps) {
   const { user } = useCurrentUser();
+
+  useEffect(() => {
+    if (user?.role) {
+      storeUserRole(user.role);
+    } else {
+      clearUserRole();
+    }
+  }, [user?.role]);
 
   return (
     <div className="flex h-screen w-screen bg-slate-50 dark:bg-[#0f1a0d]">

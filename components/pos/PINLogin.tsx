@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Delete } from 'lucide-react';
+import { storeUserRole } from '@/lib/utils/user-role-storage';
 
 interface PINLoginProps {
   businessId: string;
@@ -62,6 +63,10 @@ export function PINLogin({ businessId, businessName }: PINLoginProps) {
         setIsLoading(false);
         return;
       }
+
+      // Store user role for session expiry redirect logic
+      // The role will be available in the session after refresh
+      storeUserRole('cashier');
 
       router.push('/pos');
       router.refresh();
