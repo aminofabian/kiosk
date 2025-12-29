@@ -396,7 +396,7 @@ export function ProfitView() {
           <div className="flex items-center justify-between mb-2">
             <ShoppingCart className="w-4 h-4 text-[#259783]" />
           </div>
-          <p className="text-slate-500 dark:text-slate-400 text-[9px] font-bold uppercase tracking-wide mb-0.5">Revenue</p>
+          <p className="text-slate-500 dark:text-slate-400 text-[9px] font-bold uppercase tracking-wide mb-0.5">Sales Today</p>
           <p className="text-xl font-black text-slate-900 dark:text-white">{formatPrice(profitData.totalSales)}</p>
         </div>
 
