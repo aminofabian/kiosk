@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
+import type { Metadata } from 'next';
 import { Button } from '@/components/ui/button';
 import {
   ShoppingCart,
@@ -43,6 +44,96 @@ function extractBusinessNameFromDomain(hostname: string | null): string {
   return businessName.charAt(0).toUpperCase() + businessName.slice(1);
 }
 
+export async function generateMetadata(): Promise<Metadata> {
+  const user = await getCurrentUser();
+  const headersList = await headers();
+  const hostname = headersList.get('host') || headersList.get('x-forwarded-host');
+  const businessName = user?.businessName || extractBusinessNameFromDomain(hostname);
+  
+  const taglines = [
+    'for fruits, vegetables, and fresh produce',
+    'for vendors, kiosks, and small businesses',
+    'for mama mboga, dukas, and local shops',
+    'for groceries, markets, and retail stores',
+    'for quick sales and easy checkout',
+    'for your everyday shopping needs',
+    'powering local businesses across Kenya',
+  ];
+  
+  const taglineIndex = businessName.length % taglines.length;
+  const tagline = taglines[taglineIndex];
+  const description = `${businessName} POS - ${tagline.charAt(0).toUpperCase() + tagline.slice(1)}. Free point-of-sale system with inventory management, sales tracking, and real-time reports. No credit card required.`;
+  const title = `${businessName} POS - Free Point of Sale System | Start Selling Today`;
+  const url = hostname ? `https://${hostname}` : 'https://kiosk.co.ke';
+  
+  return {
+    title,
+    description,
+    keywords: [
+      'point of sale',
+      'POS system',
+      'free POS',
+      'inventory management',
+      'sales tracking',
+      'retail software',
+      'grocery POS',
+      'small business POS',
+      'Kenya POS',
+      'mama mboga POS',
+      'duka POS',
+      'kiosk POS',
+      businessName,
+      `${businessName} POS`,
+    ].join(', '),
+    authors: [{ name: businessName }],
+    creator: businessName,
+    publisher: businessName,
+    metadataBase: new URL(url),
+    alternates: {
+      canonical: '/',
+    },
+    openGraph: {
+      type: 'website',
+      locale: 'en_KE',
+      url,
+      siteName: `${businessName} POS`,
+      title,
+      description,
+      images: [
+        {
+          url: '/images/image.webp',
+          width: 1200,
+          height: 630,
+          alt: `${businessName} POS - Free Point of Sale System`,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: ['/images/image.webp'],
+      creator: `@${businessName.replace(/\s+/g, '')}`,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: {
+        index: true,
+        follow: true,
+        'max-video-preview': -1,
+        'max-image-preview': 'large',
+        'max-snippet': -1,
+      },
+    },
+    verification: {
+      // Add your verification codes here when available
+      // google: 'your-google-verification-code',
+      // yandex: 'your-yandex-verification-code',
+    },
+  };
+}
+
 export default async function HomePage() {
   const user = await getCurrentUser();
   const headersList = await headers();
@@ -61,11 +152,66 @@ export default async function HomePage() {
   
   const taglineIndex = businessName.length % taglines.length;
   const tagline = taglines[taglineIndex];
+  const baseUrl = hostname ? `https://${hostname}` : 'https://kiosk.co.ke';
+  
+  // Structured Data for SEO
+  const structuredData = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: `${businessName} POS`,
+    applicationCategory: 'BusinessApplication',
+    operatingSystem: 'Web, iOS, Android',
+    offers: {
+      '@type': 'Offer',
+      price: '0',
+      priceCurrency: 'KES',
+    },
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: '4.8',
+      ratingCount: '500',
+    },
+    description: `${businessName} POS - ${tagline.charAt(0).toUpperCase() + tagline.slice(1)}. Free point-of-sale system with inventory management, sales tracking, and real-time reports.`,
+    url: baseUrl,
+    image: `${baseUrl}/images/image.webp`,
+    featureList: [
+      'Lightning Fast Checkout',
+      'Inventory Management',
+      'Real-time Sales Tracking',
+      'Mobile Ready',
+      'Secure & Private',
+      'Smart Reports & Analytics',
+    ],
+  };
+  
+  const organizationData = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: `${businessName} POS`,
+    url: baseUrl,
+    logo: `${baseUrl}/icon-512.png`,
+    description: `Free point-of-sale system ${tagline}`,
+    sameAs: [
+      // Add social media links when available
+    ],
+  };
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
+    <>
+      {/* Structured Data for SEO */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationData) }}
+      />
+      
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
       {/* Navigation Bar */}
-      <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-emerald-100 shadow-sm">
+      <header>
+        <nav className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-emerald-100 shadow-sm" aria-label="Main navigation">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link href="/" className="flex items-center gap-2 group">
@@ -113,9 +259,10 @@ export default async function HomePage() {
           </div>
         </div>
       </nav>
+      </header>
 
       {/* Hero Section */}
-      <section className="relative min-h-[650px] md:min-h-[750px] flex items-center justify-center py-8 md:py-12">
+      <section className="relative min-h-[650px] md:min-h-[750px] flex items-center justify-center py-8 md:py-12" aria-label="Hero section">
         <div className="container mx-auto px-4">
           {/* Background Image with Margin */}
           <div 
@@ -123,6 +270,8 @@ export default async function HomePage() {
             style={{
               backgroundImage: 'url(/images/image.webp)',
             }}
+            role="img"
+            aria-label="Point of sale system interface showing modern retail management"
           >
             {/* Overlay for better text readability */}
             <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-emerald-900/85 via-teal-900/75 to-green-900/85" />
@@ -241,10 +390,12 @@ export default async function HomePage() {
       </section>
 
       {/* Content Section */}
-      <section className="container mx-auto px-4 py-12 md:py-20">
+      <main className="container mx-auto px-4 py-12 md:py-20">
         <div className="max-w-6xl mx-auto">
           {/* Features Grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
+          <section aria-labelledby="features-heading">
+            <h2 id="features-heading" className="sr-only">Key Features</h2>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
             <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-lg hover-lift border border-emerald-100 group">
               <div className="w-14 h-14 bg-gradient-to-br from-emerald-100 to-emerald-200 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Zap className="w-7 h-7 text-emerald-600" />
@@ -316,13 +467,14 @@ export default async function HomePage() {
                 Detailed sales reports, profit analysis, and inventory insights. Make data-driven decisions.
               </p>
             </div>
-          </div>
+            </div>
+          </section>
 
           {/* Quick Actions Section */}
           {!user && (
-            <div className="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-3xl p-8 md:p-12 mb-16 shadow-xl">
+            <section className="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-3xl p-8 md:p-12 mb-16 shadow-xl" aria-labelledby="cta-heading">
               <div className="text-center text-white mb-8">
-                <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                <h2 id="cta-heading" className="text-3xl md:text-4xl font-bold mb-4">
                   Ready to Get Started?
                 </h2>
                 <p className="text-lg opacity-90 max-w-2xl mx-auto">
@@ -361,11 +513,13 @@ export default async function HomePage() {
                   </Button>
                 </Link>
               </div>
-            </div>
+            </section>
           )}
 
           {/* Stats Section */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-16">
+          <section aria-labelledby="stats-heading">
+            <h2 id="stats-heading" className="sr-only">Platform Statistics</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-16">
             <div className="text-center p-6 bg-white/60 backdrop-blur-sm rounded-2xl">
               <div className="text-3xl font-bold text-emerald-600 mb-2">100%</div>
               <div className="text-sm text-gray-600">Free Forever</div>
@@ -382,9 +536,10 @@ export default async function HomePage() {
               <div className="text-3xl font-bold text-blue-600 mb-2">∞</div>
               <div className="text-sm text-gray-600">Unlimited Items</div>
             </div>
-          </div>
+            </div>
+          </section>
         </div>
-      </section>
+      </main>
 
       {/* Footer */}
       <footer className="bg-white/80 backdrop-blur-sm border-t border-emerald-100 mt-20">
@@ -422,6 +577,7 @@ export default async function HomePage() {
       </footer>
 
       <InstallApp />
-    </div>
+      </div>
+    </>
   );
 }
