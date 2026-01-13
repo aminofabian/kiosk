@@ -180,13 +180,18 @@ export async function submitOrderRequest(params: {
   // Format phone number to international format (254...)
   const formattedPhone = formatPhoneNumber(params.phoneNumber);
 
+  // For Pesapal v3, notification_id is REQUIRED
+  if (!PESAPAL_IPN_ID) {
+    throw new Error('PESAPAL_IPN_ID is required for Pesapal v3. Please register your IPN URL via POST /api/pesapal/register-ipn and add the returned ipn_id to your .env file.');
+  }
+
   const orderRequest: PesapalOrderRequest = {
     id: params.merchantReference,
     currency: 'KES',
     amount: params.amount,
     description: params.description,
     callback_url: params.callbackUrl,
-    notification_id: PESAPAL_IPN_ID || '', // Optional - empty string if not set
+    notification_id: PESAPAL_IPN_ID,
     billing_address: {
       phone_number: formattedPhone,
       email_address: params.email,

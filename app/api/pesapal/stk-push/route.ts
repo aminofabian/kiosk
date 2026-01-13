@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     const auth = await requirePermission('sell');
     if (isAuthResponse(auth)) return auth;
 
-    // Note: PESAPAL_IPN_ID is optional if using dashboard IPN URL setup (old style)
+    // For Pesapal v3, IPN must be registered via API (not dashboard)
 
     const body = await request.json();
     const { phone, amount, description } = body;
@@ -63,12 +63,13 @@ export async function POST(request: NextRequest) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     
     // Provide helpful message for common errors
-    if (errorMessage.includes('Invalid IPN URL ID')) {
+    if (errorMessage.includes('Invalid IPN URL ID') || errorMessage.includes('PESAPAL_IPN_ID is required')) {
       return jsonResponse(
         {
           success: false,
-          message: 'M-Pesa IPN not configured correctly. Please register your IPN URL with Pesapal.',
+          message: 'M-Pesa IPN not configured. For Pesapal v3, you must register your IPN URL via the API.',
           error: errorMessage,
+          help: 'Call POST /api/pesapal/register-ipn with your callback URL to get an IPN ID, then add it to your .env file as PESAPAL_IPN_ID',
         },
         503
       );

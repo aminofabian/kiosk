@@ -19,6 +19,7 @@ type MpesaStatus = 'idle' | 'sending' | 'waiting' | 'success' | 'failed' | 'time
 interface StkPushResponse {
   orderTrackingId: string;
   merchantReference: string;
+  redirectUrl: string;
 }
 
 interface PaymentStatusResponse {
@@ -46,8 +47,9 @@ export function CheckoutForm() {
   const [orderTrackingId, setOrderTrackingId] = useState<string | null>(null);
   const [pollCount, setPollCount] = useState(0);
   const [confirmationCode, setConfirmationCode] = useState<string | null>(null);
+  const [paymentWindow, setPaymentWindow] = useState<Window | null>(null);
 
-  const MAX_POLL_COUNT = 40; // 40 * 3s = 2 minutes timeout
+  const MAX_POLL_COUNT = 60; // 60 * 3s = 3 minutes timeout
   const POLL_INTERVAL = 3000; // 3 seconds
 
   const cashAmount = parseFloat(cashReceived) || 0;
@@ -122,6 +124,10 @@ export function CheckoutForm() {
   // Complete sale after M-Pesa success
   useEffect(() => {
     if (mpesaStatus === 'success') {
+      // Close payment window if still open
+      if (paymentWindow && !paymentWindow.closed) {
+        paymentWindow.close();
+      }
       completeSale();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -141,15 +147,32 @@ export function CheckoutForm() {
 
       if (result.success && result.data) {
         setOrderTrackingId(result.data.orderTrackingId);
+        
+        // Open Pesapal payment page in a popup window
+        const width = 500;
+        const height = 600;
+        const left = window.screenX + (window.outerWidth - width) / 2;
+        const top = window.screenY + (window.outerHeight - height) / 2;
+        
+        const popup = window.open(
+          result.data.redirectUrl,
+          'PesapalPayment',
+          `width=${width},height=${height},left=${left},top=${top},scrollbars=yes,resizable=yes`
+        );
+        
+        if (popup) {
+          setPaymentWindow(popup);
+        }
+        
         setMpesaStatus('waiting');
       } else {
         setMpesaStatus('failed');
-        setError(result.message || 'Failed to send M-Pesa prompt');
+        setError(result.message || 'Failed to initiate M-Pesa payment');
       }
     } catch (err) {
       console.error('M-Pesa initiation error:', err);
       setMpesaStatus('failed');
-      setError('Failed to send M-Pesa prompt. Please try again.');
+      setError('Failed to initiate M-Pesa payment. Please try again.');
     }
   };
 
@@ -217,6 +240,11 @@ export function CheckoutForm() {
   };
 
   const resetMpesaState = () => {
+    // Close payment window if open
+    if (paymentWindow && !paymentWindow.closed) {
+      paymentWindow.close();
+    }
+    setPaymentWindow(null);
     setMpesaStatus('idle');
     setOrderTrackingId(null);
     setPollCount(0);
@@ -257,20 +285,25 @@ export function CheckoutForm() {
               
               <div className="space-y-2">
                 <h2 className="text-xl font-semibold">
-                  {mpesaStatus === 'sending' ? 'Sending M-Pesa Request...' : 'Waiting for Payment'}
+                  {mpesaStatus === 'sending' ? 'Opening Payment Page...' : 'Complete Payment'}
                 </h2>
                 <p className="text-muted-foreground">
                   {mpesaStatus === 'sending' 
-                    ? 'Please wait while we send the payment request to your phone.'
-                    : `Check your phone (${mpesaPhone}) for the M-Pesa prompt and enter your PIN.`
+                    ? 'Please wait while we prepare the payment page.'
+                    : 'A payment window has opened. Please complete the M-Pesa payment there.'
                   }
                 </p>
+                {mpesaStatus === 'waiting' && (
+                  <p className="text-sm text-orange-600 font-medium">
+                    Select M-Pesa and enter your phone number in the popup window
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center justify-center gap-2">
                 <Loader2 className="h-5 w-5 animate-spin text-orange-600" />
                 <span className="text-sm text-muted-foreground">
-                  {mpesaStatus === 'waiting' && `Checking payment status... (${pollCount}/${MAX_POLL_COUNT})`}
+                  {mpesaStatus === 'waiting' && `Waiting for payment confirmation... (${Math.floor(pollCount * 3 / 60)}:${String((pollCount * 3) % 60).padStart(2, '0')})`}
                 </span>
               </div>
 
@@ -278,15 +311,32 @@ export function CheckoutForm() {
                 <p className="text-2xl font-bold text-[#259783]">{formatPrice(total)}</p>
               </div>
 
-              <Button
-                variant="outline"
-                onClick={() => {
-                  resetMpesaState();
-                }}
-                className="w-full"
-              >
-                Cancel
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    // Reopen the payment window if it was closed
+                    if (paymentWindow && paymentWindow.closed && orderTrackingId) {
+                      // Can't reopen same order, need to restart
+                      resetMpesaState();
+                      initiateMpesaPayment();
+                    }
+                  }}
+                  className="w-full"
+                  disabled={!paymentWindow?.closed}
+                >
+                  Reopen Payment Window
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    resetMpesaState();
+                  }}
+                  className="w-full text-muted-foreground"
+                >
+                  Cancel Payment
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -438,7 +488,7 @@ export function CheckoutForm() {
               {paymentMethod === 'mpesa' && (
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="mpesa-phone">M-Pesa Phone Number</Label>
+                    <Label htmlFor="mpesa-phone">M-Pesa Phone Number (for reference)</Label>
                     <Input
                       id="mpesa-phone"
                       type="tel"
@@ -449,7 +499,7 @@ export function CheckoutForm() {
                       autoFocus
                     />
                     <p className="text-xs text-muted-foreground">
-                      Enter the phone number to receive the M-Pesa prompt
+                      You&apos;ll enter this number in the payment window that opens
                     </p>
                   </div>
 
@@ -459,10 +509,10 @@ export function CheckoutForm() {
                         <Smartphone className="h-5 w-5 text-orange-600 mt-0.5" />
                         <div className="space-y-1">
                           <p className="text-sm font-medium text-orange-800">
-                            Ready to send M-Pesa prompt
+                            Ready for M-Pesa Payment
                           </p>
                           <p className="text-xs text-orange-600">
-                            An STK push will be sent to {mpesaPhone} for {formatPrice(total)}
+                            A payment window will open where you can pay {formatPrice(total)} via M-Pesa
                           </p>
                         </div>
                       </div>
@@ -521,7 +571,7 @@ export function CheckoutForm() {
             ) : paymentMethod === 'mpesa' ? (
               <>
                 <Smartphone className="mr-2 h-5 w-5" />
-                Send M-Pesa Prompt
+                Pay with M-Pesa
               </>
             ) : (
               'Complete Sale'
