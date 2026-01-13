@@ -77,6 +77,8 @@ export interface Item {
   min_stock_level: number | null;
   current_sell_price: number;
   image_url: string | null;
+  barcode: string | null; // Optional barcode (EAN-13, UPC, etc.)
+  expiry_date: number | null; // Optional expiry date as Unix timestamp
   active: number; // 1 = true, 0 = false
   created_at: number;
 }

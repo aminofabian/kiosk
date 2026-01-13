@@ -23,8 +23,8 @@ type FormMode = 'standalone' | 'parent' | 'variant';
 // Kenyan market product suggestions by category
 const CATEGORY_ITEM_SUGGESTIONS: Record<string, string[]> = {
   'Vegetables': [
-    'Tomatoes', 'Onions', 'Potatoes', 'Cabbage', 'Carrots', 'Hoho', 'Capsicum', 
-    'Cucumber', 'Eggplant', 'Okra', 'French Beans', 'Cauliflower', 'Broccoli', 
+    'Tomatoes', 'Onions', 'Potatoes', 'Cabbage', 'Carrots', 'Hoho', 'Capsicum',
+    'Cucumber', 'Eggplant', 'Okra', 'French Beans', 'Cauliflower', 'Broccoli',
     'Courgette', 'Butternut', 'Pumpkin', 'Sweet Potatoes', 'Beetroot', 'Celery',
     'Mushrooms', 'Garlic', 'Ginger', 'Leeks', 'Radish', 'Turnips'
   ],
@@ -36,7 +36,7 @@ const CATEGORY_ITEM_SUGGESTIONS: Record<string, string[]> = {
   ],
   'Grains & Cereals': [
     'Rice', 'Maize', 'Maize Flour', 'Wheat Flour', 'Flour', 'Millet', 'Sorghum',
-    'Oats', 'Barley', 'Pasta', 'Spaghetti', 'Noodles', 'Chapati Flour', 
+    'Oats', 'Barley', 'Pasta', 'Spaghetti', 'Noodles', 'Chapati Flour',
     'Ugali Flour', 'Weetabix', 'Cornflakes', 'Muesli', 'Bread Flour'
   ],
   'Spices': [
@@ -68,7 +68,7 @@ const CATEGORY_ITEM_SUGGESTIONS: Record<string, string[]> = {
   ],
   'Meat': [
     'Beef', 'Chicken', 'Goat', 'Lamb', 'Pork', 'Fish', 'Tilapia', 'Nile Perch',
-    'Omena', 'Sausages', 'Bacon', 'Mince', 'Liver', 'Tripe', 'Oxtail', 
+    'Omena', 'Sausages', 'Bacon', 'Mince', 'Liver', 'Tripe', 'Oxtail',
     'Kienyeji Chicken', 'Turkey', 'Duck', 'Prawns', 'Calamari'
   ],
   'Bakery': [
@@ -78,11 +78,11 @@ const CATEGORY_ITEM_SUGGESTIONS: Record<string, string[]> = {
   ],
   'Frozen Foods': [
     'Ice Cream', 'Frozen Chicken', 'Frozen Fish', 'Frozen Vegetables', 'French Fries',
-    'Frozen Prawns', 'Frozen Samosa', 'Frozen Chapati', 'Frozen Pizza', 
+    'Frozen Prawns', 'Frozen Samosa', 'Frozen Chapati', 'Frozen Pizza',
     'Fish Fingers', 'Chicken Nuggets', 'Sausages', 'Frozen Chips'
   ],
   'Canned Goods': [
-    'Baked Beans', 'Tuna', 'Sardines', 'Corned Beef', 'Canned Tomatoes', 
+    'Baked Beans', 'Tuna', 'Sardines', 'Corned Beef', 'Canned Tomatoes',
     'Tomato Paste', 'Canned Peas', 'Canned Corn', 'Canned Fruits', 'Pilchards',
     'Canned Beans', 'Coconut Milk', 'Evaporated Milk', 'Condensed Milk'
   ],
@@ -151,7 +151,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Sorghum': ['White', 'Red', '1 Kg', '2 Kg', '5 Kg'],
   'Pasta': ['Spaghetti', 'Penne', 'Macaroni', 'Fusilli', '250g', '500g', '1 Kg'],
   'Noodles': ['Instant', 'Egg Noodles', 'Rice Noodles', 'Single Pack', 'Carton'],
-  
+
   // ===== VEGETABLES - sizes and selling units =====
   'Tomatoes': ['Per Kg', 'Per Piece', 'Small', 'Medium', 'Large', 'Cherry', 'Roma', 'Beef', 'Crate'],
   'Onions': ['Per Kg', 'Per Piece', 'Small', 'Medium', 'Large', 'Red', 'White', 'Bag (2 Kg)'],
@@ -174,7 +174,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Pumpkin': ['Per Kg', 'Per Piece', 'Whole', 'Half', 'Quarter', 'Slice'],
   'Butternut': ['Per Kg', 'Per Piece', 'Small', 'Medium', 'Large', 'Whole', 'Half'],
   'Squash': ['Per Kg', 'Per Piece', 'Small', 'Medium', 'Large'],
-  
+
   // ===== GREEN LEAFY VEGETABLES =====
   'Spinach': ['Per Bunch', 'Per Kg', 'Small Bunch', 'Large Bunch', '250g', '500g'],
   'Kale': ['Per Bunch', 'Per Kg', 'Small Bunch', 'Large Bunch'],
@@ -194,7 +194,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Managu': ['Per Bunch', 'Small Bunch', 'Large Bunch'],
   'Mrenda': ['Per Bunch', 'Small Bunch', 'Large Bunch'],
   'Kunde': ['Per Bunch', 'Small Bunch', 'Large Bunch'],
-  
+
   // ===== FRUITS - selling units =====
   'Bananas': ['Per Piece', 'Per Bunch', 'Per Kg', 'Small Bunch', 'Large Bunch', 'Ripe', 'Green', 'Cooking'],
   'Ndizi': ['Per Piece', 'Per Bunch', 'Per Kg', 'Ripe', 'Green', 'Cooking'],
@@ -231,7 +231,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Dragon Fruit': ['Per Piece', 'Per Kg', 'Red', 'White'],
   'Tree Tomato': ['Per Piece', 'Per Kg', 'Red', 'Yellow'],
   'Tamarillo': ['Per Piece', 'Per Kg', 'Red', 'Yellow'],
-  
+
   // ===== SPICES & HERBS =====
   'Salt': ['500g', '1 Kg', '2 Kg', 'Table Salt', 'Sea Salt', 'Rock Salt', 'Iodized', 'Pink Himalayan', 'Kensalt', 'Krystalline', 'Sunrise Salt', 'Naturel', 'Bob', 'Packet (250g)', 'Packet (500g)', 'Packet (1kg)'],
   'Black Pepper': ['50g', '100g', '250g', 'Ground', 'Whole', 'Peppercorns'],
@@ -256,10 +256,10 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Bay Leaves': ['25g', '50g', 'Pack (10)', 'Pack (25)'],
   'Royco': ['Per Cube', 'Per Packet', 'Beef', 'Chicken', 'Mchuzi Mix'],
   'Knorr': ['Per Cube', 'Per Packet', 'Beef', 'Chicken'],
-  
+
   // ===== EGGS - quantities =====
   'Eggs': ['Per Piece', 'Half Dozen', 'Dozen', 'Tray (30)', 'Kienyeji', 'Grade A', 'Grade B', 'Free Range', 'Organic', 'Kenchic Eggs', 'Muguku Poultry', 'Isinya Feeds', 'Sigma Feeds', 'Farmers\' Choice Eggs'],
-  
+
   // ===== DAIRY - sizes/volumes =====
   'Milk': ['250ml', '500ml', '1 Litre', '2 Litre', '5 Litre', 'Fresh', 'UHT', 'Full Cream', 'Skimmed', 'Semi-Skimmed', 'Maziwa Lala', 'Brookside', 'New KCC', 'Tuzo', 'Daima', 'Molo Milk'],
   'Long-Life Milk': ['250ml', '500ml', '1 Litre', '2 Litre', 'Brookside', 'New KCC', 'Tuzo', 'Daima', 'Molo Milk'],
@@ -273,7 +273,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Cottage Cheese': ['250g', '500g'],
   'Mozzarella': ['200g', '250g', '500g', 'Fresh', 'Block', 'Shredded'],
   'Ghee': ['250g', '500g', '1 Kg', 'Pure'],
-  
+
   // ===== BEANS & LEGUMES - types =====
   'Beans': ['Red Kidney', 'Black', 'White', 'Pinto', 'Navy', 'Rose Coco', 'Yellow', 'Mwitemania', '500g', '1 Kg', '2 Kg'],
   'Green Grams': ['Per Kg', '500g', '1 Kg', '2 Kg', 'Ndengu', 'Whole', 'Split'],
@@ -290,7 +290,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Black Beans': ['Per Kg', '500g', '1 Kg', '2 Kg'],
   'Groundnuts': ['Per Kg', '250g', '500g', 'Raw', 'Roasted', 'Salted'],
   'Peanuts': ['Per Kg', '250g', '500g', 'Raw', 'Roasted', 'Salted', 'Shelled'],
-  
+
   // ===== MEAT - cuts and sizes =====
   'Beef': ['Per Kg', '500g', '1 Kg', 'Mince', 'Steak', 'Ribs', 'Stew Meat', 'Fillet', 'Brisket', 'Oxtail', 'Liver', 'Tripe'],
   'Chicken': ['Per Kg', 'Whole', 'Half', 'Quarter', 'Wings', 'Drumsticks', 'Breast', 'Thighs', 'Kienyeji', 'Broiler', 'Per Piece'],
@@ -304,7 +304,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Sausages': ['Per Kg', '500g', 'Beef', 'Pork', 'Chicken', 'Pack (6)', 'Pack (12)'],
   'Ham': ['100g', '200g', '500g', 'Sliced', 'Smoked', 'Honey Glazed'],
   'Mince': ['Per Kg', '500g', 'Beef', 'Chicken', 'Pork', 'Lamb'],
-  
+
   // ===== BEVERAGES - sizes =====
   'Water': ['250ml', '500ml', '1 Litre', '1.5 Litre', '5 Litre', '10 Litre', '20 Litre', 'Still', 'Sparkling', 'Keringet', 'Dasani', 'Aquamist', 'Alpine', 'Softa', 'Highland', 'Quencher', 'Aqua Pure', 'Crystal Clear', 'Pure Life'],
   'Mineral Water': ['250ml', '500ml', '1 Litre', '1.5 Litre', '5 Litre', 'Keringet', 'Dasani', 'Aquamist', 'Alpine', 'Softa', 'Highland', 'Quencher'],
@@ -326,7 +326,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Dormans Coffee': ['50g', '100g', '250g', '500g', 'Instant', 'Ground', 'Beans'],
   'Java Coffee': ['50g', '100g', '250g', '500g', 'Ground', 'Beans'],
   'Nescafe': ['50g', '100g', '200g', 'Instant', 'Classic', 'Gold', 'Sachets (10)', 'Sachets (25)'],
-  
+
   // ===== BAKERY =====
   'Bread': ['White', 'Brown', 'Whole Wheat', 'Sliced', 'Unsliced', '400g', '600g', '800g', 'Small', 'Large', 'Blue Band Bread', 'Super Loaf', 'Festive', 'Broadways', 'Mini Baker', 'Per Loaf', 'Pack (2)', 'Pack (4)'],
   'White Bread': ['400g', '600g', '800g', 'Sliced', 'Unsliced'],
@@ -340,7 +340,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Pastries': ['Per Piece', 'Danish', 'Puff', 'Savory', 'Sweet'],
   'Chapati': ['Per Piece', 'Small', 'Large', 'Pack (5)', 'Pack (10)'],
   'Mandazi': ['Per Piece', 'Small', 'Large', 'Pack (6)', 'Pack (12)'],
-  
+
   // ===== SNACKS =====
   'Chips': ['50g', '100g', '150g', '200g', 'Family Pack', 'Ready Salted', 'Salt & Vinegar', 'BBQ', 'Cheese'],
   'Crisps': ['50g', '100g', '150g', '200g', 'Family Pack'],
@@ -359,7 +359,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Sweets': ['Per Piece', '100g', '250g', 'Mixed', 'Fruit', 'Mint', 'Cadbury', 'Nestle', 'Pack (5)', 'Pack (10)'],
   'Chocolates': ['50g', '100g', '200g', 'Milk', 'Dark', 'White', 'With Nuts', 'Cadbury', 'Nestle', 'Bar', 'Block', 'Pack (2)', 'Pack (4)'],
   'Chewing Gum': ['Per Piece', 'Pack (5)', 'Pack (10)', 'Halls', 'Mentos', 'Tic Tac', 'Single', 'Multi-Pack'],
-  
+
   // ===== COOKING ESSENTIALS =====
   'Cooking Oil': ['500ml', '1 Litre', '2 Litre', '3 Litre', '5 Litre', '10 Litre', '20 Litre', 'Sunflower', 'Vegetable', 'Corn', 'Elianto', 'Golden Fry', 'Fresh Fri', 'Rina', 'Kasuku', 'Sunseed', 'Kimbo', 'Bidco', 'Mukwano', 'Roki'],
   'Vegetable Oil': ['500ml', '1 Litre', '2 Litre', '3 Litre', '5 Litre', 'Elianto', 'Golden Fry', 'Fresh Fri', 'Rina', 'Kasuku', 'Sunseed', 'Kimbo', 'Bidco'],
@@ -373,7 +373,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Tomato Paste': ['70g', '140g', '400g', '800g'],
   'Tomato Sauce': ['250ml', '500ml', '1 Litre', 'Ketchup'],
   'Cooking Cream': ['250ml', '500ml'],
-  
+
   // ===== FROZEN FOODS =====
   'Ice Cream': ['250ml', '500ml', '1 Litre', '2 Litre', 'Vanilla', 'Chocolate', 'Strawberry', 'Mixed'],
   'Frozen Vegetables': ['250g', '500g', '1 Kg', 'Mixed', 'Peas', 'Corn', 'Green Beans'],
@@ -382,7 +382,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Frozen Fish': ['500g', '1 Kg', 'Tilapia', 'Salmon', 'Prawns'],
   'Frozen Pizza': ['Per Piece', 'Small', 'Medium', 'Large', 'Margherita', 'Pepperoni'],
   'French Fries': ['500g', '1 Kg', '2.5 Kg', 'Regular', 'Crinkle Cut', 'Wedges'],
-  
+
   // ===== CANNED GOODS =====
   'Canned Tomatoes': ['400g', '800g', 'Whole', 'Chopped', 'Crushed'],
   'Canned Beans': ['400g', '800g', 'Baked Beans', 'Red Kidney', 'Black Beans'],
@@ -398,12 +398,12 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Coconut Milk': ['200ml', '400ml', 'Light', 'Regular'],
   'Evaporated Milk': ['170g', '400g'],
   'Condensed Milk': ['200g', '400g', 'Sweetened'],
-  
+
   // ===== LEGUMES (Kenyan Market) =====
   'Njahi': ['Per Kg', '500g', '1 Kg', '2 Kg', '5 Kg'],
   'Soya Beans': ['Per Kg', '500g', '1 Kg', '2 Kg'],
   'Mwitemania': ['Per Kg', '500g', '1 Kg', '2 Kg'],
-  
+
   // ===== PERSONAL CARE =====
   'Soap': ['Per Piece', 'Pack (3)', 'Pack (6)', 'Bar', 'Liquid', 'Antibacterial', 'Sunlight', 'Menengai', 'Jamaa', 'White Wash', 'Ndume', 'Lifebuoy', 'Dettol', 'Lux', 'Imperial Leather', 'Geisha', 'Dove'],
   'Bar Soap': ['Per Piece', 'Pack (3)', 'Pack (6)', 'Sunlight', 'Menengai', 'Jamaa', 'White Wash', 'Ndume', 'Lifebuoy', 'Dettol', 'Lux', '100g', '150g', '200g', '250g'],
@@ -425,7 +425,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Hand Sanitizer': ['50ml', '100ml', '250ml', '500ml', '1 Litre'],
   'Face Cream': ['25ml', '50ml', '100ml', 'Day', 'Night', 'Moisturizing'],
   'Body Cream': ['100ml', '200ml', '400ml', '1 Litre'],
-  
+
   // ===== HOUSEHOLD =====
   'Detergent': ['500g', '1 Kg', '2 Kg', '5 Kg', 'Powder', 'Liquid', 'Omo', 'Ariel', 'Sunlight', 'Persil', 'Tide', 'Packet (500g)', 'Packet (1kg)', 'Packet (2kg)'],
   'Sponge': ['Star Shine', 'Scotch-Brite', 'Sawa', 'Sparkle', 'Cleanmate', 'Per Piece', 'Pack (2)', 'Pack (3)', 'Scrub Pads', 'Dish Sponges'],
@@ -449,7 +449,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Foil Paper': ['5m', '10m', '20m', 'Roll'],
   'Cling Film': ['30m', '50m', '100m', 'Roll'],
   'Briquettes': ['Per Kg', '5 Kg', '10 Kg'],
-  
+
   // ===== STATIONERY =====
   'Stationery': ['Bic Pens', 'Pilot Pens', 'Reynolds Pens', 'Staedtler Pencils', 'HB Pencils', 'Exercise Books', 'Notebooks', 'Rulers', 'Erasers', 'Sharpeners', 'Staplers', 'Paper Clips', 'Rubber Bands', 'Glue Sticks', 'Markers'],
   'Pens': ['Bic', 'Pilot', 'Reynolds', 'Blue', 'Black', 'Red', 'Pack (2)', 'Pack (5)', 'Pack (10)'],
@@ -464,7 +464,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Rubber Bands': ['Small', 'Medium', 'Large', 'Pack (100)', 'Pack (500)'],
   'Glue Sticks': ['10g', '20g', '40g', 'UHU', 'Pritt'],
   'Markers': ['Fine Tip', 'Broad Tip', 'Permanent', 'Washable', 'Pack (4)', 'Pack (8)'],
-  
+
   // ===== BATTERIES =====
   'Batteries': ['Energizer', 'Duracell', 'Eveready', 'Panasonic', 'AA', 'AAA', 'C', 'D', '9V', 'Pack (2)', 'Pack (4)', 'Pack (8)'],
   'Energizer Batteries': ['AA', 'AAA', 'C', 'D', '9V', 'Pack (2)', 'Pack (4)', 'Pack (8)'],
@@ -473,7 +473,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Panasonic Batteries': ['AA', 'AAA', 'C', 'D', '9V', 'Pack (2)', 'Pack (4)'],
   'AA Batteries': ['Energizer', 'Duracell', 'Eveready', 'Panasonic', 'Pack (2)', 'Pack (4)', 'Pack (8)'],
   'AAA Batteries': ['Energizer', 'Duracell', 'Eveready', 'Panasonic', 'Pack (2)', 'Pack (4)', 'Pack (8)'],
-  
+
   // ===== LIGHT BULBS =====
   'Light Bulbs': ['Philips', 'Osram', 'GE', 'LED', 'Energy Saving', 'Incandescent', 'Fluorescent', 'Halogen', 'CFL', '5W', '7W', '9W', '11W', '15W', '20W', '40W', '60W', '100W'],
   'Philips Bulbs': ['LED', 'Energy Saving', 'Incandescent', '5W', '7W', '9W', '11W', '15W', '20W', '40W', '60W', '100W'],
@@ -485,7 +485,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Fluorescent Bulbs': ['T5', 'T8', 'T12', '18W', '36W', '58W'],
   'Halogen Bulbs': ['20W', '35W', '50W', '100W'],
   'CFL Bulbs': ['5W', '7W', '9W', '11W', '15W', '20W', 'Warm White', 'Cool White'],
-  
+
   // ===== MORE COOKING ESSENTIALS =====
   'Baking Powder': ['50g', '100g', '250g', '500g'],
   'Yeast': ['Per Packet', '50g', '100g', 'Instant', 'Active Dry'],
@@ -496,14 +496,14 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Weetabix': ['Pack (12)', 'Pack (24)', 'Pack (48)'],
   'Cornflakes': ['250g', '500g', '750g', '1 Kg'],
   'Muesli': ['250g', '500g', '750g', 'Original', 'Fruit & Nut'],
-  
+
   // ===== KENYAN SNACKS =====
   'Samosa': ['Per Piece', 'Pack (6)', 'Pack (12)', 'Beef', 'Chicken', 'Vegetable'],
   'Bhajia': ['Per Piece', 'Per Portion', 'Small', 'Large'],
   'Mabuyu': ['50g', '100g', '250g', 'Per Packet'],
   'Njugu Karanga': ['50g', '100g', '250g', '500g', 'Roasted', 'Salted', 'Coated'],
   'Chevda': ['100g', '250g', '500g', 'Per Packet'],
-  
+
   // ===== KENYAN BAKERY =====
   'Buns': ['Per Piece', 'Pack (6)', 'Pack (12)', 'Plain', 'Coconut', 'Raisin'],
   'Scones': ['Per Piece', 'Pack (6)', 'Plain', 'Raisin', 'Cheese'],
@@ -514,7 +514,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Mahamri': ['Per Piece', 'Pack (6)', 'Pack (12)'],
   'Naan': ['Per Piece', 'Plain', 'Garlic', 'Butter'],
   'Doughnuts': ['Per Piece', 'Pack (6)', 'Glazed', 'Sugar', 'Chocolate'],
-  
+
   // ===== KENYAN BEVERAGES =====
   'Milo': ['100g', '200g', '400g', '1 Kg', 'Sachet'],
   'Drinking Chocolate': ['100g', '250g', '500g'],
@@ -530,12 +530,12 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Matoke': ['Per Piece', 'Per Bunch', 'Per Kg', 'Small Bunch', 'Large Bunch'],
   'Mukimo': ['Per Portion', 'Small', 'Medium', 'Large'],
   'Ugali': ['Per Portion', 'Small', 'Medium', 'Large'],
-  
+
   // ===== KENYAN DAIRY =====
   'Blue Band': ['100g', '250g', '500g', '1 Kg', 'Original', 'Low Fat'],
   'Margarine': ['100g', '250g', '500g', '1 Kg'],
   'Paneer': ['200g', '400g', 'Fresh'],
-  
+
   // ===== MORE KENYAN VEGETABLES =====
   'Mushrooms': ['Per Punnet', 'Per Kg', '200g', '250g', 'Button', 'Oyster', 'Shiitake'],
   'Celery': ['Per Bunch', 'Per Kg', 'Sticks'],
@@ -543,7 +543,7 @@ const PRODUCT_VARIANT_SUGGESTIONS: Record<string, string[]> = {
   'Radish': ['Per Bunch', 'Per Kg', 'Red', 'White'],
   'Turnips': ['Per Kg', 'Per Piece', 'Small', 'Medium', 'Large'],
   'Beetroot': ['Per Kg', 'Per Piece', 'Small', 'Medium', 'Large', 'Fresh', 'Pickled'],
-  
+
   // ===== KENYAN GREENS =====
   'Saga': ['Per Bunch', 'Small Bunch', 'Large Bunch'],
   'Mchicha': ['Per Bunch', 'Small Bunch', 'Large Bunch'],
@@ -573,25 +573,25 @@ const CATEGORY_VARIANT_SUGGESTIONS: Record<string, string[]> = {
 function getVariantSuggestions(productName: string, categoryName: string): string[] {
   // First check for exact product match
   const normalizedProductName = productName.trim();
-  
+
   // Try exact match first
   if (PRODUCT_VARIANT_SUGGESTIONS[normalizedProductName]) {
     return PRODUCT_VARIANT_SUGGESTIONS[normalizedProductName];
   }
-  
+
   // Try partial match (e.g., "Red Onions" should match "Onions")
   for (const [product, suggestions] of Object.entries(PRODUCT_VARIANT_SUGGESTIONS)) {
     if (normalizedProductName.toLowerCase().includes(product.toLowerCase()) ||
-        product.toLowerCase().includes(normalizedProductName.toLowerCase())) {
+      product.toLowerCase().includes(normalizedProductName.toLowerCase())) {
       return suggestions;
     }
   }
-  
+
   // Fall back to category suggestions
   if (CATEGORY_VARIANT_SUGGESTIONS[categoryName]) {
     return CATEGORY_VARIANT_SUGGESTIONS[categoryName];
   }
-  
+
   // Generic fallback
   return ['Per Kg', 'Per Piece', 'Small', 'Medium', 'Large', '500g', '1 Kg'];
 }
@@ -599,55 +599,55 @@ function getVariantSuggestions(productName: string, categoryName: string): strin
 // Helper function to auto-detect unit type from variant name
 function getUnitTypeFromVariant(variantName: string): UnitType | null {
   const variant = variantName.toLowerCase().trim();
-  
+
   // Kilogram patterns
-  if (variant.includes('per kg') || variant.includes('kg') || 
-      variant.match(/^\d+\s*kg$/i) || variant === '1 kg' || variant === '2 kg' || 
-      variant === '5 kg' || variant === '10 kg') {
+  if (variant.includes('per kg') || variant.includes('kg') ||
+    variant.match(/^\d+\s*kg$/i) || variant === '1 kg' || variant === '2 kg' ||
+    variant === '5 kg' || variant === '10 kg') {
     return 'kg';
   }
-  
+
   // Gram patterns  
-  if (variant.includes('per g') || variant.match(/^\d+\s*g$/i) || 
-      variant === '100g' || variant === '250g' || variant === '500g') {
+  if (variant.includes('per g') || variant.match(/^\d+\s*g$/i) ||
+    variant === '100g' || variant === '250g' || variant === '500g') {
     return 'g';
   }
-  
+
   // Piece patterns
-  if (variant.includes('per piece') || variant === 'small' || variant === 'medium' || 
-      variant === 'large' || variant === 'extra large' || variant.includes('whole') ||
-      variant.includes('half') || variant.includes('quarter') || variant.includes('slice')) {
+  if (variant.includes('per piece') || variant === 'small' || variant === 'medium' ||
+    variant === 'large' || variant === 'extra large' || variant.includes('whole') ||
+    variant.includes('half') || variant.includes('quarter') || variant.includes('slice')) {
     return 'piece';
   }
-  
+
   // Bunch patterns
-  if (variant.includes('per bunch') || variant.includes('bunch') || 
-      variant === 'small bunch' || variant === 'large bunch') {
+  if (variant.includes('per bunch') || variant.includes('bunch') ||
+    variant === 'small bunch' || variant === 'large bunch') {
     return 'bunch';
   }
-  
+
   // Tray patterns
   if (variant.includes('tray') || variant.includes('crate')) {
     return 'tray';
   }
-  
+
   // Litre patterns
   if (variant.includes('litre') || variant.includes('liter') || variant.includes('l') ||
-      variant.match(/^\d+\s*l$/i) || variant === '500ml' || variant === '1 litre' || 
-      variant === '2 litre' || variant === '5 litre') {
+    variant.match(/^\d+\s*l$/i) || variant === '500ml' || variant === '1 litre' ||
+    variant === '2 litre' || variant === '5 litre') {
     return 'litre';
   }
-  
+
   // Millilitre patterns
   if (variant.includes('ml') || variant.match(/^\d+\s*ml$/i)) {
     return 'ml';
   }
-  
+
   // Dozen patterns (use piece)
   if (variant.includes('dozen') || variant.includes('pack')) {
     return 'piece';
   }
-  
+
   return null; // No auto-detection possible
 }
 
@@ -663,6 +663,8 @@ interface ItemFormProps {
     buy_price?: number | null;
     variant_name?: string | null;
     parent_item_id?: string | null;
+    barcode?: string | null;
+    expiry_date?: number | null;
   };
   parentItemId?: string; // If set, we're creating a variant for this parent
   defaultMode?: FormMode;
@@ -670,22 +672,22 @@ interface ItemFormProps {
   onCancel?: () => void;
 }
 
-export function ItemForm({ 
-  itemId, 
-  initialData, 
-  parentItemId, 
+export function ItemForm({
+  itemId,
+  initialData,
+  parentItemId,
   defaultMode = 'standalone',
-  onSuccess, 
-  onCancel 
+  onSuccess,
+  onCancel
 }: ItemFormProps) {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [shopType, setShopType] = useState<ShopType>(() => getShopType());
   const [parentItems, setParentItems] = useState<Item[]>([]);
   const [mode, setMode] = useState<FormMode>(
-    parentItemId ? 'variant' : 
-    initialData?.parent_item_id ? 'variant' : 
-    defaultMode
+    parentItemId ? 'variant' :
+      initialData?.parent_item_id ? 'variant' :
+        defaultMode
   );
   const [name, setName] = useState<string>(initialData?.name || '');
   const [selectedItemSuggestion, setSelectedItemSuggestion] = useState<string>('');
@@ -702,6 +704,10 @@ export function ItemForm({
   const [buyPrice, setBuyPrice] = useState<string>(initialData?.buy_price?.toString() || '');
   const [sellPrice, setSellPrice] = useState<string>(initialData?.current_sell_price?.toString() || '');
   const [minStockLevel, setMinStockLevel] = useState<string>(initialData?.min_stock_level?.toString() || '');
+  const [barcode, setBarcode] = useState<string>(initialData?.barcode || '');
+  const [expiryDate, setExpiryDate] = useState<string>(
+    initialData?.expiry_date ? new Date(initialData.expiry_date * 1000).toISOString().split('T')[0] : ''
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -714,12 +720,12 @@ export function ItemForm({
           apiGet<Category[]>('/api/categories'),
           apiGet<Item[]>('/api/items?all=true&parentsOnly=true'),
         ]);
-        
+
         if (categoriesResult.success) {
           const allCategories = categoriesResult.data ?? [];
           const currentShopType = getShopType();
           setShopType(currentShopType);
-          const filteredCategories = allCategories.filter(cat => 
+          const filteredCategories = allCategories.filter(cat =>
             shouldShowCategory(cat.name, currentShopType)
           );
           setCategories(filteredCategories);
@@ -727,7 +733,7 @@ export function ItemForm({
         if (parentsResult.success) {
           setParentItems(parentsResult.data ?? []);
         }
-        
+
         // If parentItemId is set, get the parent's category
         if (parentItemId && parentsResult.success) {
           const parent = (parentsResult.data ?? []).find((p: Item) => p.id === parentItemId);
@@ -735,7 +741,7 @@ export function ItemForm({
             setCategoryId(parent.category_id);
           }
         }
-        
+
         // If editing a variant and parent not in list, try to fetch it
         if (itemId && initialData?.parent_item_id && parentsResult.success) {
           const parent = (parentsResult.data ?? []).find((p: Item) => p.id === initialData.parent_item_id);
@@ -796,7 +802,7 @@ export function ItemForm({
         setError('Item name is required');
         return;
       }
-      
+
       if (mode === 'variant') {
         if (!selectedParentId) {
           setError('Parent item is required for variants');
@@ -840,17 +846,17 @@ export function ItemForm({
 
     try {
       let finalCategoryId = categoryId;
-      
+
       // If custom category, create it first
       if (isCustomCategory && customCategoryName.trim()) {
         const categoryResult = await apiPost('/api/categories', { name: customCategoryName.trim() });
-        
+
         if (!categoryResult.success) {
           setError(categoryResult.message || 'Failed to create category');
           setIsSubmitting(false);
           return;
         }
-        
+
         // Fetch updated categories to get the new category ID
         const categoriesResult = await apiGet<Category[]>('/api/categories');
         if (categoriesResult.success) {
@@ -871,12 +877,12 @@ export function ItemForm({
       }
 
       const url = itemId ? `/api/items/${itemId}` : '/api/items';
-      
+
       // Get parent name for variant display name
-      const parentItem = mode === 'variant' 
-        ? parentItems.find(p => p.id === selectedParentId) 
+      const parentItem = mode === 'variant'
+        ? parentItems.find(p => p.id === selectedParentId)
         : null;
-      
+
       // Build the item name: for variants, use "ParentName - VariantName"
       let itemName: string;
       if (mode === 'variant') {
@@ -888,7 +894,7 @@ export function ItemForm({
           // Format is typically "ParentName - VariantName"
           const existingName = initialData.name;
           const existingVariantName = initialData.variant_name || '';
-          
+
           if (existingName.includes(' - ') && existingVariantName) {
             // Extract parent name by removing the existing variant part
             const parentName = existingName.replace(` - ${existingVariantName}`, '').trim();
@@ -930,9 +936,11 @@ export function ItemForm({
         isParent: mode === 'parent',
         parentItemId: mode === 'variant' ? selectedParentId : null,
         variantName: mode === 'variant' ? variantName.trim() : null,
+        barcode: barcode.trim() || null,
+        expiryDate: expiryDate ? Math.floor(new Date(expiryDate).getTime() / 1000) : null,
       };
 
-      const result = itemId 
+      const result = itemId
         ? await apiPut<Item>(url, requestBody)
         : await apiPost<Item>(url, requestBody);
 
@@ -1008,7 +1016,7 @@ export function ItemForm({
                   </div>
                 )}
               </button>
-              
+
               <button
                 type="button"
                 onClick={() => setMode('parent')}
@@ -1040,7 +1048,7 @@ export function ItemForm({
                   </div>
                 )}
               </button>
-              
+
               <button
                 type="button"
                 onClick={() => setMode('variant')}
@@ -1085,8 +1093,8 @@ export function ItemForm({
                 <Layers className="h-4 w-4 text-muted-foreground" />
                 <Label htmlFor="parent" className="text-base font-semibold">Which product is this a variant of? *</Label>
               </div>
-              <Select 
-                value={selectedParentId} 
+              <Select
+                value={selectedParentId}
                 onValueChange={(v) => {
                   setSelectedParentId(v);
                   const parent = parentItems.find(p => p.id === v);
@@ -1125,13 +1133,13 @@ export function ItemForm({
           const parentCategory = categories.find(c => c.id === selectedParent?.category_id);
           const categoryName = parentCategory?.name || '';
           const variantSuggestions = selectedParentId ? getVariantSuggestions(parentName, categoryName) : [];
-          
+
           return (
             <div className="space-y-3">
               <Label className="text-base font-semibold">
                 What type of variant is this? *
               </Label>
-              
+
               {/* Show parent product name prominently */}
               {selectedParentId && parentName && (
                 <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
@@ -1140,7 +1148,7 @@ export function ItemForm({
                   </p>
                 </div>
               )}
-              
+
               {/* Variant suggestions - contextual based on product */}
               {selectedParentId && variantSuggestions.length > 0 && (
                 <div className="space-y-2">
@@ -1201,7 +1209,7 @@ export function ItemForm({
                   </div>
                 </div>
               )}
-              
+
               {/* Show selected variant or custom input */}
               {selectedVariantSuggestion && !isCustomVariantName ? (
                 <div className="p-4 rounded-lg bg-muted/50 border">
@@ -1242,7 +1250,7 @@ export function ItemForm({
                   )}
                 </div>
               ) : null}
-              
+
               {/* Preview how it will appear */}
               {variantName && parentName && (
                 <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
@@ -1269,7 +1277,7 @@ export function ItemForm({
                 <Grid3x3 className="h-4 w-4 text-muted-foreground" />
                 <Label className="text-base font-semibold">Which category does this belong to? *</Label>
               </div>
-              
+
               {categories.length > 0 && !isCustomCategory ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {categories.map((category) => {
@@ -1291,8 +1299,8 @@ export function ItemForm({
                         className={`
                           relative p-3 rounded-lg border-2 transition-all duration-200
                           text-left hover:shadow-sm
-                          ${isSelected 
-                            ? 'border-[#259783] bg-[#259783]/5 dark:bg-[#259783]/10 shadow-sm' 
+                          ${isSelected
+                            ? 'border-[#259783] bg-[#259783]/5 dark:bg-[#259783]/10 shadow-sm'
                             : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
                           }
                           ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
@@ -1340,8 +1348,8 @@ export function ItemForm({
                   </button>
                 </div>
               ) : (
-                <Select 
-                  value={isCustomCategory ? 'custom' : categoryId} 
+                <Select
+                  value={isCustomCategory ? 'custom' : categoryId}
                   onValueChange={(value) => {
                     if (value === 'custom') {
                       setIsCustomCategory(true);
@@ -1378,7 +1386,7 @@ export function ItemForm({
                   </SelectContent>
                 </Select>
               )}
-              
+
               {isCustomCategory && (
                 <div className="mt-2 p-4 rounded-lg bg-muted/50 border">
                   <Label htmlFor="customCategory" className="text-sm font-medium mb-2 block">
@@ -1413,65 +1421,65 @@ export function ItemForm({
                 What's the product name? *
               </Label>
             </div>
-            
+
             {/* Show suggestions if category is selected and we have suggestions (only for new items) */}
             {!itemId && categoryId && categoryId !== '' && !isCustomCategory && (() => {
               const categoryName = categories.find(c => c.id === categoryId)?.name || '';
               const suggestions = CATEGORY_ITEM_SUGGESTIONS[categoryName];
               return suggestions && suggestions.length > 0;
             })() && (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">Quick pick from common items:</p>
-                <div className="flex flex-wrap gap-2">
-                  {CATEGORY_ITEM_SUGGESTIONS[categories.find(c => c.id === categoryId)?.name || '']?.slice(0, 8).map((itemName) => {
-                    const isSelected = selectedItemSuggestion === itemName && !isCustomItemName;
-                    return (
-                      <button
-                        key={itemName}
-                        type="button"
-                        onClick={() => {
-                          setIsCustomItemName(false);
-                          setSelectedItemSuggestion(itemName);
-                          setName(itemName);
-                        }}
-                        disabled={isSubmitting}
-                        className={`
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Quick pick from common items:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {CATEGORY_ITEM_SUGGESTIONS[categories.find(c => c.id === categoryId)?.name || '']?.slice(0, 8).map((itemName) => {
+                      const isSelected = selectedItemSuggestion === itemName && !isCustomItemName;
+                      return (
+                        <button
+                          key={itemName}
+                          type="button"
+                          onClick={() => {
+                            setIsCustomItemName(false);
+                            setSelectedItemSuggestion(itemName);
+                            setName(itemName);
+                          }}
+                          disabled={isSubmitting}
+                          className={`
                           px-3 py-1.5 rounded-lg border text-sm transition-all
                           ${isSelected
-                            ? 'border-[#259783] bg-[#259783]/10 text-[#259783] font-medium'
-                            : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
-                          }
+                              ? 'border-[#259783] bg-[#259783]/10 text-[#259783] font-medium'
+                              : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
+                            }
                           ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                         `}
-                      >
-                        {itemName}
-                      </button>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCustomItemName(true);
-                      setSelectedItemSuggestion('');
-                      setName('');
-                    }}
-                    disabled={isSubmitting}
-                    className={`
+                        >
+                          {itemName}
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomItemName(true);
+                        setSelectedItemSuggestion('');
+                        setName('');
+                      }}
+                      disabled={isSubmitting}
+                      className={`
                       px-3 py-1.5 rounded-lg border-2 border-dashed text-sm transition-all
                       ${isCustomItemName
-                        ? 'border-[#259783] bg-[#259783]/10 text-[#259783] font-medium'
-                        : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
-                      }
+                          ? 'border-[#259783] bg-[#259783]/10 text-[#259783] font-medium'
+                          : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
+                        }
                       ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                     `}
-                  >
-                    <Sparkles className="h-3 w-3 inline mr-1" />
-                    Custom
-                  </button>
+                    >
+                      <Sparkles className="h-3 w-3 inline mr-1" />
+                      Custom
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-            
+              )}
+
             {/* Input field */}
             {selectedItemSuggestion && !isCustomItemName ? (
               <div className="p-4 rounded-lg bg-muted/50 border">
@@ -1524,8 +1532,8 @@ export function ItemForm({
                 </Badge>
               )}
             </div>
-            <Select 
-              value={unitType} 
+            <Select
+              value={unitType}
               onValueChange={(v) => setUnitType(v as UnitType)}
               disabled={isSubmitting}
             >
@@ -1544,7 +1552,7 @@ export function ItemForm({
             </Select>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <Info className="h-3 w-3" />
-              {mode === 'variant' && variantName && getUnitTypeFromVariant(variantName) 
+              {mode === 'variant' && variantName && getUnitTypeFromVariant(variantName)
                 ? 'Auto-set based on variant. Change if needed.'
                 : 'This determines how you measure and price the product'}
             </p>
@@ -1555,7 +1563,7 @@ export function ItemForm({
         {mode !== 'parent' && (
           <>
             <Separator />
-            
+
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
@@ -1684,6 +1692,55 @@ export function ItemForm({
                   </p>
                 </div>
               </div>
+
+              {/* Optional Details: Barcode & Expiry Date */}
+              <div className="p-4 rounded-lg bg-muted/30 border space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Sparkles className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-sm font-medium text-muted-foreground">Optional Details</p>
+                </div>
+
+                {/* Barcode */}
+                <div className="space-y-2">
+                  <Label htmlFor="barcode" className="text-sm font-medium">
+                    Barcode
+                    <span className="text-xs font-normal text-muted-foreground ml-1">(Optional)</span>
+                  </Label>
+                  <Input
+                    id="barcode"
+                    type="text"
+                    value={barcode}
+                    onChange={(e) => setBarcode(e.target.value)}
+                    placeholder="e.g., 1234567890123"
+                    disabled={isSubmitting}
+                    className="h-12 text-base focus-visible:ring-[#259783] font-mono"
+                  />
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Info className="h-3 w-3" />
+                    EAN-13, UPC, or any barcode format
+                  </p>
+                </div>
+
+                {/* Expiry Date */}
+                <div className="space-y-2">
+                  <Label htmlFor="expiryDate" className="text-sm font-medium">
+                    Expiry Date
+                    <span className="text-xs font-normal text-muted-foreground ml-1">(Optional)</span>
+                  </Label>
+                  <Input
+                    id="expiryDate"
+                    type="date"
+                    value={expiryDate}
+                    onChange={(e) => setExpiryDate(e.target.value)}
+                    disabled={isSubmitting}
+                    className="h-12 text-base focus-visible:ring-[#259783]"
+                  />
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Info className="h-3 w-3" />
+                    When this product expires (for perishables)
+                  </p>
+                </div>
+              </div>
             </div>
           </>
         )}
@@ -1744,10 +1801,10 @@ export function ItemForm({
                 Saving...
               </>
             ) : (
-              itemId ? 'Update Product' : 
-              mode === 'parent' ? 'Create Product' :
-              mode === 'variant' ? 'Create Variant' :
-              'Create Product'
+              itemId ? 'Update Product' :
+                mode === 'parent' ? 'Create Product' :
+                  mode === 'variant' ? 'Create Variant' :
+                    'Create Product'
             )}
           </Button>
         </div>

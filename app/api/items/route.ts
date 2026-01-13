@@ -142,17 +142,19 @@ export async function POST(request: NextRequest) {
     if (isAuthResponse(auth)) return auth;
 
     const body = await request.json();
-    const { 
-      name, 
-      categoryId, 
-      unitType, 
-      initialStock, 
-      buyPrice, 
-      sellPrice, 
+    const {
+      name,
+      categoryId,
+      unitType,
+      initialStock,
+      buyPrice,
+      sellPrice,
       minStockLevel,
       isParent,      // true if creating a parent item (container)
       parentItemId,  // set if creating a variant
       variantName,   // e.g., "Big", "Small", "Red Kidney"
+      barcode,       // optional barcode
+      expiryDate,    // optional expiry date (Unix timestamp)
     } = body;
 
     // Parent items don't need price/stock/unit - they're just containers
@@ -226,9 +228,9 @@ export async function POST(request: NextRequest) {
 
         if (existingVariant) {
           return jsonResponse(
-            { 
-              success: false, 
-              message: `"${parentItem.name}" already has a variant called "${existingVariant.variant_name}". Please use a different variant name.` 
+            {
+              success: false,
+              message: `"${parentItem.name}" already has a variant called "${existingVariant.variant_name}". Please use a different variant name.`
             },
             409
           );
@@ -245,9 +247,9 @@ export async function POST(request: NextRequest) {
 
       if (existingItem) {
         return jsonResponse(
-          { 
-            success: false, 
-            message: `A product named "${existingItem.name}" already exists. Please use a different name.` 
+          {
+            success: false,
+            message: `A product named "${existingItem.name}" already exists. Please use a different name.`
           },
           409
         );
@@ -262,8 +264,8 @@ export async function POST(request: NextRequest) {
     await execute(
       `INSERT INTO items (
         id, business_id, category_id, parent_item_id, name, variant_name, unit_type,
-        current_stock, current_sell_price, min_stock_level, active, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        current_stock, current_sell_price, min_stock_level, barcode, expiry_date, active, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         itemId,
         auth.businessId,
@@ -275,6 +277,8 @@ export async function POST(request: NextRequest) {
         isParent ? 0 : stock,
         price,
         isParent ? null : (minStockLevel || null),
+        barcode?.trim() || null,
+        expiryDate || null,
         1,
         now,
       ]

@@ -18,8 +18,13 @@ import {
   Package,
   LogIn,
   UserPlus,
+  StoreIcon,
+  ShoppingBag,
+  Sparkles,
 } from 'lucide-react';
 import { InstallApp } from '@/components/InstallApp';
+import { ProductStore } from '@/components/ProductStore';
+import { ScrollToSection } from '@/components/ScrollToSection';
 import { getCurrentUser } from '@/lib/auth';
 
 function extractBusinessNameFromDomain(hostname: string | null): string {
@@ -279,115 +284,160 @@ export default async function HomePage() {
           </div>
 
           {/* Hero Content */}
-          <div className="relative z-10 max-w-5xl mx-auto py-12 md:py-16">
-            <div className="text-center space-y-6 md:space-y-8 animate-fade-in">
+          <div className="relative z-10 max-w-6xl mx-auto py-12 md:py-16">
+            <div className="text-center space-y-8 md:space-y-12 animate-fade-in">
               {/* Badge */}
-              <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-full shadow-xl mb-2 animate-gentle-pulse backdrop-blur-sm border border-white/20">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-full shadow-xl backdrop-blur-sm border border-white/20">
                 <Zap className="w-4 h-4" />
-                <span className="text-sm font-bold">100% FREE FOREVER</span>
-                <span className="text-xs opacity-90">• No credit card required</span>
+                <span className="text-sm font-bold">100% FREE</span>
               </div>
               
-              {/* Icon */}
-              <div className="inline-block p-5 bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl mb-4 hover-lift border-2 border-white/30">
-                <ShoppingCart className="w-16 h-16 md:w-20 md:h-20 text-emerald-600" />
-              </div>
-              
-              {/* Main Headline - Benefit-focused */}
-              <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold text-white mb-3 leading-tight drop-shadow-2xl px-4">
-                Grow Your Business with
-                <span className="block bg-gradient-to-r from-emerald-300 via-teal-300 to-emerald-300 bg-clip-text text-transparent">
-                  {businessName} POS
-                </span>
+              {/* Main Headline */}
+              <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold text-white leading-tight drop-shadow-2xl px-4">
+                Welcome to {businessName}
               </h1>
               
-              {/* Subheadline - Value Proposition */}
-              <p className="text-xl md:text-2xl lg:text-3xl font-bold text-white/95 max-w-3xl mx-auto mb-3 drop-shadow-lg px-4">
-                {tagline.charAt(0).toUpperCase() + tagline.slice(1)}
-              </p>
-              
-              {/* Supporting Copy */}
-              <p className="text-base md:text-lg lg:text-xl text-white/90 max-w-2xl mx-auto mb-6 drop-shadow-md px-4">
-                Start selling in minutes. No setup fees, no credit card, no hidden costs. 
-                <span className="block mt-1 font-semibold text-emerald-200">
-                  Join hundreds of successful businesses already using our platform.
-                </span>
+              {/* Subheadline */}
+              <p className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto drop-shadow-lg px-4">
+                Choose your path: Run your business or shop fresh products
               </p>
 
-              {/* Social Proof */}
-              <div className="flex items-center justify-center gap-2 mb-6 text-white/80">
-                <div className="flex -space-x-2">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-400 border-2 border-white"></div>
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-green-400 to-emerald-400 border-2 border-white"></div>
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-400 to-blue-400 border-2 border-white"></div>
+              {/* Two Path Cards */}
+              <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto pt-8">
+                {/* POS System Card */}
+                <div className="group relative bg-white/95 backdrop-blur-md rounded-3xl p-8 shadow-2xl hover:shadow-3xl transition-all duration-300 hover:-translate-y-2 border-2 border-white/30">
+                  <div className="absolute top-4 right-4">
+                    <div className="px-3 py-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs font-bold rounded-full">
+                      FOR BUSINESS
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col items-center text-center space-y-6">
+                    <div className="p-6 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-3xl group-hover:scale-110 transition-transform duration-300">
+                      <StoreIcon className="w-16 h-16 text-emerald-600" />
+                    </div>
+                    
+                    <div>
+                      <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+                        Use Our POS System
+                      </h2>
+                      <p className="text-gray-600 text-sm md:text-base mb-4">
+                        Free point-of-sale system for your business. Manage sales, inventory, and reports all in one place.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col gap-3 w-full">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                        <span>100% Free Forever</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                        <span>Setup in 2 minutes</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                        <span>No credit card required</span>
+                      </div>
+                    </div>
+
+                    <Link href={user ? "/pos" : "/register"} className="w-full">
+                      <Button
+                        size="lg"
+                        className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 gap-2 group-hover:scale-105"
+                      >
+                        {user ? (
+                          <>
+                            <StoreIcon className="w-5 h-5" />
+                            Open POS Dashboard
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="w-5 h-5" />
+                            Start Free POS
+                          </>
+                        )}
+                        <ArrowRight className="w-5 h-5" />
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
-                <span className="text-sm font-medium">
-                  <span className="font-bold text-white">500+</span> businesses trust us
-                </span>
+
+                {/* Shopping Card */}
+                <div className="group relative bg-white/95 backdrop-blur-md rounded-3xl p-8 shadow-2xl hover:shadow-3xl transition-all duration-300 hover:-translate-y-2 border-2 border-white/30">
+                  <div className="absolute top-4 right-4">
+                    <div className="px-3 py-1 bg-gradient-to-r from-orange-500 to-pink-500 text-white text-xs font-bold rounded-full">
+                      FOR CUSTOMERS
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col items-center text-center space-y-6">
+                    <div className="p-6 bg-gradient-to-br from-orange-100 to-pink-100 rounded-3xl group-hover:scale-110 transition-transform duration-300">
+                      <ShoppingBag className="w-16 h-16 text-orange-600" />
+                    </div>
+                    
+                    <div>
+                      <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+                        Shop Fresh Products
+                      </h2>
+                      <p className="text-gray-600 text-sm md:text-base mb-4">
+                        Browse our wide selection of fresh fruits, vegetables, and groceries. Quality products at great prices.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col gap-3 w-full">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Sparkles className="w-5 h-5 text-orange-600 flex-shrink-0" />
+                        <span>Fresh & Quality Products</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Sparkles className="w-5 h-5 text-orange-600 flex-shrink-0" />
+                        <span>Competitive Prices</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Sparkles className="w-5 h-5 text-orange-600 flex-shrink-0" />
+                        <span>Easy Shopping Experience</span>
+                      </div>
+                    </div>
+
+                    <ScrollToSection targetId="product-store" className="w-full">
+                      <Button
+                        size="lg"
+                        className="w-full bg-gradient-to-r from-orange-600 to-pink-600 hover:from-orange-700 hover:to-pink-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 gap-2 group-hover:scale-105"
+                      >
+                        <ShoppingBag className="w-5 h-5" />
+                        Browse Products
+                        <ArrowRight className="w-5 h-5" />
+                      </Button>
+                    </ScrollToSection>
+                  </div>
+                </div>
               </div>
 
-              {/* Primary CTA */}
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
-                <Link href={user ? "/pos" : "/register"} className="w-full sm:w-auto">
-                  <Button
-                    size="lg"
-                    className="w-full sm:w-auto bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-700 hover:via-emerald-600 hover:to-teal-700 text-white px-10 py-7 text-lg md:text-xl font-bold rounded-2xl shadow-2xl hover-lift transition-all duration-300 gap-3 border-2 border-white/30 hover:scale-105"
-                  >
-                    {user ? (
-                      <>
-                        <ShoppingCart className="w-6 h-6" />
-                        Open POS Now
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="w-6 h-6" />
-                        Start Selling Free Today
-                      </>
-                    )}
-                    <ArrowRight className="w-6 h-6" />
-                  </Button>
-                </Link>
-                
-                {!user && (
-                  <Link href="/login" className="w-full sm:w-auto">
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      className="w-full sm:w-auto px-10 py-7 text-lg md:text-xl font-semibold rounded-2xl border-2 border-white/40 bg-white/15 backdrop-blur-md text-white hover:bg-white/25 hover:border-white/60 hover-lift transition-all duration-300 gap-3"
-                    >
-                      <LogIn className="w-6 h-6" />
-                      Sign In
-                    </Button>
-                  </Link>
-                )}
+              {/* Or Divider */}
+              <div className="flex items-center gap-4 pt-4">
+                <div className="flex-1 h-px bg-white/30"></div>
+                <span className="text-white/80 font-medium text-sm">OR</span>
+                <div className="flex-1 h-px bg-white/30"></div>
               </div>
 
-              {/* Trust Indicators */}
-              <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4 pt-2">
-                <div className="flex items-center gap-2 bg-white/15 backdrop-blur-md px-5 py-3 rounded-full border border-white/20 shadow-lg">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-300 flex-shrink-0" />
-                  <span className="font-semibold text-white text-sm md:text-base">100% Free Forever</span>
-                </div>
-                <div className="flex items-center gap-2 bg-white/15 backdrop-blur-md px-5 py-3 rounded-full border border-white/20 shadow-lg">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-300 flex-shrink-0" />
-                  <span className="font-semibold text-white text-sm md:text-base">Setup in 2 Minutes</span>
-                </div>
-                <div className="flex items-center gap-2 bg-white/15 backdrop-blur-md px-5 py-3 rounded-full border border-white/20 shadow-lg">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-300 flex-shrink-0" />
-                  <span className="font-semibold text-white text-sm md:text-base">No Hidden Costs</span>
-                </div>
-              </div>
-
-              {/* Urgency/Value Add */}
+              {/* Quick Links */}
               {!user && (
-                <p className="text-sm md:text-base text-emerald-200 font-medium pt-2 animate-gentle-pulse">
-                  ⚡ Limited time: Get started today and unlock all premium features at no cost
-                </p>
+                <div className="flex items-center justify-center gap-4 pt-2">
+                  <Link href="/login" className="text-white/80 hover:text-white text-sm font-medium transition-colors">
+                    Already have an account? <span className="underline">Sign In</span>
+                  </Link>
+                </div>
               )}
             </div>
           </div>
         </div>
       </section>
+
+      {/* Product Store Section */}
+      <div id="product-store">
+        <ProductStore />
+      </div>
 
       {/* Content Section */}
       <main className="container mx-auto px-4 py-12 md:py-20">

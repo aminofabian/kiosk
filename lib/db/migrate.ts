@@ -4,6 +4,7 @@ import { execute, query } from './index';
 import { migrateItemVariants } from './migrate-item-variants';
 import { migrateDomains } from './migrate-domains';
 import { migratePasswordResetTokens } from './migrate-password-reset';
+import { migrateBarcodeExpiry } from './migrate-barcode-expiry';
 
 const SCHEMA_PATH = join(process.cwd(), 'lib', 'db', 'sql', 'schema.sql');
 
@@ -17,7 +18,7 @@ async function migrateStockAdjustmentsReason() {
     const tableInfo = await query<{ sql: string }>(
       "SELECT sql FROM sqlite_master WHERE type='table' AND name='stock_adjustments'"
     );
-    
+
     if (tableInfo.length === 0) {
       console.log('⚠ stock_adjustments table does not exist, will be created by schema');
       return;
@@ -77,7 +78,7 @@ async function migrateStockAdjustmentsReason() {
   } catch (error) {
     console.error('❌ Error migrating stock_adjustments:', error);
     // Re-enable foreign keys even on error
-    await execute('PRAGMA foreign_keys = ON').catch(() => {});
+    await execute('PRAGMA foreign_keys = ON').catch(() => { });
     throw error;
   }
 }
@@ -92,7 +93,7 @@ async function migrateInventoryBatchesNullable() {
     const tableInfo = await query<{ sql: string }>(
       "SELECT sql FROM sqlite_master WHERE type='table' AND name='inventory_batches'"
     );
-    
+
     if (tableInfo.length === 0) {
       console.log('⚠ inventory_batches table does not exist, will be created by schema');
       return;
@@ -151,7 +152,7 @@ async function migrateInventoryBatchesNullable() {
   } catch (error) {
     console.error('❌ Error migrating inventory_batches:', error);
     // Re-enable foreign keys even on error
-    await execute('PRAGMA foreign_keys = ON').catch(() => {});
+    await execute('PRAGMA foreign_keys = ON').catch(() => { });
     throw error;
   }
 }
@@ -160,24 +161,24 @@ export async function runMigrations() {
   try {
     console.log('Reading schema file...');
     const schema = readFileSync(SCHEMA_PATH, 'utf-8');
-    
+
     // Remove comments and split by semicolons
     const lines = schema.split('\n');
     const cleanedLines: string[] = [];
     let currentStatement = '';
-    
+
     for (const line of lines) {
       const trimmed = line.trim();
       // Skip empty lines and full-line comments
       if (!trimmed || trimmed.startsWith('--')) {
         continue;
       }
-      
+
       // Remove inline comments
       const withoutComment = trimmed.split('--')[0].trim();
       if (withoutComment) {
         currentStatement += withoutComment + ' ';
-        
+
         // If line ends with semicolon, we have a complete statement
         if (trimmed.endsWith(';')) {
           const statement = currentStatement.trim();
@@ -188,7 +189,7 @@ export async function runMigrations() {
         }
       }
     }
-    
+
     // Add any remaining statement
     if (currentStatement.trim()) {
       cleanedLines.push(currentStatement.trim());
@@ -198,7 +199,7 @@ export async function runMigrations() {
 
     // First, disable foreign key checks temporarily
     await execute('PRAGMA foreign_keys = OFF');
-    
+
     // Execute each statement
     for (let i = 0; i < cleanedLines.length; i++) {
       const statement = cleanedLines[i];
@@ -208,9 +209,9 @@ export async function runMigrations() {
           console.log(`✓ Executed statement ${i + 1}/${cleanedLines.length}`);
         } catch (error) {
           // Some statements like CREATE INDEX IF NOT EXISTS might fail if already exists
-          if (error instanceof Error && 
-              (error.message.includes('already exists') || 
-               error.message.includes('duplicate column'))) {
+          if (error instanceof Error &&
+            (error.message.includes('already exists') ||
+              error.message.includes('duplicate column'))) {
             console.log(`⚠ Statement ${i + 1} skipped (already exists)`);
           } else {
             console.error(`✗ Error executing statement ${i + 1}:`, error);
@@ -220,31 +221,31 @@ export async function runMigrations() {
         }
       }
     }
-    
+
     // Re-enable foreign keys
     await execute('PRAGMA foreign_keys = ON');
 
     // Run additional migrations AFTER schema is created
     console.log('Running additional migrations...');
-    
+
     try {
       await migrateStockAdjustmentsReason();
     } catch (error) {
       console.error('⚠ stock_adjustments migration skipped:', error);
     }
-    
+
     try {
       await migrateInventoryBatchesNullable();
     } catch (error) {
       console.error('⚠ inventory_batches migration skipped:', error);
     }
-    
+
     try {
       await migrateItemVariants();
     } catch (error) {
       console.error('⚠ item_variants migration skipped:', error);
     }
-    
+
     try {
       await migrateDomains();
     } catch (error) {
@@ -255,6 +256,12 @@ export async function runMigrations() {
       await migratePasswordResetTokens();
     } catch (error) {
       console.error('⚠ password_reset_tokens migration skipped:', error);
+    }
+
+    try {
+      await migrateBarcodeExpiry();
+    } catch (error) {
+      console.error('⚠ barcode_expiry migration skipped:', error);
     }
 
     console.log('✅ Migration completed successfully!');

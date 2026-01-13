@@ -110,12 +110,12 @@ export async function PUT(
 
     const { id: itemId } = await params;
     const body = await request.json();
-    const { name, categoryId, unitType, buyPrice, sellPrice, minStockLevel, variantName } = body;
+    const { name, categoryId, unitType, buyPrice, sellPrice, minStockLevel, variantName, barcode, expiryDate } = body;
 
     // Verify item exists and check if it's a parent
-    const existingItem = await queryOne<{ 
-      id: string; 
-      current_stock: number; 
+    const existingItem = await queryOne<{
+      id: string;
+      current_stock: number;
       parent_item_id: string | null;
     }>(
       'SELECT id, current_stock, parent_item_id FROM items WHERE id = ? AND business_id = ?',
@@ -200,7 +200,9 @@ export async function PUT(
              category_id = ?,
              unit_type = ?,
              variant_name = ?,
-             min_stock_level = ?
+             min_stock_level = ?,
+             barcode = ?,
+             expiry_date = ?
          WHERE id = ? AND business_id = ?`,
         [
           name.trim(),
@@ -208,6 +210,8 @@ export async function PUT(
           unitType,
           variantName?.trim() || null,
           minStockLevel || null,
+          barcode?.trim() || null,
+          expiryDate || null,
           itemId,
           auth.businessId,
         ]
@@ -281,8 +285,8 @@ export async function PUT(
               id, business_id, item_id, source_breakdown_id, initial_quantity,
               quantity_remaining, buy_price_per_unit, received_at, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [batchId, auth.businessId, itemId, null, existingItem.current_stock, 
-             existingItem.current_stock, buyPrice, now, now]
+            [batchId, auth.businessId, itemId, null, existingItem.current_stock,
+              existingItem.current_stock, buyPrice, now, now]
           );
         }
       }
