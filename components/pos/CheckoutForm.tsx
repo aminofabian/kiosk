@@ -127,6 +127,7 @@ export function CheckoutForm() {
   }, [mpesaStatus]);
 
   const initiateMpesaPayment = async () => {
+    setIsMpesaInitiating(true);
     setMpesaStatus('sending');
     setError(null);
     setPollCount(0);
@@ -165,6 +166,8 @@ export function CheckoutForm() {
       console.error('M-Pesa initiation error:', err);
       setMpesaStatus('failed');
       setError('Failed to initiate M-Pesa payment. Please try again.');
+    } finally {
+      setIsMpesaInitiating(false);
     }
   };
 
@@ -219,9 +222,12 @@ export function CheckoutForm() {
       return;
     }
 
-    // For M-Pesa, initiate STK Push first
+    // For M-Pesa, complete sale directly (manual confirmation)
+    // The automatic flow with Pesapal is handled separately via initiateMpesaPayment()
     if (paymentMethod === 'mpesa') {
-      await initiateMpesaPayment();
+      setIsProcessing(true);
+      setError(null);
+      await completeSale();
       return;
     }
 
@@ -242,6 +248,7 @@ export function CheckoutForm() {
     setPollCount(0);
     setConfirmationCode(null);
     setError(null);
+    setIsMpesaInitiating(false);
   };
 
   // Reset M-Pesa state when payment method changes
@@ -478,21 +485,67 @@ export function CheckoutForm() {
               )}
 
               {paymentMethod === 'mpesa' && (
-                <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                  <div className="flex items-start gap-3">
-                    <Smartphone className="h-5 w-5 text-orange-600 mt-0.5" />
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-orange-800">
-                        M-Pesa Payment
-                      </p>
-                      <p className="text-xs text-orange-600">
-                        Click &quot;Pay with M-Pesa&quot; to open a payment window where you&apos;ll enter your phone number and complete the payment.
-                      </p>
-                      <p className="text-xs font-semibold text-orange-700 mt-2">
-                        Amount: {formatPrice(total)}
-                      </p>
+                <div className="space-y-4">
+                  <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                    <div className="flex items-start gap-3">
+                      <Smartphone className="h-5 w-5 text-orange-600 mt-0.5" />
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-orange-800">
+                          M-Pesa Payment
+                        </p>
+                        <p className="text-xs text-orange-600">
+                          Select how you want to process M-Pesa payment
+                        </p>
+                        <p className="text-xs font-semibold text-orange-700 mt-2">
+                          Amount: {formatPrice(total)}
+                        </p>
+                      </div>
                     </div>
                   </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={async () => {
+                        await initiateMpesaPayment();
+                      }}
+                      className="flex flex-col items-center justify-center h-20 gap-2"
+                      disabled={isProcessing || isMpesaInitiating}
+                    >
+                      {isMpesaInitiating ? (
+                        <>
+                          <Loader2 className="h-5 w-5 text-orange-600 animate-spin" />
+                          <span className="text-sm font-medium">Loading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Smartphone className="h-5 w-5 text-orange-600" />
+                          <span className="text-sm font-medium">Online Payment</span>
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      type="submit"
+                      className="flex flex-col items-center justify-center h-20 gap-2 bg-orange-600 hover:bg-orange-700 text-white"
+                      disabled={isProcessing || isMpesaInitiating}
+                    >
+                      {isProcessing ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          <span className="text-sm font-medium">Processing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="h-5 w-5" />
+                          <span className="text-sm font-medium">Mark as Paid</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">
+                    Use &quot;Online Payment&quot; for Pesapal STK Push, or &quot;Mark as Paid&quot; if payment was received manually
+                  </p>
                 </div>
               )}
 
@@ -528,30 +581,23 @@ export function CheckoutForm() {
           >
             Cancel
           </Button>
-          <Button
-            type="submit"
-            size="touch"
-            disabled={!isValid || isProcessing}
-            className={`flex-1 text-white ${
-              paymentMethod === 'mpesa' 
-                ? 'bg-orange-600 hover:bg-orange-700' 
-                : 'bg-[#259783] hover:bg-[#45d827]'
-            }`}
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                Processing...
-              </>
-            ) : paymentMethod === 'mpesa' ? (
-              <>
-                <Smartphone className="mr-2 h-5 w-5" />
-                Pay with M-Pesa
-              </>
-            ) : (
-              'Complete Sale'
-            )}
-          </Button>
+          {paymentMethod !== 'mpesa' && (
+            <Button
+              type="submit"
+              size="touch"
+              disabled={!isValid || isProcessing}
+              className="flex-1 bg-[#259783] hover:bg-[#45d827] text-white"
+            >
+              {isProcessing ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                'Complete Sale'
+              )}
+            </Button>
+          )}
         </div>
       </div>
     </form>

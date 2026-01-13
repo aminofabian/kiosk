@@ -700,6 +700,9 @@ export function ItemForm({
   const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [customCategoryName, setCustomCategoryName] = useState('');
   const [unitType, setUnitType] = useState<UnitType>(initialData?.unit_type || 'piece');
+  const [unitSalesOnly, setUnitSalesOnly] = useState<boolean>(
+    initialData?.unit_type === 'piece' || initialData?.unit_type === 'bunch' || initialData?.unit_type === 'tray'
+  );
   const [initialStock, setInitialStock] = useState<string>(initialData?.current_stock?.toString() || '0');
   const [buyPrice, setBuyPrice] = useState<string>(initialData?.buy_price?.toString() || '');
   const [sellPrice, setSellPrice] = useState<string>(initialData?.current_sell_price?.toString() || '');
@@ -1555,6 +1558,24 @@ export function ItemForm({
               {mode === 'variant' && variantName && getUnitTypeFromVariant(variantName)
                 ? 'Auto-set based on variant. Change if needed.'
                 : 'This determines how you measure and price the product'}
+            </p>
+
+            {/* Unit Sales Only Option */}
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border">
+              <input
+                type="checkbox"
+                id="unitSalesOnly"
+                checked={unitSalesOnly}
+                onChange={(e) => setUnitSalesOnly(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-[#259783] focus:ring-[#259783] cursor-pointer"
+                disabled={isSubmitting}
+              />
+              <Label htmlFor="unitSalesOnly" className="text-sm font-medium cursor-pointer flex-1">
+                Sell in whole units only (no decimals)
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground pl-7">
+              When enabled, this item can only be sold in whole numbers (e.g., 1, 2, 3 pieces, not 1.5)
             </p>
           </div>
         )}
