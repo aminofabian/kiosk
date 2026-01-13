@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
-import { registerIPN, listRegisteredIPNs } from '@/lib/pesapal';
+import { registerIPN } from '@/lib/pesapal';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -67,37 +67,19 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * GET handler to list all registered IPNs from Pesapal
- * This helps find the IPN ID if you registered via Pesapal dashboard
+ * GET handler to check current IPN configuration
  */
 export async function GET() {
-  try {
-    const ipns = await listRegisteredIPNs();
-    const currentIpnId = process.env.PESAPAL_IPN_ID;
-    
-    return jsonResponse({
-      success: true,
-      message: 'Copy the ipn_id for your URL and add it to .env as PESAPAL_IPN_ID',
-      data: {
-        currentlyConfigured: currentIpnId ? `${currentIpnId.substring(0, 8)}...` : null,
-        registeredIPNs: ipns.map(ipn => ({
-          ipnId: ipn.ipn_id,
-          url: ipn.url,
-          status: ipn.ipn_status,
-          type: ipn.ipn_notification_type,
-          createdDate: ipn.created_date,
-        })),
-      },
-    });
-  } catch (error) {
-    console.error('List IPNs error:', error);
-    return jsonResponse(
-      {
-        success: false,
-        message: 'Failed to list registered IPNs',
-        error: error instanceof Error ? error.message : 'Unknown error',
-      },
-      500
-    );
-  }
+  const ipnId = process.env.PESAPAL_IPN_ID;
+  
+  return jsonResponse({
+    success: true,
+    message: ipnId 
+      ? 'IPN ID is configured'
+      : 'IPN ID is not configured. Register your IPN URL via POST to get the IPN ID.',
+    data: {
+      configured: !!ipnId,
+      ipnId: ipnId || null,
+    },
+  });
 }

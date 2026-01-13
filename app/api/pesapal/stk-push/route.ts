@@ -13,17 +13,7 @@ export async function POST(request: NextRequest) {
     const auth = await requirePermission('sell');
     if (isAuthResponse(auth)) return auth;
 
-    // Check if IPN is configured
-    if (!process.env.PESAPAL_IPN_ID) {
-      return jsonResponse(
-        { 
-          success: false, 
-          message: 'M-Pesa is not configured. Please register an IPN URL first.',
-          error: 'PESAPAL_IPN_ID is not set. Call POST /api/pesapal/register-ipn to register your callback URL and get an IPN ID.'
-        },
-        503
-      );
-    }
+    // Note: PESAPAL_IPN_ID is optional if using dashboard IPN URL setup (old style)
 
     const body = await request.json();
     const { phone, amount, description } = body;

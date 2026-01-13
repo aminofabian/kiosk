@@ -7,170 +7,147 @@ export async function OPTIONS() {
 }
 
 /**
- * Extract OrderTrackingId from various possible formats
- * Pesapal may send data as JSON, form-urlencoded, or query params
- */
-async function extractOrderData(request: NextRequest): Promise<{
-  orderTrackingId: string | null;
-  merchantReference: string | null;
-  notificationType: string | null;
-}> {
-  // First check query parameters
-  const searchParams = request.nextUrl.searchParams;
-  let orderTrackingId = searchParams.get('OrderTrackingId') || searchParams.get('orderTrackingId');
-  let merchantReference = searchParams.get('OrderMerchantReference') || searchParams.get('orderMerchantReference');
-  let notificationType = searchParams.get('OrderNotificationType') || searchParams.get('orderNotificationType');
-
-  if (orderTrackingId) {
-    return { orderTrackingId, merchantReference, notificationType };
-  }
-
-  // Try to parse body
-  try {
-    const contentType = request.headers.get('content-type') || '';
-    
-    if (contentType.includes('application/json')) {
-      const body = await request.json();
-      orderTrackingId = body.OrderTrackingId || body.orderTrackingId || body.order_tracking_id;
-      merchantReference = body.OrderMerchantReference || body.orderMerchantReference || body.order_merchant_reference;
-      notificationType = body.OrderNotificationType || body.orderNotificationType || body.order_notification_type;
-    } else if (contentType.includes('application/x-www-form-urlencoded')) {
-      const text = await request.text();
-      const params = new URLSearchParams(text);
-      orderTrackingId = params.get('OrderTrackingId') || params.get('orderTrackingId');
-      merchantReference = params.get('OrderMerchantReference') || params.get('orderMerchantReference');
-      notificationType = params.get('OrderNotificationType') || params.get('orderNotificationType');
-    } else {
-      // Try JSON anyway
-      const text = await request.text();
-      try {
-        const body = JSON.parse(text);
-        orderTrackingId = body.OrderTrackingId || body.orderTrackingId || body.order_tracking_id;
-        merchantReference = body.OrderMerchantReference || body.orderMerchantReference || body.order_merchant_reference;
-        notificationType = body.OrderNotificationType || body.orderNotificationType || body.order_notification_type;
-      } catch {
-        // Try URL encoded
-        const params = new URLSearchParams(text);
-        orderTrackingId = params.get('OrderTrackingId') || params.get('orderTrackingId');
-        merchantReference = params.get('OrderMerchantReference') || params.get('orderMerchantReference');
-        notificationType = params.get('OrderNotificationType') || params.get('orderNotificationType');
-      }
-    }
-  } catch (e) {
-    console.error('Error parsing callback body:', e);
-  }
-
-  return { orderTrackingId, merchantReference, notificationType };
-}
-
-/**
  * Pesapal IPN Callback Handler
- * This endpoint receives notifications when payment status changes
+ * Handles both old Pesapal format (query params) and v3 format
  * 
- * Pesapal sends:
+ * Old format (query params):
+ * - pesapal_notification_type
+ * - pesapal_transaction_tracking_id
+ * - pesapal_merchant_reference
+ * 
+ * v3 format:
  * - OrderTrackingId
  * - OrderMerchantReference
- * - OrderNotificationType (IPNCHANGE)
- */
-export async function POST(request: NextRequest) {
-  try {
-    console.log('Pesapal IPN Callback (POST) received');
-    console.log('Headers:', Object.fromEntries(request.headers.entries()));
-    console.log('URL:', request.url);
-
-    const { orderTrackingId, merchantReference, notificationType } = await extractOrderData(request);
-
-    console.log('Extracted data:', {
-      orderTrackingId,
-      merchantReference,
-      notificationType,
-    });
-
-    if (!orderTrackingId) {
-      // Return 200 anyway to acknowledge - Pesapal expects 200
-      console.log('No OrderTrackingId found, but returning 200');
-      return jsonResponse({
-        success: true,
-        message: 'IPN received (no tracking ID)',
-      });
-    }
-
-    // Get the transaction status from Pesapal
-    const status = await getTransactionStatus(orderTrackingId);
-
-    console.log('Transaction status:', {
-      statusCode: status.status_code,
-      statusDescription: status.payment_status_description,
-      amount: status.amount,
-      paymentMethod: status.payment_method,
-      confirmationCode: status.confirmation_code,
-    });
-
-    return jsonResponse({
-      success: true,
-      message: 'IPN received successfully',
-      data: {
-        orderTrackingId,
-        statusCode: status.status_code,
-      },
-    });
-  } catch (error) {
-    console.error('IPN Callback error:', error);
-    // Still return 200 to acknowledge receipt
-    return jsonResponse({
-      success: true,
-      message: 'IPN received with error',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-}
-
-/**
- * GET handler for Pesapal IPN (if configured as GET)
+ * - OrderNotificationType
  */
 export async function GET(request: NextRequest) {
   try {
-    console.log('Pesapal IPN Callback (GET) received');
-    console.log('URL:', request.url);
-
-    const { orderTrackingId, merchantReference, notificationType } = await extractOrderData(request);
-
-    console.log('Extracted data:', {
-      orderTrackingId,
-      merchantReference,
-      notificationType,
-    });
-
-    if (!orderTrackingId) {
-      console.log('No OrderTrackingId found, but returning 200');
-      return jsonResponse({
-        success: true,
-        message: 'IPN received (no tracking ID)',
+    const searchParams = request.nextUrl.searchParams;
+    
+    // Check for old Pesapal format first
+    const oldNotificationType = searchParams.get('pesapal_notification_type');
+    const oldTrackingId = searchParams.get('pesapal_transaction_tracking_id');
+    const oldMerchantRef = searchParams.get('pesapal_merchant_reference');
+    
+    if (oldTrackingId && oldNotificationType === 'CHANGE') {
+      // Old Pesapal format - echo back the parameters as expected
+      console.log('Pesapal IPN (old format) received:', {
+        notificationType: oldNotificationType,
+        trackingId: oldTrackingId,
+        merchantRef: oldMerchantRef,
+      });
+      
+      // Query for status (this uses v3 API)
+      try {
+        const status = await getTransactionStatus(oldTrackingId);
+        console.log('Transaction status:', {
+          statusCode: status.status_code,
+          statusDescription: status.payment_status_description,
+        });
+      } catch (e) {
+        console.error('Error querying status:', e);
+      }
+      
+      // Echo back the same parameters as Pesapal expects
+      const response = `pesapal_notification_type=${oldNotificationType}&pesapal_transaction_tracking_id=${oldTrackingId}&pesapal_merchant_reference=${oldMerchantRef || ''}`;
+      return new Response(response, {
+        status: 200,
+        headers: { 'Content-Type': 'text/plain' },
       });
     }
-
-    // Get the transaction status
-    const status = await getTransactionStatus(orderTrackingId);
-
-    console.log('Transaction status:', {
-      statusCode: status.status_code,
-      statusDescription: status.payment_status_description,
-    });
-
-    return jsonResponse({
-      success: true,
-      message: 'IPN received successfully',
-      data: {
+    
+    // Try v3 format
+    const orderTrackingId = searchParams.get('OrderTrackingId') || searchParams.get('orderTrackingId');
+    const merchantReference = searchParams.get('OrderMerchantReference') || searchParams.get('orderMerchantReference');
+    const notificationType = searchParams.get('OrderNotificationType') || searchParams.get('orderNotificationType');
+    
+    if (orderTrackingId) {
+      console.log('Pesapal IPN (v3 format) received:', {
         orderTrackingId,
-        statusCode: status.status_code,
-      },
-    });
+        merchantReference,
+        notificationType,
+      });
+      
+      const status = await getTransactionStatus(orderTrackingId);
+      
+      return jsonResponse({
+        success: true,
+        message: 'IPN received successfully',
+        data: {
+          orderTrackingId,
+          statusCode: status.status_code,
+        },
+      });
+    }
+    
+    // No valid parameters found
+    console.log('Pesapal IPN received but no valid tracking ID found');
+    return new Response('OK', { status: 200 });
   } catch (error) {
     console.error('IPN Callback (GET) error:', error);
-    return jsonResponse({
-      success: true,
-      message: 'IPN received with error',
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
+    // Return 200 to acknowledge receipt
+    return new Response('OK', { status: 200 });
+  }
+}
+
+/**
+ * POST handler for IPN (if configured as POST)
+ */
+export async function POST(request: NextRequest) {
+  try {
+    // Try to get query params first (old format might come as POST with query)
+    const url = new URL(request.url);
+    const searchParams = url.searchParams;
+    
+    const oldNotificationType = searchParams.get('pesapal_notification_type');
+    const oldTrackingId = searchParams.get('pesapal_transaction_tracking_id');
+    const oldMerchantRef = searchParams.get('pesapal_merchant_reference');
+    
+    if (oldTrackingId && oldNotificationType === 'CHANGE') {
+      console.log('Pesapal IPN (old format, POST) received:', {
+        notificationType: oldNotificationType,
+        trackingId: oldTrackingId,
+        merchantRef: oldMerchantRef,
+      });
+      
+      try {
+        const status = await getTransactionStatus(oldTrackingId);
+        console.log('Transaction status:', status.status_code);
+      } catch (e) {
+        console.error('Error querying status:', e);
+      }
+      
+      const response = `pesapal_notification_type=${oldNotificationType}&pesapal_transaction_tracking_id=${oldTrackingId}&pesapal_merchant_reference=${oldMerchantRef || ''}`;
+      return new Response(response, {
+        status: 200,
+        headers: { 'Content-Type': 'text/plain' },
+      });
+    }
+    
+    // Try JSON body (v3 format)
+    try {
+      const contentType = request.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const body = await request.json();
+        const orderTrackingId = body.OrderTrackingId || body.orderTrackingId;
+        const merchantReference = body.OrderMerchantReference || body.orderMerchantReference;
+        
+        if (orderTrackingId) {
+          const status = await getTransactionStatus(orderTrackingId);
+          return jsonResponse({
+            success: true,
+            message: 'IPN received successfully',
+            data: { orderTrackingId, statusCode: status.status_code },
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Error parsing POST body:', e);
+    }
+    
+    return new Response('OK', { status: 200 });
+  } catch (error) {
+    console.error('IPN Callback (POST) error:', error);
+    return new Response('OK', { status: 200 });
   }
 }
