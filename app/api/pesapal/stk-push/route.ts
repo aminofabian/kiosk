@@ -16,14 +16,7 @@ export async function POST(request: NextRequest) {
     // For Pesapal v3, IPN must be registered via API (not dashboard)
 
     const body = await request.json();
-    const { phone, amount, description } = body;
-
-    if (!phone) {
-      return jsonResponse(
-        { success: false, message: 'Phone number is required' },
-        400
-      );
-    }
+    const { amount, description } = body;
 
     if (!amount || amount <= 0) {
       return jsonResponse(
@@ -44,7 +37,6 @@ export async function POST(request: NextRequest) {
     const result = await submitOrderRequest({
       merchantReference,
       amount,
-      phoneNumber: phone,
       description: description || `POS Sale - ${merchantReference}`,
       callbackUrl,
     });

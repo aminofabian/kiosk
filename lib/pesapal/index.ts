@@ -32,7 +32,7 @@ export interface PesapalOrderRequest {
   callback_url: string;
   notification_id: string;
   billing_address: {
-    phone_number: string;
+    phone_number?: string;
     email_address?: string;
     first_name?: string;
     last_name?: string;
@@ -168,21 +168,37 @@ export async function registerIPN(
 export async function submitOrderRequest(params: {
   merchantReference: string;
   amount: number;
-  phoneNumber: string;
   description: string;
   callbackUrl: string;
+  phoneNumber?: string;
   firstName?: string;
   lastName?: string;
   email?: string;
 }): Promise<PesapalOrderResponse> {
   const token = await getAuthToken();
-  
-  // Format phone number to international format (254...)
-  const formattedPhone = formatPhoneNumber(params.phoneNumber);
 
   // For Pesapal v3, notification_id is REQUIRED
   if (!PESAPAL_IPN_ID) {
     throw new Error('PESAPAL_IPN_ID is required for Pesapal v3. Please register your IPN URL via POST /api/pesapal/register-ipn and add the returned ipn_id to your .env file.');
+  }
+
+  const billingAddress: PesapalOrderRequest['billing_address'] = {};
+  
+  // Format phone number if provided (optional - user can enter it on Pesapal's page)
+  if (params.phoneNumber) {
+    billingAddress.phone_number = formatPhoneNumber(params.phoneNumber);
+  }
+  
+  if (params.email) {
+    billingAddress.email_address = params.email;
+  }
+  
+  if (params.firstName) {
+    billingAddress.first_name = params.firstName;
+  }
+  
+  if (params.lastName) {
+    billingAddress.last_name = params.lastName;
   }
 
   const orderRequest: PesapalOrderRequest = {
@@ -192,12 +208,7 @@ export async function submitOrderRequest(params: {
     description: params.description,
     callback_url: params.callbackUrl,
     notification_id: PESAPAL_IPN_ID,
-    billing_address: {
-      phone_number: formattedPhone,
-      email_address: params.email,
-      first_name: params.firstName,
-      last_name: params.lastName,
-    },
+    billing_address: billingAddress,
   };
 
   const response = await fetch(`${PESAPAL_API_URL}/api/Transactions/SubmitOrderRequest`, {

@@ -38,7 +38,6 @@ export function CheckoutForm() {
   const [cashReceived, setCashReceived] = useState<string>('');
   const [customerName, setCustomerName] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
-  const [mpesaPhone, setMpesaPhone] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -54,12 +53,6 @@ export function CheckoutForm() {
 
   const cashAmount = parseFloat(cashReceived) || 0;
   const change = cashAmount - total;
-  
-  // Validate phone number format (Kenyan)
-  const isValidPhone = (phone: string) => {
-    const cleaned = phone.replace(/[\s\-\(\)\+]/g, '');
-    return /^(0|254|7)\d{8,9}$/.test(cleaned);
-  };
 
   const isValid =
     paymentMethod === 'credit'
@@ -67,7 +60,7 @@ export function CheckoutForm() {
       : paymentMethod === 'cash'
         ? cashAmount >= total && total > 0
         : paymentMethod === 'mpesa'
-          ? total > 0 && isValidPhone(mpesaPhone)
+          ? total > 0
           : false;
 
   const formatPrice = (price: number) => {
@@ -140,7 +133,6 @@ export function CheckoutForm() {
 
     try {
       const result = await apiPost<StkPushResponse>('/api/pesapal/stk-push', {
-        phone: mpesaPhone,
         amount: total,
         description: `POS Sale - ${items.length} item(s)`,
       });
@@ -220,7 +212,7 @@ export function CheckoutForm() {
       } else if (paymentMethod === 'cash') {
         setError('Please enter a valid cash amount');
       } else if (paymentMethod === 'mpesa') {
-        setError('Please enter a valid M-Pesa phone number');
+        setError('Please ensure order total is valid');
       } else {
         setError('Please ensure order total is valid');
       }
@@ -486,38 +478,21 @@ export function CheckoutForm() {
               )}
 
               {paymentMethod === 'mpesa' && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="mpesa-phone">M-Pesa Phone Number (for reference)</Label>
-                    <Input
-                      id="mpesa-phone"
-                      type="tel"
-                      value={mpesaPhone}
-                      onChange={(e) => setMpesaPhone(e.target.value)}
-                      placeholder="07XX XXX XXX"
-                      className="text-lg h-14 touch-target"
-                      autoFocus
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      You&apos;ll enter this number in the payment window that opens
-                    </p>
-                  </div>
-
-                  {mpesaPhone && isValidPhone(mpesaPhone) && (
-                    <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                      <div className="flex items-start gap-3">
-                        <Smartphone className="h-5 w-5 text-orange-600 mt-0.5" />
-                        <div className="space-y-1">
-                          <p className="text-sm font-medium text-orange-800">
-                            Ready for M-Pesa Payment
-                          </p>
-                          <p className="text-xs text-orange-600">
-                            A payment window will open where you can pay {formatPrice(total)} via M-Pesa
-                          </p>
-                        </div>
-                      </div>
+                <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <Smartphone className="h-5 w-5 text-orange-600 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-orange-800">
+                        M-Pesa Payment
+                      </p>
+                      <p className="text-xs text-orange-600">
+                        Click &quot;Pay with M-Pesa&quot; to open a payment window where you&apos;ll enter your phone number and complete the payment.
+                      </p>
+                      <p className="text-xs font-semibold text-orange-700 mt-2">
+                        Amount: {formatPrice(total)}
+                      </p>
                     </div>
-                  )}
+                  </div>
                 </div>
               )}
 
