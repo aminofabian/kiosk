@@ -163,6 +163,36 @@ export async function registerIPN(
 }
 
 /**
+ * List all registered IPN URLs from Pesapal
+ */
+export async function listRegisteredIPNs(): Promise<Array<{
+  url: string;
+  ipn_id: string;
+  created_date: string;
+  ipn_notification_type: string;
+  ipn_status: string;
+}>> {
+  const token = await getAuthToken();
+
+  const response = await fetch(`${PESAPAL_API_URL}/api/URLSetup/GetIpnList`, {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to list IPNs: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
+  return data;
+}
+
+/**
  * Submit order request to Pesapal (initiates STK Push for M-Pesa)
  */
 export async function submitOrderRequest(params: {
