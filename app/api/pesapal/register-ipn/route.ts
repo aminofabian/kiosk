@@ -18,8 +18,8 @@ export async function OPTIONS() {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Only allow admins/owners to register IPN
-    const auth = await requirePermission('manage_settings');
+    // Only allow owners/admins to register IPN
+    const auth = await requirePermission('business_settings');
     if (isAuthResponse(auth)) return auth;
 
     const body = await request.json();
