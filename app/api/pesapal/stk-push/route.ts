@@ -13,6 +13,18 @@ export async function POST(request: NextRequest) {
     const auth = await requirePermission('sell');
     if (isAuthResponse(auth)) return auth;
 
+    // Check if IPN is configured
+    if (!process.env.PESAPAL_IPN_ID) {
+      return jsonResponse(
+        { 
+          success: false, 
+          message: 'M-Pesa is not configured. Please register an IPN URL first.',
+          error: 'PESAPAL_IPN_ID is not set. Call POST /api/pesapal/register-ipn to register your callback URL and get an IPN ID.'
+        },
+        503
+      );
+    }
+
     const body = await request.json();
     const { phone, amount, description } = body;
 
@@ -57,11 +69,26 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('STK Push error:', error);
+    
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    // Provide helpful message for common errors
+    if (errorMessage.includes('Invalid IPN URL ID')) {
+      return jsonResponse(
+        {
+          success: false,
+          message: 'M-Pesa IPN not configured correctly. Please register your IPN URL with Pesapal.',
+          error: errorMessage,
+        },
+        503
+      );
+    }
+    
     return jsonResponse(
       {
         success: false,
         message: 'Failed to initiate M-Pesa payment',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: errorMessage,
       },
       500
     );
