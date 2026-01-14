@@ -24,11 +24,13 @@ export async function GET() {
       return jsonResponse({ success: false, message: 'Forbidden' }, 403);
     }
 
-    const users = await query<Omit<User, 'password_hash'>>(
-      `SELECT id, business_id, name, email, role, pin, active, created_at
-       FROM users 
-       WHERE business_id = ? 
-       ORDER BY created_at DESC`,
+    const users = await query<Omit<User, 'password_hash'> & { created_by_name: string | null }>(
+      `SELECT u.id, u.business_id, u.name, u.email, u.role, u.pin, u.active, u.created_by, u.created_at,
+              c.name as created_by_name
+       FROM users u
+       LEFT JOIN users c ON u.created_by = c.id
+       WHERE u.business_id = ? 
+       ORDER BY u.created_at DESC`,
       [session.user.businessId]
     );
 
@@ -118,15 +120,15 @@ export async function POST(request: NextRequest) {
     const passwordHash = await bcrypt.hash(password, SALT_ROUNDS);
 
     await execute(
-      `INSERT INTO users (id, business_id, name, email, password_hash, role, pin, active, created_at) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [userId, session.user.businessId, name, email, passwordHash, role, pin || null, 1, now]
+      `INSERT INTO users (id, business_id, name, email, password_hash, role, pin, active, created_by, created_at) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [userId, session.user.businessId, name, email, passwordHash, role, pin || null, 1, session.user.id, now]
     );
 
     return jsonResponse({
       success: true,
       message: 'User created successfully',
-      data: { userId },
+      data: { userId, createdBy: session.user.id },
     });
   } catch (error) {
     console.error('Error creating user:', error);

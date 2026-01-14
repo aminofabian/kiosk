@@ -57,8 +57,10 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'cashier')),
   pin TEXT, -- 4-digit PIN for quick login
   active INTEGER NOT NULL DEFAULT 1, -- 1 = true, 0 = false
+  created_by TEXT, -- user who created this user (null for owners/self-registered)
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
   UNIQUE(business_id, email)
 );
 

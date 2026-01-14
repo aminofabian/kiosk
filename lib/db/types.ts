@@ -52,6 +52,7 @@ export interface User {
   role: UserRole;
   pin: string | null;
   active: number; // 1 = true, 0 = false (SQLite boolean)
+  created_by: string | null; // user who created this user (null for owners/self-registered)
   created_at: number;
 }
 
