@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Edit, Loader2, Plus, Search, Package, X, ChevronRight, FolderTree, Layers, ChevronDown, TrendingUp, TrendingDown } from 'lucide-react';
+import { Edit, Loader2, Plus, Search, Package, X, ChevronRight, FolderTree, Layers, ChevronDown, TrendingUp, TrendingDown, Trash2 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { ItemForm } from '@/components/admin/ItemForm';
 import { CategoryForm } from '@/components/admin/CategoryForm';
@@ -71,6 +71,7 @@ export default function ItemsPage() {
   const [adjustmentNotes, setAdjustmentNotes] = useState<string>('');
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchItems = async () => {
     try {
@@ -337,6 +338,54 @@ export default function ItemsPage() {
         ? adjustingItem.current_stock + (parseFloat(adjustmentQuantity) || 0)
         : Math.max(0, adjustingItem.current_stock - (parseFloat(adjustmentQuantity) || 0)))
     : null;
+
+  const handleDeleteClick = async () => {
+    if (!selectedItem) return;
+
+    const itemName = selectedItem.variant_name 
+      ? `${selectedItem.name} - ${selectedItem.variant_name}`
+      : selectedItem.name;
+    
+    const hasVariants = selectedItem.isParent && selectedItem.variantCount && selectedItem.variantCount > 0;
+    const confirmMessage = hasVariants
+      ? `Are you sure you want to delete "${itemName}" and all its ${selectedItem.variantCount} variant(s)? This action cannot be undone.`
+      : `Are you sure you want to delete "${itemName}"? This action cannot be undone.`;
+
+    if (!confirm(confirmMessage)) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/items/${selectedItem.id}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Clear selected item first
+        setSelectedItem(null);
+        
+        // If it was a parent, remove from expanded parents
+        if (selectedItem.isParent) {
+          setExpandedParents(prev => {
+            const next = new Set(prev);
+            next.delete(selectedItem.id);
+            return next;
+          });
+        }
+        
+        // Refresh items list to ensure consistency
+        await fetchItems();
+      } else {
+        alert(result.message || 'Failed to delete item');
+      }
+    } catch (err) {
+      console.error('Error deleting item:', err);
+      alert('Failed to delete item. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <AdminLayout>
@@ -721,6 +770,18 @@ export default function ItemsPage() {
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
+                              <Button
+                                onClick={handleDeleteClick}
+                                disabled={isDeleting}
+                                variant="destructive"
+                                className="bg-red-600 hover:bg-red-700 text-white"
+                              >
+                                {isDeleting ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
+                              </Button>
                             </div>
                           </>
                         ) : (
@@ -793,6 +854,24 @@ export default function ItemsPage() {
                               >
                                 <Edit className="h-4 w-4 mr-2" />
                                 Edit Item
+                              </Button>
+                              <Button
+                                onClick={handleDeleteClick}
+                                disabled={isDeleting}
+                                variant="destructive"
+                                className="flex-1 min-w-[100px] bg-red-600 hover:bg-red-700 text-white"
+                              >
+                                {isDeleting ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                    Deleting...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </>
+                                )}
                               </Button>
                             </div>
                           </>

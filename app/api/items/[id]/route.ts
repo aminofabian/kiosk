@@ -334,3 +334,71 @@ export async function PUT(
   }
 }
 
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await requirePermission('manage_items');
+    if (isAuthResponse(auth)) return auth;
+
+    const { id: itemId } = await params;
+
+    // Verify item exists and belongs to business
+    const item = await queryOne<{
+      id: string;
+      name: string;
+      parent_item_id: string | null;
+    }>(
+      'SELECT id, name, parent_item_id FROM items WHERE id = ? AND business_id = ?',
+      [itemId, auth.businessId]
+    );
+
+    if (!item) {
+      return jsonResponse(
+        { success: false, message: 'Item not found' },
+        404
+      );
+    }
+
+    // Check if this is a parent item with variants
+    const variantCount = await queryOne<{ count: number }>(
+      'SELECT COUNT(*) as count FROM items WHERE parent_item_id = ? AND business_id = ? AND active = 1',
+      [itemId, auth.businessId]
+    );
+
+    const hasVariants = (variantCount?.count || 0) > 0;
+
+    // If it's a parent item with variants, also soft delete all variants
+    if (hasVariants) {
+      await execute(
+        'UPDATE items SET active = 0 WHERE parent_item_id = ? AND business_id = ?',
+        [itemId, auth.businessId]
+      );
+    }
+
+    // Soft delete the item (set active = 0)
+    await execute(
+      'UPDATE items SET active = 0 WHERE id = ? AND business_id = ?',
+      [itemId, auth.businessId]
+    );
+
+    return jsonResponse({
+      success: true,
+      message: hasVariants
+        ? 'Item and its variants deleted successfully'
+        : 'Item deleted successfully',
+    });
+  } catch (error) {
+    console.error('Error deleting item:', error);
+    return jsonResponse(
+      {
+        success: false,
+        message: 'Failed to delete item',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+}
+
