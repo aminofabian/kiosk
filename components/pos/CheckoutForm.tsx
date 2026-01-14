@@ -47,6 +47,7 @@ export function CheckoutForm() {
   const [pollCount, setPollCount] = useState(0);
   const [confirmationCode, setConfirmationCode] = useState<string | null>(null);
   const [paymentWindow, setPaymentWindow] = useState<Window | null>(null);
+  const [isMpesaInitiating, setIsMpesaInitiating] = useState(false);
 
   const MAX_POLL_COUNT = 60; // 60 * 3s = 3 minutes timeout
   const POLL_INTERVAL = 3000; // 3 seconds
