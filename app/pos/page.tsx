@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { POSLayout } from '@/components/layouts/pos-layout';
 import { CategoryList } from '@/components/pos/CategoryList';
 import { ItemGrid } from '@/components/pos/ItemGrid';
@@ -26,6 +26,7 @@ import {
   ArrowLeft,
   Layers,
   LogOut,
+  Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Item } from '@/lib/db/types';
@@ -38,6 +39,7 @@ import { apiGet } from '@/lib/utils/api-client';
 import { ShopTypeSelector } from '@/components/pos/ShopTypeSelector';
 import { getShopType, shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
 import { storeUserRole, clearUserRole } from '@/lib/utils/user-role-storage';
+import { useDebounce } from '@/lib/hooks/use-debounce';
 
 const GROCERY_CATEGORY_IMAGE_MAP: Record<string, string> = {
   Vegetables: '/category/vegetables.jpeg',
@@ -99,9 +101,14 @@ export default function POSPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [shopType, setShopType] = useState<ShopType>(() => getShopType());
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const { items: cartItems } = useCartStore();
   const { user } = useCurrentUser();
   const isOwnerOrAdmin = user?.role === 'owner' || user?.role === 'admin';
+  
+  // Debounced search - waits 300ms after user stops typing
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const isSearchPending = searchQuery !== debouncedSearchQuery && searchQuery.length > 0;
   
   useEffect(() => {
     if (user?.role) {
@@ -134,8 +141,15 @@ export default function POSPage() {
   }, []);
 
   useEffect(() => {
-    if (showSearch && searchInputRef.current) {
-      searchInputRef.current.focus();
+    if (showSearch) {
+      // Focus the appropriate search input based on screen size
+      setTimeout(() => {
+        if (window.innerWidth < 768) {
+          mobileSearchInputRef.current?.focus();
+        } else {
+          searchInputRef.current?.focus();
+        }
+      }, 50);
     }
   }, [showSearch]);
 
@@ -155,24 +169,24 @@ export default function POSPage() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [showSearch]);
 
-  const handleSelectItem = (item: Item) => {
+  const handleSelectItem = useCallback((item: Item) => {
     setSelectedItem(item);
     setDialogOpen(true);
-  };
+  }, []);
 
-  const handleSelectParent = (parentItem: { id: string; name: string; variants?: Item[] }) => {
+  const handleSelectParent = useCallback((parentItem: { id: string; name: string; variants?: Item[] }) => {
     setSelectedParentItem(parentItem);
     setVariantSelectorOpen(true);
-  };
+  }, []);
 
-  const handleVariantSelected = (variant: Item) => {
+  const handleVariantSelected = useCallback((variant: Item) => {
     setVariantSelectorOpen(false);
     setSelectedParentItem(null);
     setSelectedItem(variant);
     setDialogOpen(true);
-  };
+  }, []);
 
-  const handleQuickAdd = (item: Item, quantity: number) => {
+  const handleQuickAdd = useCallback((item: Item, quantity: number) => {
     if (item.current_stock <= 0 || quantity <= 0) return;
     if (quantity > item.current_stock) quantity = item.current_stock;
 
@@ -186,14 +200,19 @@ export default function POSPage() {
       },
       quantity
     );
-  };
+  }, []);
 
-  const handleSearchChange = (value: string) => {
+  const handleSearchChange = useCallback((value: string) => {
     setSearchQuery(value);
     if (value) {
       setSelectedCategoryId(null);
     }
-  };
+  }, []);
+
+  const clearSearch = useCallback(() => {
+    setShowSearch(false);
+    setSearchQuery('');
+  }, []);
 
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const cartTotal = cartItems.reduce(
@@ -467,32 +486,58 @@ export default function POSPage() {
             </header>
 
             {showSearch && (
-              <div className="px-4 pb-4 bg-[#f6f8f6] dark:bg-[#132210] sticky top-[72px] z-20 border-b border-black/5 dark:border-white/5">
+              <div className="px-4 pb-4 bg-[#f6f8f6] dark:bg-[#132210] sticky top-[72px] z-20 border-b border-black/5 dark:border-white/5 animate-in slide-in-from-top-2 duration-200">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  {isSearchPending ? (
+                    <Loader2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#259783] animate-spin" />
+                  ) : (
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  )}
                   <Input
-                    ref={searchInputRef}
+                    ref={mobileSearchInputRef}
                     type="text"
-                    placeholder="Search items..."
+                    placeholder="Search products..."
                     value={searchQuery}
                     onChange={(e) => handleSearchChange(e.target.value)}
-                    className="pl-10 pr-10 h-12 bg-white dark:bg-[#1c2e18] rounded-full border-gray-200 dark:border-gray-700 focus:border-[#259783] focus:ring-2 focus:ring-[#259783]/20"
+                    className="pl-12 pr-12 h-14 bg-white dark:bg-[#1c2e18] rounded-2xl border-2 border-gray-200 dark:border-gray-700 focus:border-[#259783] focus:ring-4 focus:ring-[#259783]/20 text-base font-medium placeholder:text-gray-400 shadow-sm"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
                   />
-                  <button
-                    onClick={() => {
-                      setShowSearch(false);
-                      setSearchQuery('');
-                    }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  {searchQuery && (
+                    <button
+                      onClick={clearSearch}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
+                {searchQuery && (
+                  <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                    <span>
+                      {isSearchPending ? (
+                        <span className="flex items-center gap-1.5">
+                          <span className="inline-block w-1.5 h-1.5 bg-[#259783] rounded-full animate-pulse"></span>
+                          Searching...
+                        </span>
+                      ) : (
+                        `Showing results for "${debouncedSearchQuery}"`
+                      )}
+                    </span>
+                    <button
+                      onClick={clearSearch}
+                      className="text-[#259783] font-medium hover:underline"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
             <main className="flex-1 overflow-y-auto no-scrollbar pb-32 px-4">
-              {!searchQuery && (
+              {!searchQuery && !debouncedSearchQuery && (
                 <>
                   <div className="flex gap-3 py-2 overflow-x-auto no-scrollbar w-full mb-4">
                     <button className="flex h-12 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-[#1c2e18] border-2 border-gray-200 dark:border-gray-700 hover:border-[#259783] dark:hover:border-[#259783] shadow-sm hover:shadow-md px-6 active:scale-95 transition-all">
@@ -543,14 +588,25 @@ export default function POSPage() {
 
               {searchQuery && (
                 <div className="flex-1 overflow-auto">
-                  <ItemGrid
-                    categoryId={null}
-                    searchQuery={searchQuery}
-                    onSelectItem={handleSelectItem}
-                    onSelectParent={handleSelectParent}
-                    onQuickAdd={handleQuickAdd}
-                    shopType={shopType}
-                  />
+                  {isSearchPending ? (
+                    <div className="flex flex-col items-center justify-center py-16 gap-4">
+                      <div className="relative">
+                        <div className="w-16 h-16 border-4 border-[#259783]/20 rounded-full"></div>
+                        <div className="w-16 h-16 border-4 border-[#259783] border-t-transparent rounded-full animate-spin absolute inset-0"></div>
+                      </div>
+                      <p className="text-gray-500 font-medium">Searching products...</p>
+                    </div>
+                  ) : debouncedSearchQuery ? (
+                    <ItemGrid
+                      categoryId={null}
+                      searchQuery={debouncedSearchQuery}
+                      onSelectItem={handleSelectItem}
+                      onSelectParent={handleSelectParent}
+                      onQuickAdd={handleQuickAdd}
+                      shopType={shopType}
+                      categories={categories}
+                    />
+                  ) : null}
                 </div>
               )}
             </main>
@@ -732,38 +788,57 @@ export default function POSPage() {
                   />
                 </div>
                 {showSearch ? (
-                  <div className="flex-1 max-w-md relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <Input
-                      ref={searchInputRef}
-                      type="text"
-                      placeholder="Search items... (Press Esc to close)"
-                      value={searchQuery}
-                      onChange={(e) => handleSearchChange(e.target.value)}
-                      className="pl-10 pr-10 h-10 border-gray-200 focus:border-[#259783] focus:ring-[#259783]"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
-                      onClick={() => {
-                        setShowSearch(false);
-                        setSearchQuery('');
-                      }}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
+                  <div className="flex-1 max-w-lg relative animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="relative">
+                      {isSearchPending ? (
+                        <Loader2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#259783] animate-spin" />
+                      ) : (
+                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                      )}
+                      <Input
+                        ref={searchInputRef}
+                        type="text"
+                        placeholder="Search products... (Esc to close)"
+                        value={searchQuery}
+                        onChange={(e) => handleSearchChange(e.target.value)}
+                        className="pl-10 pr-24 h-11 border-2 border-gray-200 focus:border-[#259783] focus:ring-4 focus:ring-[#259783]/20 rounded-xl text-sm font-medium bg-white shadow-sm"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        spellCheck={false}
+                      />
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        {searchQuery && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 hover:bg-gray-100 rounded-lg"
+                            onClick={clearSearch}
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <kbd className="pointer-events-none h-6 select-none items-center gap-1 rounded-md border bg-gray-50 px-1.5 font-mono text-[10px] font-medium text-gray-500 hidden sm:flex">
+                          Esc
+                        </kbd>
+                      </div>
+                    </div>
+                    {searchQuery && isSearchPending && (
+                      <div className="absolute top-full left-0 right-0 mt-1 text-xs text-gray-500 flex items-center gap-1.5 pl-1">
+                        <span className="inline-block w-1.5 h-1.5 bg-[#259783] rounded-full animate-pulse"></span>
+                        Searching...
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setShowSearch(true)}
-                    className="hidden sm:flex items-center gap-2 bg-white hover:bg-[#259783]/10 border-gray-200 hover:border-[#259783] transition-smooth"
+                    className="hidden sm:flex items-center gap-2 bg-white hover:bg-[#259783]/10 border-gray-200 hover:border-[#259783] transition-all h-10 px-4 rounded-xl shadow-sm"
                   >
-                    <Search className="w-4 h-4" />
-                    <span className="hidden md:inline">Search</span>
-                    <kbd className="hidden lg:inline pointer-events-none h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100">
+                    <Search className="w-4 h-4 text-gray-500" />
+                    <span className="hidden md:inline text-gray-600">Search products</span>
+                    <kbd className="hidden lg:inline pointer-events-none h-5 select-none items-center gap-1 rounded-md border bg-gray-50 px-1.5 font-mono text-[10px] font-medium text-gray-500">
                       <span className="text-xs">⌘</span>K
                     </kbd>
                   </Button>
@@ -820,24 +895,36 @@ export default function POSPage() {
           }
         >
           <div className="flex flex-col h-full">
-            {!searchQuery && (
+            {!debouncedSearchQuery && !searchQuery && (
               <div className="border-b border-gray-200 bg-white/50 backdrop-blur-sm">
                 <CategoryList
                   onSelectCategory={setSelectedCategoryId}
                   selectedCategoryId={selectedCategoryId || undefined}
                   shopType={shopType}
+                  categories={categories}
                 />
               </div>
             )}
             <div className="flex-1 overflow-auto bg-gradient-to-b from-transparent to-gray-50/50">
-              <ItemGrid
-                categoryId={searchQuery ? null : selectedCategoryId}
-                searchQuery={searchQuery || undefined}
-                onSelectItem={handleSelectItem}
-                onSelectParent={handleSelectParent}
-                onQuickAdd={handleQuickAdd}
-                shopType={shopType}
-              />
+              {searchQuery && isSearchPending ? (
+                <div className="flex flex-col items-center justify-center h-64 gap-4">
+                  <div className="relative">
+                    <div className="w-12 h-12 border-4 border-[#259783]/20 rounded-full"></div>
+                    <div className="w-12 h-12 border-4 border-[#259783] border-t-transparent rounded-full animate-spin absolute inset-0"></div>
+                  </div>
+                  <p className="text-gray-500 font-medium">Searching products...</p>
+                </div>
+              ) : (
+                <ItemGrid
+                  categoryId={debouncedSearchQuery ? null : selectedCategoryId}
+                  searchQuery={debouncedSearchQuery || undefined}
+                  onSelectItem={handleSelectItem}
+                  onSelectParent={handleSelectParent}
+                  onQuickAdd={handleQuickAdd}
+                  shopType={shopType}
+                  categories={categories}
+                />
+              )}
             </div>
           </div>
         </POSLayout>

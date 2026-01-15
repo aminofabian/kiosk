@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,9 +20,10 @@ interface ItemGridProps {
   categoryId: string | null;
   searchQuery?: string;
   onSelectItem: (item: Item) => void;
-  onSelectParent?: (item: ItemWithVariants) => void; // Called when parent item is clicked
+  onSelectParent?: (item: ItemWithVariants) => void;
   onQuickAdd?: (item: Item, quantity: number) => void;
   shopType?: ShopType;
+  categories?: Category[]; // Pass categories from parent to avoid redundant fetch
 }
 
 export function ItemGrid({
@@ -32,57 +33,77 @@ export function ItemGrid({
   onSelectParent,
   onQuickAdd,
   shopType = 'grocery',
+  categories: propCategories,
 }: ItemGridProps) {
   const [items, setItems] = useState<ItemWithVariants[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [localCategories, setLocalCategories] = useState<Category[]>([]);
+  
+  // Use prop categories if available, otherwise use local state
+  const categories = propCategories || localCategories;
+  
+  // Track last search to prevent duplicate requests
+  const lastSearchRef = useRef<string>('');
+  const abortControllerRef = useRef<AbortController | null>(null);
 
+  // Only fetch categories if not provided via props
   useEffect(() => {
+    if (propCategories && propCategories.length > 0) return;
+    
     async function fetchCategories() {
       try {
         const response = await fetch('/api/categories');
         const result = await response.json();
         if (result.success) {
-          setCategories(result.data);
+          setLocalCategories(result.data);
         }
       } catch (err) {
         console.error('Error fetching categories:', err);
       }
     }
     fetchCategories();
-  }, []);
+  }, [propCategories]);
+
+  // Build category map for filtering
+  const categoryMap = useMemo(() => {
+    const map = new Map<string, string>();
+    categories.forEach((cat: Category) => {
+      map.set(cat.id, cat.name);
+    });
+    return map;
+  }, [categories]);
 
   useEffect(() => {
+    // Abort any pending request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
     if (searchQuery) {
+      // Skip if same search
+      if (lastSearchRef.current === searchQuery) return;
+      lastSearchRef.current = searchQuery;
+      
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
       async function searchItems() {
         try {
           setLoading(true);
           setError(null);
-          // Search returns sellable items only
-          const [itemsResponse, categoriesResponse] = await Promise.all([
-            fetch(
-              `/api/items?search=${encodeURIComponent(searchQuery || '')}&sellableOnly=true`
-            ),
-            fetch('/api/categories'),
-          ]);
+          
+          const response = await fetch(
+            `/api/items?search=${encodeURIComponent(searchQuery || '')}&sellableOnly=true`,
+            { signal: controller.signal }
+          );
+          
+          if (controller.signal.aborted) return;
 
-          const itemsResult = await itemsResponse.json();
-          const categoriesResult = await categoriesResponse.json();
+          const result = await response.json();
 
-          if (categoriesResult.success) {
-            setCategories(categoriesResult.data);
-          }
-
-          if (itemsResult.success) {
-            const allItems: Item[] = itemsResult.data;
-            const categoryMap = new Map<string, string>();
-            
-            if (categoriesResult.success) {
-              categoriesResult.data.forEach((cat: Category) => {
-                categoryMap.set(cat.id, cat.name);
-              });
-            }
+          if (result.success) {
+            const allItems: Item[] = result.data;
 
             const filteredItems = allItems.filter(item => {
               const categoryName = categoryMap.get(item.category_id);
@@ -92,13 +113,16 @@ export function ItemGrid({
 
             setItems(filteredItems);
           } else {
-            setError(itemsResult.message || 'Failed to search items');
+            setError(result.message || 'Failed to search items');
           }
         } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') return;
           setError('Failed to search items');
           console.error('Error searching items:', err);
         } finally {
-          setLoading(false);
+          if (!controller.signal.aborted) {
+            setLoading(false);
+          }
         }
       }
 
@@ -106,31 +130,40 @@ export function ItemGrid({
       return;
     }
 
+    // Reset last search when query is cleared
+    lastSearchRef.current = '';
+
     if (!categoryId) {
       setItems([]);
       return;
     }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     async function fetchItems() {
       try {
         setLoading(true);
         setError(null);
         
-        // Fetch all items in category
-        const response = await fetch(`/api/items?categoryId=${categoryId}`);
+        const response = await fetch(
+          `/api/items?categoryId=${categoryId}`,
+          { signal: controller.signal }
+        );
+        
+        if (controller.signal.aborted) return;
+        
         const result = await response.json();
 
         if (result.success) {
           const allItems: Item[] = result.data;
           
-          // Group items: separate parents and variants
           const parentItems: ItemWithVariants[] = [];
           const standaloneItems: ItemWithVariants[] = [];
           const variantsByParent = new Map<string, Item[]>();
 
           for (const item of allItems) {
             if (item.parent_item_id) {
-              // This is a variant
               const variants = variantsByParent.get(item.parent_item_id) || [];
               variants.push(item);
               variantsByParent.set(item.parent_item_id, variants);
@@ -139,12 +172,10 @@ export function ItemGrid({
             }
           }
 
-          // Process parent items
           const processedItems: ItemWithVariants[] = [];
           for (const item of parentItems) {
             const variants = variantsByParent.get(item.id);
             if (variants && variants.length > 0) {
-              // This is a parent with variants
               processedItems.push({
                 ...item,
                 isParent: true,
@@ -154,26 +185,31 @@ export function ItemGrid({
                 ),
               });
             } else {
-              // Standalone item (no variants)
               standaloneItems.push(item);
             }
           }
 
-          // Combine: parents first, then standalone
           setItems([...processedItems, ...standaloneItems]);
         } else {
           setError(result.message || 'Failed to load items');
         }
       } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         setError('Failed to load items');
         console.error('Error fetching items:', err);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     }
 
     fetchItems();
-  }, [categoryId, searchQuery, shopType]);
+    
+    return () => {
+      controller.abort();
+    };
+  }, [categoryId, searchQuery, shopType, categoryMap]);
 
   if (!categoryId && !searchQuery) {
     return (
@@ -220,21 +256,33 @@ export function ItemGrid({
 
   if (items.length === 0 && !loading) {
     return (
-      <div className="p-4 flex items-center justify-center h-full">
-        <div className="text-center space-y-3">
-          <div className="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center">
-            <span className="text-2xl">📦</span>
+      <div className="p-6 flex items-center justify-center h-full min-h-[300px]">
+        <div className="text-center space-y-4 max-w-sm">
+          <div className="w-20 h-20 mx-auto bg-gradient-to-br from-gray-100 to-gray-50 rounded-2xl flex items-center justify-center shadow-inner">
+            <span className="text-4xl opacity-60">🔍</span>
           </div>
-          <p className="text-gray-600 font-semibold">
-            {searchQuery
-              ? `No items found for "${searchQuery}"`
-              : 'No items found in this category'}
-          </p>
-          {searchQuery && (
-            <p className="text-sm text-gray-400">
-              Try a different search term or browse by category
+          <div className="space-y-2">
+            <p className="text-lg font-semibold text-gray-700">
+              {searchQuery
+                ? 'No products found'
+                : 'No items in this category'}
             </p>
-          )}
+            {searchQuery && (
+              <>
+                <p className="text-sm text-gray-500">
+                  We couldn't find any products matching "{searchQuery}"
+                </p>
+                <div className="pt-2 space-y-1.5">
+                  <p className="text-xs text-gray-400 font-medium">Try:</p>
+                  <ul className="text-xs text-gray-500 space-y-1">
+                    <li>• Check for spelling errors</li>
+                    <li>• Use fewer or different keywords</li>
+                    <li>• Browse by category instead</li>
+                  </ul>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -275,9 +323,18 @@ export function ItemGrid({
   return (
     <div className="p-4 sm:p-6">
       {searchQuery && items.length > 0 && (
-        <div className="mb-4 text-sm text-gray-600">
-          Found {items.length} item{items.length !== 1 ? 's' : ''} for "
-          {searchQuery}"
+        <div className="mb-5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-1 bg-gradient-to-b from-[#259783] to-[#3bd522] rounded-full"></div>
+            <div>
+              <p className="text-sm font-semibold text-gray-800">
+                {items.length} result{items.length !== 1 ? 's' : ''} found
+              </p>
+              <p className="text-xs text-gray-500">
+                for "{searchQuery}"
+              </p>
+            </div>
+          </div>
         </div>
       )}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">

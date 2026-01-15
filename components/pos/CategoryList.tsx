@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import type { Category } from '@/lib/db/types';
 import { shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
 
@@ -10,18 +9,29 @@ interface CategoryListProps {
   onSelectCategory: (categoryId: string | null) => void;
   selectedCategoryId?: string;
   shopType?: ShopType;
+  categories?: Category[]; // Pass categories from parent to avoid redundant fetch
 }
 
 export function CategoryList({
   onSelectCategory,
   selectedCategoryId,
   shopType = 'grocery',
+  categories: propCategories,
 }: CategoryListProps) {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [localCategories, setLocalCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(!propCategories);
   const [error, setError] = useState<string | null>(null);
 
+  // Use prop categories if available
+  const categories = propCategories || localCategories;
+
   useEffect(() => {
+    // Skip fetch if categories provided via props
+    if (propCategories && propCategories.length > 0) {
+      setLoading(false);
+      return;
+    }
+
     async function fetchCategories() {
       try {
         setLoading(true);
@@ -29,7 +39,7 @@ export function CategoryList({
         const result = await response.json();
 
         if (result.success) {
-          setCategories(result.data);
+          setLocalCategories(result.data);
         } else {
           setError(result.message || 'Failed to load categories');
         }
@@ -42,7 +52,7 @@ export function CategoryList({
     }
 
     fetchCategories();
-  }, []);
+  }, [propCategories]);
 
   const filteredCategories = categories.filter(cat => 
     shouldShowCategory(cat.name, shopType)
