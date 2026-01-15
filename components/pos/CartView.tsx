@@ -5,9 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Minus, Plus, Trash2, ShoppingCart } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingCart, Tag } from 'lucide-react';
 import Link from 'next/link';
 import { QuantityInput } from './QuantityInput';
+
+// Generate a unique key for cart items
+const getCartItemKey = (item: { itemId: string; isBundle?: boolean }): string => {
+  return item.isBundle ? `${item.itemId}:bundle` : item.itemId;
+};
 
 export function CartView() {
   const { items, total, updateQuantity, removeItem, clearCart } = useCartStore();
@@ -40,29 +45,71 @@ export function CartView() {
       <div className="flex-1 overflow-auto p-6">
         <div className="max-w-4xl mx-auto space-y-4">
           {items.map((item) => (
-            <Card key={item.itemId} className="shadow-sm">
+            <Card 
+              key={getCartItemKey(item)} 
+              className={`shadow-sm ${item.isBundle ? 'border-amber-200 dark:border-amber-800 bg-amber-50/30 dark:bg-amber-900/10' : ''}`}
+            >
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">
                   <div className="flex-1">
-                    <h3 className="font-semibold text-lg mb-1">{item.name}</h3>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold text-lg">{item.name}</h3>
+                      {item.isBundle && (
+                        <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-xs">
+                          <Tag className="w-3 h-3 mr-1" />
+                          Bundle
+                        </Badge>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2 mb-3">
                       <span className="text-sm text-muted-foreground">
-                        {formatPrice(item.price)} / {item.unitType}
+                        {formatPrice(item.price)} / {item.isBundle ? 'bundle' : item.unitType}
                       </span>
+                      {item.isBundle && item.bundleQuantity && (
+                        <span className="text-xs text-amber-600 dark:text-amber-400">
+                          ({item.bundleQuantity} items per bundle)
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-3">
-                      <QuantityInput
-                        unitType={item.unitType}
-                        value={item.quantity}
-                        onChange={(newQuantity) =>
-                          updateQuantity(item.itemId, newQuantity)
-                        }
-                        min={0}
-                      />
+                      {item.isBundle ? (
+                        // Simple +/- for bundles
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="icon-touch"
+                            onClick={() => updateQuantity(item.itemId, item.quantity - 1, true)}
+                            disabled={item.quantity <= 1}
+                            className="h-10 w-10"
+                          >
+                            <Minus className="h-4 w-4" />
+                          </Button>
+                          <span className="w-12 text-center font-bold text-lg">
+                            {item.quantity}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="icon-touch"
+                            onClick={() => updateQuantity(item.itemId, item.quantity + 1, true)}
+                            className="h-10 w-10"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <QuantityInput
+                          unitType={item.unitType}
+                          value={item.quantity}
+                          onChange={(newQuantity) =>
+                            updateQuantity(item.itemId, newQuantity, false)
+                          }
+                          min={0}
+                        />
+                      )}
                       <Button
                         variant="ghost"
                         size="icon-touch"
-                        onClick={() => removeItem(item.itemId)}
+                        onClick={() => removeItem(item.itemId, item.isBundle)}
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
                         <Trash2 className="h-5 w-5" />
@@ -70,12 +117,17 @@ export function CartView() {
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-lg font-bold text-primary mb-1">
+                    <div className={`text-lg font-bold mb-1 ${item.isBundle ? 'text-amber-600 dark:text-amber-400' : 'text-primary'}`}>
                       {formatPrice(item.price * item.quantity)}
                     </div>
                     <div className="text-sm text-muted-foreground">
                       {item.quantity} × {formatPrice(item.price)}
                     </div>
+                    {item.isBundle && item.bundleQuantity && (
+                      <div className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                        = {item.quantity * item.bundleQuantity} items total
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>

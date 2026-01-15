@@ -3,10 +3,13 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Minus, Plus, ShoppingCart, X, Package } from 'lucide-react';
+import { Minus, Plus, ShoppingCart, X, Package, Tag } from 'lucide-react';
 import { useCartStore } from '@/lib/stores/cart-store';
 import type { Item } from '@/lib/db/types';
 import { getItemImage } from '@/lib/utils/item-images';
+import { Badge } from '@/components/ui/badge';
+
+type PurchaseMode = 'regular' | 'bundle';
 
 interface AddToCartDialogProps {
   item: Item | null;
@@ -20,11 +23,20 @@ export function AddToCartDialog({
   onOpenChange,
 }: AddToCartDialogProps) {
   const [quantity, setQuantity] = useState(1);
+  const [bundleCount, setBundleCount] = useState(1);
+  const [purchaseMode, setPurchaseMode] = useState<PurchaseMode>('regular');
   const { addItem, items: cartItems } = useCartStore();
+
+  // Check if item has bundle pricing
+  const hasBundle = item && item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0;
 
   useEffect(() => {
     if (open && item) {
-      const existingItem = cartItems.find((i) => i.itemId === item.id);
+      // Reset to regular mode when opening
+      setPurchaseMode('regular');
+      setBundleCount(1);
+      
+      const existingItem = cartItems.find((i) => i.itemId === item.id && !i.isBundle);
       if (existingItem) {
         setQuantity(existingItem.quantity);
       } else {
@@ -36,7 +48,22 @@ export function AddToCartDialog({
   if (!item) return null;
 
   const handleAddToCart = () => {
-    if (quantity > 0) {
+    if (purchaseMode === 'bundle' && hasBundle && bundleCount > 0) {
+      // Add as bundle
+      addItem(
+        {
+          itemId: item.id,
+          name: item.bundle_name || `${item.name} (${item.bundle_quantity} for ${item.bundle_price})`,
+          price: item.bundle_price!,
+          unitType: 'bundle',
+          isBundle: true,
+          bundleQuantity: item.bundle_quantity!,
+        },
+        bundleCount
+      );
+      onOpenChange(false);
+    } else if (quantity > 0) {
+      // Regular add
       addItem(
         {
           itemId: item.id,
@@ -50,8 +77,16 @@ export function AddToCartDialog({
     }
   };
 
-  const subtotal = item.current_sell_price * quantity;
-  const formatPrice = (price: number) => `KES ${price.toFixed(2)}`;
+  const subtotal = purchaseMode === 'bundle' && hasBundle
+    ? item.bundle_price! * bundleCount
+    : item.current_sell_price * quantity;
+  
+  const regularPriceForBundle = hasBundle 
+    ? item.current_sell_price * item.bundle_quantity! * bundleCount 
+    : 0;
+  const bundleSavings = hasBundle ? regularPriceForBundle - (item.bundle_price! * bundleCount) : 0;
+  
+  const formatPrice = (price: number) => `KES ${price.toFixed(0)}`;
   const isOutOfStock = item.current_stock <= 0;
   const maxQuantity = isOutOfStock ? 0 : item.current_stock;
   const isWeight = item.unit_type === 'kg' || item.unit_type === 'g';
@@ -117,7 +152,7 @@ export function AddToCartDialog({
               <X className="w-4 h-4 text-gray-600 dark:text-gray-400" />
             </button>
 
-            <div className="flex flex-col items-center pt-8 pb-6">
+            <div className="flex flex-col items-center pt-8 pb-4">
               <div className="w-20 h-20 rounded-full bg-[#259783]/20 dark:bg-[#259783]/10 flex items-center justify-center mb-4 overflow-hidden">
                 {getItemImage(item.name) ? (
                   <img
@@ -145,40 +180,133 @@ export function AddToCartDialog({
                   {formatPrice(item.current_sell_price)} / {item.unit_type}
                 </span>
               </div>
+              {hasBundle && (
+                <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700">
+                  <Tag className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                    {item.bundle_name || `${item.bundle_quantity} for ${formatPrice(item.bundle_price!)}`}
+                  </span>
+                </div>
+              )}
             </div>
 
-            <div className="flex items-center justify-center gap-6 mb-8">
-              <button
-                onClick={handleDecrement}
-                disabled={quantity <= 0}
-                className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-              >
-                <Minus className="w-6 h-6 text-gray-700 dark:text-gray-300" />
-              </button>
-              <div className="flex flex-col items-center">
-                <input
-                  type="number"
-                  value={quantity.toFixed(isWeight ? 1 : 0)}
-                  onChange={(e) => handleQuantityChange(e.target.value)}
-                  onBlur={handleQuantityBlur}
-                  min="0"
-                  max={maxQuantity > 0 ? maxQuantity : undefined}
-                  step={step}
-                  className="text-4xl font-bold text-gray-900 dark:text-gray-100 bg-transparent border-none outline-none text-center w-32 focus:ring-2 focus:ring-[#259783] rounded-lg px-2 py-1"
-                />
-                <span className="text-sm text-gray-600 dark:text-gray-400 uppercase mt-1">
-                  {item.unit_type}
-                </span>
+            {/* Purchase Mode Toggle (only show if bundle available) */}
+            {hasBundle && (
+              <div className="flex gap-2 mb-6 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+                <button
+                  onClick={() => setPurchaseMode('regular')}
+                  className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${
+                    purchaseMode === 'regular'
+                      ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                  }`}
+                >
+                  Regular Price
+                </button>
+                <button
+                  onClick={() => setPurchaseMode('bundle')}
+                  className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                    purchaseMode === 'bundle'
+                      ? 'bg-amber-500 text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                  }`}
+                >
+                  <Tag className="w-4 h-4" />
+                  Bundle Deal
+                </button>
               </div>
-              <button
-                onClick={handleIncrement}
-                disabled={isOutOfStock || (maxQuantity > 0 && quantity >= maxQuantity)}
-                className="w-12 h-12 rounded-full bg-[#259783] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#45d827] transition-colors"
-              >
-                <Plus className="w-6 h-6 text-white" />
-              </button>
-            </div>
+            )}
 
+            {/* Bundle Mode Quantity Selector */}
+            {purchaseMode === 'bundle' && hasBundle ? (
+              <div className="mb-6">
+                <p className="text-center text-sm text-gray-600 dark:text-gray-400 mb-3">
+                  How many bundles?
+                </p>
+                <div className="flex items-center justify-center gap-4 mb-4">
+                  <button
+                    onClick={() => setBundleCount(Math.max(1, bundleCount - 1))}
+                    disabled={bundleCount <= 1}
+                    className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <Minus className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+                  </button>
+                  <div className="flex flex-col items-center">
+                    <span className="text-4xl font-bold text-gray-900 dark:text-gray-100">
+                      {bundleCount}
+                    </span>
+                    <span className="text-sm text-amber-600 dark:text-amber-400 font-medium mt-1">
+                      {bundleCount === 1 ? 'bundle' : 'bundles'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setBundleCount(bundleCount + 1)}
+                    disabled={isOutOfStock}
+                    className="w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-amber-600 transition-colors"
+                  >
+                    <Plus className="w-6 h-6 text-white" />
+                  </button>
+                </div>
+                
+                {/* Bundle quick select */}
+                <div className="flex gap-2 justify-center mb-4">
+                  {[1, 2, 3, 4, 5].map((num) => (
+                    <button
+                      key={num}
+                      onClick={() => setBundleCount(num)}
+                      className={`w-10 h-10 rounded-lg font-bold text-sm transition-all ${
+                        bundleCount === num
+                          ? 'bg-amber-500 text-white shadow-md'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="text-center p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800">
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mb-1">
+                    {bundleCount} × ({item.bundle_quantity} {item.unit_type}) = {bundleCount * item.bundle_quantity!} {item.unit_type} total
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* Regular Mode Quantity Selector */
+              <div className="flex items-center justify-center gap-6 mb-6">
+                <button
+                  onClick={handleDecrement}
+                  disabled={quantity <= 0}
+                  className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <Minus className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+                </button>
+                <div className="flex flex-col items-center">
+                  <input
+                    type="number"
+                    value={quantity.toFixed(isWeight ? 1 : 0)}
+                    onChange={(e) => handleQuantityChange(e.target.value)}
+                    onBlur={handleQuantityBlur}
+                    min="0"
+                    max={maxQuantity > 0 ? maxQuantity : undefined}
+                    step={step}
+                    className="text-4xl font-bold text-gray-900 dark:text-gray-100 bg-transparent border-none outline-none text-center w-32 focus:ring-2 focus:ring-[#259783] rounded-lg px-2 py-1"
+                  />
+                  <span className="text-sm text-gray-600 dark:text-gray-400 uppercase mt-1">
+                    {item.unit_type}
+                  </span>
+                </div>
+                <button
+                  onClick={handleIncrement}
+                  disabled={isOutOfStock || (maxQuantity > 0 && quantity >= maxQuantity)}
+                  className="w-12 h-12 rounded-full bg-[#259783] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#45d827] transition-colors"
+                >
+                  <Plus className="w-6 h-6 text-white" />
+                </button>
+              </div>
+            )}
+
+            {/* Subtotal */}
             <div className="mb-6">
               <div className="text-center">
                 <p className="text-xs text-gray-500 dark:text-gray-400 uppercase mb-1">
@@ -187,6 +315,13 @@ export function AddToCartDialog({
                 <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">
                   {formatPrice(subtotal)}
                 </p>
+                {purchaseMode === 'bundle' && bundleSavings > 0 && (
+                  <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-100 dark:bg-green-900/30">
+                    <span className="text-sm font-semibold text-green-700 dark:text-green-300">
+                      You save {formatPrice(bundleSavings)}!
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 

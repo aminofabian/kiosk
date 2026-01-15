@@ -5,6 +5,7 @@ import { migrateItemVariants } from './migrate-item-variants';
 import { migrateDomains } from './migrate-domains';
 import { migratePasswordResetTokens } from './migrate-password-reset';
 import { migrateBarcodeExpiry } from './migrate-barcode-expiry';
+import { migrateBundlePricing } from './migrate-bundle-pricing';
 
 const SCHEMA_PATH = join(process.cwd(), 'lib', 'db', 'sql', 'schema.sql');
 
@@ -262,6 +263,12 @@ export async function runMigrations() {
       await migrateBarcodeExpiry();
     } catch (error) {
       console.error('⚠ barcode_expiry migration skipped:', error);
+    }
+
+    try {
+      await migrateBundlePricing();
+    } catch (error) {
+      console.error('⚠ bundle_pricing migration skipped:', error);
     }
 
     console.log('✅ Migration completed successfully!');

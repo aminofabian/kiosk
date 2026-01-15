@@ -110,7 +110,11 @@ export async function PUT(
 
     const { id: itemId } = await params;
     const body = await request.json();
-    const { name, categoryId, unitType, buyPrice, sellPrice, minStockLevel, variantName, barcode, expiryDate } = body;
+    const { 
+      name, categoryId, unitType, buyPrice, sellPrice, minStockLevel, variantName, barcode, expiryDate,
+      // Bundle pricing fields
+      bundleQuantity, bundlePrice, bundleName,
+    } = body;
 
     // Verify item exists and check if it's a parent
     const existingItem = await queryOne<{
@@ -202,7 +206,10 @@ export async function PUT(
              variant_name = ?,
              min_stock_level = ?,
              barcode = ?,
-             expiry_date = ?
+             expiry_date = ?,
+             bundle_quantity = ?,
+             bundle_price = ?,
+             bundle_name = ?
          WHERE id = ? AND business_id = ?`,
         [
           name.trim(),
@@ -212,6 +219,9 @@ export async function PUT(
           minStockLevel || null,
           barcode?.trim() || null,
           expiryDate || null,
+          bundleQuantity || null,
+          bundlePrice || null,
+          bundleName?.trim() || null,
           itemId,
           auth.businessId,
         ]

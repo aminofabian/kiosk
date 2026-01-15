@@ -93,6 +93,9 @@ export default function EditItemPage() {
             min_stock_level: item.min_stock_level,
             barcode: item.barcode,
             expiry_date: item.expiry_date,
+            bundle_quantity: item.bundle_quantity,
+            bundle_price: item.bundle_price,
+            bundle_name: item.bundle_name,
           }}
         />
       </div>

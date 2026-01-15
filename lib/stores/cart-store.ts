@@ -7,15 +7,23 @@ export interface CartItem {
   name: string;
   price: number;
   quantity: number;
-  unitType: UnitType;
+  unitType: UnitType | 'bundle';
+  // Bundle-specific fields
+  isBundle?: boolean;
+  bundleQuantity?: number; // Number of items in each bundle
 }
+
+// Generate a unique cart key for an item (differentiates bundles from regular)
+const getCartKey = (item: { itemId: string; isBundle?: boolean }): string => {
+  return item.isBundle ? `${item.itemId}:bundle` : item.itemId;
+};
 
 interface CartStore {
   items: CartItem[];
   total: number;
   addItem: (item: Omit<CartItem, 'quantity'>, quantity: number) => void;
-  updateQuantity: (itemId: string, quantity: number) => void;
-  removeItem: (itemId: string) => void;
+  updateQuantity: (itemId: string, quantity: number, isBundle?: boolean) => void;
+  removeItem: (itemId: string, isBundle?: boolean) => void;
   clearCart: () => void;
 }
 
@@ -31,8 +39,9 @@ export const useCartStore = create<CartStore>()(
       
       addItem: (item, quantity) => {
         set((state) => {
+          // Find existing item with same itemId AND same type (bundle vs regular)
           const existingItemIndex = state.items.findIndex(
-            (i) => i.itemId === item.itemId
+            (i) => i.itemId === item.itemId && Boolean(i.isBundle) === Boolean(item.isBundle)
           );
           
           let newItems: CartItem[];
@@ -55,11 +64,13 @@ export const useCartStore = create<CartStore>()(
         });
       },
       
-      updateQuantity: (itemId, quantity) => {
+      updateQuantity: (itemId, quantity, isBundle = false) => {
         set((state) => {
           if (quantity <= 0) {
             // Remove item if quantity is 0 or less
-            const newItems = state.items.filter((i) => i.itemId !== itemId);
+            const newItems = state.items.filter(
+              (i) => !(i.itemId === itemId && Boolean(i.isBundle) === isBundle)
+            );
             return {
               items: newItems,
               total: calculateTotal(newItems),
@@ -67,7 +78,9 @@ export const useCartStore = create<CartStore>()(
           }
           
           const newItems = state.items.map((i) =>
-            i.itemId === itemId ? { ...i, quantity } : i
+            i.itemId === itemId && Boolean(i.isBundle) === isBundle 
+              ? { ...i, quantity } 
+              : i
           );
           
           return {
@@ -77,9 +90,11 @@ export const useCartStore = create<CartStore>()(
         });
       },
       
-      removeItem: (itemId) => {
+      removeItem: (itemId, isBundle = false) => {
         set((state) => {
-          const newItems = state.items.filter((i) => i.itemId !== itemId);
+          const newItems = state.items.filter(
+            (i) => !(i.itemId === itemId && Boolean(i.isBundle) === isBundle)
+          );
           return {
             items: newItems,
             total: calculateTotal(newItems),

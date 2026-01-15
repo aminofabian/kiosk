@@ -666,6 +666,10 @@ interface ItemFormProps {
     parent_item_id?: string | null;
     barcode?: string | null;
     expiry_date?: number | null;
+    // Bundle pricing
+    bundle_quantity?: number | null;
+    bundle_price?: number | null;
+    bundle_name?: string | null;
   };
   parentItemId?: string; // If set, we're creating a variant for this parent
   defaultMode?: FormMode;
@@ -712,6 +716,18 @@ export function ItemForm({
   const [expiryDate, setExpiryDate] = useState<string>(
     initialData?.expiry_date ? new Date(initialData.expiry_date * 1000).toISOString().split('T')[0] : ''
   );
+  // Bundle pricing state
+  const [bundleEnabled, setBundleEnabled] = useState<boolean>(
+    !!(initialData?.bundle_quantity && initialData?.bundle_price)
+  );
+  const [bundleQuantity, setBundleQuantity] = useState<string>(
+    initialData?.bundle_quantity?.toString() || ''
+  );
+  const [bundlePrice, setBundlePrice] = useState<string>(
+    initialData?.bundle_price?.toString() || ''
+  );
+  const [bundleName, setBundleName] = useState<string>(initialData?.bundle_name || '');
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -954,6 +970,10 @@ export function ItemForm({
         itemName = name.trim();
       }
 
+      // Parse bundle pricing values
+      const bundleQty = bundleEnabled && bundleQuantity ? parseFloat(bundleQuantity) : null;
+      const bundlePrc = bundleEnabled && bundlePrice ? parseFloat(bundlePrice) : null;
+
       const requestBody = {
         name: itemName,
         categoryId: finalCategoryId,
@@ -967,6 +987,10 @@ export function ItemForm({
         variantName: mode === 'variant' ? variantName.trim() : null,
         barcode: barcode.trim() || null,
         expiryDate: expiryDate ? Math.floor(new Date(expiryDate).getTime() / 1000) : null,
+        // Bundle pricing (only for non-parent items)
+        bundleQuantity: mode === 'parent' ? null : bundleQty,
+        bundlePrice: mode === 'parent' ? null : bundlePrc,
+        bundleName: mode === 'parent' ? null : (bundleEnabled && bundleName.trim() ? bundleName.trim() : null),
       };
 
       const result = itemId
@@ -1838,6 +1862,124 @@ export function ItemForm({
                     When this product expires (for perishables)
                   </p>
                 </div>
+              </div>
+
+              {/* Bundle Pricing Section */}
+              <div className="p-4 rounded-lg bg-gradient-to-br from-amber-50/50 to-orange-50/50 dark:from-amber-900/10 dark:to-orange-900/10 border border-amber-200/50 dark:border-amber-800/30 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-amber-600" />
+                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100">Bundle Pricing</p>
+                    <Badge variant="outline" className="text-[10px] bg-amber-100/50 border-amber-300/50 text-amber-700">
+                      Special Offer
+                    </Badge>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={bundleEnabled}
+                      onChange={(e) => {
+                        setBundleEnabled(e.target.checked);
+                        if (!e.target.checked) {
+                          setBundleQuantity('');
+                          setBundlePrice('');
+                          setBundleName('');
+                        }
+                      }}
+                      disabled={isSubmitting}
+                      className="w-4 h-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
+                    />
+                    <span className="text-sm font-medium text-amber-800 dark:text-amber-200">Enable</span>
+                  </label>
+                </div>
+
+                {bundleEnabled && (
+                  <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      Allow customers to buy this item in bundles at a special price (e.g., "3 tomatoes for KES 20")
+                    </p>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Bundle Quantity */}
+                      <div className="space-y-2">
+                        <Label htmlFor="bundleQuantity" className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                          Quantity in Bundle
+                        </Label>
+                        <Input
+                          id="bundleQuantity"
+                          type="number"
+                          min="2"
+                          step="1"
+                          value={bundleQuantity}
+                          onChange={(e) => setBundleQuantity(e.target.value)}
+                          placeholder="e.g., 3"
+                          disabled={isSubmitting}
+                          className="h-12 text-base focus-visible:ring-amber-500 bg-white dark:bg-gray-900"
+                        />
+                      </div>
+
+                      {/* Bundle Price */}
+                      <div className="space-y-2">
+                        <Label htmlFor="bundlePrice" className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                          Bundle Price (KES)
+                        </Label>
+                        <Input
+                          id="bundlePrice"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={bundlePrice}
+                          onChange={(e) => setBundlePrice(e.target.value)}
+                          placeholder="e.g., 20"
+                          disabled={isSubmitting}
+                          className="h-12 text-base focus-visible:ring-amber-500 bg-white dark:bg-gray-900"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Bundle Name (Optional) */}
+                    <div className="space-y-2">
+                      <Label htmlFor="bundleName" className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                        Bundle Name
+                        <span className="text-xs font-normal text-amber-600 dark:text-amber-400 ml-1">(Optional)</span>
+                      </Label>
+                      <Input
+                        id="bundleName"
+                        type="text"
+                        value={bundleName}
+                        onChange={(e) => setBundleName(e.target.value)}
+                        placeholder="e.g., 3 for 20, Half Dozen, Family Pack"
+                        disabled={isSubmitting}
+                        className="h-12 text-base focus-visible:ring-amber-500 bg-white dark:bg-gray-900"
+                      />
+                    </div>
+
+                    {/* Preview */}
+                    {bundleQuantity && bundlePrice && (
+                      <div className="p-3 bg-amber-100/50 dark:bg-amber-900/30 rounded-lg border border-amber-200 dark:border-amber-800">
+                        <p className="text-sm font-medium text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                          <span className="text-lg">🏷️</span>
+                          Preview: 
+                          <span className="font-bold">
+                            {bundleName || `${bundleQuantity} for KES ${bundlePrice}`}
+                          </span>
+                        </p>
+                        {sellPrice && parseFloat(bundlePrice) > 0 && parseFloat(bundleQuantity) > 0 && (
+                          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                            Regular price: {parseFloat(bundleQuantity)} × KES {sellPrice} = KES {(parseFloat(bundleQuantity) * parseFloat(sellPrice)).toFixed(0)}
+                            {' '} → Bundle saves KES {((parseFloat(bundleQuantity) * parseFloat(sellPrice)) - parseFloat(bundlePrice)).toFixed(0)}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!bundleEnabled && (
+                  <p className="text-xs text-amber-600/70 dark:text-amber-400/70">
+                    Enable bundle pricing to offer special deals like "3 tomatoes for KES 20" or "Half dozen eggs for KES 60"
+                  </p>
+                )}
               </div>
             </div>
           </>

@@ -941,6 +941,11 @@ export default function ItemsPage() {
                   buy_price: editingItem.buy_price,
                   variant_name: editingItem.variant_name,
                   parent_item_id: editingItem.parent_item_id,
+                  barcode: editingItem.barcode,
+                  expiry_date: editingItem.expiry_date,
+                  bundle_quantity: editingItem.bundle_quantity,
+                  bundle_price: editingItem.bundle_price,
+                  bundle_name: editingItem.bundle_name,
                 } : undefined}
                 onSuccess={async (updatedItem) => {
                   setDrawerOpen(false);

@@ -80,6 +80,10 @@ export interface Item {
   image_url: string | null;
   barcode: string | null; // Optional barcode (EAN-13, UPC, etc.)
   expiry_date: number | null; // Optional expiry date as Unix timestamp
+  // Bundle pricing: allows selling items in bundles (e.g., "3 tomatoes for KES 20")
+  bundle_quantity: number | null; // Number of units in a bundle (e.g., 3)
+  bundle_price: number | null; // Price for the bundle (e.g., 20)
+  bundle_name: string | null; // Optional friendly name (e.g., "3 for 20", "Half Dozen")
   active: number; // 1 = true, 0 = false
   created_at: number;
 }
