@@ -40,6 +40,7 @@ export function ItemGrid({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [localCategories, setLocalCategories] = useState<Category[]>([]);
+  const [showingOtherShopType, setShowingOtherShopType] = useState(false);
   
   // Use prop categories if available, otherwise use local state
   const categories = propCategories || localCategories;
@@ -106,12 +107,29 @@ export function ItemGrid({
           if (result.success) {
             const allItems: Item[] = result.data;
 
-            const filteredItems = allItems.filter(item => {
+            // First, try to filter by current shop type
+            const filteredByShopType = allItems.filter(item => {
               const categoryName = categoryMap.get(item.category_id);
               if (!categoryName) return true;
               return shouldShowCategory(categoryName, shopType);
             });
 
+            // If no results found in current shop type, also include items from the other shop type
+            let filteredItems = filteredByShopType;
+            let isShowingOtherShopType = false;
+            
+            if (filteredByShopType.length === 0 && allItems.length > 0) {
+              // Fallback: show items from the other shop type
+              const otherShopType: ShopType = shopType === 'grocery' ? 'retail' : 'grocery';
+              filteredItems = allItems.filter(item => {
+                const categoryName = categoryMap.get(item.category_id);
+                if (!categoryName) return true;
+                return shouldShowCategory(categoryName, otherShopType);
+              });
+              isShowingOtherShopType = filteredItems.length > 0;
+            }
+
+            setShowingOtherShopType(isShowingOtherShopType);
             setItems(filteredItems);
           } else {
             setError(result.message || 'Failed to search items');
@@ -133,6 +151,7 @@ export function ItemGrid({
 
     // Reset last search when query is cleared
     lastSearchRef.current = '';
+    setShowingOtherShopType(false);
 
     if (!categoryId) {
       setItems([]);
@@ -333,18 +352,30 @@ export function ItemGrid({
   return (
     <div className="p-4 sm:p-6">
       {searchQuery && items.length > 0 && (
-        <div className="mb-5 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-1 bg-gradient-to-b from-[#259783] to-[#3bd522] rounded-full"></div>
-            <div>
-              <p className="text-sm font-semibold text-gray-800">
-                {items.length} result{items.length !== 1 ? 's' : ''} found
-              </p>
-              <p className="text-xs text-gray-500">
-                for "{searchQuery}"
-              </p>
+        <div className="mb-5 space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-1 bg-gradient-to-b from-[#259783] to-[#3bd522] rounded-full"></div>
+              <div>
+                <p className="text-sm font-semibold text-gray-800">
+                  {items.length} result{items.length !== 1 ? 's' : ''} found
+                </p>
+                <p className="text-xs text-gray-500">
+                  for "{searchQuery}"
+                </p>
+              </div>
             </div>
           </div>
+          {showingOtherShopType && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+              <div className="w-4 h-4 rounded-full bg-amber-400 flex items-center justify-center flex-shrink-0">
+                <span className="text-[10px]">ℹ</span>
+              </div>
+              <p className="text-xs text-amber-800 dark:text-amber-200">
+                No results in <span className="font-semibold">{shopType}</span> mode. Showing results from <span className="font-semibold">{shopType === 'grocery' ? 'retail' : 'grocery'}</span> instead.
+              </p>
+            </div>
+          )}
         </div>
       )}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">

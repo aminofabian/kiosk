@@ -91,6 +91,8 @@ export default function EditItemPage() {
             current_stock: item.current_stock,
             current_sell_price: item.current_sell_price,
             min_stock_level: item.min_stock_level,
+            barcode: item.barcode,
+            expiry_date: item.expiry_date,
           }}
         />
       </div>

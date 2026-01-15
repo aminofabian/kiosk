@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,11 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Package, Layers, ShoppingCart, DollarSign, Box, AlertCircle, Info, Sparkles, Grid3x3 } from 'lucide-react';
+import { Loader2, Package, Layers, ShoppingCart, DollarSign, Box, AlertCircle, Info, Sparkles, Grid3x3, QrCode } from 'lucide-react';
 import type { Category, Item } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
 import { apiGet, apiPost, apiPut } from '@/lib/utils/api-client';
 import { getShopType, shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
+import { useBarcodeScanner } from '@/lib/hooks/use-barcode-scanner';
 
 interface ItemWithParentFlag extends Item {
   isParent?: boolean;
@@ -714,6 +715,31 @@ export function ItemForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [barcodeScanStatus, setBarcodeScanStatus] = useState<{ scanning: boolean; lastScanned: string | null }>({ scanning: false, lastScanned: null });
+  
+  // Barcode input ref
+  const barcodeInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle barcode scan
+  const handleBarcodeScan = useCallback((scannedBarcode: string) => {
+    if (scannedBarcode && scannedBarcode.length >= 4) {
+      setBarcodeScanStatus({ scanning: true, lastScanned: scannedBarcode });
+      setBarcode(scannedBarcode);
+      // Clear scanning status after a brief moment
+      setTimeout(() => {
+        setBarcodeScanStatus({ scanning: false, lastScanned: scannedBarcode });
+      }, 1000);
+    }
+  }, []);
+
+  // Initialize barcode scanner hook - only active when barcode input is focused
+  const [barcodeInputFocused, setBarcodeInputFocused] = useState(false);
+  useBarcodeScanner({
+    onScan: handleBarcodeScan,
+    enabled: barcodeInputFocused,
+    minLength: 4,
+    maxDelay: 100,
+  });
 
   useEffect(() => {
     async function fetchData() {
@@ -1723,23 +1749,74 @@ export function ItemForm({
 
                 {/* Barcode */}
                 <div className="space-y-2">
-                  <Label htmlFor="barcode" className="text-sm font-medium">
-                    Barcode
-                    <span className="text-xs font-normal text-muted-foreground ml-1">(Optional)</span>
-                  </Label>
-                  <Input
-                    id="barcode"
-                    type="text"
-                    value={barcode}
-                    onChange={(e) => setBarcode(e.target.value)}
-                    placeholder="e.g., 1234567890123"
-                    disabled={isSubmitting}
-                    className="h-12 text-base focus-visible:ring-[#259783] font-mono"
-                  />
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="barcode" className="text-sm font-medium">
+                      Barcode
+                      <span className="text-xs font-normal text-muted-foreground ml-1">(Optional)</span>
+                    </Label>
+                    {barcodeInputFocused && (
+                      <Badge variant="outline" className="text-xs bg-[#259783]/10 border-[#259783]/30 text-[#259783]">
+                        <QrCode className="w-3 h-3 mr-1" />
+                        Ready to scan
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Input
+                      ref={barcodeInputRef}
+                      id="barcode"
+                      type="text"
+                      value={barcode}
+                      onChange={(e) => setBarcode(e.target.value)}
+                      onFocus={() => setBarcodeInputFocused(true)}
+                      onBlur={() => setBarcodeInputFocused(false)}
+                      placeholder="e.g., 1234567890123 or scan barcode"
+                      disabled={isSubmitting}
+                      className="h-12 text-base focus-visible:ring-[#259783] font-mono pr-12"
+                      data-barcode-enabled="true"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      spellCheck={false}
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                      {barcodeScanStatus.scanning && (
+                        <div className="flex items-center gap-1.5 text-[#259783]">
+                          <div className="w-2 h-2 rounded-full bg-[#259783] animate-pulse"></div>
+                          <span className="text-xs font-medium">Scanning...</span>
+                        </div>
+                      )}
+                      {barcode && !barcodeScanStatus.scanning && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 hover:bg-[#259783]/10"
+                          onClick={() => {
+                            setBarcode('');
+                            barcodeInputRef.current?.focus();
+                          }}
+                          title="Clear barcode"
+                        >
+                          <span className="text-xs">✕</span>
+                        </Button>
+                      )}
+                      {!barcode && (
+                        <QrCode className="w-4 h-4 text-muted-foreground" />
+                      )}
+                    </div>
+                  </div>
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <Info className="h-3 w-3" />
-                    EAN-13, UPC, or any barcode format
+                    {barcodeInputFocused 
+                      ? 'Scan barcode with scanner or type manually' 
+                      : 'EAN-13, UPC, or any barcode format. Click to enable scanning.'}
                   </p>
+                  {barcodeScanStatus.lastScanned && !barcodeScanStatus.scanning && (
+                    <div className="flex items-center gap-2 px-2 py-1 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-xs text-green-700 dark:text-green-300">
+                      <QrCode className="w-3 h-3" />
+                      Barcode scanned: {barcodeScanStatus.lastScanned}
+                    </div>
+                  )}
                 </div>
 
                 {/* Expiry Date */}
