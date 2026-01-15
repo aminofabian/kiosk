@@ -40,6 +40,7 @@ import { ShopTypeSelector } from '@/components/pos/ShopTypeSelector';
 import { getShopType, shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
 import { storeUserRole, clearUserRole } from '@/lib/utils/user-role-storage';
 import { useDebounce } from '@/lib/hooks/use-debounce';
+import { useBarcodeScanner, isValidBarcode } from '@/lib/hooks/use-barcode-scanner';
 
 const GROCERY_CATEGORY_IMAGE_MAP: Record<string, string> = {
   Vegetables: '/category/vegetables.jpeg',
@@ -125,6 +126,79 @@ export default function POSPage() {
     variants?: Item[];
   } | null>(null);
   const [variantSelectorOpen, setVariantSelectorOpen] = useState(false);
+
+  // Barcode scanner state
+  const [barcodeScanStatus, setBarcodeScanStatus] = useState<{
+    scanning: boolean;
+    lastScanned: string | null;
+    error: string | null;
+    success: boolean;
+  }>({ scanning: false, lastScanned: null, error: null, success: false });
+
+  // Handle barcode scan from scanner or manual input
+  const handleBarcodeScan = useCallback(async (barcode: string) => {
+    if (!barcode || barcode.length < 4) return;
+    
+    setBarcodeScanStatus({ scanning: true, lastScanned: barcode, error: null, success: false });
+    
+    try {
+      const result = await apiGet<Item>(`/api/items/barcode/${encodeURIComponent(barcode)}`);
+      
+      if (result.success && result.data) {
+        setBarcodeScanStatus({ scanning: false, lastScanned: barcode, error: null, success: true });
+        // Open the item dialog
+        setSelectedItem(result.data);
+        setDialogOpen(true);
+        // Clear search if open
+        if (showSearch) {
+          setSearchQuery('');
+        }
+        // Auto-clear success status after 2 seconds
+        setTimeout(() => {
+          setBarcodeScanStatus(prev => ({ ...prev, success: false }));
+        }, 2000);
+      } else {
+        setBarcodeScanStatus({ 
+          scanning: false, 
+          lastScanned: barcode, 
+          error: `Product not found for barcode: ${barcode}`,
+          success: false 
+        });
+        // Auto-clear error after 3 seconds
+        setTimeout(() => {
+          setBarcodeScanStatus(prev => ({ ...prev, error: null }));
+        }, 3000);
+      }
+    } catch (err) {
+      console.error('Barcode scan error:', err);
+      setBarcodeScanStatus({ 
+        scanning: false, 
+        lastScanned: barcode, 
+        error: 'Failed to lookup barcode',
+        success: false 
+      });
+      setTimeout(() => {
+        setBarcodeScanStatus(prev => ({ ...prev, error: null }));
+      }, 3000);
+    }
+  }, [showSearch]);
+
+  // Initialize barcode scanner hook
+  const { manualScan } = useBarcodeScanner({
+    onScan: handleBarcodeScan,
+    enabled: true,
+    minLength: 4,
+    maxDelay: 100, // Increased to be more forgiving
+  });
+
+  // Handle search input that might be a barcode
+  const handleSearchSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    const query = searchQuery.trim();
+    if (query && isValidBarcode(query)) {
+      handleBarcodeScan(query);
+    }
+  }, [searchQuery, handleBarcodeScan]);
 
   useEffect(() => {
     async function fetchCategories() {
@@ -487,32 +561,36 @@ export default function POSPage() {
 
             {showSearch && (
               <div className="px-4 pb-4 bg-[#f6f8f6] dark:bg-[#132210] sticky top-[72px] z-20 border-b border-black/5 dark:border-white/5 animate-in slide-in-from-top-2 duration-200">
-                <div className="relative">
-                  {isSearchPending ? (
-                    <Loader2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#259783] animate-spin" />
-                  ) : (
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  )}
-                  <Input
-                    ref={mobileSearchInputRef}
-                    type="text"
-                    placeholder="Search products..."
-                    value={searchQuery}
-                    onChange={(e) => handleSearchChange(e.target.value)}
-                    className="pl-12 pr-12 h-14 bg-white dark:bg-[#1c2e18] rounded-2xl border-2 border-gray-200 dark:border-gray-700 focus:border-[#259783] focus:ring-4 focus:ring-[#259783]/20 text-base font-medium placeholder:text-gray-400 shadow-sm"
-                    autoComplete="off"
-                    autoCorrect="off"
-                    spellCheck={false}
-                  />
-                  {searchQuery && (
-                    <button
-                      onClick={clearSearch}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
+                <form onSubmit={handleSearchSubmit}>
+                  <div className="relative">
+                    {isSearchPending || barcodeScanStatus.scanning ? (
+                      <Loader2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#259783] animate-spin" />
+                    ) : (
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    )}
+                    <Input
+                      ref={mobileSearchInputRef}
+                      type="text"
+                      placeholder="Search or scan barcode..."
+                      value={searchQuery}
+                      onChange={(e) => handleSearchChange(e.target.value)}
+                      className="pl-12 pr-12 h-14 bg-white dark:bg-[#1c2e18] rounded-2xl border-2 border-gray-200 dark:border-gray-700 focus:border-[#259783] focus:ring-4 focus:ring-[#259783]/20 text-base font-medium placeholder:text-gray-400 shadow-sm"
+                      autoComplete="off"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      data-barcode-enabled="true"
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={clearSearch}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </form>
                 {searchQuery && (
                   <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
                     <span>
@@ -520,6 +598,11 @@ export default function POSPage() {
                         <span className="flex items-center gap-1.5">
                           <span className="inline-block w-1.5 h-1.5 bg-[#259783] rounded-full animate-pulse"></span>
                           Searching...
+                        </span>
+                      ) : isValidBarcode(searchQuery) ? (
+                        <span className="flex items-center gap-1.5">
+                          <QrCode className="w-3.5 h-3.5 text-[#259783]" />
+                          Press Enter to scan barcode
                         </span>
                       ) : (
                         `Showing results for "${debouncedSearchQuery}"`
@@ -544,9 +627,16 @@ export default function POSPage() {
                       <DollarSign className="w-6 h-6 text-[#259783]" />
                       <p className="font-bold text-base whitespace-nowrap">Custom Amount</p>
                     </button>
-                    <button className="flex h-12 shrink-0 items-center justify-center gap-x-2 rounded-full bg-white dark:bg-[#1c2e18] border-2 border-gray-200 dark:border-gray-700 hover:border-[#259783] dark:hover:border-[#259783] shadow-sm hover:shadow-md px-6 active:scale-95 transition-all">
+                    <button 
+                      onClick={() => {
+                        setShowSearch(true);
+                        setSearchQuery('');
+                        // Focus will be handled by useEffect
+                      }}
+                      className="flex h-12 shrink-0 items-center justify-center gap-x-2 rounded-full bg-gradient-to-r from-[#259783]/10 to-[#3bd522]/10 dark:from-[#259783]/20 dark:to-[#3bd522]/20 border-2 border-[#259783]/30 dark:border-[#259783]/40 hover:border-[#259783] dark:hover:border-[#259783] shadow-sm hover:shadow-md px-6 active:scale-95 transition-all"
+                    >
                       <QrCode className="w-6 h-6 text-[#259783]" />
-                      <p className="font-bold text-base whitespace-nowrap">Scan Barcode</p>
+                      <p className="font-bold text-base whitespace-nowrap text-[#259783]">Scan Barcode</p>
                     </button>
                   </div>
 
@@ -789,43 +879,58 @@ export default function POSPage() {
                 </div>
                 {showSearch ? (
                   <div className="flex-1 max-w-lg relative animate-in fade-in slide-in-from-top-1 duration-200">
-                    <div className="relative">
-                      {isSearchPending ? (
-                        <Loader2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#259783] animate-spin" />
-                      ) : (
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      )}
-                      <Input
-                        ref={searchInputRef}
-                        type="text"
-                        placeholder="Search products... (Esc to close)"
-                        value={searchQuery}
-                        onChange={(e) => handleSearchChange(e.target.value)}
-                        className="pl-10 pr-24 h-11 border-2 border-gray-200 focus:border-[#259783] focus:ring-4 focus:ring-[#259783]/20 rounded-xl text-sm font-medium bg-white shadow-sm"
-                        autoComplete="off"
-                        autoCorrect="off"
-                        spellCheck={false}
-                      />
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                        {searchQuery && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 w-7 p-0 hover:bg-gray-100 rounded-lg"
-                            onClick={clearSearch}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
+                    <form onSubmit={handleSearchSubmit}>
+                      <div className="relative">
+                        {isSearchPending || barcodeScanStatus.scanning ? (
+                          <Loader2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#259783] animate-spin" />
+                        ) : isValidBarcode(searchQuery) ? (
+                          <QrCode className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#259783]" />
+                        ) : (
+                          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                         )}
-                        <kbd className="pointer-events-none h-6 select-none items-center gap-1 rounded-md border bg-gray-50 px-1.5 font-mono text-[10px] font-medium text-gray-500 hidden sm:flex">
-                          Esc
-                        </kbd>
+                        <Input
+                          ref={searchInputRef}
+                          type="text"
+                          placeholder="Search or scan barcode... (Esc to close)"
+                          value={searchQuery}
+                          onChange={(e) => handleSearchChange(e.target.value)}
+                          className="pl-10 pr-24 h-11 border-2 border-gray-200 focus:border-[#259783] focus:ring-4 focus:ring-[#259783]/20 rounded-xl text-sm font-medium bg-white shadow-sm"
+                          autoComplete="off"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          data-barcode-enabled="true"
+                        />
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                          {searchQuery && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 w-7 p-0 hover:bg-gray-100 rounded-lg"
+                              onClick={clearSearch}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          )}
+                          <kbd className="pointer-events-none h-6 select-none items-center gap-1 rounded-md border bg-gray-50 px-1.5 font-mono text-[10px] font-medium text-gray-500 hidden sm:flex">
+                            Esc
+                          </kbd>
+                        </div>
                       </div>
-                    </div>
-                    {searchQuery && isSearchPending && (
+                    </form>
+                    {searchQuery && (
                       <div className="absolute top-full left-0 right-0 mt-1 text-xs text-gray-500 flex items-center gap-1.5 pl-1">
-                        <span className="inline-block w-1.5 h-1.5 bg-[#259783] rounded-full animate-pulse"></span>
-                        Searching...
+                        {isSearchPending ? (
+                          <>
+                            <span className="inline-block w-1.5 h-1.5 bg-[#259783] rounded-full animate-pulse"></span>
+                            Searching...
+                          </>
+                        ) : isValidBarcode(searchQuery) ? (
+                          <>
+                            <QrCode className="w-3 h-3 text-[#259783]" />
+                            <span className="text-[#259783] font-medium">Press Enter to scan barcode</span>
+                          </>
+                        ) : null}
                       </div>
                     )}
                   </div>
@@ -942,6 +1047,51 @@ export default function POSPage() {
         onOpenChange={setVariantSelectorOpen}
         onSelectVariant={handleVariantSelected}
       />
+
+      {/* Barcode Scan Status Notification */}
+      {(barcodeScanStatus.scanning || barcodeScanStatus.error || barcodeScanStatus.success) && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-2 duration-300">
+          <div className={`
+            flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border backdrop-blur-sm
+            ${barcodeScanStatus.scanning 
+              ? 'bg-blue-50/90 border-blue-200 text-blue-800' 
+              : barcodeScanStatus.error 
+                ? 'bg-red-50/90 border-red-200 text-red-800'
+                : 'bg-green-50/90 border-green-200 text-green-800'
+            }
+          `}>
+            {barcodeScanStatus.scanning ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <div>
+                  <p className="font-semibold text-sm">Scanning barcode...</p>
+                  <p className="text-xs opacity-75">{barcodeScanStatus.lastScanned}</p>
+                </div>
+              </>
+            ) : barcodeScanStatus.error ? (
+              <>
+                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <X className="w-4 h-4 text-red-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">Barcode not found</p>
+                  <p className="text-xs opacity-75">{barcodeScanStatus.lastScanned}</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                  <QrCode className="w-4 h-4 text-green-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">Product found!</p>
+                  <p className="text-xs opacity-75">{barcodeScanStatus.lastScanned}</p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }
