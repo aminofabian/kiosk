@@ -8,10 +8,16 @@ import { Separator } from '@/components/ui/separator';
 import { Minus, Plus, Trash2, ShoppingCart, Tag } from 'lucide-react';
 import Link from 'next/link';
 import { QuantityInput } from './QuantityInput';
+import type { UnitType } from '@/lib/constants';
 
 // Generate a unique key for cart items
 const getCartItemKey = (item: { itemId: string; isBundle?: boolean }): string => {
   return item.isBundle ? `${item.itemId}:bundle` : item.itemId;
+};
+
+// Type guard to check if unitType is a valid UnitType (not 'bundle')
+const isValidUnitType = (unitType: UnitType | 'bundle'): unitType is UnitType => {
+  return unitType !== 'bundle';
 };
 
 export function CartView() {
@@ -96,7 +102,7 @@ export function CartView() {
                             <Plus className="h-4 w-4" />
                           </Button>
                         </div>
-                      ) : (
+                      ) : isValidUnitType(item.unitType) ? (
                         <QuantityInput
                           unitType={item.unitType}
                           value={item.quantity}
@@ -105,7 +111,7 @@ export function CartView() {
                           }
                           min={0}
                         />
-                      )}
+                      ) : null}
                       <Button
                         variant="ghost"
                         size="icon-touch"
