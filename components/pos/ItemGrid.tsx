@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Zap } from 'lucide-react';
+import { Zap, Tag } from 'lucide-react';
 import type { Item } from '@/lib/db/types';
 import type { Category } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
@@ -405,9 +405,22 @@ export function ItemGrid({
                   </div>
                 </div>
                 
-                {/* Price */}
-                <div className="text-lg sm:text-xl font-bold text-[#259783]">
-                  {formatPrice(item.current_sell_price)}
+                {/* Price and Bundle Info */}
+                <div className="space-y-1.5">
+                  <div className="text-lg sm:text-xl font-bold text-[#259783]">
+                    {formatPrice(item.current_sell_price)}
+                  </div>
+                  {/* Bundle Pricing Badge */}
+                  {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] px-2 py-0.5 h-5 flex items-center gap-1">
+                        <Tag className="w-2.5 h-2.5" />
+                        <span className="font-semibold">
+                          {item.bundle_name || `${item.bundle_quantity} for ${formatPrice(item.bundle_price)}`}
+                        </span>
+                      </Badge>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex items-center justify-between gap-2 mt-auto">

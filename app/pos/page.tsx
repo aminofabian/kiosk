@@ -26,6 +26,7 @@ import {
   ArrowLeft,
   LogOut,
   Loader2,
+  Tag,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Item } from '@/lib/db/types';
@@ -819,13 +820,24 @@ export default function POSPage() {
                         <h3 className="font-bold text-sm text-left mb-2 line-clamp-2 text-white">
                           {item.variant_name || item.name}
                         </h3>
-                        <div className="flex items-center gap-2">
-                          <span className="bg-[#259783] text-white font-bold text-sm px-2 py-1 rounded">
-                            {formatPrice(item.current_sell_price)}
-                          </span>
-                          <span className="text-xs text-white/80">
-                            / {item.unit_type}
-                          </span>
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="bg-[#259783] text-white font-bold text-sm px-2 py-1 rounded">
+                              {formatPrice(item.current_sell_price)}
+                            </span>
+                            <span className="text-xs text-white/80">
+                              / {item.unit_type}
+                            </span>
+                          </div>
+                          {/* Bundle Pricing Badge */}
+                          {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="bg-amber-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded flex items-center gap-1">
+                                <Tag className="w-2.5 h-2.5" />
+                                {item.bundle_name || `${item.bundle_quantity} for ${formatPrice(item.bundle_price)}`}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </button>
