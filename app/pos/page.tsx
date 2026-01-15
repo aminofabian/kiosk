@@ -24,7 +24,6 @@ import {
   Droplets,
   Package,
   ArrowLeft,
-  Layers,
   LogOut,
   Loader2,
 } from 'lucide-react';
@@ -407,6 +406,7 @@ export default function POSPage() {
     isParent?: boolean;
     variantCount?: number;
     variants?: Item[];
+    parentName?: string; // Parent name for variants
   }
 
   const [categoryItems, setCategoryItems] = useState<ItemWithVariants[]>([]);
@@ -427,37 +427,46 @@ export default function POSPage() {
         if (result.success) {
           const allItems: Item[] = result.data ?? [];
           
-          // Group items: separate parents and variants
-          const parentItems: ItemWithVariants[] = [];
-          const variantsByParent = new Map<string, Item[]>();
-
+          // Build parent name map and identify which items have variants
+          const parentNames = new Map<string, string>();
+          const parentIds = new Set<string>();
+          
+          for (const item of allItems) {
+            if (!item.parent_item_id) {
+              parentNames.set(item.id, item.name);
+            }
+          }
+          
           for (const item of allItems) {
             if (item.parent_item_id) {
-              const variants = variantsByParent.get(item.parent_item_id) || [];
-              variants.push(item);
-              variantsByParent.set(item.parent_item_id, variants);
-            } else {
-              parentItems.push(item);
+              parentIds.add(item.parent_item_id);
             }
           }
 
-          // Process parent items
+          // Show only sellable items: variants and standalone items (not parents with children)
           const processedItems: ItemWithVariants[] = [];
-          for (const item of parentItems) {
-            const variants = variantsByParent.get(item.id);
-            if (variants && variants.length > 0) {
+          
+          for (const item of allItems) {
+            if (item.parent_item_id) {
+              // This is a variant - show it with parent name context
               processedItems.push({
                 ...item,
-                isParent: true,
-                variantCount: variants.length,
-                variants: variants.sort((a, b) => 
-                  (a.variant_name || '').localeCompare(b.variant_name || '')
-                ),
+                parentName: parentNames.get(item.parent_item_id) || undefined,
               });
-            } else {
+            } else if (!parentIds.has(item.id)) {
+              // Standalone item (not a parent with children)
               processedItems.push(item);
             }
+            // Skip parent items - they're just labels
           }
+
+          // Sort: variants by parent name then variant name, then standalone items
+          processedItems.sort((a, b) => {
+            const parentA = a.parentName || '';
+            const parentB = b.parentName || '';
+            if (parentA !== parentB) return parentA.localeCompare(parentB);
+            return (a.variant_name || a.name).localeCompare(b.variant_name || b.name);
+          });
 
           setCategoryItems(processedItems);
         }
@@ -474,21 +483,14 @@ export default function POSPage() {
   const filteredCategoryItems = categorySearchQuery
     ? categoryItems.filter((item) =>
         item.name.toLowerCase().includes(categorySearchQuery.toLowerCase()) ||
-        item.variant_name?.toLowerCase().includes(categorySearchQuery.toLowerCase())
+        item.variant_name?.toLowerCase().includes(categorySearchQuery.toLowerCase()) ||
+        item.parentName?.toLowerCase().includes(categorySearchQuery.toLowerCase())
       )
     : categoryItems;
 
   const handleMobileItemClick = (item: ItemWithVariants) => {
-    if (item.isParent && item.variants) {
-      setSelectedParentItem({
-        id: item.id,
-        name: item.name,
-        variants: item.variants,
-      });
-      setVariantSelectorOpen(true);
-    } else {
-      handleSelectItem(item);
-    }
+    // All items are now directly selectable (variants or standalone)
+    handleSelectItem(item);
   };
 
   const formatPrice = (price: number) => {
@@ -776,15 +778,13 @@ export default function POSPage() {
                     <button
                       key={item.id}
                       onClick={() => handleMobileItemClick(item)}
-                      className={`bg-[#1c2e18] dark:bg-[#132210] rounded-xl shadow-sm overflow-hidden active:scale-95 transition-transform ${
-                        item.isParent ? 'ring-2 ring-purple-500' : ''
-                      }`}
+                      className="bg-[#1c2e18] dark:bg-[#132210] rounded-xl shadow-sm overflow-hidden active:scale-95 transition-transform relative"
                     >
                       <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-xl overflow-hidden relative">
-                        {getItemImage(item.name) ? (
+                        {getItemImage(item.parentName || item.name) ? (
                           <img
-                            src={getItemImage(item.name)!}
-                            alt={item.name}
+                            src={getItemImage(item.parentName || item.name)!}
+                            alt={item.variant_name || item.name}
                             className="w-full h-full object-cover"
                             loading="lazy"
                             onError={(e) => {
@@ -800,31 +800,33 @@ export default function POSPage() {
                             <Package className="w-12 h-12 text-gray-400" />
                           </div>
                         )}
-                        {item.isParent && (
-                          <div className="absolute top-2 right-2 bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
-                            <Layers className="w-3 h-3" />
-                            {item.variantCount}
+                        {/* Out of stock overlay */}
+                        {item.current_stock <= 0 && (
+                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                            <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
+                              Out of Stock
+                            </span>
                           </div>
                         )}
                       </div>
                       <div className="p-3">
-                        <h3 className="font-bold text-sm text-left mb-2 line-clamp-2 text-white">
-                          {item.name}
-                        </h3>
-                        {item.isParent ? (
-                          <div className="text-purple-400 text-xs font-medium">
-                            Tap to select variant
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2">
-                            <span className="bg-[#259783] text-white font-bold text-sm px-2 py-1 rounded">
-                              {formatPrice(item.current_sell_price)}
-                            </span>
-                            <span className="text-xs text-white/80">
-                              / {item.unit_type}
-                            </span>
-                          </div>
+                        {/* Show parent name as label for variants */}
+                        {item.parentName && (
+                          <p className="text-[10px] font-semibold text-[#259783] uppercase tracking-wide mb-1 text-left">
+                            {item.parentName}
+                          </p>
                         )}
+                        <h3 className="font-bold text-sm text-left mb-2 line-clamp-2 text-white">
+                          {item.variant_name || item.name}
+                        </h3>
+                        <div className="flex items-center gap-2">
+                          <span className="bg-[#259783] text-white font-bold text-sm px-2 py-1 rounded">
+                            {formatPrice(item.current_sell_price)}
+                          </span>
+                          <span className="text-xs text-white/80">
+                            / {item.unit_type}
+                          </span>
+                        </div>
                       </div>
                     </button>
                   ))}

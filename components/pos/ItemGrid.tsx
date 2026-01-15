@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Zap, Layers } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import type { Item } from '@/lib/db/types';
 import type { Category } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
@@ -14,6 +14,7 @@ interface ItemWithVariants extends Item {
   isParent?: boolean;
   variantCount?: number;
   variants?: Item[];
+  parentName?: string; // Parent item name for variants
 }
 
 interface ItemGridProps {
@@ -158,38 +159,53 @@ export function ItemGrid({
         if (result.success) {
           const allItems: Item[] = result.data;
           
-          const parentItems: ItemWithVariants[] = [];
+          // Separate items: variants (children) and standalone items (no parent, no children)
+          const parentNames = new Map<string, string>();
+          const variants: ItemWithVariants[] = [];
           const standaloneItems: ItemWithVariants[] = [];
-          const variantsByParent = new Map<string, Item[]>();
+          const parentIds = new Set<string>();
 
+          // First pass: identify all parent items and build name map
+          for (const item of allItems) {
+            if (!item.parent_item_id) {
+              parentNames.set(item.id, item.name);
+            }
+          }
+
+          // Second pass: identify which items have variants
           for (const item of allItems) {
             if (item.parent_item_id) {
-              const variants = variantsByParent.get(item.parent_item_id) || [];
-              variants.push(item);
-              variantsByParent.set(item.parent_item_id, variants);
-            } else {
-              parentItems.push(item);
+              parentIds.add(item.parent_item_id);
             }
           }
 
-          const processedItems: ItemWithVariants[] = [];
-          for (const item of parentItems) {
-            const variants = variantsByParent.get(item.id);
-            if (variants && variants.length > 0) {
-              processedItems.push({
+          // Third pass: categorize items
+          for (const item of allItems) {
+            if (item.parent_item_id) {
+              // This is a variant - show it directly with parent name as context
+              const parentName = parentNames.get(item.parent_item_id);
+              variants.push({
                 ...item,
-                isParent: true,
-                variantCount: variants.length,
-                variants: variants.sort((a, b) => 
-                  (a.variant_name || '').localeCompare(b.variant_name || '')
-                ),
-              });
-            } else {
+                // Store parent name for display
+                parentName: parentName || undefined,
+              } as ItemWithVariants);
+            } else if (!parentIds.has(item.id)) {
+              // This is a standalone item (not a parent with children)
               standaloneItems.push(item);
             }
+            // Skip parent items that have children - they're just labels
           }
 
-          setItems([...processedItems, ...standaloneItems]);
+          // Sort variants by parent name, then variant name
+          variants.sort((a, b) => {
+            const parentA = (a as ItemWithVariants & { parentName?: string }).parentName || '';
+            const parentB = (b as ItemWithVariants & { parentName?: string }).parentName || '';
+            if (parentA !== parentB) return parentA.localeCompare(parentB);
+            return (a.variant_name || '').localeCompare(b.variant_name || '');
+          });
+
+          // Show variants first, then standalone items
+          setItems([...variants, ...standaloneItems]);
         } else {
           setError(result.message || 'Failed to load items');
         }
@@ -310,14 +326,8 @@ export function ItemGrid({
   };
 
   const handleItemClick = (item: ItemWithVariants) => {
-    if (item.isParent && onSelectParent) {
-      onSelectParent(item);
-    } else if (item.isParent && item.variants && item.variants.length > 0) {
-      // Fallback: if no onSelectParent, select first variant
-      onSelectItem(item.variants[0]);
-    } else {
-      onSelectItem(item);
-    }
+    // All items shown are now directly selectable (variants or standalone)
+    onSelectItem(item);
   };
 
   return (
@@ -340,60 +350,38 @@ export function ItemGrid({
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
         {items.map((item) => {
           const canQuickAdd =
-            !item.isParent &&
             onQuickAdd &&
             item.current_stock > 0 &&
             item.current_stock >= getQuickAddQuantity(item);
           const quickQty = getQuickAddQuantity(item);
 
-          // For parent items, calculate total stock across variants
-          const totalVariantStock = item.isParent && item.variants
-            ? item.variants.reduce((sum, v) => sum + v.current_stock, 0)
-            : 0;
-
           return (
             <Card
               key={item.id}
-              className={`group cursor-pointer hover-lift transition-smooth touch-target bg-white border-gray-200 hover:border-[#259783] shadow-sm hover:shadow-lg relative overflow-hidden ${
-                item.isParent ? 'ring-2 ring-purple-200 dark:ring-purple-800' : ''
-              }`}
+              className="group cursor-pointer hover-lift transition-smooth touch-target bg-white border-gray-200 hover:border-[#259783] shadow-sm hover:shadow-lg relative overflow-hidden"
               onClick={() => handleItemClick(item)}
             >
               <CardContent className="p-4 sm:p-5 flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="font-semibold text-sm sm:text-base line-clamp-2 text-gray-800 min-h-[2.5rem] flex-1">
-                    {item.name}
-                  </div>
-                  {item.isParent && (
-                    <Badge className="shrink-0 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 text-xs">
-                      <Layers className="w-3 h-3 mr-1" />
-                      {item.variantCount}
-                    </Badge>
+                <div className="flex flex-col gap-1">
+                  {/* Show parent name as label for variants */}
+                  {item.parentName && (
+                    <span className="text-[10px] sm:text-xs font-medium text-[#259783] uppercase tracking-wide">
+                      {item.parentName}
+                    </span>
                   )}
+                  <div className="font-semibold text-sm sm:text-base line-clamp-2 text-gray-800 min-h-[2.5rem]">
+                    {item.variant_name || item.name}
+                  </div>
                 </div>
                 
-                {item.isParent ? (
-                  // Parent item - show variant info
-                  <div className="text-sm text-purple-600 dark:text-purple-400 font-medium">
-                    Tap to select variant
-                  </div>
-                ) : (
-                  // Regular item or variant
-                  <div className="text-lg sm:text-xl font-bold text-[#259783]">
-                    {formatPrice(item.current_sell_price)}
-                  </div>
-                )}
+                {/* Price */}
+                <div className="text-lg sm:text-xl font-bold text-[#259783]">
+                  {formatPrice(item.current_sell_price)}
+                </div>
                 
                 <div className="flex items-center justify-between gap-2 mt-auto">
                   <div className="flex items-center gap-2">
-                    {item.isParent ? (
-                      <span className="text-xs text-gray-500 font-medium">
-                        {totalVariantStock > 0 
-                          ? `${item.variantCount} variants available`
-                          : 'No stock'
-                        }
-                      </span>
-                    ) : isLowStock(item.current_stock) ? (
+                    {isLowStock(item.current_stock) ? (
                       <Badge
                         variant="destructive"
                         className="text-xs font-semibold animate-pulse"
@@ -422,7 +410,7 @@ export function ItemGrid({
                   )}
                 </div>
               </CardContent>
-              {!item.isParent && item.current_stock <= 0 && (
+              {item.current_stock <= 0 && (
                 <div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center">
                   <Badge variant="destructive" className="text-xs">
                     Out of Stock
