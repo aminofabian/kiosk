@@ -87,8 +87,17 @@ export function AddToCartDialog({
   const bundleSavings = hasBundle ? regularPriceForBundle - (item.bundle_price! * bundleCount) : 0;
   
   const formatPrice = (price: number) => `KES ${price.toFixed(0)}`;
-  const isOutOfStock = item.current_stock <= 0;
-  const maxQuantity = isOutOfStock ? 0 : item.current_stock;
+  
+  // Calculate quantity already in cart for this item (excluding bundles)
+  const quantityInCart = cartItems
+    .filter((i) => i.itemId === item.id && !i.isBundle)
+    .reduce((sum, i) => sum + i.quantity, 0);
+  
+  // Calculate remaining stock
+  const remainingStock = Math.max(0, item.current_stock - quantityInCart);
+  
+  const isOutOfStock = remainingStock <= 0;
+  const maxQuantity = isOutOfStock ? 0 : remainingStock;
   const isWeight = item.unit_type === 'kg' || item.unit_type === 'g';
   const step = isWeight ? 0.1 : 1;
 
@@ -178,6 +187,28 @@ export function AddToCartDialog({
               <div className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800">
                 <span className="text-sm text-gray-700 dark:text-gray-300">
                   {formatPrice(item.current_sell_price)} / {item.unit_type}
+                </span>
+              </div>
+              <div className={`mt-2 inline-flex items-center px-3 py-1 rounded-full border ${
+                remainingStock > 0 
+                  ? 'bg-[#259783]/10 dark:bg-[#259783]/20 border-[#259783]/30 dark:border-[#259783]/50' 
+                  : 'bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700'
+              }`}>
+                <Package className={`w-3.5 h-3.5 mr-1.5 ${
+                  remainingStock > 0 
+                    ? 'text-[#259783] dark:text-[#45d827]' 
+                    : 'text-red-600 dark:text-red-400'
+                }`} />
+                <span className={`text-sm font-medium ${
+                  remainingStock > 0 
+                    ? 'text-[#259783] dark:text-[#45d827]' 
+                    : 'text-red-700 dark:text-red-300'
+                }`}>
+                  {remainingStock > 0 ? (
+                    <>Remaining: {remainingStock.toFixed(isWeight ? 1 : 0)} {item.unit_type}</>
+                  ) : (
+                    <>Out of Stock</>
+                  )}
                 </span>
               </div>
               {hasBundle && (
