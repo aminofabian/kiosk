@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Package, Layers, ShoppingCart, DollarSign, Box, AlertCircle, Info, Sparkles, Grid3x3, QrCode } from 'lucide-react';
+import { Loader2, Package, Layers, ShoppingCart, DollarSign, Box, AlertCircle, Info, Sparkles, Grid3x3, QrCode, Search, CheckCircle2 } from 'lucide-react';
 import type { Category, Item } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
 import { apiGet, apiPost, apiPut } from '@/lib/utils/api-client';
@@ -727,12 +727,13 @@ export function ItemForm({
     initialData?.bundle_price?.toString() || ''
   );
   const [bundleName, setBundleName] = useState<string>(initialData?.bundle_name || '');
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [parentSearchQuery, setParentSearchQuery] = useState('');
   const [barcodeScanStatus, setBarcodeScanStatus] = useState<{ scanning: boolean; lastScanned: string | null }>({ scanning: false, lastScanned: null });
-  
+
   // Barcode input ref
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
@@ -756,6 +757,14 @@ export function ItemForm({
     minLength: 4,
     maxDelay: 100,
   });
+
+  const filteredParentItems = useMemo(() => {
+    if (!parentSearchQuery.trim()) return parentItems;
+    const query = parentSearchQuery.toLowerCase();
+    return parentItems.filter(item =>
+      item.name.toLowerCase().includes(query)
+    );
+  }, [parentItems, parentSearchQuery]);
 
   useEffect(() => {
     async function fetchData() {
@@ -1141,40 +1150,63 @@ export function ItemForm({
         {mode === 'variant' && !parentItemId && (
           <>
             <Separator />
-            <div className="space-y-3">
+            <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <Layers className="h-4 w-4 text-muted-foreground" />
-                <Label htmlFor="parent" className="text-base font-semibold">Which product is this a variant of? *</Label>
+                <Label className="text-base font-semibold">Which product is this a variant of? *</Label>
               </div>
-              <Select
-                value={selectedParentId}
-                onValueChange={(v) => {
-                  setSelectedParentId(v);
-                  const parent = parentItems.find(p => p.id === v);
-                  if (parent) {
-                    setCategoryId(parent.category_id);
-                  }
-                }}
-                disabled={isSubmitting}
-              >
-                <SelectTrigger className="h-12">
-                  <SelectValue placeholder="Choose the main product..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {parentItems.length === 0 ? (
-                    <div className="p-4 text-center">
-                      <p className="text-sm text-muted-foreground mb-2">No products with variants found.</p>
-                      <p className="text-xs text-muted-foreground">Create a "Product with Variants" first.</p>
-                    </div>
-                  ) : (
-                    parentItems.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {item.name}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Search products..."
+                  value={parentSearchQuery}
+                  onChange={(e) => setParentSearchQuery(e.target.value)}
+                  className="pl-9 h-11 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-[#259783]"
+                />
+              </div>
+
+              <div className="space-y-2 max-h-[250px] overflow-y-auto px-1 -mx-1">
+                {filteredParentItems.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-xl">
+                    <Package className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                    <p className="text-sm italic">No products found</p>
+                  </div>
+                ) : (
+                  filteredParentItems.map((item) => {
+                    const isSelected = item.id === selectedParentId;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedParentId(item.id);
+                          setCategoryId(item.category_id);
+                        }}
+                        className={`w-full text-left p-3.5 rounded-xl border-2 transition-all ${isSelected
+                            ? 'border-[#259783] bg-[#259783]/5 ring-2 ring-[#259783]/10 shadow-sm'
+                            : 'border-slate-100 dark:border-slate-800 bg-white/50 dark:bg-slate-800/30 hover:border-[#259783]/50 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                          }`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isSelected ? 'bg-[#259783]/20' : 'bg-slate-100 dark:bg-slate-800'
+                              }`}>
+                              <Package className={`h-4 w-4 ${isSelected ? 'text-[#259783]' : 'text-slate-500'}`} />
+                            </div>
+                            <span className={`font-semibold text-sm truncate ${isSelected ? 'text-[#259783]' : 'text-slate-700 dark:text-slate-300'}`}>
+                              {item.name}
+                            </span>
+                          </div>
+                          {isSelected && (
+                            <CheckCircle2 className="h-5 w-5 text-[#259783] shrink-0" />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
             </div>
           </>
         )}
@@ -1831,8 +1863,8 @@ export function ItemForm({
                   </div>
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <Info className="h-3 w-3" />
-                    {barcodeInputFocused 
-                      ? 'Scan barcode with scanner or type manually' 
+                    {barcodeInputFocused
+                      ? 'Scan barcode with scanner or type manually'
                       : 'EAN-13, UPC, or any barcode format. Click to enable scanning.'}
                   </p>
                   {barcodeScanStatus.lastScanned && !barcodeScanStatus.scanning && (
@@ -1898,7 +1930,7 @@ export function ItemForm({
                     <p className="text-xs text-amber-700 dark:text-amber-300">
                       Allow customers to buy this item in bundles at a special price (e.g., "3 tomatoes for KES 20")
                     </p>
-                    
+
                     <div className="grid grid-cols-2 gap-4">
                       {/* Bundle Quantity */}
                       <div className="space-y-2">
@@ -1959,7 +1991,7 @@ export function ItemForm({
                       <div className="p-3 bg-amber-100/50 dark:bg-amber-900/30 rounded-lg border border-amber-200 dark:border-amber-800">
                         <p className="text-sm font-medium text-amber-800 dark:text-amber-200 flex items-center gap-2">
                           <span className="text-lg">🏷️</span>
-                          Preview: 
+                          Preview:
                           <span className="font-bold">
                             {bundleName || `${bundleQuantity} for KES ${bundlePrice}`}
                           </span>
