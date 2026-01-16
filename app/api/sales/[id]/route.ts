@@ -19,13 +19,15 @@ export async function GET(
     const { id: saleId } = await params;
 
     const sale = await queryOne<
-      Sale & { business_name: string }
+      Sale & { business_name: string; user_name: string | null }
     >(
       `SELECT 
         s.*,
-        b.name as business_name
+        b.name as business_name,
+        u.name as user_name
        FROM sales s
        JOIN businesses b ON s.business_id = b.id
+       LEFT JOIN users u ON s.user_id = u.id
        WHERE s.id = ? AND s.business_id = ?`,
       [saleId, auth.businessId]
     );
