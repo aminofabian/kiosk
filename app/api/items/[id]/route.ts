@@ -178,6 +178,25 @@ export async function PUT(
       );
     }
 
+    // Check for duplicate barcode if provided (exclude current item)
+    if (barcode && barcode.trim()) {
+      const existingBarcodeItem = await queryOne<{ id: string; name: string; barcode: string }>(
+        `SELECT id, name, barcode FROM items 
+         WHERE business_id = ? AND barcode = ? AND id != ? AND active = 1`,
+        [auth.businessId, barcode.trim(), itemId]
+      );
+
+      if (existingBarcodeItem) {
+        return jsonResponse(
+          {
+            success: false,
+            message: `A product with barcode "${barcode.trim()}" already exists (${existingBarcodeItem.name}). Please use a different barcode or remove it.`
+          },
+          409
+        );
+      }
+    }
+
     const now = Math.floor(Date.now() / 1000);
 
     if (isParentItem) {

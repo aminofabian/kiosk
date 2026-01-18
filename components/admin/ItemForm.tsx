@@ -736,6 +736,7 @@ export function ItemForm({
   const [parentSearchQuery, setParentSearchQuery] = useState('');
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
   const [barcodeScanStatus, setBarcodeScanStatus] = useState<{ scanning: boolean; lastScanned: string | null }>({ scanning: false, lastScanned: null });
+  const [barcodeCheckStatus, setBarcodeCheckStatus] = useState<{ checking: boolean; exists: boolean; existingItem: Item | null; error: string | null; checked: boolean }>({ checking: false, exists: false, existingItem: null, error: null, checked: false });
 
   // Barcode input ref
   const barcodeInputRef = useRef<HTMLInputElement>(null);
@@ -751,6 +752,58 @@ export function ItemForm({
       }, 1000);
     }
   }, []);
+
+  // Check if barcode already exists
+  const checkBarcodeExists = useCallback(async () => {
+    if (!barcode || !barcode.trim()) {
+      setBarcodeCheckStatus({ checking: false, exists: false, existingItem: null, error: 'Please enter a barcode first', checked: false });
+      return;
+    }
+
+    setBarcodeCheckStatus({ checking: true, exists: false, existingItem: null, error: null, checked: false });
+
+    try {
+      const barcodeCheck = await apiGet<Item>(`/api/items/barcode/${encodeURIComponent(barcode.trim())}`);
+      if (barcodeCheck.success && barcodeCheck.data) {
+        // If editing, allow the same barcode for the current item
+        if (itemId && barcodeCheck.data.id === itemId) {
+          setBarcodeCheckStatus({ 
+            checking: false, 
+            exists: false, 
+            existingItem: null, 
+            error: null,
+            checked: true
+          });
+        } else {
+          setBarcodeCheckStatus({ 
+            checking: false, 
+            exists: true, 
+            existingItem: barcodeCheck.data, 
+            error: null,
+            checked: true
+          });
+        }
+      } else {
+        // Barcode doesn't exist
+        setBarcodeCheckStatus({ 
+          checking: false, 
+          exists: false, 
+          existingItem: null, 
+          error: null,
+          checked: true
+        });
+      }
+    } catch (err) {
+      console.error('Error checking barcode:', err);
+      setBarcodeCheckStatus({ 
+        checking: false, 
+        exists: false, 
+        existingItem: null, 
+        error: 'Failed to check barcode',
+        checked: true
+      });
+    }
+  }, [barcode, itemId]);
 
   // Initialize barcode scanner hook - only active when barcode input is focused
   const [barcodeInputFocused, setBarcodeInputFocused] = useState(false);
@@ -904,6 +957,22 @@ export function ItemForm({
     if (mode !== 'parent' && minStock !== null && minStock < 0) {
       setError('Min stock level cannot be negative');
       return;
+    }
+
+    // Check for duplicate barcode if provided
+    if (barcode && barcode.trim()) {
+      const barcodeCheck = await apiGet<Item>(`/api/items/barcode/${encodeURIComponent(barcode.trim())}`);
+      if (barcodeCheck.success && barcodeCheck.data) {
+        // If editing, allow the same barcode for the current item
+        if (itemId && barcodeCheck.data.id === itemId) {
+          // Same item, same barcode - this is fine
+        } else {
+          // Different item has this barcode - error
+          setError(`A product with barcode "${barcode.trim()}" already exists (${barcodeCheck.data.name}). Please use a different barcode or remove it.`);
+          return;
+        }
+      }
+      // If barcodeCheck.success is false, the barcode doesn't exist, which is what we want
     }
 
     setIsSubmitting(true);
@@ -1836,49 +1905,98 @@ export function ItemForm({
                       </Badge>
                     )}
                   </div>
-                  <div className="relative">
-                    <Input
-                      ref={barcodeInputRef}
-                      id="barcode"
-                      type="text"
-                      value={barcode}
-                      onChange={(e) => setBarcode(e.target.value)}
-                      onFocus={() => setBarcodeInputFocused(true)}
-                      onBlur={() => setBarcodeInputFocused(false)}
-                      placeholder="e.g., 1234567890123 or scan barcode"
-                      disabled={isSubmitting}
-                      className="h-12 text-base focus-visible:ring-[#259783] font-mono pr-12"
-                      data-barcode-enabled="true"
-                      autoComplete="off"
-                      autoCorrect="off"
-                      spellCheck={false}
-                    />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                      {barcodeScanStatus.scanning && (
-                        <div className="flex items-center gap-1.5 text-[#259783]">
-                          <div className="w-2 h-2 rounded-full bg-[#259783] animate-pulse"></div>
-                          <span className="text-xs font-medium">Scanning...</span>
-                        </div>
-                      )}
-                      {barcode && !barcodeScanStatus.scanning && (
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <Input
+                        ref={barcodeInputRef}
+                        id="barcode"
+                        type="text"
+                        value={barcode}
+                        onChange={(e) => {
+                          setBarcode(e.target.value);
+                          // Clear check status when barcode changes
+                          setBarcodeCheckStatus({ checking: false, exists: false, existingItem: null, error: null, checked: false });
+                        }}
+                        onFocus={() => setBarcodeInputFocused(true)}
+                        onBlur={() => setBarcodeInputFocused(false)}
+                        placeholder="e.g., 1234567890123 or scan barcode"
+                        disabled={isSubmitting}
+                        className="h-12 text-base focus-visible:ring-[#259783] font-mono pr-12"
+                        data-barcode-enabled="true"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        spellCheck={false}
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                        {barcodeScanStatus.scanning && (
+                          <div className="flex items-center gap-1.5 text-[#259783]">
+                            <div className="w-2 h-2 rounded-full bg-[#259783] animate-pulse"></div>
+                            <span className="text-xs font-medium">Scanning...</span>
+                          </div>
+                        )}
+                        {barcode && !barcodeScanStatus.scanning && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0 hover:bg-[#259783]/10"
+                            onClick={() => {
+                              setBarcode('');
+                              setBarcodeCheckStatus({ checking: false, exists: false, existingItem: null, error: null, checked: false });
+                              barcodeInputRef.current?.focus();
+                            }}
+                            title="Clear barcode"
+                          >
+                            <span className="text-xs">✕</span>
+                          </Button>
+                        )}
+                        {!barcode && (
+                          <QrCode className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </div>
+                    </div>
+                    {barcode && barcode.trim() && (
+                      <div className="flex items-center gap-2">
                         <Button
                           type="button"
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
-                          className="h-7 w-7 p-0 hover:bg-[#259783]/10"
-                          onClick={() => {
-                            setBarcode('');
-                            barcodeInputRef.current?.focus();
-                          }}
-                          title="Clear barcode"
+                          onClick={checkBarcodeExists}
+                          disabled={isSubmitting || barcodeCheckStatus.checking}
+                          className="h-8 text-xs"
                         >
-                          <span className="text-xs">✕</span>
+                          {barcodeCheckStatus.checking ? (
+                            <>
+                              <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                              Checking...
+                            </>
+                          ) : (
+                            <>
+                              <Search className="h-3 w-3 mr-1.5" />
+                              Check if exists
+                            </>
+                          )}
                         </Button>
-                      )}
-                      {!barcode && (
-                        <QrCode className="w-4 h-4 text-muted-foreground" />
-                      )}
-                    </div>
+                        {barcodeCheckStatus.exists && barcodeCheckStatus.existingItem && (
+                          <div className="flex items-center gap-2 px-2 py-1 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-xs text-red-700 dark:text-red-300">
+                            <AlertCircle className="h-3 w-3" />
+                            <span>Product exists: <strong>{barcodeCheckStatus.existingItem.name}</strong></span>
+                          </div>
+                        )}
+                        {barcodeCheckStatus.checked && !barcodeCheckStatus.checking && !barcodeCheckStatus.exists && barcodeCheckStatus.existingItem === null && barcodeCheckStatus.error === null && (
+                          <div className="flex items-center gap-2 px-2 py-1 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded text-xs text-green-700 dark:text-green-300">
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span>Barcode is available</span>
+                          </div>
+                        )}
+                        {barcodeCheckStatus.error && (
+                          <div className="flex items-center gap-2 px-2 py-1 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded text-xs text-yellow-700 dark:text-yellow-300">
+                            <AlertCircle className="h-3 w-3" />
+                            <span>{barcodeCheckStatus.error}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <Info className="h-3 w-3" />
