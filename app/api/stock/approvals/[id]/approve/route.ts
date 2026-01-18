@@ -36,6 +36,7 @@ export async function POST(
       reason: string;
       notes: string | null;
       status: string;
+      requested_by: string;
     }>(
       `SELECT * FROM stock_approval_requests 
        WHERE id = ? AND business_id = ?`,
