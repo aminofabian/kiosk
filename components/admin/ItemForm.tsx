@@ -708,7 +708,9 @@ export function ItemForm({
   const [unitSalesOnly, setUnitSalesOnly] = useState<boolean>(
     initialData?.unit_type === 'piece' || initialData?.unit_type === 'bunch' || initialData?.unit_type === 'tray'
   );
-  const [initialStock, setInitialStock] = useState<string>(initialData?.current_stock?.toString() || '0');
+  const [initialStock, setInitialStock] = useState<string>(
+    initialData?.current_stock ? Math.round(initialData.current_stock).toString() : '0'
+  );
   const [buyPrice, setBuyPrice] = useState<string>(initialData?.buy_price?.toString() || '');
   const [sellPrice, setSellPrice] = useState<string>(initialData?.current_sell_price?.toString() || '');
   const [minStockLevel, setMinStockLevel] = useState<string>(initialData?.min_stock_level?.toString() || '');
@@ -881,7 +883,7 @@ export function ItemForm({
       }
     }
 
-    const stock = parseFloat(initialStock) || 0;
+    const stock = parseInt(initialStock, 10) || 0;
     const buy = buyPrice ? parseFloat(buyPrice) : null;
     const price = mode === 'parent' ? 0 : parseFloat(sellPrice);
     const minStock = minStockLevel ? parseFloat(minStockLevel) : null;
@@ -1736,11 +1738,11 @@ export function ItemForm({
                     <Input
                       id="stock"
                       type="number"
-                      step="0.01"
+                      step="1"
                       min="0"
                       value={initialStock}
                       onChange={(e) => setInitialStock(e.target.value)}
-                      placeholder="0.00"
+                      placeholder="0"
                       disabled={isSubmitting}
                       className="h-12 text-base focus-visible:ring-[#259783]"
                     />
@@ -1748,7 +1750,7 @@ export function ItemForm({
                       <Info className="h-3 w-3" />
                       How many {unitType}s you have right now (leave 0 if none)
                     </p>
-                    {parseFloat(initialStock) > 0 && !buyPrice && (
+                    {parseInt(initialStock, 10) > 0 && !buyPrice && (
                       <div className="p-2 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                         <p className="text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1">
                           <AlertCircle className="h-3 w-3" />

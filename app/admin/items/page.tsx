@@ -21,13 +21,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Edit, Loader2, Plus, Search, Package, X, ChevronRight, FolderTree, Layers, ChevronDown, TrendingUp, TrendingDown, Trash2 } from 'lucide-react';
+import { Edit, Loader2, Plus, Search, Package, X, ChevronRight, FolderTree, Layers, ChevronDown, TrendingUp, TrendingDown, Trash2, Store, ShoppingBag } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { ItemForm } from '@/components/admin/ItemForm';
 import { CategoryForm } from '@/components/admin/CategoryForm';
 import type { Item, Category } from '@/lib/db/types';
 import type { UnitType, AdjustmentReason } from '@/lib/constants';
 import { ADJUSTMENT_REASONS } from '@/lib/constants';
+import { getCategoryShopType } from '@/lib/utils/shop-type';
 
 const REASON_LABELS: Record<AdjustmentReason, string> = {
   restock: 'Restock / New Delivery',
@@ -53,6 +54,7 @@ export default function ItemsPage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [shopTypeFilter, setShopTypeFilter] = useState<'all' | 'retail' | 'grocery'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'stock'>('name');
   const [selectedItem, setSelectedItem] = useState<ItemWithCategory | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -194,6 +196,35 @@ export default function ItemsPage() {
           return false;
         }
 
+        // Filter by shop type
+        if (shopTypeFilter !== 'all') {
+          // Helper function to check if an item matches the shop type filter
+          const itemMatchesShopType = (categoryName: string | undefined): boolean => {
+            if (!categoryName) return true; // Items without categories show in all filters
+            const categoryShopType = getCategoryShopType(categoryName);
+            if (categoryShopType === null) return true; // Categories not in predefined lists show in all filters
+            return categoryShopType === shopTypeFilter;
+          };
+
+          // Check if the main item matches
+          const mainItemMatches = itemMatchesShopType(item.category_name);
+          
+          if (!mainItemMatches) {
+            // If main item doesn't match, check variants for parent items
+            if (item.variants && item.variants.length > 0) {
+              const hasMatchingVariant = item.variants.some(v => {
+                const variantCategory = categories.find(c => c.id === v.category_id);
+                return itemMatchesShopType(variantCategory?.name);
+              });
+              if (!hasMatchingVariant) {
+                return false;
+              }
+            } else {
+              return false;
+            }
+          }
+        }
+
         return true;
       })
       .sort((a, b) => {
@@ -209,7 +240,7 @@ export default function ItemsPage() {
         }
         return a.name.localeCompare(b.name);
       });
-  }, [items, searchQuery, selectedCategory, sortBy]);
+  }, [items, searchQuery, selectedCategory, shopTypeFilter, sortBy, categories]);
 
   const toggleParentExpanded = (parentId: string) => {
     setExpandedParents(prev => {
@@ -454,6 +485,48 @@ export default function ItemsPage() {
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="pl-9 h-11 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-[#259783]"
                       />
+                    </div>
+
+                    {/* Shop Type Filter */}
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={shopTypeFilter === 'all' ? 'default' : 'outline'}
+                        className={`h-10 flex-1 ${
+                          shopTypeFilter === 'all'
+                            ? 'bg-[#259783] hover:bg-[#45d827] text-white'
+                            : 'bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                        onClick={() => setShopTypeFilter('all')}
+                      >
+                        All Items
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={shopTypeFilter === 'grocery' ? 'default' : 'outline'}
+                        className={`h-10 flex-1 ${
+                          shopTypeFilter === 'grocery'
+                            ? 'bg-[#259783] hover:bg-[#45d827] text-white'
+                            : 'bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                        onClick={() => setShopTypeFilter('grocery')}
+                      >
+                        <ShoppingBag className="h-4 w-4 mr-1.5" />
+                        Grocery
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={shopTypeFilter === 'retail' ? 'default' : 'outline'}
+                        className={`h-10 flex-1 ${
+                          shopTypeFilter === 'retail'
+                            ? 'bg-[#259783] hover:bg-[#45d827] text-white'
+                            : 'bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                        onClick={() => setShopTypeFilter('retail')}
+                      >
+                        <Store className="h-4 w-4 mr-1.5" />
+                        Retail
+                      </Button>
                     </div>
 
                     {/* Filters Row */}
