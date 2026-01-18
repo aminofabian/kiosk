@@ -734,6 +734,7 @@ export function ItemForm({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [parentSearchQuery, setParentSearchQuery] = useState('');
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
   const [barcodeScanStatus, setBarcodeScanStatus] = useState<{ scanning: boolean; lastScanned: string | null }>({ scanning: false, lastScanned: null });
 
   // Barcode input ref
@@ -768,6 +769,15 @@ export function ItemForm({
     );
   }, [parentItems, parentSearchQuery]);
 
+  const filteredCategories = useMemo(() => {
+    if (!categorySearchQuery.trim()) return categories;
+    const query = categorySearchQuery.toLowerCase();
+    return categories.filter(cat =>
+      cat.name.toLowerCase().includes(query) ||
+      (cat.icon && cat.icon.includes(query))
+    );
+  }, [categories, categorySearchQuery]);
+
   useEffect(() => {
     async function fetchData() {
       try {
@@ -781,10 +791,8 @@ export function ItemForm({
           const allCategories = categoriesResult.data ?? [];
           const currentShopType = getShopType();
           setShopType(currentShopType);
-          const filteredCategories = allCategories.filter(cat =>
-            shouldShowCategory(cat.name, currentShopType)
-          );
-          setCategories(filteredCategories);
+          // Show all categories when adding/editing items (no shop type filtering)
+          setCategories(allCategories);
         }
         if (parentsResult.success) {
           setParentItems(parentsResult.data ?? []);
@@ -924,6 +932,7 @@ export function ItemForm({
             setCategories(categoriesResult.data ?? []);
             setIsCustomCategory(false);
             setCategoryId(newCategory.id);
+            setCategorySearchQuery('');
           } else {
             setError('Category was created but could not be found');
             setIsSubmitting(false);
@@ -1365,9 +1374,21 @@ export function ItemForm({
                 <Label className="text-base font-semibold">Which category does this belong to? *</Label>
               </div>
 
-              {categories.length > 0 && !isCustomCategory ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {categories.map((category) => {
+              {categories.length > 0 && (
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="Search categories..."
+                    value={categorySearchQuery}
+                    onChange={(e) => setCategorySearchQuery(e.target.value)}
+                    className="pl-9 h-11 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-[#259783]"
+                  />
+                </div>
+              )}
+
+              {filteredCategories.length > 0 && !isCustomCategory ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[300px] overflow-y-auto px-1 -mx-1">
+                  {filteredCategories.map((category) => {
                     const isSelected = categoryId === category.id;
                     return (
                       <button
@@ -1377,6 +1398,7 @@ export function ItemForm({
                           setCategoryId(category.id);
                           setIsCustomCategory(false);
                           setCustomCategoryName('');
+                          setCategorySearchQuery('');
                           // Reset item name selection when category changes
                           setSelectedItemSuggestion('');
                           setIsCustomItemName(true);
@@ -1411,6 +1433,7 @@ export function ItemForm({
                       setIsCustomCategory(true);
                       setCategoryId('');
                       setCustomCategoryName('');
+                      setCategorySearchQuery('');
                     }}
                     disabled={isSubmitting}
                     className={`
@@ -1434,44 +1457,38 @@ export function ItemForm({
                     )}
                   </button>
                 </div>
-              ) : (
-                <Select
-                  value={isCustomCategory ? 'custom' : categoryId}
-                  onValueChange={(value) => {
-                    if (value === 'custom') {
+              ) : filteredCategories.length === 0 && categorySearchQuery.trim() ? (
+                <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-xl">
+                  <Grid3x3 className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                  <p className="text-sm italic">No categories found matching "{categorySearchQuery}"</p>
+                  <button
+                    type="button"
+                    onClick={() => {
                       setIsCustomCategory(true);
                       setCategoryId('');
                       setCustomCategoryName('');
-                    } else {
-                      setIsCustomCategory(false);
-                      setCategoryId(value);
-                      setSelectedItemSuggestion('');
-                      setIsCustomItemName(true);
-                      setName('');
-                    }
-                  }}
-                  disabled={isSubmitting}
-                >
-                  <SelectTrigger className="h-12">
-                    <SelectValue placeholder="Choose a category..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        <div className="flex items-center gap-2">
-                          <span>{category.icon || '📦'}</span>
-                          <span>{category.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                    <SelectItem value="custom">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="h-4 w-4" />
-                        <span>Create New Category</span>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                    }}
+                    className="mt-3 text-sm text-[#259783] hover:underline"
+                  >
+                    Create new category instead
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-xl">
+                  <Grid3x3 className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                  <p className="text-sm italic">No categories available</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCustomCategory(true);
+                      setCategoryId('');
+                      setCustomCategoryName('');
+                    }}
+                    className="mt-3 text-sm text-[#259783] hover:underline"
+                  >
+                    Create a new category
+                  </button>
+                </div>
               )}
 
               {isCustomCategory && (
