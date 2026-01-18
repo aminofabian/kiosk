@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Minus, Plus, ShoppingCart, X, Package, Tag } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Minus, Plus, ShoppingCart, X, Package, Tag, Edit2 } from 'lucide-react';
 import { useCartStore } from '@/lib/stores/cart-store';
 import type { Item } from '@/lib/db/types';
 import { getItemImage } from '@/lib/utils/item-images';
@@ -25,6 +27,8 @@ export function AddToCartDialog({
   const [quantity, setQuantity] = useState(1);
   const [bundleCount, setBundleCount] = useState(1);
   const [purchaseMode, setPurchaseMode] = useState<PurchaseMode>('regular');
+  const [manualPrice, setManualPrice] = useState<number | null>(null);
+  const [useManualPrice, setUseManualPrice] = useState(false);
   const { addItem, items: cartItems } = useCartStore();
 
   // Check if item has bundle pricing
@@ -35,6 +39,8 @@ export function AddToCartDialog({
       // Reset to regular mode when opening
       setPurchaseMode('regular');
       setBundleCount(1);
+      setManualPrice(null);
+      setUseManualPrice(false);
       
       const existingItem = cartItems.find((i) => i.itemId === item.id && !i.isBundle);
       if (existingItem) {
@@ -45,16 +51,29 @@ export function AddToCartDialog({
     }
   }, [open, item, cartItems]);
 
+  // Update manual price when purchase mode changes (if manual price is enabled)
+  useEffect(() => {
+    if (useManualPrice && item) {
+      const newPrice = purchaseMode === 'bundle' && hasBundle
+        ? item.bundle_price!
+        : item.current_sell_price;
+      setManualPrice(newPrice);
+    }
+  }, [purchaseMode, hasBundle, useManualPrice, item]);
+
   if (!item) return null;
 
   const handleAddToCart = () => {
     if (purchaseMode === 'bundle' && hasBundle && bundleCount > 0) {
       // Add as bundle
+      const bundlePrice = useManualPrice && manualPrice !== null 
+        ? manualPrice 
+        : item.bundle_price!;
       addItem(
         {
           itemId: item.id,
-          name: item.bundle_name || `${item.name} (${item.bundle_quantity} for ${item.bundle_price})`,
-          price: item.bundle_price!,
+          name: item.bundle_name || `${item.name} (${item.bundle_quantity} for ${bundlePrice})`,
+          price: bundlePrice,
           unitType: 'bundle',
           isBundle: true,
           bundleQuantity: item.bundle_quantity!,
@@ -63,12 +82,15 @@ export function AddToCartDialog({
       );
       onOpenChange(false);
     } else if (quantity > 0) {
-      // Regular add
+      // Regular add - use manual price if set, otherwise use default price
+      const finalPrice = useManualPrice && manualPrice !== null 
+        ? manualPrice 
+        : item.current_sell_price;
       addItem(
         {
           itemId: item.id,
           name: item.name,
-          price: item.current_sell_price,
+          price: finalPrice,
           unitType: item.unit_type,
         },
         quantity
@@ -77,14 +99,22 @@ export function AddToCartDialog({
     }
   };
 
-  const subtotal = purchaseMode === 'bundle' && hasBundle
-    ? item.bundle_price! * bundleCount
-    : item.current_sell_price * quantity;
+  // Calculate subtotal - use manual price if enabled, otherwise use default
+  const currentPrice = useManualPrice && manualPrice !== null 
+    ? manualPrice 
+    : (purchaseMode === 'bundle' && hasBundle 
+        ? item.bundle_price! 
+        : item.current_sell_price);
+  const subtotal = currentPrice * (purchaseMode === 'bundle' && hasBundle ? bundleCount : quantity);
   
+  // Calculate bundle savings - use manual price if set
+  const bundlePriceToUse = purchaseMode === 'bundle' && useManualPrice && manualPrice !== null
+    ? manualPrice
+    : (hasBundle ? item.bundle_price! : 0);
   const regularPriceForBundle = hasBundle 
     ? item.current_sell_price * item.bundle_quantity! * bundleCount 
     : 0;
-  const bundleSavings = hasBundle ? regularPriceForBundle - (item.bundle_price! * bundleCount) : 0;
+  const bundleSavings = hasBundle ? regularPriceForBundle - (bundlePriceToUse * bundleCount) : 0;
   
   const formatPrice = (price: number) => `KES ${price.toFixed(0)}`;
   
@@ -93,19 +123,17 @@ export function AddToCartDialog({
     .filter((i) => i.itemId === item.id && !i.isBundle)
     .reduce((sum, i) => sum + i.quantity, 0);
   
-  // Calculate remaining stock
+  // Calculate remaining stock (for display only, not for restrictions)
   const remainingStock = Math.max(0, item.current_stock - quantityInCart);
   
   const isOutOfStock = remainingStock <= 0;
-  const maxQuantity = isOutOfStock ? 0 : remainingStock;
+  // Remove maxQuantity restriction - allow any quantity
   const isWeight = item.unit_type === 'kg' || item.unit_type === 'g';
   const step = isWeight ? 0.1 : 1;
 
   const handleIncrement = () => {
     const newValue = quantity + step;
-    if (maxQuantity === 0 || newValue <= maxQuantity) {
-      setQuantity(Number(newValue.toFixed(isWeight ? 1 : 0)));
-    }
+    setQuantity(Number(newValue.toFixed(isWeight ? 1 : 0)));
   };
 
   const handleDecrement = () => {
@@ -131,13 +159,28 @@ export function AddToCartDialog({
       return;
     }
 
-    if (maxQuantity > 0 && numValue > maxQuantity) {
-      setQuantity(maxQuantity);
+    // Remove maxQuantity restriction - allow any quantity
+    const fixedValue = isWeight ? parseFloat(numValue.toFixed(1)) : Math.floor(numValue);
+    setQuantity(fixedValue);
+  };
+
+  const handleManualPriceChange = (value: string) => {
+    if (value === '' || value === '.') {
+      setManualPrice(null);
       return;
     }
 
-    const fixedValue = isWeight ? parseFloat(numValue.toFixed(1)) : Math.floor(numValue);
-    setQuantity(fixedValue);
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) {
+      return;
+    }
+
+    if (numValue < 0) {
+      setManualPrice(0);
+      return;
+    }
+
+    setManualPrice(numValue);
   };
 
   const handleQuantityBlur = () => {
@@ -184,11 +227,51 @@ export function AddToCartDialog({
               <DialogTitle className="text-2xl font-bold uppercase text-gray-900 dark:text-gray-100 mb-3 text-center">
                 {item.name}
               </DialogTitle>
-              <div className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800">
-                <span className="text-sm text-gray-700 dark:text-gray-300">
-                  {formatPrice(item.current_sell_price)} / {item.unit_type}
-                </span>
+              <div className="flex items-center gap-2">
+                <div className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800">
+                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                    {formatPrice(useManualPrice && manualPrice !== null ? manualPrice : item.current_sell_price)} / {item.unit_type}
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    setUseManualPrice(!useManualPrice);
+                    if (!useManualPrice && manualPrice === null) {
+                      // Initialize with current price based on purchase mode
+                      const initialPrice = purchaseMode === 'bundle' && hasBundle
+                        ? item.bundle_price!
+                        : item.current_sell_price;
+                      setManualPrice(initialPrice);
+                    }
+                  }}
+                  className={`p-1.5 rounded-full transition-colors ${
+                    useManualPrice
+                      ? 'bg-[#259783] text-white'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                  title={useManualPrice ? 'Using manual price' : 'Edit price'}
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
               </div>
+              {useManualPrice && (
+                <div className="mt-2 w-full max-w-xs">
+                  <Label htmlFor="manual-price" className="text-xs text-gray-600 dark:text-gray-400 mb-1 block">
+                    Manual Price (KES)
+                  </Label>
+                  <Input
+                    id="manual-price"
+                    type="number"
+                    value={manualPrice !== null ? manualPrice.toFixed(0) : ''}
+                    onChange={(e) => handleManualPriceChange(e.target.value)}
+                    min="0"
+                    step="1"
+                    className="h-10 text-center font-semibold"
+                    placeholder={item.current_sell_price.toFixed(0)}
+                    autoFocus
+                  />
+                </div>
+              )}
               <div className={`mt-2 inline-flex items-center px-3 py-1 rounded-full border ${
                 remainingStock > 0 
                   ? 'bg-[#259783]/10 dark:bg-[#259783]/20 border-[#259783]/30 dark:border-[#259783]/50' 
@@ -272,8 +355,7 @@ export function AddToCartDialog({
                   </div>
                   <button
                     onClick={() => setBundleCount(bundleCount + 1)}
-                    disabled={isOutOfStock}
-                    className="w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-amber-600 transition-colors"
+                    className="w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center hover:bg-amber-600 transition-colors"
                   >
                     <Plus className="w-6 h-6 text-white" />
                   </button>
@@ -319,7 +401,6 @@ export function AddToCartDialog({
                     onChange={(e) => handleQuantityChange(e.target.value)}
                     onBlur={handleQuantityBlur}
                     min="0"
-                    max={maxQuantity > 0 ? maxQuantity : undefined}
                     step={step}
                     className="text-4xl font-bold text-gray-900 dark:text-gray-100 bg-transparent border-none outline-none text-center w-32 focus:ring-2 focus:ring-[#259783] rounded-lg px-2 py-1"
                   />
@@ -329,8 +410,7 @@ export function AddToCartDialog({
                 </div>
                 <button
                   onClick={handleIncrement}
-                  disabled={isOutOfStock || (maxQuantity > 0 && quantity >= maxQuantity)}
-                  className="w-12 h-12 rounded-full bg-[#259783] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#45d827] transition-colors"
+                  className="w-12 h-12 rounded-full bg-[#259783] flex items-center justify-center hover:bg-[#45d827] transition-colors"
                 >
                   <Plus className="w-6 h-6 text-white" />
                 </button>
@@ -358,7 +438,7 @@ export function AddToCartDialog({
 
             <Button
               onClick={handleAddToCart}
-              disabled={quantity <= 0 || isOutOfStock}
+              disabled={quantity <= 0 || (useManualPrice && (manualPrice === null || manualPrice < 0))}
               className="w-full h-14 bg-[#259783] hover:bg-[#45d827] text-white font-bold text-lg rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ShoppingCart className="w-5 h-5" />

@@ -44,8 +44,12 @@ export function VariantSelector({
   if (!parentItem) return null;
 
   const variants = parentItem.variants || [];
-  const availableVariants = variants.filter((v) => v.current_stock > 0);
-  const outOfStockVariants = variants.filter((v) => v.current_stock <= 0);
+  // Show all variants, sorted by stock status (in stock first, then out of stock)
+  const sortedVariants = [...variants].sort((a, b) => {
+    if (a.current_stock > 0 && b.current_stock <= 0) return -1;
+    if (a.current_stock <= 0 && b.current_stock > 0) return 1;
+    return 0;
+  });
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="right">
@@ -72,87 +76,75 @@ export function VariantSelector({
             </div>
           ) : (
             <div className="space-y-3">
-              {/* Available variants */}
-              {availableVariants.map((variant) => (
-                <button
-                  key={variant.id}
-                  type="button"
-                  onClick={() => {
-                    onSelectVariant(variant);
-                    onOpenChange(false);
-                  }}
-                  className="w-full p-4 rounded-xl bg-white dark:bg-slate-800 border-2 border-gray-100 dark:border-slate-700 hover:border-[#259783] transition-all text-left group"
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-semibold text-gray-900 dark:text-white">
-                          {variant.variant_name || variant.name}
-                        </h3>
-                        <Badge variant="outline" className="text-xs shrink-0">
-                          {variant.unit_type}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-lg font-bold text-[#259783]">
-                          {formatPrice(variant.current_sell_price)}
-                        </span>
-                        <span className="text-xs text-gray-400">•</span>
-                        <span
-                          className={`text-sm ${
-                            isLowStock(variant.current_stock)
-                              ? 'text-orange-500 font-medium'
-                              : 'text-gray-500'
-                          }`}
-                        >
-                          {formatStock(variant.current_stock, variant.unit_type)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="w-10 h-10 rounded-full bg-[#259783]/10 flex items-center justify-center">
-                        <ShoppingCart className="w-5 h-5 text-[#259783]" />
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              ))}
-
-              {/* Out of stock variants */}
-              {outOfStockVariants.length > 0 && (
-                <>
-                  <div className="text-xs font-medium text-gray-400 uppercase tracking-wide pt-4">
-                    Out of Stock
-                  </div>
-                  {outOfStockVariants.map((variant) => (
-                    <div
-                      key={variant.id}
-                      className="w-full p-4 rounded-xl bg-gray-50 dark:bg-slate-800/50 border-2 border-gray-100 dark:border-slate-700 opacity-60"
-                    >
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-gray-500 dark:text-gray-400">
-                              {variant.variant_name || variant.name}
-                            </h3>
-                            <Badge variant="outline" className="text-xs shrink-0">
-                              {variant.unit_type}
+              {/* All variants - both in stock and out of stock are selectable */}
+              {sortedVariants.map((variant) => {
+                const isOutOfStock = variant.current_stock <= 0;
+                return (
+                  <button
+                    key={variant.id}
+                    type="button"
+                    onClick={() => {
+                      onSelectVariant(variant);
+                      onOpenChange(false);
+                    }}
+                    className={`w-full p-4 rounded-xl border-2 transition-all text-left group ${
+                      isOutOfStock
+                        ? 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700 hover:border-[#259783]'
+                        : 'bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-700 hover:border-[#259783]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className={`font-semibold ${
+                            isOutOfStock
+                              ? 'text-gray-600 dark:text-gray-400'
+                              : 'text-gray-900 dark:text-white'
+                          }`}>
+                            {variant.variant_name || variant.name}
+                          </h3>
+                          <Badge variant="outline" className="text-xs shrink-0">
+                            {variant.unit_type}
+                          </Badge>
+                          {isOutOfStock && (
+                            <Badge variant="destructive" className="text-xs shrink-0">
+                              Out of Stock
                             </Badge>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-lg font-bold text-gray-400">
-                              {formatPrice(variant.current_sell_price)}
-                            </span>
-                          </div>
+                          )}
                         </div>
-                        <Badge variant="destructive" className="shrink-0">
-                          Out of Stock
-                        </Badge>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-lg font-bold ${
+                            isOutOfStock
+                              ? 'text-gray-500 dark:text-gray-400'
+                              : 'text-[#259783]'
+                          }`}>
+                            {formatPrice(variant.current_sell_price)}
+                          </span>
+                          {!isOutOfStock && (
+                            <>
+                              <span className="text-xs text-gray-400">•</span>
+                              <span
+                                className={`text-sm ${
+                                  isLowStock(variant.current_stock)
+                                    ? 'text-orange-500 font-medium'
+                                    : 'text-gray-500'
+                                }`}
+                              >
+                                {formatStock(variant.current_stock, variant.unit_type)}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="w-10 h-10 rounded-full bg-[#259783]/10 flex items-center justify-center">
+                          <ShoppingCart className="w-5 h-5 text-[#259783]" />
+                        </div>
                       </div>
                     </div>
-                  ))}
-                </>
-              )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

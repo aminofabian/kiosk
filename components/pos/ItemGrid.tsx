@@ -380,10 +380,7 @@ export function ItemGrid({
       )}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
         {items.map((item) => {
-          const canQuickAdd =
-            onQuickAdd &&
-            item.current_stock > 0 &&
-            item.current_stock >= getQuickAddQuantity(item);
+          const canQuickAdd = onQuickAdd;
           const quickQty = getQuickAddQuantity(item);
 
           return (
@@ -454,13 +451,6 @@ export function ItemGrid({
                   )}
                 </div>
               </CardContent>
-              {item.current_stock <= 0 && (
-                <div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center">
-                  <Badge variant="destructive" className="text-xs">
-                    Out of Stock
-                  </Badge>
-                </div>
-              )}
             </Card>
           );
         })}

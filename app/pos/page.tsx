@@ -261,8 +261,7 @@ export default function POSPage() {
   }, []);
 
   const handleQuickAdd = useCallback((item: Item, quantity: number) => {
-    if (item.current_stock <= 0 || quantity <= 0) return;
-    if (quantity > item.current_stock) quantity = item.current_stock;
+    if (quantity <= 0) return;
 
     const { addItem } = useCartStore.getState();
     addItem(
@@ -799,14 +798,6 @@ export default function POSPage() {
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
                             <Package className="w-12 h-12 text-gray-400" />
-                          </div>
-                        )}
-                        {/* Out of stock overlay */}
-                        {item.current_stock <= 0 && (
-                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                            <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
-                              Out of Stock
-                            </span>
                           </div>
                         )}
                       </div>
