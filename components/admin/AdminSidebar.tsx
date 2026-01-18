@@ -57,7 +57,11 @@ export function AdminSidebar() {
   // Fetch bill notifications for admin/owner
   useEffect(() => {
     if (user && (user.role === 'admin' || user.role === 'owner')) {
-      apiGet('/api/supplier-bills/notifications')
+      apiGet<{
+        pending: { count: number; total: number; bills: unknown[] };
+        overdue: { count: number; total: number; bills: unknown[] };
+        upcoming: { count: number; total: number; bills: unknown[] };
+      }>('/api/supplier-bills/notifications')
         .then((result) => {
           if (result.success && result.data) {
             const count = (result.data.overdue?.count || 0) + (result.data.upcoming?.count || 0);
