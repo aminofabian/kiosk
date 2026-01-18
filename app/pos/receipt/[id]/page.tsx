@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useState, useRef } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { POSLayout } from '@/components/layouts/pos-layout';
 import { Receipt } from '@/components/pos/Receipt';
 import { Button } from '@/components/ui/button';
@@ -10,10 +10,12 @@ import { Loader2 } from 'lucide-react';
 export default function ReceiptPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const saleId = params.id as string;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [receiptData, setReceiptData] = useState<any>(null);
+  const hasPrintedRef = useRef(false);
 
   useEffect(() => {
     async function fetchReceipt() {
@@ -39,6 +41,29 @@ export default function ReceiptPage() {
       fetchReceipt();
     }
   }, [saleId]);
+
+  // Auto-print receipt after successful payment
+  useEffect(() => {
+    // Only auto-print if:
+    // 1. Receipt data is loaded
+    // 2. Not already printed in this session
+    // 3. Has print=true in URL (indicates coming from successful payment)
+    if (!loading && receiptData && !hasPrintedRef.current) {
+      const shouldAutoPrint = searchParams.get('print') === 'true';
+      
+      if (shouldAutoPrint) {
+        // Mark as printed to prevent re-printing on refresh
+        hasPrintedRef.current = true;
+        
+        // Small delay to ensure page is fully rendered and images are loaded
+        const printTimer = setTimeout(() => {
+          window.print();
+        }, 800);
+
+        return () => clearTimeout(printTimer);
+      }
+    }
+  }, [loading, receiptData, saleId, searchParams]);
 
   if (loading) {
     return (

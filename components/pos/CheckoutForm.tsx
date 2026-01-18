@@ -190,7 +190,8 @@ export function CheckoutForm() {
 
       if (result.success && result.data) {
         clearCart();
-        router.push(`/pos/receipt/${result.data.saleId}`);
+        // Redirect to receipt with print parameter for auto-printing
+        router.push(`/pos/receipt/${result.data.saleId}?print=true`);
       } else {
         setError(result.message || 'Failed to complete sale');
         setIsProcessing(false);
