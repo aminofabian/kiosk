@@ -234,6 +234,24 @@ export interface StockAdjustment {
   created_at: number;
 }
 
+export type StockApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+export interface StockApprovalRequest {
+  id: string;
+  business_id: string;
+  item_id: string;
+  adjustment_type: 'increase' | 'decrease';
+  quantity: number;
+  reason: AdjustmentReason;
+  notes: string | null;
+  requested_by: string;
+  status: StockApprovalStatus;
+  approved_by: string | null;
+  approved_at: number | null;
+  rejection_reason: string | null;
+  created_at: number;
+}
+
 export type ExpenseCategory = 'fixed' | 'variable';
 export type ExpenseFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
 

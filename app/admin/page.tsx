@@ -117,6 +117,13 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: CreditCard,
   },
   {
+    href: '/admin/stock/approvals',
+    label: 'Stock Approvals',
+    description: 'Pending approvals',
+    icon: Scale,
+    roles: ['admin', 'owner'],
+  },
+  {
     href: '/admin/reports/sales',
     label: 'View Reports',
     description: 'Sales reports',

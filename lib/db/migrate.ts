@@ -271,6 +271,13 @@ export async function runMigrations() {
       console.error('⚠ bundle_pricing migration skipped:', error);
     }
 
+    try {
+      const { migrateStockApprovals } = await import('./migrate-stock-approvals');
+      await migrateStockApprovals();
+    } catch (error) {
+      console.error('⚠ stock_approval_requests migration skipped:', error);
+    }
+
     console.log('✅ Migration completed successfully!');
     return true;
   } catch (error) {

@@ -54,6 +54,7 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
   const [loadingItems, setLoadingItems] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [lastResult, setLastResult] = useState<{ requiresApproval?: boolean } | null>(null);
 
   useEffect(() => {
     async function fetchItems() {
@@ -144,14 +145,31 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
       const result = await response.json();
 
       if (result.success) {
-        setShowSuccess(true);
-        setTimeout(() => {
-          if (onSuccess) {
-            onSuccess();
-          } else {
-            router.push('/admin/stock');
-          }
-        }, 1500);
+        setLastResult(result.data || {});
+        // Check if approval is required (cashier)
+        if (result.data?.requiresApproval) {
+          setError(null);
+          setShowSuccess(true);
+          setIsSubmitting(false);
+          // Show success message but don't redirect immediately
+          setTimeout(() => {
+            if (onSuccess) {
+              onSuccess();
+            } else {
+              router.push('/admin/stock');
+            }
+          }, 2000);
+        } else {
+          setShowSuccess(true);
+          setIsSubmitting(false);
+          setTimeout(() => {
+            if (onSuccess) {
+              onSuccess();
+            } else {
+              router.push('/admin/stock');
+            }
+          }, 1500);
+        }
       } else {
         setError(result.message || 'Failed to adjust stock');
         setIsSubmitting(false);
@@ -220,10 +238,14 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
                 </div>
                 <div className="flex-1">
                   <p className="font-semibold text-green-900 dark:text-green-100">
-                    Stock adjusted successfully!
+                    {lastResult?.requiresApproval 
+                      ? 'Request submitted for approval!'
+                      : 'Stock adjusted successfully!'}
                   </p>
                   <p className="text-sm text-green-700 dark:text-green-200">
-                    Redirecting to stock page...
+                    {lastResult?.requiresApproval
+                      ? 'Your request is pending admin approval. The stock will be updated once approved.'
+                      : 'Redirecting to stock page...'}
                   </p>
                 </div>
               </div>

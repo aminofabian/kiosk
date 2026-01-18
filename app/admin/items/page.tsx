@@ -328,6 +328,15 @@ export default function ItemsPage() {
       const result = await response.json();
 
       if (result.success) {
+        // Check if approval is required (cashier)
+        if (result.data?.requiresApproval) {
+          alert('Stock adjustment request submitted. Waiting for admin approval.');
+          setStockDrawerOpen(false);
+          setAdjustingItem(null);
+          await fetchItems(); // Refresh items list
+          return;
+        }
+
         // Update local state with new stock
         const newStock = adjustmentType === 'increase' 
           ? adjustingItem.current_stock + qty 
