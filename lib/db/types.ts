@@ -253,7 +253,7 @@ export interface StockApprovalRequest {
 }
 
 export type ExpenseCategory = 'fixed' | 'variable';
-export type ExpenseFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
+export type ExpenseFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'one-time';
 
 export interface Expense {
   id: string;

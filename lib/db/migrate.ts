@@ -278,6 +278,13 @@ export async function runMigrations() {
       console.error('⚠ stock_approval_requests migration skipped:', error);
     }
 
+    try {
+      const { migrateExpensesOneTime } = await import('./migrate-expenses-one-time');
+      await migrateExpensesOneTime();
+    } catch (error) {
+      console.error('⚠ expenses one-time migration skipped:', error);
+    }
+
     console.log('✅ Migration completed successfully!');
     return true;
   } catch (error) {

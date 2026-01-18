@@ -98,9 +98,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     if (frequency !== undefined) {
-      if (!['daily', 'weekly', 'monthly', 'yearly'].includes(frequency)) {
+      if (!['daily', 'weekly', 'monthly', 'yearly', 'one-time'].includes(frequency)) {
         return jsonResponse(
-          { success: false, message: 'Frequency must be daily, weekly, monthly, or yearly' },
+          { success: false, message: 'Frequency must be daily, weekly, monthly, yearly, or one-time' },
           400
         );
       }

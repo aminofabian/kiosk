@@ -383,7 +383,7 @@ CREATE TABLE IF NOT EXISTS expenses (
   name TEXT NOT NULL,
   category TEXT NOT NULL CHECK (category IN ('fixed', 'variable')),
   amount REAL NOT NULL,
-  frequency TEXT NOT NULL CHECK (frequency IN ('daily', 'weekly', 'monthly', 'yearly')),
+  frequency TEXT NOT NULL CHECK (frequency IN ('daily', 'weekly', 'monthly', 'yearly', 'one-time')),
   start_date INTEGER NOT NULL,
   notes TEXT,
   active INTEGER NOT NULL DEFAULT 1,

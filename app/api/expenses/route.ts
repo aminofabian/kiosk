@@ -14,6 +14,7 @@ const FREQUENCY_DIVISORS: Record<ExpenseFrequency, number> = {
   weekly: 7,
   monthly: 30,
   yearly: 365,
+  'one-time': Infinity, // One-time expenses don't contribute to daily cost
 };
 
 export interface ExpenseWithDailyCost extends Expense {
@@ -35,17 +36,19 @@ export async function GET() {
     // Calculate daily cost for each expense
     const expensesWithDailyCost: ExpenseWithDailyCost[] = expenses.map((exp) => ({
       ...exp,
-      daily_cost: exp.amount / FREQUENCY_DIVISORS[exp.frequency],
+      daily_cost: exp.frequency === 'one-time' ? 0 : exp.amount / FREQUENCY_DIVISORS[exp.frequency],
     }));
 
-    // Calculate totals
+    // Calculate totals (excluding one-time expenses)
     const activeExpenses = expensesWithDailyCost.filter((e) => e.active === 1);
-    const dailyOperatingCost = activeExpenses.reduce((sum, e) => sum + e.daily_cost, 0);
+    const dailyOperatingCost = activeExpenses
+      .filter((e) => e.frequency !== 'one-time')
+      .reduce((sum, e) => sum + e.daily_cost, 0);
     const fixedDailyCost = activeExpenses
-      .filter((e) => e.category === 'fixed')
+      .filter((e) => e.category === 'fixed' && e.frequency !== 'one-time')
       .reduce((sum, e) => sum + e.daily_cost, 0);
     const variableDailyCost = activeExpenses
-      .filter((e) => e.category === 'variable')
+      .filter((e) => e.category === 'variable' && e.frequency !== 'one-time')
       .reduce((sum, e) => sum + e.daily_cost, 0);
 
     return jsonResponse({
@@ -94,9 +97,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!['daily', 'weekly', 'monthly', 'yearly'].includes(frequency)) {
+    if (!['daily', 'weekly', 'monthly', 'yearly', 'one-time'].includes(frequency)) {
       return jsonResponse(
-        { success: false, message: 'Frequency must be daily, weekly, monthly, or yearly' },
+        { success: false, message: 'Frequency must be daily, weekly, monthly, yearly, or one-time' },
         400
       );
     }

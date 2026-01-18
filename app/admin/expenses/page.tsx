@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/utils/api-client';
 import type { ExpenseCategory, ExpenseFrequency } from '@/lib/db/types';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 
 interface Expense {
   id: string;
@@ -76,6 +77,7 @@ const FREQUENCY_LABELS: Record<ExpenseFrequency, string> = {
   weekly: 'Weekly',
   monthly: 'Monthly',
   yearly: 'Yearly',
+  'one-time': 'One-Time',
 };
 
 const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
@@ -84,6 +86,8 @@ const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
 };
 
 export default function ExpensesPage() {
+  const { user } = useCurrentUser();
+  const isCashier = user?.role === 'cashier';
   const [data, setData] = useState<ExpenseData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -142,6 +146,7 @@ export default function ExpensesPage() {
   };
 
   const openEditDrawer = (expense: Expense) => {
+    if (isCashier) return; // Cashiers cannot edit expenses
     setDrawerMode('edit');
     setSelectedExpense(expense);
     setFormData({
@@ -185,7 +190,7 @@ export default function ExpensesPage() {
         } else {
           setFormError(result.message || 'Failed to create expense');
         }
-      } else if (selectedExpense) {
+      } else if (selectedExpense && !isCashier) {
         const result = await apiPut(`/api/expenses/${selectedExpense.id}`, {
           name: formData.name,
           category: formData.category,
@@ -371,6 +376,7 @@ export default function ExpensesPage() {
                         onToggle={handleToggleActive}
                         onDelete={handleDelete}
                         formatPrice={formatPrice}
+                        isCashier={isCashier}
                       />
                     ))}
                   </div>
@@ -398,6 +404,7 @@ export default function ExpensesPage() {
                         onToggle={handleToggleActive}
                         onDelete={handleDelete}
                         formatPrice={formatPrice}
+                        isCashier={isCashier}
                       />
                     ))}
                   </div>
@@ -425,6 +432,7 @@ export default function ExpensesPage() {
                         onToggle={handleToggleActive}
                         onDelete={handleDelete}
                         formatPrice={formatPrice}
+                        isCashier={isCashier}
                       />
                     ))}
                   </div>
@@ -532,6 +540,7 @@ export default function ExpensesPage() {
                         <SelectItem value="weekly">Weekly</SelectItem>
                         <SelectItem value="monthly">Monthly</SelectItem>
                         <SelectItem value="yearly">Yearly</SelectItem>
+                        <SelectItem value="one-time">One-Time</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -549,7 +558,7 @@ export default function ExpensesPage() {
                     step="0.01"
                     className="h-12 text-lg border-2 border-slate-200 dark:border-slate-700"
                   />
-                  {formData.amount && parseFloat(formData.amount) > 0 && (
+                  {formData.amount && parseFloat(formData.amount) > 0 && formData.frequency !== 'one-time' && (
                     <div className="border-2 border-[#259783] bg-[#259783]/5 p-3">
                       <p className="text-sm font-bold text-[#259783]">
                         = {formatPrice(parseFloat(formData.amount) / (
@@ -557,6 +566,13 @@ export default function ExpensesPage() {
                           formData.frequency === 'weekly' ? 7 :
                           formData.frequency === 'monthly' ? 30 : 365
                         ))}/day
+                      </p>
+                    </div>
+                  )}
+                  {formData.amount && parseFloat(formData.amount) > 0 && formData.frequency === 'one-time' && (
+                    <div className="border-2 border-blue-500 bg-blue-50 dark:bg-blue-950/20 p-3">
+                      <p className="text-sm font-bold text-blue-700 dark:text-blue-300">
+                        One-time expense - {formatPrice(parseFloat(formData.amount))} total
                       </p>
                     </div>
                   )}
@@ -636,6 +652,7 @@ interface ExpenseCardProps {
   onToggle: (expense: Expense) => void;
   onDelete: (expense: Expense) => void;
   formatPrice: (price: number) => string;
+  isCashier?: boolean;
 }
 
 function ExpenseCard({
@@ -646,6 +663,7 @@ function ExpenseCard({
   onToggle,
   onDelete,
   formatPrice,
+  isCashier = false,
 }: ExpenseCardProps) {
   return (
     <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
@@ -678,10 +696,21 @@ function ExpenseCard({
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right border-r-2 border-slate-200 dark:border-slate-700 pr-3">
-            <p className="text-lg font-black text-[#259783]">
-              {formatPrice(expense.daily_cost)}
-            </p>
-            <p className="text-[9px] text-slate-400 uppercase font-bold">/day</p>
+            {expense.frequency === 'one-time' ? (
+              <>
+                <p className="text-lg font-black text-blue-600 dark:text-blue-400">
+                  {formatPrice(expense.amount)}
+                </p>
+                <p className="text-[9px] text-slate-400 uppercase font-bold">one-time</p>
+              </>
+            ) : (
+              <>
+                <p className="text-lg font-black text-[#259783]">
+                  {formatPrice(expense.daily_cost)}
+                </p>
+                <p className="text-[9px] text-slate-400 uppercase font-bold">/day</p>
+              </>
+            )}
           </div>
           <div className="relative">
             <Button
@@ -692,7 +721,7 @@ function ExpenseCard({
             >
               <MoreVertical className="w-3.5 h-3.5" />
             </Button>
-            {menuOpenId === expense.id && (
+            {menuOpenId === expense.id && !isCashier && (
               <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 shadow-xl z-10 py-1">
                 <button
                   className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2"

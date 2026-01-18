@@ -42,6 +42,7 @@ import {
   ArrowRight,
   X,
   Layers,
+  Receipt,
 } from 'lucide-react';
 
 interface ActionButton {
@@ -115,6 +116,12 @@ const ACTION_BUTTONS: ActionButton[] = [
     label: 'View Credits',
     description: 'Outstanding debts',
     icon: CreditCard,
+  },
+  {
+    href: '/admin/expenses',
+    label: 'Record Expenses',
+    description: 'Daily operating costs',
+    icon: Receipt,
   },
   {
     href: '/admin/stock/approvals',
@@ -252,6 +259,7 @@ export default function AdminDashboardPage() {
         'View Items',
         'View Categories',
         'View Credits',
+        'Record Expenses',
       ];
       return allowedCashierButtons.includes(button.label);
     }

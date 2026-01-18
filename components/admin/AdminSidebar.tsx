@@ -71,6 +71,7 @@ export function AdminSidebar() {
         '/admin/categories', // View Categories
         '/admin/items', // View Items
         '/admin/credits', // View Credits
+        '/admin/expenses', // Record Expenses
       ];
       return allowedCashierItems.includes(item.href) || 
              (item.matchPath && allowedCashierItems.some(allowed => item.href.startsWith(allowed)));

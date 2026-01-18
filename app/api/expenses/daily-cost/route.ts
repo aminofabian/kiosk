@@ -12,6 +12,7 @@ const FREQUENCY_DIVISORS: Record<ExpenseFrequency, number> = {
   weekly: 7,
   monthly: 30,
   yearly: 365,
+  'one-time': Infinity, // One-time expenses don't contribute to daily cost
 };
 
 export async function GET() {
@@ -31,6 +32,10 @@ export async function GET() {
     let variableDailyCost = 0;
 
     for (const expense of expenses) {
+      // Skip one-time expenses in daily cost calculation
+      if (expense.frequency === 'one-time') {
+        continue;
+      }
       const dailyCost = expense.amount / FREQUENCY_DIVISORS[expense.frequency];
       dailyOperatingCost += dailyCost;
       
