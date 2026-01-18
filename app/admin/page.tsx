@@ -124,6 +124,12 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: Receipt,
   },
   {
+    href: '/admin/supplier-bills/new',
+    label: 'Record Supplier Bill',
+    description: 'Pending payments',
+    icon: Receipt,
+  },
+  {
     href: '/admin/stock/approvals',
     label: 'Stock Approvals',
     description: 'Pending approvals',
@@ -260,6 +266,7 @@ export default function AdminDashboardPage() {
         'View Categories',
         'View Credits',
         'Record Expenses',
+        'Record Supplier Bill',
       ];
       return allowedCashierButtons.includes(button.label);
     }
@@ -312,6 +319,14 @@ export default function AdminDashboardPage() {
           } else {
             setStockTakeDrawerOpen(true);
           }
+        },
+      };
+    }
+    if (button.label === 'Record Supplier Bill' && !button.onClick) {
+      return {
+        ...button,
+        onClick: () => {
+          router.push('/admin/supplier-bills/new');
         },
       };
     }

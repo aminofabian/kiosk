@@ -241,9 +241,60 @@ export default function ExpensesPage() {
     }
   };
 
-  const fixedExpenses = data?.expenses.filter((e) => e.category === 'fixed' && e.active === 1) || [];
-  const variableExpenses = data?.expenses.filter((e) => e.category === 'variable' && e.active === 1) || [];
-  const inactiveExpenses = data?.expenses.filter((e) => e.active === 0) || [];
+  const [timeFilter, setTimeFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  // Helper function to check if expense is within time range
+  const isWithinTimeRange = (expense: Expense, range: string): boolean => {
+    if (range === 'all') return true;
+    
+    const now = Math.floor(Date.now() / 1000);
+    const expenseDate = expense.start_date;
+    const daysDiff = Math.floor((now - expenseDate) / (24 * 60 * 60));
+    
+    switch (range) {
+      case 'today':
+        return daysDiff === 0;
+      case '3days':
+        return daysDiff <= 3;
+      case 'week':
+        return daysDiff <= 7;
+      case 'month':
+        return daysDiff <= 30;
+      default:
+        return true;
+    }
+  };
+
+  // Helper function to check if expense matches status filter
+  const matchesStatusFilter = (expense: Expense, status: string): boolean => {
+    if (status === 'all') return true;
+    
+    switch (status) {
+      case 'active':
+        return expense.active === 1;
+      case 'inactive':
+        return expense.active === 0;
+      case 'urgent':
+        // Urgent: high daily cost (> 1000) or one-time expenses
+        return expense.daily_cost > 1000 || expense.frequency === 'one-time';
+      case 'recurring':
+        return expense.frequency !== 'one-time' && expense.active === 1;
+      case 'one-time':
+        return expense.frequency === 'one-time';
+      default:
+        return true;
+    }
+  };
+
+  // Apply filters
+  const filteredExpenses = data?.expenses.filter((e) => 
+    isWithinTimeRange(e, timeFilter) && matchesStatusFilter(e, statusFilter)
+  ) || [];
+
+  const fixedExpenses = filteredExpenses.filter((e) => e.category === 'fixed' && e.active === 1);
+  const variableExpenses = filteredExpenses.filter((e) => e.category === 'variable' && e.active === 1);
+  const inactiveExpenses = filteredExpenses.filter((e) => e.active === 0);
 
   return (
     <AdminLayout>
@@ -251,7 +302,7 @@ export default function ExpensesPage() {
         {/* Header */}
         <div className="sticky top-0 z-10 bg-white/95 dark:bg-[#0f1a0d]/95 backdrop-blur-lg border-b-2 border-slate-200 dark:border-slate-800">
           <div className="px-4 md:px-6 py-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-[#259783] flex items-center justify-center">
                   <Receipt className="w-5 h-5 text-white" />
@@ -268,6 +319,57 @@ export default function ExpensesPage() {
                 <Plus className="w-4 h-4 mr-2" />
                 Add Expense
               </Button>
+            </div>
+            
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-slate-500" />
+                <Select value={timeFilter} onValueChange={setTimeFilter}>
+                  <SelectTrigger className="w-[140px] h-9 border-2 border-slate-200 dark:border-slate-700">
+                    <SelectValue placeholder="Time period" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Time</SelectItem>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="3days">Past 3 Days</SelectItem>
+                    <SelectItem value="week">This Week</SelectItem>
+                    <SelectItem value="month">This Month</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-slate-500" />
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[140px] h-9 border-2 border-slate-200 dark:border-slate-700">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                    <SelectItem value="recurring">Recurring</SelectItem>
+                    <SelectItem value="one-time">One-Time</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {(timeFilter !== 'all' || statusFilter !== 'all') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setTimeFilter('all');
+                    setStatusFilter('all');
+                  }}
+                  className="h-9"
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  Clear Filters
+                </Button>
+              )}
             </div>
           </div>
         </div>

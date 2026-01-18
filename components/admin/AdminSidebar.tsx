@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { apiGet } from '@/lib/utils/api-client';
 import type { UserRole } from '@/lib/constants';
 import {
   LayoutDashboard,
@@ -40,6 +42,7 @@ const MENU_ITEMS: MenuItem[] = [
   { href: '/admin/profit', label: 'Profit', icon: TrendingUp, description: 'Analytics' },
   { href: '/admin/customers', label: 'Customers', icon: UserCheck, description: 'Traffic & behavior' },
   { href: '/admin/expenses', label: 'Expenses', icon: Receipt, description: 'Operating costs' },
+  { href: '/admin/supplier-bills', label: 'Supplier Bills', icon: Receipt, description: 'Pending payments' },
   { href: '/admin/credits', label: 'Credits', icon: CreditCard, description: 'Outstanding debts' },
   { href: '/admin/shifts', label: 'Shifts', icon: Clock, description: 'Work sessions' },
   { href: '/admin/reports/sales', label: 'Reports', icon: FileText, matchPath: '/admin/reports', description: 'Sales reports' },
@@ -49,6 +52,23 @@ const MENU_ITEMS: MenuItem[] = [
 export function AdminSidebar() {
   const pathname = usePathname();
   const { user } = useCurrentUser();
+  const [billNotificationCount, setBillNotificationCount] = useState(0);
+
+  // Fetch bill notifications for admin/owner
+  useEffect(() => {
+    if (user && (user.role === 'admin' || user.role === 'owner')) {
+      apiGet('/api/supplier-bills/notifications')
+        .then((result) => {
+          if (result.success && result.data) {
+            const count = (result.data.overdue?.count || 0) + (result.data.upcoming?.count || 0);
+            setBillNotificationCount(count);
+          }
+        })
+        .catch(() => {
+          // Silently fail
+        });
+    }
+  }, [user]);
 
   const isActive = (href: string, matchPath?: string) => {
     const pathToMatch = matchPath || href;
@@ -72,6 +92,7 @@ export function AdminSidebar() {
         '/admin/items', // View Items
         '/admin/credits', // View Credits
         '/admin/expenses', // Record Expenses
+        '/admin/supplier-bills', // Record Supplier Bills
       ];
       return allowedCashierItems.includes(item.href) || 
              (item.matchPath && allowedCashierItems.some(allowed => item.href.startsWith(allowed)));
@@ -126,6 +147,11 @@ export function AdminSidebar() {
                   {item.description}
                 </p>
               </div>
+              {item.href === '/admin/supplier-bills' && billNotificationCount > 0 && (
+                <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                  {billNotificationCount > 99 ? '99+' : billNotificationCount}
+                </span>
+              )}
               {active && (
                 <ChevronRight className="w-4 h-4 text-white/70" />
               )}

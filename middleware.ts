@@ -46,6 +46,13 @@ export default withAuth(
         if (pathname.startsWith('/admin/items/') && pathname.includes('/edit')) {
           return NextResponse.redirect(new URL('/admin/items', req.url));
         }
+        
+        // Cashiers can create supplier bills but not view the list
+        if (pathname === '/admin/supplier-bills' || pathname.startsWith('/admin/supplier-bills/')) {
+          if (pathname !== '/admin/supplier-bills/new') {
+            return NextResponse.redirect(new URL('/admin', req.url));
+          }
+        }
       }
     }
 

@@ -252,6 +252,27 @@ export interface StockApprovalRequest {
   created_at: number;
 }
 
+export type SupplierBillStatus = 'pending' | 'paid' | 'overdue' | 'cancelled';
+
+export interface SupplierBill {
+  id: string;
+  business_id: string;
+  supplier_id: string | null;
+  supplier_name: string;
+  supplier_phone: string | null;
+  bill_description: string;
+  amount: number;
+  due_date: number;
+  status: SupplierBillStatus;
+  payment_date: number | null;
+  payment_method: string | null;
+  payment_notes: string | null;
+  created_by: string;
+  paid_by: string | null;
+  notes: string | null;
+  created_at: number;
+}
+
 export type ExpenseCategory = 'fixed' | 'variable';
 export type ExpenseFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'one-time';
 

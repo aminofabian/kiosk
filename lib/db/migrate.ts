@@ -285,6 +285,20 @@ export async function runMigrations() {
       console.error('⚠ expenses one-time migration skipped:', error);
     }
 
+    try {
+      const { migrateSupplierBills } = await import('./migrate-supplier-bills');
+      await migrateSupplierBills();
+    } catch (error) {
+      console.error('⚠ supplier_bills migration skipped:', error);
+    }
+
+    try {
+      const { migrateSupplierBillsPhone } = await import('./migrate-supplier-bills-phone');
+      await migrateSupplierBillsPhone();
+    } catch (error) {
+      console.error('⚠ supplier_bills phone migration skipped:', error);
+    }
+
     console.log('✅ Migration completed successfully!');
     return true;
   } catch (error) {
