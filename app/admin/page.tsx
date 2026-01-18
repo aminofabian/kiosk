@@ -231,8 +231,26 @@ export default function AdminDashboardPage() {
   }, []);
 
   const visibleButtons = ACTION_BUTTONS.filter((button) => {
-    if (!button.roles) return true;
-    return user && button.roles.includes(user.role);
+    // If button has specific roles, check if user role is included
+    if (button.roles) {
+      return user && button.roles.includes(user.role);
+    }
+    
+    // For cashiers, only show allowed buttons
+    if (user?.role === 'cashier') {
+      const allowedCashierButtons = [
+        'Create Category',
+        'Add Item',
+        'Add Stock',
+        'View Items',
+        'View Categories',
+        'View Credits',
+      ];
+      return allowedCashierButtons.includes(button.label);
+    }
+    
+    // For other roles, show all buttons without role restrictions
+    return true;
   }).map((button) => {
     if (button.label === 'Create Category' && !button.onClick) {
       return {

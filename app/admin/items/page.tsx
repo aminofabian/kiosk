@@ -29,6 +29,7 @@ import type { Item, Category } from '@/lib/db/types';
 import type { UnitType, AdjustmentReason } from '@/lib/constants';
 import { ADJUSTMENT_REASONS } from '@/lib/constants';
 import { getCategoryShopType } from '@/lib/utils/shop-type';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 
 const REASON_LABELS: Record<AdjustmentReason, string> = {
   restock: 'Restock / New Delivery',
@@ -48,6 +49,8 @@ interface ItemWithCategory extends Item {
 }
 
 export default function ItemsPage() {
+  const { user } = useCurrentUser();
+  const isCashier = user?.role === 'cashier';
   const [items, setItems] = useState<ItemWithCategory[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -703,21 +706,23 @@ export default function ItemsPage() {
                                       </button>
                                     );
                                   })}
-                                  {/* Add variant button */}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setAddingVariantToParent(item.id);
-                                      setEditingItem(null);
-                                      setDrawerOpen(true);
-                                    }}
-                                    className="w-full text-left p-2 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-[#259783] hover:bg-[#259783]/5 transition-all"
-                                  >
-                                    <div className="flex items-center gap-2 text-slate-500 hover:text-[#259783]">
-                                      <Plus className="w-4 h-4" />
-                                      <span className="text-sm">Add variant</span>
-                                    </div>
-                                  </button>
+                                  {/* Add variant button - only show if not cashier */}
+                                  {!isCashier && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setAddingVariantToParent(item.id);
+                                        setEditingItem(null);
+                                        setDrawerOpen(true);
+                                      }}
+                                      className="w-full text-left p-2 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-[#259783] hover:bg-[#259783]/5 transition-all"
+                                    >
+                                      <div className="flex items-center gap-2 text-slate-500 hover:text-[#259783]">
+                                        <Plus className="w-4 h-4" />
+                                        <span className="text-sm">Add variant</span>
+                                      </div>
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -826,35 +831,39 @@ export default function ItemsPage() {
                               >
                                 Close
                               </Button>
-                              <Button
-                                onClick={() => {
-                                  setAddingVariantToParent(selectedItem.id);
-                                  setEditingItem(null);
-                                  setDrawerOpen(true);
-                                }}
-                                className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                Add Variant
-                              </Button>
-                              <Button
-                                onClick={handleEditClick}
-                                className="bg-[#259783] hover:bg-[#45d827] text-white"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                onClick={handleDeleteClick}
-                                disabled={isDeleting}
-                                variant="destructive"
-                                className="bg-red-600 hover:bg-red-700 text-white"
-                              >
-                                {isDeleting ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-4 w-4" />
-                                )}
-                              </Button>
+                              {!isCashier && (
+                                <>
+                                  <Button
+                                    onClick={() => {
+                                      setAddingVariantToParent(selectedItem.id);
+                                      setEditingItem(null);
+                                      setDrawerOpen(true);
+                                    }}
+                                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
+                                  >
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Add Variant
+                                  </Button>
+                                  <Button
+                                    onClick={handleEditClick}
+                                    className="bg-[#259783] hover:bg-[#45d827] text-white"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    onClick={handleDeleteClick}
+                                    disabled={isDeleting}
+                                    variant="destructive"
+                                    className="bg-red-600 hover:bg-red-700 text-white"
+                                  >
+                                    {isDeleting ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="h-4 w-4" />
+                                    )}
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           </>
                         ) : (
@@ -921,31 +930,35 @@ export default function ItemsPage() {
                                 <TrendingUp className="h-4 w-4 mr-2" />
                                 Adjust Stock
                               </Button>
-                              <Button
-                                onClick={handleEditClick}
-                                className="flex-1 min-w-[100px] bg-[#259783] hover:bg-[#45d827] text-white"
-                              >
-                                <Edit className="h-4 w-4 mr-2" />
-                                Edit Item
-                              </Button>
-                              <Button
-                                onClick={handleDeleteClick}
-                                disabled={isDeleting}
-                                variant="destructive"
-                                className="flex-1 min-w-[100px] bg-red-600 hover:bg-red-700 text-white"
-                              >
-                                {isDeleting ? (
-                                  <>
-                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    Deleting...
-                                  </>
-                                ) : (
-                                  <>
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Delete
-                                  </>
-                                )}
-                              </Button>
+                              {!isCashier && (
+                                <>
+                                  <Button
+                                    onClick={handleEditClick}
+                                    className="flex-1 min-w-[100px] bg-[#259783] hover:bg-[#45d827] text-white"
+                                  >
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit Item
+                                  </Button>
+                                  <Button
+                                    onClick={handleDeleteClick}
+                                    disabled={isDeleting}
+                                    variant="destructive"
+                                    className="flex-1 min-w-[100px] bg-red-600 hover:bg-red-700 text-white"
+                                  >
+                                    {isDeleting ? (
+                                      <>
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        Deleting...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete
+                                      </>
+                                    )}
+                                  </Button>
+                                </>
+                              )}
                             </div>
                           </>
                         )}

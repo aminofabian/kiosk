@@ -106,6 +106,7 @@ export default function POSPage() {
   const { items: cartItems } = useCartStore();
   const { user } = useCurrentUser();
   const isOwnerOrAdmin = user?.role === 'owner' || user?.role === 'admin';
+  const canAccessAdmin = isOwnerOrAdmin || user?.role === 'cashier';
   
   // Debounced search - waits 300ms after user stops typing
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
@@ -724,7 +725,7 @@ export default function POSPage() {
                 />
               </div>
               <div className="flex items-center gap-2">
-                {isOwnerOrAdmin && (
+                {canAccessAdmin && (
                   <Link
                     href="/admin"
                     className="flex items-center justify-center gap-2 px-4 h-12 rounded-full bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] active:scale-95 transition-all shadow-lg shadow-[#259783]/40 hover:shadow-[#3bd522]/40 text-white font-bold text-sm relative overflow-hidden group"
@@ -955,7 +956,7 @@ export default function POSPage() {
                 )}
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
-                {isOwnerOrAdmin && (
+                {canAccessAdmin && (
                   <Link href="/admin">
                     <Button
                       size="sm"

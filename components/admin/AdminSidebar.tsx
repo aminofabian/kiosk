@@ -57,8 +57,25 @@ export function AdminSidebar() {
   };
 
   const visibleItems = MENU_ITEMS.filter((item) => {
-    if (!item.roles) return true;
-    return user && item.roles.includes(user.role);
+    // If item has specific roles, check if user role is included
+    if (item.roles) {
+      return user && item.roles.includes(user.role);
+    }
+    
+    // For cashiers, only show allowed menu items
+    if (user?.role === 'cashier') {
+      const allowedCashierItems = [
+        '/admin', // Dashboard
+        '/admin/categories', // View Categories
+        '/admin/items', // View Items
+        '/admin/credits', // View Credits
+      ];
+      return allowedCashierItems.includes(item.href) || 
+             (item.matchPath && allowedCashierItems.some(allowed => item.href.startsWith(allowed)));
+    }
+    
+    // For other roles, show all items without role restrictions
+    return true;
   });
 
   return (

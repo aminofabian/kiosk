@@ -14,10 +14,38 @@ export default withAuth(
       return NextResponse.next();
     }
 
-    // Admin routes require admin or owner role
+    // Admin routes - allow cashiers but restrict certain pages
     if (pathname.startsWith('/admin')) {
-      if (token?.role === 'cashier') {
-        return NextResponse.redirect(new URL('/pos', req.url));
+      const role = token?.role;
+      
+      // Cashiers can access admin but only specific pages
+      if (role === 'cashier') {
+        // Restrict cashiers from accessing these routes
+        const restrictedRoutes = [
+          '/admin/users',
+          '/admin/banners',
+          '/admin/profit',
+          '/admin/reports',
+          '/admin/purchases',
+          '/admin/stock/take', // Stock take not allowed
+        ];
+        
+        // Allow /admin/stock/adjust but not /admin/stock (view stock)
+        if (pathname === '/admin/stock' || pathname.startsWith('/admin/stock/')) {
+          if (pathname !== '/admin/stock/adjust') {
+            return NextResponse.redirect(new URL('/admin', req.url));
+          }
+        }
+        
+        // Check if accessing a restricted route
+        if (restrictedRoutes.some(route => pathname.startsWith(route))) {
+          return NextResponse.redirect(new URL('/admin', req.url));
+        }
+        
+        // Block cashiers from editing items
+        if (pathname.startsWith('/admin/items/') && pathname.includes('/edit')) {
+          return NextResponse.redirect(new URL('/admin/items', req.url));
+        }
       }
     }
 
