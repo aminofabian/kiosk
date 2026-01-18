@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   Calendar,
   Clock,
+  CheckCircle,
 } from 'lucide-react';
 import { apiGet } from '@/lib/utils/api-client';
 import type { SupplierBill } from '@/lib/db/types';
