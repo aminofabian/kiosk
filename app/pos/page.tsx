@@ -9,6 +9,14 @@ import { VariantSelector } from '@/components/pos/VariantSelector';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerClose,
+} from '@/components/ui/drawer';
 import { useCartStore } from '@/lib/stores/cart-store';
 import {
   Menu,
@@ -152,6 +160,11 @@ export default function POSPage() {
   const [showSearch, setShowSearch] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [shopType, setShopType] = useState<ShopType>(() => getShopType());
+  const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
+  const [drawerCategoryId, setDrawerCategoryId] = useState<string | null>(null);
+  const [drawerCategoryItems, setDrawerCategoryItems] = useState<ItemWithVariants[]>([]);
+  const [drawerItemsLoading, setDrawerItemsLoading] = useState(false);
+  const [drawerSearchQuery, setDrawerSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const { items: cartItems } = useCartStore();
@@ -655,6 +668,92 @@ export default function POSPage() {
     setSelectedCategoryId(null);
   };
 
+  // Handler to open category drawer
+  const handleCategoryClick = useCallback((categoryId: string | null) => {
+    if (categoryId) {
+      setDrawerCategoryId(categoryId);
+      setCategoryDrawerOpen(true);
+    }
+  }, []);
+
+  // Fetch items for drawer category
+  useEffect(() => {
+    if (!drawerCategoryId || !categoryDrawerOpen) {
+      setDrawerCategoryItems([]);
+      return;
+    }
+
+    async function fetchDrawerCategoryItems() {
+      try {
+        setDrawerItemsLoading(true);
+        const result = await apiGet<Item[]>(`/api/items?categoryId=${drawerCategoryId}`);
+        if (result.success) {
+          const allItems: Item[] = result.data ?? [];
+          
+          // Build parent name map and identify which items have variants
+          const parentNames = new Map<string, string>();
+          const parentIds = new Set<string>();
+          
+          for (const item of allItems) {
+            if (!item.parent_item_id) {
+              parentNames.set(item.id, item.name);
+            }
+          }
+          
+          for (const item of allItems) {
+            if (item.parent_item_id) {
+              parentIds.add(item.parent_item_id);
+            }
+          }
+
+          // Show only sellable items: variants and standalone items (not parents with children)
+          const processedItems: ItemWithVariants[] = [];
+          
+          for (const item of allItems) {
+            if (item.parent_item_id) {
+              // This is a variant - show it with parent name context
+              processedItems.push({
+                ...item,
+                parentName: parentNames.get(item.parent_item_id) || undefined,
+              });
+            } else if (!parentIds.has(item.id)) {
+              // Standalone item (not a parent with children)
+              processedItems.push(item);
+            }
+          }
+
+          // Sort: variants by parent name then variant name, then standalone items
+          processedItems.sort((a, b) => {
+            const parentA = a.parentName || '';
+            const parentB = b.parentName || '';
+            if (parentA !== parentB) return parentA.localeCompare(parentB);
+            return (a.variant_name || a.name).localeCompare(b.variant_name || b.name);
+          });
+
+          setDrawerCategoryItems(processedItems);
+        }
+      } catch (err) {
+        console.error('Error fetching drawer category items:', err);
+      } finally {
+        setDrawerItemsLoading(false);
+      }
+    }
+
+    fetchDrawerCategoryItems();
+  }, [drawerCategoryId, categoryDrawerOpen]);
+
+  const drawerCategory = drawerCategoryId
+    ? filteredCategories.find((c) => c.id === drawerCategoryId)
+    : null;
+
+  const filteredDrawerItems = drawerSearchQuery
+    ? drawerCategoryItems.filter((item) =>
+        item.name.toLowerCase().includes(drawerSearchQuery.toLowerCase()) ||
+        item.variant_name?.toLowerCase().includes(drawerSearchQuery.toLowerCase()) ||
+        item.parentName?.toLowerCase().includes(drawerSearchQuery.toLowerCase())
+      )
+    : drawerCategoryItems;
+
   interface ItemWithVariants extends Item {
     isParent?: boolean;
     variantCount?: number;
@@ -905,7 +1004,7 @@ export default function POSPage() {
                       return (
                         <button
                           key={category.id}
-                          onClick={() => setSelectedCategoryId(category.id)}
+                          onClick={() => handleCategoryClick(category.id)}
                           className="group relative flex flex-col justify-between p-4 h-36 rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border-2 border-transparent hover:border-[#259783] hover:shadow-lg active:scale-[0.98] transition-all overflow-hidden text-left"
                         >
                           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-40 group-hover:opacity-30 transition-opacity z-10 rounded-xl"></div>
@@ -1265,7 +1364,7 @@ export default function POSPage() {
             {!debouncedSearchQuery && !searchQuery && (
               <div className="border-b border-gray-200 bg-white/50 backdrop-blur-sm">
                 <CategoryList
-                  onSelectCategory={setSelectedCategoryId}
+                  onSelectCategory={handleCategoryClick}
                   selectedCategoryId={selectedCategoryId || undefined}
                   shopType={shopType}
                   categories={categories}
@@ -1354,6 +1453,128 @@ export default function POSPage() {
           </div>
         </div>
       )}
+
+      {/* Category Products Drawer */}
+      <Drawer open={categoryDrawerOpen} onOpenChange={setCategoryDrawerOpen} direction="right">
+        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
+            <div className="flex items-center justify-between pr-8">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm flex-shrink-0">
+                  {drawerCategory && getCategoryIcon(drawerCategory.name)}
+                </div>
+                <div>
+                  <DrawerTitle className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                    {drawerCategory?.name || 'Category'}
+                  </DrawerTitle>
+                  <DrawerDescription className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                    {drawerItemsLoading 
+                      ? 'Loading products...' 
+                      : `${filteredDrawerItems.length} ${filteredDrawerItems.length === 1 ? 'product' : 'products'} available`}
+                  </DrawerDescription>
+                </div>
+              </div>
+              <DrawerClose asChild>
+                <button
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white active:scale-95 transition-all shadow-sm"
+                  aria-label="Close drawer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </DrawerClose>
+            </div>
+            <div className="mt-4 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder={`Search ${drawerCategory?.name.toLowerCase()}...`}
+                value={drawerSearchQuery}
+                onChange={(e) => setDrawerSearchQuery(e.target.value)}
+                className="pl-10 pr-10 h-11 bg-white dark:bg-slate-800 rounded-xl border-gray-200 dark:border-gray-700 focus:border-[#259783] focus:ring-2 focus:ring-[#259783]/20"
+              />
+            </div>
+          </DrawerHeader>
+          <div className="overflow-y-auto flex-1 bg-gradient-to-b from-white via-slate-50/30 to-white dark:from-slate-900 dark:via-slate-900/50 dark:to-slate-900 px-4 sm:px-6 py-6">
+            {drawerItemsLoading ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="w-10 h-10 border-4 border-[#259783]/20 border-t-[#259783] rounded-full animate-spin"></div>
+              </div>
+            ) : filteredDrawerItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 gap-4">
+                <Package className="w-16 h-16 text-gray-300 dark:text-gray-600" />
+                <p className="text-gray-500 dark:text-gray-400 text-center">
+                  {drawerSearchQuery
+                    ? `No products found for "${drawerSearchQuery}"`
+                    : 'No products in this category'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {filteredDrawerItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      handleSelectItem(item);
+                      setCategoryDrawerOpen(false);
+                    }}
+                    className="group bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:border-[#259783] hover:shadow-md active:scale-95 transition-all overflow-hidden text-left"
+                  >
+                    <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-xl overflow-hidden relative">
+                      {getItemImage(item.parentName || item.name) ? (
+                        <img
+                          src={getItemImage(item.parentName || item.name)!}
+                          alt={item.variant_name || item.name}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                          loading="lazy"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            const parentEl = target.parentElement;
+                            if (parentEl) {
+                              parentEl.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800"><svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></div>';
+                            }
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package className="w-12 h-12 text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      {item.parentName && (
+                        <p className="text-[10px] font-semibold text-[#259783] uppercase tracking-wide mb-1">
+                          {item.parentName}
+                        </p>
+                      )}
+                      <h3 className="font-bold text-sm mb-2 line-clamp-2 text-slate-900 dark:text-white">
+                        {item.variant_name || item.name}
+                      </h3>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="bg-[#259783] text-white font-bold text-sm px-2 py-1 rounded">
+                            KES {item.current_sell_price.toFixed(0)}
+                          </span>
+                          <span className="text-xs text-slate-600 dark:text-slate-400">
+                            / {item.unit_type}
+                          </span>
+                        </div>
+                        {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="bg-amber-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded flex items-center gap-1">
+                              <Tag className="w-2.5 h-2.5" />
+                              {item.bundle_name || `${item.bundle_quantity} for KES ${item.bundle_price.toFixed(0)}`}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }
