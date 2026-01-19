@@ -31,7 +31,12 @@ interface PaymentStatusResponse {
   confirmationCode?: string;
 }
 
-export function CheckoutForm() {
+interface CheckoutFormProps {
+  onBackToCart?: () => void;
+  onContinueShopping?: () => void;
+}
+
+export function CheckoutForm({ onBackToCart, onContinueShopping }: CheckoutFormProps = {}) {
   const router = useRouter();
   const { items, total, clearCart } = useCartStore();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
@@ -265,7 +270,16 @@ export function CheckoutForm() {
       <div className="flex flex-col items-center justify-center h-full p-6">
         <div className="text-center space-y-4">
           <p className="text-lg text-muted-foreground">Your cart is empty</p>
-          <Button onClick={() => router.push('/pos')} size="touch">
+          <Button 
+            onClick={() => {
+              if (onContinueShopping) {
+                onContinueShopping();
+              } else {
+                router.push('/pos');
+              }
+            }} 
+            size="touch"
+          >
             Continue Shopping
           </Button>
         </div>
@@ -577,7 +591,13 @@ export function CheckoutForm() {
             type="button"
             variant="outline"
             size="touch"
-            onClick={() => router.push('/pos/cart')}
+            onClick={() => {
+              if (onBackToCart) {
+                onBackToCart();
+              } else {
+                router.push('/pos/cart');
+              }
+            }}
             className="flex-1"
             disabled={isProcessing}
           >

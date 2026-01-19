@@ -6,6 +6,8 @@ import { CategoryList } from '@/components/pos/CategoryList';
 import { ItemGrid } from '@/components/pos/ItemGrid';
 import { AddToCartDialog } from '@/components/pos/AddToCartDialog';
 import { VariantSelector } from '@/components/pos/VariantSelector';
+import { CartView } from '@/components/pos/CartView';
+import { CheckoutForm } from '@/components/pos/CheckoutForm';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -165,6 +167,8 @@ export default function POSPage() {
   const [drawerCategoryItems, setDrawerCategoryItems] = useState<ItemWithVariants[]>([]);
   const [drawerItemsLoading, setDrawerItemsLoading] = useState(false);
   const [drawerSearchQuery, setDrawerSearchQuery] = useState('');
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
+  const [checkoutDrawerOpen, setCheckoutDrawerOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const { items: cartItems } = useCartStore();
@@ -1194,8 +1198,8 @@ export default function POSPage() {
         )}
 
         <div className="fixed bottom-6 left-0 right-0 px-4 flex flex-col items-center gap-3 z-30 pointer-events-none">
-          <Link
-            href="/pos/cart"
+          <button
+            onClick={() => setCartDrawerOpen(true)}
             className="pointer-events-auto shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_30px_rgb(75,238,43,0.3)] active:scale-95 transition-all w-full max-w-md h-[72px] bg-[#259783] rounded-full flex items-center justify-between px-2 pr-6 group text-white"
             style={{ backgroundColor: '#259783' }}
           >
@@ -1215,7 +1219,7 @@ export default function POSPage() {
             <span className="text-[#101b0d] font-black text-2xl tracking-tight text-teal-50" style={{ color: '#f0fdfa' }}>
               KES {cartTotal.toFixed(0)}
             </span>
-          </Link>
+          </button>
         </div>
       </div>
 
@@ -1333,29 +1337,28 @@ export default function POSPage() {
                   <LogOut className="w-4 h-4 mr-2" />
                   <span className="hidden md:inline">Logout</span>
                 </Button>
-                <Link href="/pos/cart">
-                  <Button
-                    variant="outline"
-                    size="touch"
-                    className="relative bg-white hover:bg-[#259783]/10 border-gray-200 hover:border-[#259783] transition-smooth shadow-sm hover:shadow-md"
-                  >
-                    <ShoppingCart className="mr-2" />
-                    <span className="hidden sm:inline">Cart</span>
-                    {cartItemCount > 0 && (
-                      <>
-                        <Badge
-                          variant="destructive"
-                          className="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center p-0 animate-pulse"
-                        >
-                          {cartItemCount}
-                        </Badge>
-                        <span className="hidden md:inline ml-2 font-semibold text-[#259783]">
-                          KES {cartTotal.toFixed(0)}
-                        </span>
-                      </>
-                    )}
-                  </Button>
-                </Link>
+                <Button
+                  variant="outline"
+                  size="touch"
+                  onClick={() => setCartDrawerOpen(true)}
+                  className="relative bg-white hover:bg-[#259783]/10 border-gray-200 hover:border-[#259783] transition-smooth shadow-sm hover:shadow-md"
+                >
+                  <ShoppingCart className="mr-2" />
+                  <span className="hidden sm:inline">Cart</span>
+                  {cartItemCount > 0 && (
+                    <>
+                      <Badge
+                        variant="destructive"
+                        className="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center p-0 animate-pulse"
+                      >
+                        {cartItemCount}
+                      </Badge>
+                      <span className="hidden md:inline ml-2 font-semibold text-[#259783]">
+                        KES {cartTotal.toFixed(0)}
+                      </span>
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           }
@@ -1572,6 +1575,88 @@ export default function POSPage() {
                 ))}
               </div>
             )}
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Cart Drawer */}
+      <Drawer open={cartDrawerOpen} onOpenChange={setCartDrawerOpen} direction="right">
+        <DrawerContent className="!w-full sm:!w-[500px] md:!w-[600px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
+            <div className="flex items-center justify-between pr-8">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm flex-shrink-0">
+                  <ShoppingCart className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <DrawerTitle className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                    Shopping Cart
+                  </DrawerTitle>
+                  <DrawerDescription className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                    {cartItemCount} {cartItemCount === 1 ? 'item' : 'items'} • KES {cartTotal.toFixed(0)}
+                  </DrawerDescription>
+                </div>
+              </div>
+              <DrawerClose asChild>
+                <button
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white active:scale-95 transition-all shadow-sm"
+                  aria-label="Close drawer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </DrawerClose>
+            </div>
+          </DrawerHeader>
+          <div className="overflow-y-auto flex-1 bg-gradient-to-b from-white via-slate-50/30 to-white dark:from-slate-900 dark:via-slate-900/50 dark:to-slate-900">
+            <CartView 
+              onContinueShopping={() => setCartDrawerOpen(false)}
+              onCheckout={() => {
+                setCartDrawerOpen(false);
+                setCheckoutDrawerOpen(true);
+              }}
+            />
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Checkout Drawer */}
+      <Drawer open={checkoutDrawerOpen} onOpenChange={setCheckoutDrawerOpen} direction="right">
+        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
+            <div className="flex items-center justify-between pr-8">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm flex-shrink-0">
+                  <DollarSign className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <DrawerTitle className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                    Checkout
+                  </DrawerTitle>
+                  <DrawerDescription className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                    Complete your purchase
+                  </DrawerDescription>
+                </div>
+              </div>
+              <DrawerClose asChild>
+                <button
+                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white active:scale-95 transition-all shadow-sm"
+                  aria-label="Close drawer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </DrawerClose>
+            </div>
+          </DrawerHeader>
+          <div className="overflow-y-auto flex-1 bg-gradient-to-b from-white via-slate-50/30 to-white dark:from-slate-900 dark:via-slate-900/50 dark:to-slate-900 px-4 sm:px-6 py-6">
+            <CheckoutForm 
+              onBackToCart={() => {
+                setCheckoutDrawerOpen(false);
+                setCartDrawerOpen(true);
+              }}
+              onContinueShopping={() => {
+                setCheckoutDrawerOpen(false);
+              }}
+            />
           </div>
         </DrawerContent>
       </Drawer>

@@ -20,7 +20,12 @@ const isValidUnitType = (unitType: UnitType | 'bundle'): unitType is UnitType =>
   return unitType !== 'bundle';
 };
 
-export function CartView() {
+interface CartViewProps {
+  onContinueShopping?: () => void;
+  onCheckout?: () => void;
+}
+
+export function CartView({ onContinueShopping, onCheckout }: CartViewProps = {}) {
   const { items, total, updateQuantity, removeItem, clearCart } = useCartStore();
 
   const formatPrice = (price: number) => {
@@ -36,11 +41,21 @@ export function CartView() {
           </div>
           <h2 className="text-2xl font-bold text-gray-800">Your cart is empty</h2>
           <p className="text-gray-500">Add items from the POS to get started</p>
-          <Link href="/pos">
-            <Button size="touch" className="mt-4 bg-[#259783] hover:bg-[#45d827] text-white">
+          {onContinueShopping ? (
+            <Button 
+              size="touch" 
+              className="mt-4 bg-[#259783] hover:bg-[#45d827] text-white"
+              onClick={onContinueShopping}
+            >
               Continue Shopping
             </Button>
-          </Link>
+          ) : (
+            <Link href="/pos">
+              <Button size="touch" className="mt-4 bg-[#259783] hover:bg-[#45d827] text-white">
+                Continue Shopping
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
     );
@@ -160,14 +175,24 @@ export function CartView() {
             >
               Clear Cart
             </Button>
-            <Link href="/pos/checkout" className="flex-1">
+            {onCheckout ? (
               <Button
                 size="touch"
-                className="w-full bg-[#259783] hover:bg-[#45d827] text-white"
+                onClick={onCheckout}
+                className="flex-1 bg-[#259783] hover:bg-[#45d827] text-white"
               >
                 Checkout
               </Button>
-            </Link>
+            ) : (
+              <Link href="/pos/checkout" className="flex-1">
+                <Button
+                  size="touch"
+                  className="w-full bg-[#259783] hover:bg-[#45d827] text-white"
+                >
+                  Checkout
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
       </div>
