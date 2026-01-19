@@ -23,6 +23,7 @@ import {
   TrendingDown,
   Minus,
   FileText,
+  Trash2,
 } from 'lucide-react';
 import type { Item } from '@/lib/db/types';
 import type { AdjustmentReason } from '@/lib/constants';
@@ -67,23 +68,25 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
   const [showSuccess, setShowSuccess] = useState(false);
   const [globalReason, setGlobalReason] = useState<AdjustmentReason>('counting_error');
   const [globalNotes, setGlobalNotes] = useState('');
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    async function fetchItems() {
-      try {
-        setLoadingItems(true);
-        const response = await fetch('/api/items?all=true&sellableOnly=true');
-        const result = await response.json();
-        if (result.success) {
-          setItems(result.data);
-        }
-      } catch (err) {
-        console.error('Error fetching items:', err);
-      } finally {
-        setLoadingItems(false);
+  async function fetchItems() {
+    try {
+      setLoadingItems(true);
+      const response = await fetch('/api/items?all=true&sellableOnly=true');
+      const result = await response.json();
+      if (result.success) {
+        setItems(result.data);
       }
+    } catch (err) {
+      console.error('Error fetching items:', err);
+    } finally {
+      setLoadingItems(false);
     }
+  }
+
+  useEffect(() => {
     fetchItems();
   }, []);
 
@@ -200,6 +203,39 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
     setStockTakeItems(stockTakeItems.filter((item) => item.itemId !== itemId));
   };
 
+  const handleDeleteItem = async (itemId: string, itemName: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent adding the item when clicking delete
+    
+    if (!confirm(`Are you sure you want to delete "${itemName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingItemId(itemId);
+    try {
+      const response = await fetch(`/api/items/${itemId}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Remove from stock take items if it was added
+        if (stockTakeItems.some((sti) => sti.itemId === itemId)) {
+          handleRemoveItem(itemId);
+        }
+        // Refresh items list
+        await fetchItems();
+      } else {
+        alert(result.message || 'Failed to delete item');
+      }
+    } catch (err) {
+      console.error('Error deleting item:', err);
+      alert('Failed to delete item. Please try again.');
+    } finally {
+      setDeletingItemId(null);
+    }
+  };
+
   const handleCopySystemStock = (itemId: string) => {
     const item = stockTakeItems.find((i) => i.itemId === itemId);
     if (item) {
@@ -271,12 +307,16 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
 
       if (result.success) {
         setShowSuccess(true);
+        setIsSubmitting(false);
+        // Reset form and refresh items, but don't close drawer
         setTimeout(() => {
-          if (onSuccess) {
-            onSuccess();
-          } else {
-            router.push('/admin/stock');
-          }
+          setStockTakeItems([]);
+          setSearchQuery('');
+          setGlobalReason('counting_error');
+          setGlobalNotes('');
+          setError(null);
+          fetchItems();
+          setShowSuccess(false);
         }, 2000);
       } else {
         setError(result.message || 'Failed to complete stock take');
@@ -371,15 +411,18 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                 ) : (
                   filteredItems.map((item) => {
                     const isLow = item.current_stock < 10;
+                    const isDeleting = deletingItemId === item.id;
                     return (
-                      <button
+                      <div
                         key={item.id}
-                        type="button"
-                        onClick={() => handleAddItem(item)}
-                        className="w-full text-left p-3 rounded-lg border-2 border-slate-200 dark:border-slate-700 hover:border-[#259783] hover:bg-[#259783]/5 dark:hover:bg-[#259783]/10 transition-all active:scale-[0.98] group"
+                        className="w-full p-3 rounded-lg border-2 border-slate-200 dark:border-slate-700 hover:border-[#259783] hover:bg-[#259783]/5 dark:hover:bg-[#259783]/10 transition-all group"
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
+                          <button
+                            type="button"
+                            onClick={() => handleAddItem(item)}
+                            className="flex-1 min-w-0 text-left"
+                          >
                             <p className="font-semibold truncate text-sm text-slate-900 dark:text-white group-hover:text-[#259783] transition-colors">
                               {item.name}
                             </p>
@@ -393,12 +436,32 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                                 </Badge>
                               )}
                             </div>
-                          </div>
-                          <div className="w-7 h-7 rounded-md bg-[#259783]/10 group-hover:bg-[#259783] flex items-center justify-center transition-colors shrink-0">
-                            <Plus className="h-4 w-4 text-[#259783] group-hover:text-white transition-colors" />
+                          </button>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleAddItem(item)}
+                              className="w-7 h-7 rounded-md bg-[#259783]/10 group-hover:bg-[#259783] flex items-center justify-center transition-colors"
+                              title="Add to stock take"
+                            >
+                              <Plus className="h-4 w-4 text-[#259783] group-hover:text-white transition-colors" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleDeleteItem(item.id, item.name, e)}
+                              disabled={isDeleting}
+                              className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Delete item"
+                            >
+                              {isDeleting ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </button>
                           </div>
                         </div>
-                      </button>
+                      </div>
                     );
                   })
                 )}

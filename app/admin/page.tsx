@@ -618,7 +618,6 @@ export default function AdminDashboardPage() {
           </DrawerHeader>
           <div className="overflow-y-auto px-4 sm:px-6 py-6 flex-1 bg-slate-50 dark:bg-slate-900/50">
             <StockTakeForm
-              onSuccess={() => setStockTakeDrawerOpen(false)}
               onCancel={() => setStockTakeDrawerOpen(false)}
             />
           </div>
