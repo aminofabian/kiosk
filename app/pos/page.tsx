@@ -8,6 +8,7 @@ import { AddToCartDialog } from '@/components/pos/AddToCartDialog';
 import { VariantSelector } from '@/components/pos/VariantSelector';
 import { CartView } from '@/components/pos/CartView';
 import { CheckoutForm } from '@/components/pos/CheckoutForm';
+import { Receipt } from '@/components/pos/Receipt';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -37,6 +38,7 @@ import {
   LogOut,
   Loader2,
   Tag,
+  XCircle,
   Sprout,
   GlassWater,
   Drumstick,
@@ -169,6 +171,11 @@ export default function POSPage() {
   const [drawerSearchQuery, setDrawerSearchQuery] = useState('');
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const [checkoutDrawerOpen, setCheckoutDrawerOpen] = useState(false);
+  const [receiptDrawerOpen, setReceiptDrawerOpen] = useState(false);
+  const [receiptSaleId, setReceiptSaleId] = useState<string | null>(null);
+  const [receiptData, setReceiptData] = useState<{ sale: any; items: any[] } | null>(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [receiptError, setReceiptError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const { items: cartItems } = useCartStore();
@@ -757,6 +764,55 @@ export default function POSPage() {
         item.parentName?.toLowerCase().includes(drawerSearchQuery.toLowerCase())
       )
     : drawerCategoryItems;
+
+  // Fetch receipt data when drawer opens
+  useEffect(() => {
+    if (!receiptSaleId || !receiptDrawerOpen) {
+      setReceiptData(null);
+      return;
+    }
+
+    async function fetchReceipt() {
+      try {
+        setReceiptLoading(true);
+        setReceiptError(null);
+        const result = await apiGet<{ sale: any; items: any[] }>(`/api/sales/${receiptSaleId}`);
+        if (result.success && result.data) {
+          setReceiptData(result.data);
+        } else {
+          setReceiptError(result.message || 'Failed to load receipt');
+        }
+      } catch (err) {
+        console.error('Error fetching receipt:', err);
+        setReceiptError('Failed to load receipt');
+      } finally {
+        setReceiptLoading(false);
+      }
+    }
+
+    fetchReceipt();
+  }, [receiptSaleId, receiptDrawerOpen]);
+
+  // Auto-print receipt when drawer opens with print flag
+  useEffect(() => {
+    if (receiptDrawerOpen && receiptData && receiptSaleId) {
+      // Check if URL has print=true (from checkout)
+      const urlParams = new URLSearchParams(window.location.search);
+      const shouldPrint = urlParams.get('print') === 'true';
+      
+      if (shouldPrint) {
+        // Small delay to ensure receipt is rendered
+        const printTimer = setTimeout(() => {
+          window.print();
+          // Remove print param from URL after printing
+          const newUrl = window.location.pathname + window.location.search.replace(/[?&]print=true/, '');
+          window.history.replaceState({}, '', newUrl);
+        }, 1000);
+
+        return () => clearTimeout(printTimer);
+      }
+    }
+  }, [receiptDrawerOpen, receiptData, receiptSaleId]);
 
   interface ItemWithVariants extends Item {
     isParent?: boolean;
@@ -1656,7 +1712,108 @@ export default function POSPage() {
               onContinueShopping={() => {
                 setCheckoutDrawerOpen(false);
               }}
+              onSaleComplete={(saleId) => {
+                setCheckoutDrawerOpen(false);
+                setReceiptSaleId(saleId);
+                setReceiptDrawerOpen(true);
+                // Add print=true to URL for auto-print
+                const url = new URL(window.location.href);
+                url.searchParams.set('print', 'true');
+                window.history.replaceState({}, '', url.toString());
+              }}
             />
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Receipt Drawer */}
+      <Drawer open={receiptDrawerOpen} onOpenChange={setReceiptDrawerOpen} direction="right">
+        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[800px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
+            <div className="flex items-center justify-between pr-8">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm flex-shrink-0">
+                  <FileText className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <DrawerTitle className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                    Receipt
+                  </DrawerTitle>
+                  <DrawerDescription className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                    Sale completed successfully
+                  </DrawerDescription>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {receiptData && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.print()}
+                    className="hidden sm:flex"
+                  >
+                    Print
+                  </Button>
+                )}
+                <DrawerClose asChild>
+                  <button
+                    className="w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white active:scale-95 transition-all shadow-sm"
+                    aria-label="Close drawer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </DrawerClose>
+              </div>
+            </div>
+          </DrawerHeader>
+          <div className="overflow-y-auto flex-1 bg-gradient-to-b from-white via-slate-50/30 to-white dark:from-slate-900 dark:via-slate-900/50 dark:to-slate-900 px-4 sm:px-6 py-6">
+            {receiptLoading ? (
+              <div className="flex flex-col items-center justify-center h-64 gap-4">
+                <Loader2 className="w-8 h-8 animate-spin text-[#259783]" />
+                <p className="text-gray-500 dark:text-gray-400">Loading receipt...</p>
+              </div>
+            ) : receiptError || !receiptData ? (
+              <div className="flex flex-col items-center justify-center h-64 gap-4">
+                <XCircle className="w-16 h-16 text-red-300 dark:text-red-600" />
+                <p className="text-gray-500 dark:text-gray-400 text-center">
+                  {receiptError || 'Receipt not found'}
+                </p>
+                <Button
+                  onClick={() => {
+                    setReceiptDrawerOpen(false);
+                  }}
+                  size="touch"
+                  className="bg-[#259783] hover:bg-[#45d827] text-white"
+                >
+                  Close
+                </Button>
+              </div>
+            ) : (
+              <div className="print:p-0">
+                <Receipt sale={receiptData.sale} items={receiptData.items} />
+                <div className="mt-6 flex gap-3 print:hidden">
+                  <Button
+                    variant="outline"
+                    size="touch"
+                    onClick={() => window.print()}
+                    className="flex-1 sm:hidden"
+                  >
+                    Print
+                  </Button>
+                  <Button
+                    size="touch"
+                    onClick={() => {
+                      setReceiptDrawerOpen(false);
+                      setCartDrawerOpen(false);
+                      setCheckoutDrawerOpen(false);
+                    }}
+                    className="flex-1 bg-[#259783] hover:bg-[#45d827] text-white"
+                  >
+                    New Sale
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </DrawerContent>
       </Drawer>

@@ -34,9 +34,10 @@ interface PaymentStatusResponse {
 interface CheckoutFormProps {
   onBackToCart?: () => void;
   onContinueShopping?: () => void;
+  onSaleComplete?: (saleId: string) => void;
 }
 
-export function CheckoutForm({ onBackToCart, onContinueShopping }: CheckoutFormProps = {}) {
+export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete }: CheckoutFormProps = {}) {
   const router = useRouter();
   const { items, total, clearCart } = useCartStore();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
@@ -196,7 +197,11 @@ export function CheckoutForm({ onBackToCart, onContinueShopping }: CheckoutFormP
       if (result.success && result.data) {
         clearCart();
         // Redirect to receipt with print parameter for auto-printing
-        router.push(`/pos/receipt/${result.data.saleId}?print=true`);
+        if (onSaleComplete) {
+          onSaleComplete(result.data.saleId);
+        } else {
+          router.push(`/pos/receipt/${result.data.saleId}?print=true`);
+        }
       } else {
         setError(result.message || 'Failed to complete sale');
         setIsProcessing(false);
