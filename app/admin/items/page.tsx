@@ -77,6 +77,7 @@ export default function ItemsPage() {
   const [isAdjusting, setIsAdjusting] = useState(false);
   const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
 
   const fetchItems = async () => {
     try {
@@ -430,6 +431,56 @@ export default function ItemsPage() {
     }
   };
 
+  const handleDeleteItemFromList = async (item: ItemWithCategory, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent selecting the item when clicking delete
+    
+    const itemName = item.variant_name 
+      ? `${item.name} - ${item.variant_name}`
+      : item.name;
+    
+    const hasVariants = item.isParent && item.variantCount && item.variantCount > 0;
+    const confirmMessage = hasVariants
+      ? `Are you sure you want to delete "${itemName}" and all its ${item.variantCount} variant(s)? This action cannot be undone.`
+      : `Are you sure you want to delete "${itemName}"? This action cannot be undone.`;
+
+    if (!confirm(confirmMessage)) return;
+
+    setDeletingItemId(item.id);
+    try {
+      const response = await fetch(`/api/items/${item.id}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // Clear selected item if it was the one being deleted
+        if (selectedItem?.id === item.id) {
+          setSelectedItem(null);
+        }
+        
+        // If it was a parent, remove from expanded parents
+        if (item.isParent) {
+          setExpandedParents(prev => {
+            const next = new Set(prev);
+            next.delete(item.id);
+            return next;
+          });
+        }
+        
+        // Refresh items list to ensure consistency
+        await fetchItems();
+      } else {
+        alert(result.message || 'Failed to delete item');
+      }
+    } catch (err) {
+      console.error('Error deleting item:', err);
+      alert('Failed to delete item. Please try again.');
+    } finally {
+      setDeletingItemId(null);
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="min-h-screen">
@@ -608,22 +659,24 @@ export default function ItemsPage() {
                           return (
                             <div key={item.id}>
                               {/* Parent or Standalone Item */}
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (item.isParent) {
-                                    toggleParentExpanded(item.id);
-                                  }
-                                  handleItemClick(item);
-                                }}
-                                className={`w-full text-left p-3 rounded-xl transition-all ${
+                              <div
+                                className={`w-full p-3 rounded-xl transition-all ${
                                   isSelected
                                     ? 'bg-[#259783]/10 ring-2 ring-[#259783]'
                                     : 'bg-slate-50 dark:bg-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-800/50'
                                 } ${isLow && !item.isParent ? 'border-l-4 border-l-orange-500' : ''}`}
                               >
                                 <div className="flex items-start justify-between gap-2">
-                                  <div className="flex items-start gap-2 flex-1 min-w-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (item.isParent) {
+                                        toggleParentExpanded(item.id);
+                                      }
+                                      handleItemClick(item);
+                                    }}
+                                    className="flex items-start gap-2 flex-1 min-w-0 text-left"
+                                  >
                                     {item.isParent && (
                                       <ChevronDown 
                                         className={`w-4 h-4 mt-0.5 text-purple-500 transition-transform ${
@@ -660,17 +713,34 @@ export default function ItemsPage() {
                                         </p>
                                       )}
                                     </div>
+                                  </button>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {isLow && !item.isParent && (
+                                      <Badge variant="destructive" className="text-xs bg-orange-500">
+                                        Low
+                                      </Badge>
+                                    )}
+                                    {isSelected && (
+                                      <ChevronRight className="w-4 h-4 text-[#259783]" />
+                                    )}
+                                    {!isCashier && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => handleDeleteItemFromList(item, e)}
+                                        disabled={deletingItemId === item.id}
+                                        className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title="Delete item"
+                                      >
+                                        {deletingItemId === item.id ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <Trash2 className="h-4 w-4" />
+                                        )}
+                                      </button>
+                                    )}
                                   </div>
-                                  {isLow && !item.isParent && (
-                                    <Badge variant="destructive" className="text-xs shrink-0 bg-orange-500">
-                                      Low
-                                    </Badge>
-                                  )}
-                                  {isSelected && (
-                                    <ChevronRight className="w-4 h-4 text-[#259783]" />
-                                  )}
                                 </div>
-                              </button>
+                              </div>
 
                               {/* Variants (if expanded) */}
                               {item.isParent && isExpanded && item.variants && (
@@ -678,19 +748,22 @@ export default function ItemsPage() {
                                   {item.variants.map((variant) => {
                                     const variantIsLow = isLowStock(variant);
                                     const variantIsSelected = selectedItem?.id === variant.id;
+                                    const variantIsDeleting = deletingItemId === variant.id;
                                     return (
-                                      <button
+                                      <div
                                         key={variant.id}
-                                        type="button"
-                                        onClick={() => handleItemClick(variant)}
-                                        className={`w-full text-left p-2 rounded-lg transition-all ${
+                                        className={`w-full p-2 rounded-lg transition-all ${
                                           variantIsSelected
                                             ? 'bg-[#259783]/10 ring-2 ring-[#259783]'
                                             : 'bg-slate-50/50 dark:bg-slate-800/20 hover:bg-slate-100 dark:hover:bg-slate-800/40'
                                         } ${variantIsLow ? 'border-l-4 border-l-orange-500' : ''}`}
                                       >
                                         <div className="flex items-center justify-between gap-2">
-                                          <div className="flex-1 min-w-0">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleItemClick(variant)}
+                                            className="flex-1 min-w-0 text-left"
+                                          >
                                             <p className="font-medium text-sm truncate text-slate-700 dark:text-slate-300">
                                               {variant.variant_name || variant.name}
                                             </p>
@@ -705,14 +778,31 @@ export default function ItemsPage() {
                                               <span className="text-xs text-slate-400">•</span>
                                               <span className="text-xs text-slate-400">{variant.unit_type}</span>
                                             </div>
+                                          </button>
+                                          <div className="flex items-center gap-2 shrink-0">
+                                            {variantIsLow && (
+                                              <Badge variant="destructive" className="text-xs bg-orange-500">
+                                                Low
+                                              </Badge>
+                                            )}
+                                            {!isCashier && (
+                                              <button
+                                                type="button"
+                                                onClick={(e) => handleDeleteItemFromList(variant, e)}
+                                                disabled={variantIsDeleting}
+                                                className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                title="Delete variant"
+                                              >
+                                                {variantIsDeleting ? (
+                                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                  <Trash2 className="h-4 w-4" />
+                                                )}
+                                              </button>
+                                            )}
                                           </div>
-                                          {variantIsLow && (
-                                            <Badge variant="destructive" className="text-xs shrink-0 bg-orange-500">
-                                              Low
-                                            </Badge>
-                                          )}
                                         </div>
-                                      </button>
+                                      </div>
                                     );
                                   })}
                                   {/* Add variant button - only show if not cashier */}
