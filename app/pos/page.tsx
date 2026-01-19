@@ -536,12 +536,13 @@ export default function POSPage() {
                 {isOwnerOrAdmin && (
                   <Link
                     href="/admin"
-                    className="flex items-center justify-center gap-2 px-4 h-12 rounded-full bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] active:scale-95 transition-all shadow-lg shadow-[#259783]/40 hover:shadow-[#3bd522]/40 text-white font-bold text-sm relative overflow-hidden group"
+                    className="flex items-center justify-center gap-2 px-4 h-12 rounded-full bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] active:scale-95 transition-all shadow-lg shadow-[#259783]/40 hover:shadow-[#3bd522]/40 text-white font-bold text-sm relative overflow-hidden group"
                     aria-label="Admin"
+                    style={{ color: '#ffffff', backgroundColor: '#259783' }}
                   >
                     <div className="absolute inset-0 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
-                    <Settings className="w-5 h-5 relative z-10" />
-                    <span className="relative z-10">Admin</span>
+                    <Settings className="w-5 h-5 relative z-10" style={{ color: '#ffffff' }} />
+                    <span className="relative z-10" style={{ color: '#ffffff' }}>Admin</span>
                   </Link>
                 )}
                 <button
@@ -728,12 +729,13 @@ export default function POSPage() {
                 {canAccessAdmin && (
                   <Link
                     href="/admin"
-                    className="flex items-center justify-center gap-2 px-4 h-12 rounded-full bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] active:scale-95 transition-all shadow-lg shadow-[#259783]/40 hover:shadow-[#3bd522]/40 text-white font-bold text-sm relative overflow-hidden group"
+                    className="flex items-center justify-center gap-2 px-4 h-12 rounded-full bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] active:scale-95 transition-all shadow-lg shadow-[#259783]/40 hover:shadow-[#3bd522]/40 text-white font-bold text-sm relative overflow-hidden group"
                     aria-label="Admin"
+                    style={{ color: '#ffffff', backgroundColor: '#259783' }}
                   >
                     <div className="absolute inset-0 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
-                    <Settings className="w-5 h-5 relative z-10" />
-                    <span className="relative z-10">Admin</span>
+                    <Settings className="w-5 h-5 relative z-10" style={{ color: '#ffffff' }} />
+                    <span className="relative z-10" style={{ color: '#ffffff' }}>Admin</span>
                   </Link>
                 )}
                 <button
@@ -844,21 +846,22 @@ export default function POSPage() {
           <Link
             href="/pos/cart"
             className="pointer-events-auto shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_30px_rgb(75,238,43,0.3)] active:scale-95 transition-all w-full max-w-md h-[72px] bg-[#259783] rounded-full flex items-center justify-between px-2 pr-6 group"
+            style={{ backgroundColor: '#259783' }}
           >
             <div className="flex items-center gap-3">
               <div className="bg-black/10 w-[56px] h-[56px] rounded-full flex items-center justify-center group-hover:bg-black/20 transition-colors">
-                <ShoppingCart className="w-7 h-7 text-white" />
+                <ShoppingCart className="w-7 h-7 text-white" style={{ color: '#ffffff' }} />
               </div>
               <div className="flex flex-col items-start">
-                <span className="text-white font-bold text-lg leading-none">
+                <span className="text-white font-bold text-lg leading-none" style={{ color: '#ffffff' }}>
                   Checkout
                 </span>
-                <span className="text-white/90 font-medium text-sm leading-tight mt-1">
+                <span className="text-white/90 font-medium text-sm leading-tight mt-1" style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
                   {cartItemCount} {cartItemCount === 1 ? 'item' : 'items'}
                 </span>
               </div>
             </div>
-            <span className="text-[#101b0d] font-black text-2xl tracking-tight text-teal-50">
+            <span className="text-[#101b0d] font-black text-2xl tracking-tight text-teal-50" style={{ color: '#f0fdfa' }}>
               KES {cartTotal.toFixed(0)}
             </span>
           </Link>
@@ -960,11 +963,12 @@ export default function POSPage() {
                   <Link href="/admin">
                     <Button
                       size="sm"
-                      className="flex items-center gap-2 bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] text-white font-semibold shadow-lg shadow-[#259783]/40 hover:shadow-[#3bd522]/40 transition-all relative overflow-hidden group"
+                      className="flex items-center gap-2 bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] text-white font-semibold shadow-lg shadow-[#259783]/40 hover:shadow-[#3bd522]/40 transition-all relative overflow-hidden group"
+                      style={{ color: '#ffffff', backgroundColor: '#259783' }}
                     >
                       <div className="absolute inset-0 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
-                      <Settings className="w-4 h-4 relative z-10" />
-                      <span className="hidden md:inline relative z-10">Admin</span>
+                      <Settings className="w-4 h-4 relative z-10" style={{ color: '#ffffff' }} />
+                      <span className="hidden md:inline relative z-10" style={{ color: '#ffffff' }}>Admin</span>
                     </Button>
                   </Link>
                 )}

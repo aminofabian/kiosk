@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     if (isAuthResponse(auth)) return auth;
 
     const body = await request.json();
-    const { openingCash } = body;
+    const { openingCash, denominations } = body;
 
     if (openingCash === undefined || openingCash < 0) {
       return jsonResponse(
@@ -76,12 +76,14 @@ export async function POST(request: NextRequest) {
     const now = Math.floor(Date.now() / 1000);
     const shiftId = generateUUID();
 
-    // Create shift
+    // Create shift with denomination breakdown
     await execute(
       `INSERT INTO shifts (
         id, business_id, user_id, opening_cash, expected_closing_cash,
-        status, started_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        status, started_at,
+        opening_denom_1, opening_denom_5, opening_denom_10, opening_denom_20,
+        opening_denom_50, opening_denom_100, opening_denom_200, opening_denom_500, opening_denom_1000
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         shiftId,
         auth.businessId,
@@ -90,6 +92,15 @@ export async function POST(request: NextRequest) {
         openingCash, // Initially same as opening, will update with sales
         'open',
         now,
+        denominations?.denom_1 || 0,
+        denominations?.denom_5 || 0,
+        denominations?.denom_10 || 0,
+        denominations?.denom_20 || 0,
+        denominations?.denom_50 || 0,
+        denominations?.denom_100 || 0,
+        denominations?.denom_200 || 0,
+        denominations?.denom_500 || 0,
+        denominations?.denom_1000 || 0,
       ]
     );
 
@@ -112,4 +123,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

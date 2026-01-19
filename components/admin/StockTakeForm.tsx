@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -27,6 +27,8 @@ import {
 import type { Item } from '@/lib/db/types';
 import type { AdjustmentReason } from '@/lib/constants';
 import { ADJUSTMENT_REASONS } from '@/lib/constants';
+import { useBarcodeScanner } from '@/lib/hooks/use-barcode-scanner';
+import { apiGet } from '@/lib/utils/api-client';
 
 const REASON_LABELS: Record<AdjustmentReason, string> = {
   restock: 'Restock / New Delivery',
@@ -65,6 +67,7 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
   const [showSuccess, setShowSuccess] = useState(false);
   const [globalReason, setGlobalReason] = useState<AdjustmentReason>('counting_error');
   const [globalNotes, setGlobalNotes] = useState('');
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function fetchItems() {
@@ -82,6 +85,15 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
       }
     }
     fetchItems();
+  }, []);
+
+  // Auto-focus search input when component mounts
+  useEffect(() => {
+    // Small delay to ensure the drawer is fully rendered
+    const timer = setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 100);
+    return () => clearTimeout(timer);
   }, []);
 
   const filteredItems = useMemo(() => {
@@ -118,6 +130,55 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
     setSearchQuery('');
     setError(null);
   };
+
+  // Handle barcode scan
+  const handleBarcodeScan = useCallback(async (barcode: string) => {
+    if (!barcode || barcode.length < 4) return;
+    
+    try {
+      const result = await apiGet<Item>(`/api/items/barcode/${encodeURIComponent(barcode)}`);
+      
+      if (result.success && result.data) {
+        // Check if item is already added
+        if (stockTakeItems.some((sti) => sti.itemId === result.data!.id)) {
+          setError('Item already added to stock take');
+          setTimeout(() => setError(null), 3000);
+          return;
+        }
+        
+        // Add the item to stock take (using the same logic as handleAddItem)
+        const newItem: StockTakeItem = {
+          itemId: result.data.id,
+          itemName: result.data.name,
+          unitType: result.data.unit_type,
+          systemStock: result.data.current_stock,
+          actualStock: result.data.current_stock.toFixed(2),
+          difference: 0,
+          reason: globalReason,
+          notes: globalNotes,
+        };
+
+        setStockTakeItems([...stockTakeItems, newItem]);
+        setSearchQuery('');
+        setError(null);
+      } else {
+        setError(`Product not found for barcode: ${barcode}`);
+        setTimeout(() => setError(null), 3000);
+      }
+    } catch (err) {
+      console.error('Barcode scan error:', err);
+      setError('Failed to lookup barcode');
+      setTimeout(() => setError(null), 3000);
+    }
+  }, [stockTakeItems, globalReason, globalNotes]);
+
+  // Initialize barcode scanner hook
+  useBarcodeScanner({
+    onScan: handleBarcodeScan,
+    enabled: true,
+    minLength: 4,
+    maxDelay: 100,
+  });
 
   const handleUpdateItem = (itemId: string, updates: Partial<StockTakeItem>) => {
     setStockTakeItems(
@@ -287,10 +348,15 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
                 <Input
-                  placeholder="Search items to add..."
+                  ref={searchInputRef}
+                  placeholder="Search items to add or scan barcode..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 h-11 text-base border-2 focus:border-[#259783]"
+                  data-barcode-enabled="true"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
                 />
               </div>
 

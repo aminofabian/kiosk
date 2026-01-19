@@ -21,6 +21,7 @@ import {
   Receipt,
   UserCheck,
   Scale,
+  BarChart3,
 } from 'lucide-react';
 
 interface MenuItem {
@@ -34,6 +35,7 @@ interface MenuItem {
 
 const MENU_ITEMS: MenuItem[] = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview & stats' },
+  { href: '/admin/sales', label: 'Sales', icon: BarChart3, description: 'Sales analytics' },
   { href: '/admin/purchases', label: 'Purchase List', icon: ShoppingBag, description: 'Buy inventory' },
   { href: '/admin/categories', label: 'Categories', icon: FolderTree, description: 'Product categories' },
   { href: '/admin/items', label: 'Items', icon: Package, description: 'Product catalog' },

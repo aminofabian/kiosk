@@ -17,20 +17,7 @@ export async function GET(
 
     const { id: shiftId } = await params;
 
-    // Get sales summary
-    const salesSummary = await queryOne<{
-      count: number;
-      total: number;
-    }>(
-      `SELECT 
-        COUNT(*) as count,
-        COALESCE(SUM(total_amount), 0) as total
-       FROM sales
-       WHERE shift_id = ? AND business_id = ? AND status = 'completed'`,
-      [shiftId, auth.businessId]
-    );
-
-    // Get shift start time
+    // Get shift info first
     const shiftInfo = await queryOne<{
       started_at: number;
       ended_at: number | null;
@@ -40,8 +27,29 @@ export async function GET(
       [shiftId, auth.businessId]
     );
 
+    if (!shiftInfo) {
+      return jsonResponse(
+        { success: false, message: 'Shift not found' },
+        404
+      );
+    }
+
+    const endTime = shiftInfo.ended_at || Math.floor(Date.now() / 1000);
+
+    // Get cash sales summary (only cash payments count toward drawer)
+    const salesSummary = await queryOne<{
+      count: number;
+      total: number;
+    }>(
+      `SELECT 
+        COUNT(*) as count,
+        COALESCE(SUM(total_amount), 0) as total
+       FROM sales
+       WHERE shift_id = ? AND business_id = ? AND status = 'completed' AND payment_method = 'cash'`,
+      [shiftId, auth.businessId]
+    );
+
     // Get credit payments collected during this shift (cash payments only)
-    const endTime = shiftInfo?.ended_at || Math.floor(Date.now() / 1000);
     const creditPayments = await queryOne<{
       count: number;
       total: number;
@@ -56,7 +64,24 @@ export async function GET(
          AND ct.payment_method = 'cash'
          AND ct.created_at >= ?
          AND ct.created_at <= ?`,
-      [auth.businessId, shiftInfo?.started_at || 0, endTime]
+      [auth.businessId, shiftInfo.started_at, endTime]
+    );
+
+    // Get cash expenses during this shift
+    // Expenses are considered "today" based on created_at timestamp
+    const cashExpenses = await queryOne<{
+      count: number;
+      total: number;
+    }>(
+      `SELECT 
+        COUNT(*) as count,
+        COALESCE(SUM(amount), 0) as total
+       FROM expenses
+       WHERE business_id = ?
+         AND created_at >= ?
+         AND created_at <= ?
+         AND active = 1`,
+      [auth.businessId, shiftInfo.started_at, endTime]
     );
 
     return jsonResponse({
@@ -64,6 +89,7 @@ export async function GET(
       data: {
         sales: salesSummary || { count: 0, total: 0 },
         creditPayments: creditPayments || { count: 0, total: 0 },
+        cashExpenses: cashExpenses || { count: 0, total: 0 },
       },
     });
   } catch (error) {
@@ -78,4 +104,3 @@ export async function GET(
     );
   }
 }
-

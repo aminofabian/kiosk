@@ -1,0 +1,198 @@
+import { NextRequest } from 'next/server';
+import { query } from '@/lib/db';
+import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
+import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
+
+export async function OPTIONS() {
+  return optionsResponse();
+}
+
+interface ItemSalesData {
+  item_id: string;
+  item_name: string;
+  variant_name: string | null;
+  category_name: string;
+  total_quantity_sold: number;
+  total_revenue: number;
+  total_cost: number;
+  total_profit: number;
+  current_stock: number;
+  min_stock_level: number | null;
+  transaction_count: number;
+  avg_sell_price: number;
+}
+
+interface SalesSummary {
+  totalTransactions: number;
+  totalItemsSold: number;
+  totalRevenue: number;
+  totalCost: number;
+  totalProfit: number;
+  profitMargin: number;
+  uniqueProductsSold: number;
+  lowStockCount: number;
+  outOfStockCount: number;
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    const auth = await requireAuth();
+    if (isAuthResponse(auth)) return auth;
+
+    const { searchParams } = new URL(request.url);
+    const period = searchParams.get('period') || 'all';
+
+    // Calculate date range
+    const now = Math.floor(Date.now() / 1000);
+    let startDate = 0;
+
+    switch (period) {
+      case 'today':
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        startDate = Math.floor(todayStart.getTime() / 1000);
+        break;
+      case '3days':
+        startDate = now - (3 * 24 * 60 * 60);
+        break;
+      case 'week':
+        startDate = now - (7 * 24 * 60 * 60);
+        break;
+      case 'month':
+        startDate = now - (30 * 24 * 60 * 60);
+        break;
+      case 'all':
+      default:
+        startDate = 0;
+        break;
+    }
+
+    // Get item-level sales data
+    const itemSales = await query<ItemSalesData>(
+      `SELECT 
+        i.id as item_id,
+        i.name as item_name,
+        i.variant_name,
+        c.name as category_name,
+        COALESCE(SUM(si.quantity_sold), 0) as total_quantity_sold,
+        COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
+        COALESCE(SUM(si.quantity_sold * si.buy_price_per_unit), 0) as total_cost,
+        COALESCE(SUM(si.profit), 0) as total_profit,
+        i.current_stock,
+        i.min_stock_level,
+        COUNT(DISTINCT si.sale_id) as transaction_count,
+        COALESCE(AVG(si.sell_price_per_unit), i.current_sell_price) as avg_sell_price
+      FROM items i
+      LEFT JOIN categories c ON i.category_id = c.id
+      LEFT JOIN sale_items si ON i.id = si.item_id
+      LEFT JOIN sales s ON si.sale_id = s.id AND s.status = 'completed' AND s.sale_date >= ?
+      WHERE i.business_id = ? 
+        AND i.active = 1
+        AND (i.parent_item_id IS NOT NULL OR 
+             (i.parent_item_id IS NULL AND NOT EXISTS (
+               SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1
+             )))
+      GROUP BY i.id, i.name, i.variant_name, c.name, i.current_stock, i.min_stock_level, i.current_sell_price
+      ORDER BY total_quantity_sold DESC`,
+      [startDate, auth.businessId]
+    );
+
+    // Get overall sales summary
+    const summaryResult = await query<{
+      total_transactions: number;
+      total_items_sold: number;
+      total_revenue: number;
+      total_cost: number;
+      total_profit: number;
+    }>(
+      `SELECT 
+        COUNT(DISTINCT s.id) as total_transactions,
+        COALESCE(SUM(si.quantity_sold), 0) as total_items_sold,
+        COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
+        COALESCE(SUM(si.quantity_sold * si.buy_price_per_unit), 0) as total_cost,
+        COALESCE(SUM(si.profit), 0) as total_profit
+      FROM sales s
+      JOIN sale_items si ON s.id = si.sale_id
+      WHERE s.business_id = ? AND s.status = 'completed' AND s.sale_date >= ?`,
+      [auth.businessId, startDate]
+    );
+
+    const summaryData = summaryResult[0] || {
+      total_transactions: 0,
+      total_items_sold: 0,
+      total_revenue: 0,
+      total_cost: 0,
+      total_profit: 0,
+    };
+
+    // Calculate additional stats
+    const uniqueProductsSold = itemSales.filter((i) => i.total_quantity_sold > 0).length;
+    const lowStockCount = itemSales.filter(
+      (i) => i.min_stock_level !== null && i.current_stock > 0 && i.current_stock <= i.min_stock_level
+    ).length;
+    const outOfStockCount = itemSales.filter((i) => i.current_stock <= 0).length;
+
+    const summary: SalesSummary = {
+      totalTransactions: summaryData.total_transactions,
+      totalItemsSold: summaryData.total_items_sold,
+      totalRevenue: summaryData.total_revenue,
+      totalCost: summaryData.total_cost,
+      totalProfit: summaryData.total_profit,
+      profitMargin: summaryData.total_revenue > 0 
+        ? (summaryData.total_profit / summaryData.total_revenue) * 100 
+        : 0,
+      uniqueProductsSold,
+      lowStockCount,
+      outOfStockCount,
+    };
+
+    // Get sales by payment method
+    const salesByPaymentMethod = await query<{
+      payment_method: string;
+      count: number;
+      total: number;
+    }>(
+      `SELECT 
+        payment_method,
+        COUNT(*) as count,
+        SUM(total_amount) as total
+      FROM sales
+      WHERE business_id = ? AND status = 'completed' AND sale_date >= ?
+      GROUP BY payment_method
+      ORDER BY total DESC`,
+      [auth.businessId, startDate]
+    );
+
+    // Get top sellers
+    const topSellers = itemSales
+      .filter((i) => i.total_quantity_sold > 0)
+      .slice(0, 10);
+
+    // Get items with no sales
+    const noSalesItems = itemSales
+      .filter((i) => i.total_quantity_sold === 0)
+      .slice(0, 20);
+
+    return jsonResponse({
+      success: true,
+      data: {
+        summary,
+        items: itemSales,
+        topSellers,
+        noSalesItems,
+        salesByPaymentMethod,
+        period,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching sales analytics:', error);
+    return jsonResponse(
+      {
+        success: false,
+        message: 'Failed to fetch sales analytics',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+}

@@ -43,6 +43,7 @@ import {
   X,
   Layers,
   Receipt,
+  BarChart3,
 } from 'lucide-react';
 
 interface ActionButton {
@@ -104,6 +105,12 @@ const ACTION_BUTTONS: ActionButton[] = [
     label: 'View Categories',
     description: 'Manage categories',
     icon: FolderTree,
+  },
+  {
+    href: '/admin/sales',
+    label: 'Sales Analytics',
+    description: 'Product sales & stock',
+    icon: BarChart3,
   },
   {
     href: '/admin/profit',
@@ -348,22 +355,22 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <Link href="/pos">
-            <div className="group relative w-full bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-lg sm:rounded-xl px-3 py-2 sm:px-6 sm:py-6 text-center transition-all duration-200 hover:shadow-lg hover:shadow-[#259783]/30 active:scale-98 cursor-pointer">
+            <div className="group relative w-full bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-lg sm:rounded-xl px-3 py-2 sm:px-6 sm:py-6 text-center transition-all duration-200 hover:shadow-lg hover:shadow-[#259783]/30 active:scale-98 cursor-pointer" style={{ color: '#ffffff' }}>
               <div className="flex flex-row items-center justify-center gap-2 sm:gap-4">
                 <div className="w-8 h-8 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
-                  <ShoppingCart className="w-4 h-4 sm:w-7 sm:h-7 text-white" />
+                  <ShoppingCart className="w-4 h-4 sm:w-7 sm:h-7 text-white" style={{ color: '#ffffff' }} />
                 </div>
                 <div className="text-center sm:text-left flex-1">
-                  <h3 className="text-sm sm:text-xl font-bold text-white">
+                  <h3 className="text-sm sm:text-xl font-bold text-white" style={{ color: '#ffffff' }}>
                     Open POS
                   </h3>
-                  <p className="hidden sm:block text-sm text-white/90 mt-1">
+                  <p className="hidden sm:block text-sm text-white/90 mt-1" style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
                     Start selling and processing transactions
                   </p>
                 </div>
                 <div className="hidden sm:block ml-auto">
                   <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
-                    <ShoppingCart className="w-5 h-5 text-white" />
+                    <ShoppingCart className="w-5 h-5 text-white" style={{ color: '#ffffff' }} />
                   </div>
                 </div>
               </div>
@@ -407,16 +414,17 @@ export default function AdminDashboardPage() {
               <button
                 onClick={button.onClick}
                 className="group relative w-full bg-[#259783] rounded-lg px-2 py-2 sm:px-4 sm:py-5 text-center transition-all duration-200 hover:bg-[#3bd522] hover:shadow-md active:scale-95"
+                style={{ color: '#ffffff', backgroundColor: '#259783' }}
               >
                 <div className="flex flex-col items-center gap-0.5 sm:gap-2">
                   <div className="w-5 h-5 sm:w-8 sm:h-8 rounded-md sm:rounded-lg bg-white/20 flex items-center justify-center">
-                    <Icon className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                    <Icon className="w-3 h-3 sm:w-4 sm:h-4 text-white" style={{ color: '#ffffff' }} />
                   </div>
                   <div>
-                    <h3 className="text-[11px] sm:text-sm font-semibold text-white leading-tight">
+                    <h3 className="text-[11px] sm:text-sm font-semibold text-white leading-tight" style={{ color: '#ffffff' }}>
                       {button.label}
                     </h3>
-                    <p className="text-[9px] sm:text-xs text-white/80 leading-tight">
+                    <p className="text-[9px] sm:text-xs text-white/80 leading-tight" style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
                       {button.description}
                     </p>
                   </div>
@@ -597,7 +605,7 @@ export default function AdminDashboardPage() {
       </Drawer>
 
       <Drawer open={stockTakeDrawerOpen && !isMobile} onOpenChange={setStockTakeDrawerOpen} direction="right">
-        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
+        <DrawerContent className="!w-full sm:!w-[800px] md:!w-[900px] lg:!w-[1000px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
           <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-indigo-50 dark:from-[#259783]/20 dark:to-indigo-950/20 px-6 py-5">
             <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-indigo-500 flex items-center justify-center shadow-sm">
@@ -976,13 +984,14 @@ export default function AdminDashboardPage() {
           className={`w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 ${
             fabOpen
               ? 'bg-slate-800 dark:bg-slate-200 rotate-45'
-              : 'bg-gradient-to-br from-[#259783] to-[#45d827] shadow-[#259783]/30'
+              : 'bg-[#259783] bg-gradient-to-br from-[#259783] to-[#45d827] shadow-[#259783]/30'
           }`}
+          style={fabOpen ? {} : { backgroundColor: '#259783', color: '#ffffff' }}
         >
           {fabOpen ? (
-            <X className="w-6 h-6 text-white dark:text-slate-900" />
+            <X className="w-6 h-6 text-white dark:text-slate-900" style={{ color: '#ffffff' }} />
           ) : (
-            <Plus className="w-7 h-7 text-white" />
+            <Plus className="w-7 h-7 text-white" style={{ color: '#ffffff' }} />
           )}
         </button>
       </div>

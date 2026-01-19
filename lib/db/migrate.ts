@@ -299,6 +299,13 @@ export async function runMigrations() {
       console.error('⚠ supplier_bills phone migration skipped:', error);
     }
 
+    try {
+      const { migrateShiftDenominations } = await import('./migrate-shift-denominations');
+      await migrateShiftDenominations();
+    } catch (error) {
+      console.error('⚠ shift_denominations migration skipped:', error);
+    }
+
     console.log('✅ Migration completed successfully!');
     return true;
   } catch (error) {

@@ -17,7 +17,7 @@ export async function POST(
 
     const { id: shiftId } = await params;
     const body = await request.json();
-    const { actualClosingCash } = body;
+    const { actualClosingCash, cashExpenses, denominations } = body;
 
     if (actualClosingCash === undefined || actualClosingCash < 0) {
       return jsonResponse(
@@ -51,17 +51,45 @@ export async function POST(
     }
 
     const now = Math.floor(Date.now() / 1000);
-    const cashDifference = actualClosingCash - shift.expected_closing_cash;
+    
+    // Calculate expected cash after expenses
+    const expectedAfterExpenses = shift.expected_closing_cash - (cashExpenses || 0);
+    const cashDifference = actualClosingCash - expectedAfterExpenses;
 
-    // Update shift
+    // Update shift with closing info and denominations
     await execute(
       `UPDATE shifts 
        SET status = 'closed',
            ended_at = ?,
            actual_closing_cash = ?,
-           cash_difference = ?
+           cash_difference = ?,
+           cash_expenses = ?,
+           closing_denom_1 = ?,
+           closing_denom_5 = ?,
+           closing_denom_10 = ?,
+           closing_denom_20 = ?,
+           closing_denom_50 = ?,
+           closing_denom_100 = ?,
+           closing_denom_200 = ?,
+           closing_denom_500 = ?,
+           closing_denom_1000 = ?
        WHERE id = ?`,
-      [now, actualClosingCash, cashDifference, shiftId]
+      [
+        now,
+        actualClosingCash,
+        cashDifference,
+        cashExpenses || 0,
+        denominations?.denom_1 || 0,
+        denominations?.denom_5 || 0,
+        denominations?.denom_10 || 0,
+        denominations?.denom_20 || 0,
+        denominations?.denom_50 || 0,
+        denominations?.denom_100 || 0,
+        denominations?.denom_200 || 0,
+        denominations?.denom_500 || 0,
+        denominations?.denom_1000 || 0,
+        shiftId,
+      ]
     );
 
     return jsonResponse({
@@ -70,6 +98,7 @@ export async function POST(
       data: {
         shiftId,
         cashDifference,
+        expectedAfterExpenses,
       },
     });
   } catch (error) {
@@ -84,4 +113,3 @@ export async function POST(
     );
   }
 }
-
