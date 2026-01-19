@@ -20,6 +20,7 @@ import {
   CheckCircle2,
   ArrowRight,
   X,
+  Trash2,
 } from 'lucide-react';
 import type { Item } from '@/lib/db/types';
 import type { AdjustmentReason } from '@/lib/constants';
@@ -55,22 +56,24 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [lastResult, setLastResult] = useState<{ requiresApproval?: boolean } | null>(null);
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+
+  async function fetchItems() {
+    try {
+      setLoadingItems(true);
+      const response = await fetch('/api/items?all=true&sellableOnly=true');
+      const result = await response.json();
+      if (result.success) {
+        setItems(result.data);
+      }
+    } catch (err) {
+      console.error('Error fetching items:', err);
+    } finally {
+      setLoadingItems(false);
+    }
+  }
 
   useEffect(() => {
-    async function fetchItems() {
-      try {
-        setLoadingItems(true);
-        const response = await fetch('/api/items?all=true&sellableOnly=true');
-        const result = await response.json();
-        if (result.success) {
-          setItems(result.data);
-        }
-      } catch (err) {
-        console.error('Error fetching items:', err);
-      } finally {
-        setLoadingItems(false);
-      }
-    }
     fetchItems();
   }, []);
 
@@ -151,23 +154,22 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
           setError(null);
           setShowSuccess(true);
           setIsSubmitting(false);
-          // Show success message but don't redirect immediately
+          // Reset form and refresh items, but don't close drawer
           setTimeout(() => {
-            if (onSuccess) {
-              onSuccess();
-            } else {
-              router.push('/admin/stock');
-            }
+            handleReset();
+            fetchItems();
+            setShowSuccess(false);
+            setLastResult(null);
           }, 2000);
         } else {
           setShowSuccess(true);
           setIsSubmitting(false);
+          // Reset form and refresh items, but don't close drawer
           setTimeout(() => {
-            if (onSuccess) {
-              onSuccess();
-            } else {
-              router.push('/admin/stock');
-            }
+            handleReset();
+            fetchItems();
+            setShowSuccess(false);
+            setLastResult(null);
           }, 1500);
         }
       } else {
@@ -187,6 +189,39 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
     setNotes('');
     setSearchQuery('');
     setError(null);
+  };
+
+  const handleDeleteItem = async (itemId: string, itemName: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent selecting the item when clicking delete
+    
+    if (!confirm(`Are you sure you want to delete "${itemName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingItemId(itemId);
+    try {
+      const response = await fetch(`/api/items/${itemId}`, {
+        method: 'DELETE',
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        // If the deleted item was selected, clear selection
+        if (selectedItemId === itemId) {
+          handleReset();
+        }
+        // Refresh items list
+        await fetchItems();
+      } else {
+        alert(result.message || 'Failed to delete item');
+      }
+    } catch (err) {
+      console.error('Error deleting item:', err);
+      alert('Failed to delete item. Please try again.');
+    } finally {
+      setDeletingItemId(null);
+    }
   };
 
   if (loadingItems) {
@@ -284,22 +319,25 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
                 filteredItems.map((item) => {
                   const isSelected = item.id === selectedItemId;
                   const isLow = item.current_stock < 10;
+                  const isDeleting = deletingItemId === item.id;
                   return (
-                    <button
+                    <div
                       key={item.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedItemId(item.id);
-                        setSearchQuery('');
-                      }}
-                      className={`w-full text-left p-3.5 rounded-xl border-2 transition-all ${
+                      className={`w-full p-3.5 rounded-xl border-2 transition-all ${
                         isSelected
                           ? 'border-[#259783] bg-[#259783]/5 shadow-sm ring-2 ring-[#259783]/10'
                           : 'border-slate-200 dark:border-slate-700 hover:border-[#259783]/50 hover:bg-slate-50 dark:hover:bg-slate-800/50'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedItemId(item.id);
+                            setSearchQuery('');
+                          }}
+                          className="flex-1 min-w-0 text-left"
+                        >
                           <p className="font-semibold text-slate-900 dark:text-white truncate">{item.name}</p>
                           <div className="flex items-center gap-2 mt-1.5">
                             <span className="text-sm text-slate-600 dark:text-slate-400">
@@ -311,12 +349,27 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
                               </Badge>
                             )}
                           </div>
+                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {isSelected && (
+                            <CheckCircle2 className="h-5 w-5 text-[#259783]" />
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteItem(item.id, item.name, e)}
+                            disabled={isDeleting}
+                            className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Delete item"
+                          >
+                            {isDeleting ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </button>
                         </div>
-                        {isSelected && (
-                          <CheckCircle2 className="h-5 w-5 text-[#259783] shrink-0" />
-                        )}
                       </div>
-                    </button>
+                    </div>
                   );
                 })
               )}

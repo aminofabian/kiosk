@@ -596,7 +596,6 @@ export default function AdminDashboardPage() {
           <div className="overflow-y-auto flex-1 bg-gradient-to-b from-white via-slate-50/30 to-white dark:from-slate-900 dark:via-slate-900/50 dark:to-slate-900">
             <div className="px-4 sm:px-6 py-6 max-w-none">
               <StockAdjustForm
-                onSuccess={() => setStockAdjustDrawerOpen(false)}
                 onCancel={() => setStockAdjustDrawerOpen(false)}
               />
             </div>
