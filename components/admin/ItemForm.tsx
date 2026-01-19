@@ -708,9 +708,15 @@ export function ItemForm({
   const [unitSalesOnly, setUnitSalesOnly] = useState<boolean>(
     initialData?.unit_type === 'piece' || initialData?.unit_type === 'bunch' || initialData?.unit_type === 'tray'
   );
-  const [initialStock, setInitialStock] = useState<string>(
-    initialData?.current_stock ? Math.round(initialData.current_stock).toString() : '0'
-  );
+  const [initialStock, setInitialStock] = useState<string>(() => {
+    if (!initialData?.current_stock) return '0';
+    // For piece unit type, use integer; for others, keep as is
+    const unitType = initialData?.unit_type || 'piece';
+    if (unitType === 'piece') {
+      return Math.round(initialData.current_stock).toString();
+    }
+    return initialData.current_stock.toString();
+  });
   const [buyPrice, setBuyPrice] = useState<string>(initialData?.buy_price?.toString() || '');
   const [sellPrice, setSellPrice] = useState<string>(initialData?.current_sell_price?.toString() || '');
   const [minStockLevel, setMinStockLevel] = useState<string>(initialData?.min_stock_level?.toString() || '');
@@ -944,7 +950,10 @@ export function ItemForm({
       }
     }
 
-    const stock = parseInt(initialStock, 10) || 0;
+    // Parse stock based on unit type: integer for piece, float for others
+    const stock = unitType === 'piece' 
+      ? parseInt(initialStock, 10) || 0
+      : parseFloat(initialStock) || 0;
     const buy = buyPrice ? parseFloat(buyPrice) : null;
     const price = mode === 'parent' ? 0 : parseFloat(sellPrice);
     const minStock = minStockLevel ? parseFloat(minStockLevel) : null;
@@ -1087,6 +1096,34 @@ export function ItemForm({
         : await apiPost<Item>(url, requestBody);
 
       if (result.success) {
+        // If editing and stock changed, update stock via adjustment API
+        if (itemId && initialData && mode !== 'parent') {
+          const oldStock = initialData.current_stock || 0;
+          const newStock = stock;
+          const stockDifference = newStock - oldStock;
+
+          // Only adjust if there's a difference
+          if (Math.abs(stockDifference) > 0.001) {
+            try {
+              const adjustmentResult = await apiPost('/api/stock/adjust', {
+                itemId: itemId,
+                adjustmentType: stockDifference > 0 ? 'increase' : 'decrease',
+                quantity: Math.abs(stockDifference),
+                reason: 'counting_error',
+                notes: 'Stock updated via item edit',
+              });
+
+              if (!adjustmentResult.success) {
+                console.warn('Item updated but stock adjustment failed:', adjustmentResult.message);
+                // Don't fail the whole operation, just log a warning
+              }
+            } catch (adjustErr) {
+              console.error('Error adjusting stock:', adjustErr);
+              // Don't fail the whole operation
+            }
+          }
+        }
+
         if (onSuccess) {
           onSuccess(result.data);
         } else {
@@ -1847,15 +1884,34 @@ export function ItemForm({
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <Label className="text-sm font-medium">Current Stock ({unitType})</Label>
-                    <div className="h-12 px-4 flex items-center bg-background rounded-md border border-border">
-                      <span className="text-foreground font-semibold text-lg">
-                        {initialData?.current_stock?.toFixed(2) || '0.00'} {unitType}
-                      </span>
-                    </div>
+                    <Label htmlFor="editStock" className="text-sm font-medium">
+                      Current Stock ({unitType})
+                    </Label>
+                    <Input
+                      id="editStock"
+                      type="number"
+                      step={unitType === 'piece' ? '1' : '0.01'}
+                      min="0"
+                      value={initialStock}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // For piece unit type, only allow integers
+                        if (unitType === 'piece') {
+                          const intValue = value === '' ? '' : Math.floor(parseFloat(value) || 0).toString();
+                          setInitialStock(intValue);
+                        } else {
+                          setInitialStock(value);
+                        }
+                      }}
+                      placeholder="0"
+                      disabled={isSubmitting}
+                      className="h-12 text-base focus-visible:ring-[#259783]"
+                    />
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Info className="h-3 w-3" />
-                      Update stock by adding purchases
+                      {unitType === 'piece' 
+                        ? 'Enter the current stock quantity (whole numbers only)'
+                        : 'Enter the current stock quantity'}
                     </p>
                   </div>
                 )}
