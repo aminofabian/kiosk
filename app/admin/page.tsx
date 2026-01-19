@@ -355,7 +355,7 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <Link href="/pos">
-            <div className="group relative w-full bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-lg sm:rounded-xl px-3 py-2 sm:px-6 sm:py-6 text-center transition-all duration-200 hover:shadow-lg hover:shadow-[#259783]/30 active:scale-98 cursor-pointer" style={{ color: '#ffffff' }}>
+            <div className="group relative w-full bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-lg sm:rounded-xl px-3 py-2 sm:px-6 sm:py-6 text-center transition-all duration-200 hover:shadow-lg hover:shadow-[#259783]/30 active:scale-98 cursor-pointer text-white" style={{ backgroundColor: '#259783' }}>
               <div className="flex flex-row items-center justify-center gap-2 sm:gap-4">
                 <div className="w-8 h-8 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
                   <ShoppingCart className="w-4 h-4 sm:w-7 sm:h-7 text-white" style={{ color: '#ffffff' }} />
@@ -413,8 +413,8 @@ export default function AdminDashboardPage() {
             const ButtonContent = (
               <button
                 onClick={button.onClick}
-                className="group relative w-full bg-[#259783] rounded-lg px-2 py-2 sm:px-4 sm:py-5 text-center transition-all duration-200 hover:bg-[#3bd522] hover:shadow-md active:scale-95"
-                style={{ color: '#ffffff', backgroundColor: '#259783' }}
+                className="group relative w-full bg-[#259783] rounded-lg px-2 py-2 sm:px-4 sm:py-5 text-center transition-all duration-200 hover:bg-[#3bd522] hover:shadow-md active:scale-95 text-white"
+                style={{ backgroundColor: '#259783' }}
               >
                 <div className="flex flex-col items-center gap-0.5 sm:gap-2">
                   <div className="w-5 h-5 sm:w-8 sm:h-8 rounded-md sm:rounded-lg bg-white/20 flex items-center justify-center">

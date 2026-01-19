@@ -4,6 +4,130 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { Category } from '@/lib/db/types';
 import { shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
+import {
+  Leaf,
+  Apple,
+  Wheat,
+  Flame,
+  Droplets,
+  Package,
+  Sprout,
+  GlassWater,
+  Drumstick,
+  Croissant,
+  Snowflake,
+  Box,
+  Utensils,
+  Candy,
+  Sparkles,
+  Heart,
+  Home,
+  FileText,
+  Store,
+  Pill,
+  Coffee,
+  Cake,
+  Shirt,
+  BookOpen,
+  UtensilsCrossed,
+} from 'lucide-react';
+
+// Icon map for predefined categories - all icons use consistent size w-6 h-6 for desktop
+const CATEGORY_ICONS: Record<string, React.ReactNode> = {
+  // Grocery categories
+  'Vegetables': <Leaf className="w-6 h-6" />,
+  'Fruits': <Apple className="w-6 h-6" />,
+  'Grains & Cereals': <Wheat className="w-6 h-6" />,
+  'Spices': <Flame className="w-6 h-6" />,
+  'Beverages': <Droplets className="w-6 h-6" />,
+  'Snacks': <Package className="w-6 h-6" />,
+  'Green Grocery': <Sprout className="w-6 h-6" />,
+  'Dairy': <GlassWater className="w-6 h-6" />,
+  'Meat': <Drumstick className="w-6 h-6" />,
+  'Bakery': <Croissant className="w-6 h-6" />,
+  'Frozen Foods': <Snowflake className="w-6 h-6" />,
+  'Canned Goods': <Box className="w-6 h-6" />,
+  // Retail categories
+  'Food Essentials': <Utensils className="w-6 h-6" />,
+  'Snacks & Confectionery': <Candy className="w-6 h-6" />,
+  'Cleaning Products': <Sparkles className="w-6 h-6" />,
+  'Personal Care': <Heart className="w-6 h-6" />,
+  'Household Items': <Home className="w-6 h-6" />,
+  'Paper Products': <FileText className="w-6 h-6" />,
+  'General Merchandise': <Store className="w-6 h-6" />,
+};
+
+// Get icon for a category - matches by name or keywords
+function getCategoryIcon(categoryName: string): React.ReactNode {
+  if (!categoryName) return <Package className="w-6 h-6" />;
+  
+  const lowerName = categoryName.toLowerCase().trim();
+  
+  // Direct match first
+  if (CATEGORY_ICONS[categoryName]) {
+    return CATEGORY_ICONS[categoryName];
+  }
+  
+  // Case-insensitive match
+  for (const [key, icon] of Object.entries(CATEGORY_ICONS)) {
+    if (key.toLowerCase() === lowerName) {
+      return icon;
+    }
+  }
+  
+  // Keyword-based matching for custom categories - all icons use consistent size w-6 h-6
+  if (lowerName.includes('medicine') || lowerName.includes('meds') || lowerName.includes('pill') || lowerName.includes('drug')) {
+    return <Pill className="w-6 h-6" />;
+  }
+  if (lowerName.includes('coffee') || lowerName.includes('tea')) {
+    return <Coffee className="w-6 h-6" />;
+  }
+  if (lowerName.includes('cake') || lowerName.includes('pastry') || lowerName.includes('baked')) {
+    return <Cake className="w-6 h-6" />;
+  }
+  if (lowerName.includes('beauty') || lowerName.includes('cosmetic') || lowerName.includes('makeup')) {
+    return <Heart className="w-6 h-6" />;
+  }
+  if (lowerName.includes('juice') || lowerName.includes('drink') || lowerName.includes('soda')) {
+    return <Droplets className="w-6 h-6" />;
+  }
+  if (lowerName.includes('detergent') || lowerName.includes('soap') || lowerName.includes('cleaner')) {
+    return <Sparkles className="w-6 h-6" />;
+  }
+  if (lowerName.includes('stationery') || lowerName.includes('pen') || lowerName.includes('paper') || lowerName.includes('notebook')) {
+    return <BookOpen className="w-6 h-6" />;
+  }
+  if (lowerName.includes('match') || lowerName.includes('lighter')) {
+    return <Flame className="w-6 h-6" />;
+  }
+  if (lowerName.includes('shoe') || lowerName.includes('polish') || lowerName.includes('suede')) {
+    return <Shirt className="w-6 h-6" />;
+  }
+  if (lowerName.includes('lotion') || lowerName.includes('cream') || lowerName.includes('body')) {
+    return <Heart className="w-6 h-6" />;
+  }
+  if (lowerName.includes('sauce') || lowerName.includes('condiment') || lowerName.includes('ketchup') || lowerName.includes('tomato')) {
+    return <UtensilsCrossed className="w-6 h-6" />;
+  }
+  if (lowerName.includes('flour') || lowerName.includes('wheat') || lowerName.includes('maize') || lowerName.includes('grain') || lowerName.includes('cereal') || lowerName.includes('weetabix')) {
+    return <Wheat className="w-6 h-6" />;
+  }
+  if (lowerName.includes('oil') || lowerName.includes('cooking')) {
+    return <Droplets className="w-6 h-6" />;
+  }
+  if (lowerName.includes('sugar') || lowerName.includes('sweet')) {
+    return <Candy className="w-6 h-6" />;
+  }
+  if (lowerName.includes('household') || lowerName.includes('goods')) {
+    return <Home className="w-6 h-6" />;
+  }
+  if (lowerName.includes('food') || lowerName.includes('essential')) {
+    return <Utensils className="w-6 h-6" />;
+  }
+  
+  // Default fallback
+  return <Package className="w-6 h-6" />;
+}
 
 interface CategoryListProps {
   onSelectCategory: (categoryId: string | null) => void;
@@ -102,6 +226,9 @@ export function CategoryList({
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
         {filteredCategories.map((category) => {
           const isSelected = selectedCategoryId === category.id;
+          // Always use lucide-react icons
+          const icon = getCategoryIcon(category.name);
+          
           return (
             <Button
               key={category.id}
@@ -116,16 +243,16 @@ export function CategoryList({
                 onSelectCategory(isSelected ? null : category.id)
               }
             >
-              {category.icon && (
-                <span
-                  className={`text-2xl sm:text-3xl transition-transform ${
-                    isSelected ? 'scale-110' : ''
-                  }`}
-                >
-                  {category.icon}
-                </span>
-              )}
-              <span className="text-xs sm:text-sm font-semibold leading-tight">
+              <span
+                className={`transition-transform ${
+                  isSelected ? 'scale-110 text-white' : 'text-[#259783]'
+                }`}
+              >
+                {icon}
+              </span>
+              <span className={`text-xs sm:text-sm font-semibold leading-tight text-center ${
+                isSelected ? 'text-white' : 'text-gray-700'
+              }`}>
                 {category.name}
               </span>
             </Button>

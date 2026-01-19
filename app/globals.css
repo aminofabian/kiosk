@@ -234,27 +234,4 @@
   .animate-gentle-pulse {
     animation: gentle-pulse 2s ease-in-out infinite;
   }
-  
-  /* Cross-browser button visibility fixes */
-  /* Ensure buttons with gradients have visible text */
-  button.bg-gradient-to-r,
-  a.bg-gradient-to-r,
-  button[class*="bg-gradient"],
-  a[class*="bg-gradient"] {
-    color: #ffffff;
-  }
-  
-  /* Ensure text is visible on colored button backgrounds */
-  button[class*="bg-[#259783]"],
-  a[class*="bg-[#259783]"] {
-    color: #ffffff;
-  }
-  
-  /* Ensure icons are visible in buttons */
-  button[class*="bg-[#259783]"] svg,
-  a[class*="bg-[#259783]"] svg,
-  button[class*="bg-gradient"] svg,
-  a[class*="bg-gradient"] svg {
-    color: #ffffff;
-  }
 }

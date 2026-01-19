@@ -27,6 +27,27 @@ import {
   LogOut,
   Loader2,
   Tag,
+  Sprout,
+  GlassWater,
+  Drumstick,
+  Croissant,
+  Snowflake,
+  Box,
+  Utensils,
+  Candy,
+  Sparkles,
+  Heart,
+  Home,
+  FileText,
+  Store,
+  Pill,
+  Coffee as CoffeeIcon,
+  Cake,
+  Shirt,
+  BookOpen,
+  Heart as HeartIcon,
+  Home as HomeIcon,
+  UtensilsCrossed,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Item } from '@/lib/db/types';
@@ -74,21 +95,51 @@ const CATEGORY_IMAGE_MAP: Record<string, string> = {
 };
 
 const CATEGORY_ICON_MAP: Record<string, React.ReactNode> = {
+  // Grocery categories - all icons use consistent size w-7 h-7
   Vegetables: <Leaf className="w-7 h-7" />,
   Fruits: <Apple className="w-7 h-7" />,
   'Grains & Cereals': <Wheat className="w-7 h-7" />,
-  Spices: <Flame className="w-6 h-6" />,
-  Beverages: <Droplets className="w-6 h-6" />,
-  Snacks: <Package className="w-6 h-6" />,
+  Spices: <Flame className="w-7 h-7" />,
+  Beverages: <Droplets className="w-7 h-7" />,
+  Snacks: <Package className="w-7 h-7" />,
+  'Green Grocery': <Sprout className="w-7 h-7" />,
+  Dairy: <GlassWater className="w-7 h-7" />,
+  Meat: <Drumstick className="w-7 h-7" />,
+  Bakery: <Croissant className="w-7 h-7" />,
+  'Frozen Foods': <Snowflake className="w-7 h-7" />,
+  'Canned Goods': <Box className="w-7 h-7" />,
+  // Retail categories - all icons use consistent size w-7 h-7
+  'Food Essentials': <Utensils className="w-7 h-7" />,
+  'Snacks & Confectionery': <Candy className="w-7 h-7" />,
+  'Cleaning Products': <Sparkles className="w-7 h-7" />,
+  'Personal Care': <Heart className="w-7 h-7" />,
+  'Household Items': <Home className="w-7 h-7" />,
+  'Paper Products': <FileText className="w-7 h-7" />,
+  'General Merchandise': <Store className="w-7 h-7" />,
 };
 
 const CATEGORY_COLOR_MAP: Record<string, string> = {
+  // Grocery categories
   Vegetables: 'text-green-700 dark:text-green-400',
   Fruits: 'text-red-600 dark:text-red-400',
   'Grains & Cereals': 'text-amber-700 dark:text-amber-400',
   Spices: 'text-orange-600 dark:text-orange-400',
   Beverages: 'text-blue-600 dark:text-blue-400',
   Snacks: 'text-purple-600 dark:text-purple-400',
+  'Green Grocery': 'text-emerald-700 dark:text-emerald-400',
+  Dairy: 'text-cyan-600 dark:text-cyan-400',
+  Meat: 'text-rose-700 dark:text-rose-400',
+  Bakery: 'text-yellow-700 dark:text-yellow-400',
+  'Frozen Foods': 'text-sky-600 dark:text-sky-400',
+  'Canned Goods': 'text-gray-700 dark:text-gray-400',
+  // Retail categories
+  'Food Essentials': 'text-amber-600 dark:text-amber-400',
+  'Snacks & Confectionery': 'text-pink-600 dark:text-pink-400',
+  'Cleaning Products': 'text-teal-600 dark:text-teal-400',
+  'Personal Care': 'text-indigo-600 dark:text-indigo-400',
+  'Household Items': 'text-slate-600 dark:text-slate-400',
+  'Paper Products': 'text-blue-600 dark:text-blue-400',
+  'General Merchandise': 'text-violet-600 dark:text-violet-400',
 };
 
 export default function POSPage() {
@@ -381,11 +432,212 @@ export default function POSPage() {
   };
 
   const getCategoryIcon = (categoryName: string) => {
-    return CATEGORY_ICON_MAP[categoryName] || <Package className="w-7 h-7" />;
+    if (!categoryName) return <Package className="w-7 h-7" />;
+    
+    const normalizedName = categoryName.trim();
+    const lowerName = normalizedName.toLowerCase();
+    
+    // Direct match first
+    if (CATEGORY_ICON_MAP[normalizedName]) {
+      return CATEGORY_ICON_MAP[normalizedName];
+    }
+    
+    // Try case-insensitive match
+    for (const [key, value] of Object.entries(CATEGORY_ICON_MAP)) {
+      if (key.toLowerCase() === lowerName) {
+        return value;
+      }
+    }
+    
+    // Try normalized variations
+    const normalized = lowerName
+      .replace(/&/g, 'and')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    const variations: Record<string, string> = {
+      'vegetables': 'Vegetables',
+      'vegetable': 'Vegetables',
+      'fruits': 'Fruits',
+      'fruit': 'Fruits',
+      'grains and cereals': 'Grains & Cereals',
+      'grains & cereals': 'Grains & Cereals',
+      'cereals and grains': 'Grains & Cereals',
+      'cereals & grains': 'Grains & Cereals',
+      'grain and cereal': 'Grains & Cereals',
+      'grain & cereal': 'Grains & Cereals',
+      'grains&cereals': 'Grains & Cereals',
+      'spices': 'Spices',
+      'spice': 'Spices',
+      'beverages': 'Beverages',
+      'beverage': 'Beverages',
+      'drinks': 'Beverages',
+      'snacks': 'Snacks',
+      'snack': 'Snacks',
+      'green grocery': 'Green Grocery',
+      'green-grocery': 'Green Grocery',
+      'dairy': 'Dairy',
+      'meat': 'Meat',
+      'bakery': 'Bakery',
+      'baked goods': 'Bakery',
+      'frozen foods': 'Frozen Foods',
+      'frozen food': 'Frozen Foods',
+      'frozen': 'Frozen Foods',
+      'canned goods': 'Canned Goods',
+      'canned good': 'Canned Goods',
+      'canned': 'Canned Goods',
+      'food essentials': 'Food Essentials',
+      'food essential': 'Food Essentials',
+      'snacks & confectionery': 'Snacks & Confectionery',
+      'snacks and confectionery': 'Snacks & Confectionery',
+      'confectionery': 'Snacks & Confectionery',
+      'cleaning products': 'Cleaning Products',
+      'cleaning product': 'Cleaning Products',
+      'personal care': 'Personal Care',
+      'household items': 'Household Items',
+      'household item': 'Household Items',
+      'household goods': 'Household Items',
+      'paper products': 'Paper Products',
+      'paper product': 'Paper Products',
+      'general merchandise': 'General Merchandise',
+      'general merchandize': 'General Merchandise',
+      'merchandise': 'General Merchandise',
+      'merchandize': 'General Merchandise',
+    };
+    
+    if (variations[normalized] && CATEGORY_ICON_MAP[variations[normalized]]) {
+      return CATEGORY_ICON_MAP[variations[normalized]];
+    }
+    
+    // Keyword-based matching for custom categories - all icons use consistent size w-7 h-7
+    if (lowerName.includes('medicine') || lowerName.includes('meds') || lowerName.includes('pill') || lowerName.includes('drug')) {
+      return <Pill className="w-7 h-7" />;
+    }
+    if (lowerName.includes('coffee') || lowerName.includes('tea')) {
+      return <CoffeeIcon className="w-7 h-7" />;
+    }
+    if (lowerName.includes('cake') || lowerName.includes('pastry') || lowerName.includes('baked')) {
+      return <Cake className="w-7 h-7" />;
+    }
+    if (lowerName.includes('beauty') || lowerName.includes('cosmetic') || lowerName.includes('makeup')) {
+      return <HeartIcon className="w-7 h-7" />;
+    }
+    if (lowerName.includes('juice') || lowerName.includes('drink') || lowerName.includes('soda')) {
+      return <Droplets className="w-7 h-7" />;
+    }
+    if (lowerName.includes('detergent') || lowerName.includes('soap') || lowerName.includes('cleaner')) {
+      return <Sparkles className="w-7 h-7" />;
+    }
+    if (lowerName.includes('stationery') || lowerName.includes('pen') || lowerName.includes('paper') || lowerName.includes('notebook')) {
+      return <BookOpen className="w-7 h-7" />;
+    }
+    if (lowerName.includes('match') || lowerName.includes('lighter')) {
+      return <Flame className="w-7 h-7" />;
+    }
+    if (lowerName.includes('shoe') || lowerName.includes('polish') || lowerName.includes('suede')) {
+      return <Shirt className="w-7 h-7" />;
+    }
+    if (lowerName.includes('lotion') || lowerName.includes('cream') || lowerName.includes('body')) {
+      return <HeartIcon className="w-7 h-7" />;
+    }
+    if (lowerName.includes('sauce') || lowerName.includes('condiment') || lowerName.includes('ketchup') || lowerName.includes('tomato')) {
+      return <UtensilsCrossed className="w-7 h-7" />;
+    }
+    if (lowerName.includes('flour') || lowerName.includes('wheat') || lowerName.includes('maize') || lowerName.includes('grain') || lowerName.includes('cereal') || lowerName.includes('weetabix')) {
+      return <Wheat className="w-7 h-7" />;
+    }
+    if (lowerName.includes('oil') || lowerName.includes('cooking')) {
+      return <Droplets className="w-7 h-7" />;
+    }
+    if (lowerName.includes('sugar') || lowerName.includes('sweet')) {
+      return <Candy className="w-7 h-7" />;
+    }
+    if (lowerName.includes('household') || lowerName.includes('goods')) {
+      return <HomeIcon className="w-7 h-7" />;
+    }
+    
+    // Default fallback - always return an icon
+    return <Package className="w-7 h-7" />;
   };
 
   const getCategoryColor = (categoryName: string) => {
-    return CATEGORY_COLOR_MAP[categoryName] || 'text-gray-600 dark:text-gray-400';
+    if (!categoryName) return 'text-gray-600 dark:text-gray-400';
+    
+    const normalizedName = categoryName.trim();
+    
+    // Direct match first
+    if (CATEGORY_COLOR_MAP[normalizedName]) {
+      return CATEGORY_COLOR_MAP[normalizedName];
+    }
+    
+    // Try case-insensitive match
+    for (const [key, value] of Object.entries(CATEGORY_COLOR_MAP)) {
+      if (key.toLowerCase() === normalizedName.toLowerCase()) {
+        return value;
+      }
+    }
+    
+    // Try normalized variations
+    const normalized = normalizedName
+      .toLowerCase()
+      .replace(/&/g, 'and')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    const variations: Record<string, string> = {
+      'vegetables': 'Vegetables',
+      'vegetable': 'Vegetables',
+      'fruits': 'Fruits',
+      'fruit': 'Fruits',
+      'grains and cereals': 'Grains & Cereals',
+      'grains & cereals': 'Grains & Cereals',
+      'cereals and grains': 'Grains & Cereals',
+      'cereals & grains': 'Grains & Cereals',
+      'grain and cereal': 'Grains & Cereals',
+      'grain & cereal': 'Grains & Cereals',
+      'grains&cereals': 'Grains & Cereals',
+      'spices': 'Spices',
+      'spice': 'Spices',
+      'beverages': 'Beverages',
+      'beverage': 'Beverages',
+      'drinks': 'Beverages',
+      'snacks': 'Snacks',
+      'snack': 'Snacks',
+      'green grocery': 'Green Grocery',
+      'green-grocery': 'Green Grocery',
+      'dairy': 'Dairy',
+      'meat': 'Meat',
+      'bakery': 'Bakery',
+      'baked goods': 'Bakery',
+      'frozen foods': 'Frozen Foods',
+      'frozen food': 'Frozen Foods',
+      'frozen': 'Frozen Foods',
+      'canned goods': 'Canned Goods',
+      'canned good': 'Canned Goods',
+      'canned': 'Canned Goods',
+      'food essentials': 'Food Essentials',
+      'food essential': 'Food Essentials',
+      'snacks & confectionery': 'Snacks & Confectionery',
+      'snacks and confectionery': 'Snacks & Confectionery',
+      'confectionery': 'Snacks & Confectionery',
+      'cleaning products': 'Cleaning Products',
+      'cleaning product': 'Cleaning Products',
+      'personal care': 'Personal Care',
+      'household items': 'Household Items',
+      'household item': 'Household Items',
+      'paper products': 'Paper Products',
+      'paper product': 'Paper Products',
+      'general merchandise': 'General Merchandise',
+      'general merchandize': 'General Merchandise',
+      'merchandise': 'General Merchandise',
+      'merchandize': 'General Merchandise',
+    };
+    
+    if (variations[normalized] && CATEGORY_COLOR_MAP[variations[normalized]]) {
+      return CATEGORY_COLOR_MAP[variations[normalized]];
+    }
+    
+    return 'text-gray-600 dark:text-gray-400';
   };
 
   // Show all categories in a uniform grid
@@ -538,7 +790,7 @@ export default function POSPage() {
                     href="/admin"
                     className="flex items-center justify-center gap-2 px-4 h-12 rounded-full bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] active:scale-95 transition-all shadow-lg shadow-[#259783]/40 hover:shadow-[#3bd522]/40 text-white font-bold text-sm relative overflow-hidden group"
                     aria-label="Admin"
-                    style={{ color: '#ffffff', backgroundColor: '#259783' }}
+                    style={{ backgroundColor: '#259783' }}
                   >
                     <div className="absolute inset-0 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
                     <Settings className="w-5 h-5 relative z-10" style={{ color: '#ffffff' }} />
@@ -664,11 +916,11 @@ export default function POSPage() {
                             ></div>
                           )}
                           <span
-                            className={`relative z-20 flex items-center justify-center w-10 h-10 rounded-full bg-white/90 dark:bg-black/60 backdrop-blur-sm ${color} shadow-sm`}
+                            className={`relative z-20 flex items-center justify-center w-12 h-12 rounded-full bg-white/95 dark:bg-black/70 backdrop-blur-sm ${color} shadow-md`}
                           >
                             {icon}
                           </span>
-                          <span className="relative z-20 text-white font-bold text-lg tracking-tight leading-tight drop-shadow-md">
+                          <span className="relative z-20 text-white font-bold text-base tracking-tight leading-tight drop-shadow-lg">
                             {category.name}
                           </span>
                         </button>
@@ -731,7 +983,7 @@ export default function POSPage() {
                     href="/admin"
                     className="flex items-center justify-center gap-2 px-4 h-12 rounded-full bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] active:scale-95 transition-all shadow-lg shadow-[#259783]/40 hover:shadow-[#3bd522]/40 text-white font-bold text-sm relative overflow-hidden group"
                     aria-label="Admin"
-                    style={{ color: '#ffffff', backgroundColor: '#259783' }}
+                    style={{ backgroundColor: '#259783' }}
                   >
                     <div className="absolute inset-0 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
                     <Settings className="w-5 h-5 relative z-10" style={{ color: '#ffffff' }} />
@@ -845,7 +1097,7 @@ export default function POSPage() {
         <div className="fixed bottom-6 left-0 right-0 px-4 flex flex-col items-center gap-3 z-30 pointer-events-none">
           <Link
             href="/pos/cart"
-            className="pointer-events-auto shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_30px_rgb(75,238,43,0.3)] active:scale-95 transition-all w-full max-w-md h-[72px] bg-[#259783] rounded-full flex items-center justify-between px-2 pr-6 group"
+            className="pointer-events-auto shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_30px_rgb(75,238,43,0.3)] active:scale-95 transition-all w-full max-w-md h-[72px] bg-[#259783] rounded-full flex items-center justify-between px-2 pr-6 group text-white"
             style={{ backgroundColor: '#259783' }}
           >
             <div className="flex items-center gap-3">
@@ -964,7 +1216,7 @@ export default function POSPage() {
                     <Button
                       size="sm"
                       className="flex items-center gap-2 bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] text-white font-semibold shadow-lg shadow-[#259783]/40 hover:shadow-[#3bd522]/40 transition-all relative overflow-hidden group"
-                      style={{ color: '#ffffff', backgroundColor: '#259783' }}
+                      style={{ backgroundColor: '#259783' }}
                     >
                       <div className="absolute inset-0 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
                       <Settings className="w-4 h-4 relative z-10" style={{ color: '#ffffff' }} />

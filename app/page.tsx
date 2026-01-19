@@ -238,7 +238,7 @@ export default async function HomePage() {
                     </Button>
                   </Link>
                   <Link href="/pos">
-                    <Button size="sm" className="gap-2 bg-emerald-600 bg-gradient-to-r from-emerald-600 to-teal-600" style={{ color: '#ffffff', backgroundColor: '#059669' }}>
+                    <Button size="sm" className="gap-2 bg-emerald-600 bg-gradient-to-r from-emerald-600 to-teal-600 text-white" style={{ backgroundColor: '#059669' }}>
                       <ShoppingCart className="w-4 h-4" style={{ color: '#ffffff' }} />
                       <span style={{ color: '#ffffff' }}>POS</span>
                     </Button>
@@ -253,7 +253,7 @@ export default async function HomePage() {
                     </Button>
                   </Link>
                   <Link href="/register">
-                    <Button size="sm" className="gap-2 bg-emerald-600 bg-gradient-to-r from-emerald-600 to-teal-600" style={{ color: '#ffffff', backgroundColor: '#059669' }}>
+                    <Button size="sm" className="gap-2 bg-emerald-600 bg-gradient-to-r from-emerald-600 to-teal-600 text-white" style={{ backgroundColor: '#059669' }}>
                       <UserPlus className="w-4 h-4" style={{ color: '#ffffff' }} />
                       <span style={{ color: '#ffffff' }}>Get Started</span>
                     </Button>
@@ -345,7 +345,7 @@ export default async function HomePage() {
                       <Button
                         size="lg"
                         className="w-full bg-emerald-600 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 gap-2 group-hover:scale-105"
-                        style={{ color: '#ffffff', backgroundColor: '#059669' }}
+                        style={{ backgroundColor: '#059669' }}
                       >
                         {user ? (
                           <>
