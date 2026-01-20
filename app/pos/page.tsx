@@ -1352,7 +1352,7 @@ export default function POSPage() {
                                   {group.parent && getItemImage(group.parent.name) ? (
                                     <img
                                       src={getItemImage(group.parent.name)!}
-                                      alt={item.variant_name || item.name}
+                                      alt={item.name}
                                       className="w-full h-full object-cover"
                                       loading="lazy"
                                       onError={(e) => {
@@ -1371,7 +1371,7 @@ export default function POSPage() {
                                 </div>
                                 <div className="p-3">
                                   <h3 className="font-bold text-sm text-left mb-2 line-clamp-2 text-white">
-                                    {item.variant_name || item.name}
+                                    {item.name}
                                   </h3>
                                   <div className="space-y-1.5">
                                     <div className="flex items-center gap-2">
@@ -1806,7 +1806,7 @@ export default function POSPage() {
                                 {group.parent && getItemImage(group.parent.name) ? (
                                   <img
                                     src={getItemImage(group.parent.name)!}
-                                    alt={item.variant_name || item.name}
+                                    alt={item.name}
                                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                                     loading="lazy"
                                     onError={(e) => {
@@ -1825,7 +1825,7 @@ export default function POSPage() {
                               </div>
                               <div className="p-3">
                                 <h3 className="font-bold text-sm mb-2 line-clamp-2 text-slate-900 dark:text-white">
-                                  {item.variant_name || item.name}
+                                  {item.name}
                                 </h3>
                                 <div className="space-y-1.5">
                                   <div className="flex items-center gap-2">

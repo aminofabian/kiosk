@@ -543,7 +543,7 @@ export function ItemGrid({
                         <CardContent className="p-4 sm:p-5 flex flex-col gap-3">
                           <div className="flex flex-col gap-1">
                             <div className="font-semibold text-sm sm:text-base line-clamp-2 text-gray-800 min-h-[2.5rem]">
-                              {item.variant_name || item.name}
+                              {item.name}
                             </div>
                           </div>
                           
