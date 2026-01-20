@@ -36,21 +36,27 @@ export function useBarcodeScanner({
     (e: KeyboardEvent) => {
       if (!enabled) return;
 
-      // Ignore if user is typing in an input/textarea (unless it's the search input)
       const target = e.target as HTMLElement;
       const isSearchInput = target.getAttribute('data-barcode-enabled') === 'true';
+      const isInputField = target.tagName === 'INPUT' || 
+                          target.tagName === 'TEXTAREA' || 
+                          target.isContentEditable;
       
-      if (
-        !isSearchInput &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
-
       const currentTime = Date.now();
       const timeDiff = currentTime - lastKeyTimeRef.current;
+
+      // Allow barcode scanning globally (when page has focus or search input)
+      // Only block if user is clearly typing slowly in a non-search input
+      if (isInputField && !isSearchInput) {
+        // If there's a significant delay (> 150ms) and we have buffered characters,
+        // it's likely normal human typing, not a barcode scanner
+        if (timeDiff > 150 && bufferRef.current.length > 0) {
+          bufferRef.current = '';
+          return;
+        }
+        // Fast typing (< 150ms) in any input is likely a barcode scanner, so continue
+      }
+
 
       // If too much time has passed, reset buffer
       if (timeDiff > maxDelay && bufferRef.current.length > 0) {
