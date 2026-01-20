@@ -513,20 +513,23 @@ export function ItemGrid({
           )}
         </div>
       )}
-      <div className="space-y-6">
+      <div className="space-y-8">
         {groupedItems.map((group) => {
           if (group.type === 'parent' && group.parent && group.children && group.children.length > 0) {
             return (
-              <div key={group.parent.id} className="space-y-4">
+              <div key={group.parent.id} className="space-y-5 bg-gradient-to-br from-[#259783]/5 via-transparent to-[#3bd522]/5 dark:from-[#259783]/10 dark:via-transparent dark:to-[#3bd522]/10 rounded-2xl p-5 sm:p-6 border border-[#259783]/10 dark:border-[#259783]/20">
                 {/* Parent Label */}
-                <div className="flex items-center gap-3">
-                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#259783]/30 to-transparent"></div>
-                  <div className="px-5 py-2.5 bg-gradient-to-r from-[#259783]/10 to-[#3bd522]/10 dark:from-[#259783]/20 dark:to-[#3bd522]/20 rounded-full border border-[#259783]/30 dark:border-[#259783]/40 shadow-sm">
-                    <h2 className="text-base font-bold text-[#259783] dark:text-[#3bd522] uppercase tracking-wide whitespace-nowrap">
-                      {group.parent.name}
-                    </h2>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-[#259783]/20 dark:border-[#259783]/30"></div>
                   </div>
-                  <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#259783]/30 to-transparent"></div>
+                  <div className="relative flex justify-center">
+                    <div className="px-6 py-3 bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-full shadow-lg shadow-[#259783]/30 border-2 border-white dark:border-gray-50">
+                      <h2 className="text-base font-extrabold text-white uppercase tracking-wider whitespace-nowrap drop-shadow-sm">
+                        {group.parent.name}
+                      </h2>
+                    </div>
+                  </div>
                 </div>
                 {/* Children Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
@@ -537,19 +540,19 @@ export function ItemGrid({
                     return (
                       <Card
                         key={item.id}
-                        className="group cursor-pointer hover-lift transition-smooth touch-target bg-white border-gray-200 hover:border-[#259783] shadow-sm hover:shadow-lg relative overflow-hidden"
+                        className="group cursor-pointer hover-lift transition-smooth touch-target bg-white border-gray-200 hover:border-[#259783] shadow-md hover:shadow-xl relative overflow-hidden"
                         onClick={() => handleItemClick(item)}
                       >
                         <CardContent className="p-4 sm:p-5 flex flex-col gap-3">
                           <div className="flex flex-col gap-1">
-                            <div className="font-semibold text-sm sm:text-base line-clamp-2 text-gray-800 min-h-[2.5rem]">
+                            <div className="font-semibold text-sm sm:text-base line-clamp-2 text-gray-800 min-h-[2.5rem] leading-tight">
                               {item.name}
                             </div>
                           </div>
                           
                           {/* Price and Bundle Info */}
-                          <div className="space-y-1.5">
-                            <div className="text-lg sm:text-xl font-bold text-[#259783]">
+                          <div className="space-y-2">
+                            <div className="text-lg sm:text-xl font-bold bg-gradient-to-r from-[#259783] to-[#3bd522] bg-clip-text text-transparent">
                               {formatPrice(item.current_sell_price)}
                             </div>
                             {/* Bundle Pricing Badge */}
@@ -607,23 +610,23 @@ export function ItemGrid({
             const quickQty = getQuickAddQuantity(group.item);
 
             return (
-              <Card
-                key={group.item.id}
-                className="group cursor-pointer hover-lift transition-smooth touch-target bg-white border-gray-200 hover:border-[#259783] shadow-sm hover:shadow-lg relative overflow-hidden max-w-xs mx-auto"
-                onClick={() => handleItemClick(group.item!)}
-              >
-                <CardContent className="p-4 sm:p-5 flex flex-col gap-3">
-                  <div className="flex flex-col gap-1">
-                    <div className="font-semibold text-sm sm:text-base line-clamp-2 text-gray-800 min-h-[2.5rem]">
-                      {group.item.name}
+              <div key={group.item.id} className="flex justify-center">
+                <Card
+                  className="group cursor-pointer hover-lift transition-smooth touch-target bg-white border-gray-200 hover:border-[#259783] shadow-md hover:shadow-xl relative overflow-hidden max-w-xs w-full"
+                  onClick={() => handleItemClick(group.item!)}
+                >
+                  <CardContent className="p-4 sm:p-5 flex flex-col gap-3">
+                    <div className="flex flex-col gap-1">
+                      <div className="font-semibold text-sm sm:text-base line-clamp-2 text-gray-800 min-h-[2.5rem] leading-tight">
+                        {group.item.name}
+                      </div>
                     </div>
-                  </div>
-                  
-                  {/* Price and Bundle Info */}
-                  <div className="space-y-1.5">
-                    <div className="text-lg sm:text-xl font-bold text-[#259783]">
-                      {formatPrice(group.item.current_sell_price)}
-                    </div>
+                    
+                    {/* Price and Bundle Info */}
+                    <div className="space-y-2">
+                      <div className="text-lg sm:text-xl font-bold bg-gradient-to-r from-[#259783] to-[#3bd522] bg-clip-text text-transparent">
+                        {formatPrice(group.item.current_sell_price)}
+                      </div>
                     {/* Bundle Pricing Badge */}
                     {group.item.bundle_quantity && group.item.bundle_price && group.item.bundle_quantity > 0 && group.item.bundle_price > 0 && (
                       <div className="flex items-center gap-1.5">
@@ -669,6 +672,7 @@ export function ItemGrid({
                   </div>
                 </CardContent>
               </Card>
+              </div>
             );
           }
           return null;

@@ -1325,35 +1325,38 @@ export default function POSPage() {
                   </p>
                 </div>
               ) : (
-                <div className="space-y-6 py-4">
+                <div className="space-y-8 py-4">
                   {filteredGroupedCategoryItems.map((group, groupIndex) => {
                     if (group.type === 'parent' && group.parent && group.children && group.children.length > 0) {
                       return (
-                        <div key={group.parent.id} className="space-y-3">
+                        <div key={group.parent.id} className="space-y-4 bg-gradient-to-br from-[#259783]/5 via-transparent to-[#3bd522]/5 dark:from-[#259783]/10 dark:via-transparent dark:to-[#3bd522]/10 rounded-2xl p-4 sm:p-5 border border-[#259783]/10 dark:border-[#259783]/20">
                           {/* Parent Label */}
-                          <div className="flex items-center gap-2 px-2">
-                            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#259783]/30 to-transparent"></div>
-                            <div className="px-4 py-2 bg-gradient-to-r from-[#259783]/10 to-[#3bd522]/10 dark:from-[#259783]/20 dark:to-[#3bd522]/20 rounded-full border border-[#259783]/30 dark:border-[#259783]/40">
-                              <h2 className="text-sm font-bold text-[#259783] dark:text-[#3bd522] uppercase tracking-wide whitespace-nowrap">
-                                {group.parent.name}
-                              </h2>
+                          <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                              <div className="w-full border-t border-[#259783]/20 dark:border-[#259783]/30"></div>
                             </div>
-                            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#259783]/30 to-transparent"></div>
+                            <div className="relative flex justify-center">
+                              <div className="px-5 py-2.5 bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-full shadow-lg shadow-[#259783]/30 border-2 border-white dark:border-[#132210]">
+                                <h2 className="text-sm font-extrabold text-white uppercase tracking-wider whitespace-nowrap drop-shadow-sm">
+                                  {group.parent.name}
+                                </h2>
+                              </div>
+                            </div>
                           </div>
                           {/* Children Grid */}
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-2 gap-3 sm:gap-4">
                             {group.children.map((item) => (
                               <button
                                 key={item.id}
                                 onClick={() => handleMobileItemClick(item)}
-                                className="bg-[#1c2e18] dark:bg-[#132210] rounded-xl shadow-sm overflow-hidden active:scale-95 transition-transform relative"
+                                className="bg-[#1c2e18] dark:bg-[#132210] rounded-xl shadow-md hover:shadow-xl border border-[#259783]/10 dark:border-[#259783]/20 overflow-hidden active:scale-[0.98] transition-all duration-200 relative group"
                               >
                                 <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-xl overflow-hidden relative">
                                   {group.parent && getItemImage(group.parent.name) ? (
                                     <img
                                       src={getItemImage(group.parent.name)!}
                                       alt={item.name}
-                                      className="w-full h-full object-cover"
+                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                       loading="lazy"
                                       onError={(e) => {
                                         const target = e.target as HTMLImageElement;
@@ -1369,16 +1372,16 @@ export default function POSPage() {
                                     </div>
                                   )}
                                 </div>
-                                <div className="p-3">
-                                  <h3 className="font-bold text-sm text-left mb-2 line-clamp-2 text-white">
+                                <div className="p-3.5">
+                                  <h3 className="font-bold text-sm text-left mb-2.5 line-clamp-2 text-white leading-tight">
                                     {item.name}
                                   </h3>
-                                  <div className="space-y-1.5">
-                                    <div className="flex items-center gap-2">
-                                      <span className="bg-[#259783] text-white font-bold text-sm px-2 py-1 rounded">
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <span className="bg-gradient-to-r from-[#259783] to-[#3bd522] text-white font-bold text-sm px-3 py-1.5 rounded-lg shadow-md">
                                         {formatPrice(item.current_sell_price)}
                                       </span>
-                                      <span className="text-xs text-white/80">
+                                      <span className="text-xs text-white/70 font-medium">
                                         / {item.unit_type}
                                       </span>
                                     </div>
@@ -1400,17 +1403,17 @@ export default function POSPage() {
                       );
                     } else if (group.type === 'standalone' && group.item) {
                       return (
-                        <button
-                          key={group.item.id}
-                          onClick={() => handleMobileItemClick(group.item!)}
-                          className="bg-[#1c2e18] dark:bg-[#132210] rounded-xl shadow-sm overflow-hidden active:scale-95 transition-transform relative w-full max-w-xs mx-auto"
-                        >
+                        <div key={group.item.id} className="flex justify-center">
+                          <button
+                            onClick={() => handleMobileItemClick(group.item!)}
+                            className="bg-[#1c2e18] dark:bg-[#132210] rounded-xl shadow-md hover:shadow-xl border border-[#259783]/10 dark:border-[#259783]/20 overflow-hidden active:scale-[0.98] transition-all duration-200 relative group w-full max-w-xs"
+                          >
                           <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-xl overflow-hidden relative">
                             {getItemImage(group.item.name) ? (
                               <img
                                 src={getItemImage(group.item.name)!}
                                 alt={group.item.name}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                 loading="lazy"
                                 onError={(e) => {
                                   const target = e.target as HTMLImageElement;
@@ -1426,16 +1429,16 @@ export default function POSPage() {
                               </div>
                             )}
                           </div>
-                          <div className="p-3">
-                            <h3 className="font-bold text-sm text-left mb-2 line-clamp-2 text-white">
+                          <div className="p-3.5">
+                            <h3 className="font-bold text-sm text-left mb-2.5 line-clamp-2 text-white leading-tight">
                               {group.item.name}
                             </h3>
-                            <div className="space-y-1.5">
-                              <div className="flex items-center gap-2">
-                                <span className="bg-[#259783] text-white font-bold text-sm px-2 py-1 rounded">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="bg-gradient-to-r from-[#259783] to-[#3bd522] text-white font-bold text-sm px-3 py-1.5 rounded-lg shadow-md">
                                   {formatPrice(group.item.current_sell_price)}
                                 </span>
-                                <span className="text-xs text-white/80">
+                                <span className="text-xs text-white/70 font-medium">
                                   / {group.item.unit_type}
                                 </span>
                               </div>
@@ -1451,6 +1454,7 @@ export default function POSPage() {
                             </div>
                           </div>
                         </button>
+                        </div>
                       );
                     }
                     return null;
@@ -1776,20 +1780,23 @@ export default function POSPage() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-8">
                 {filteredDrawerGroupedItems.map((group) => {
                   if (group.type === 'parent' && group.parent && group.children && group.children.length > 0) {
                     return (
-                      <div key={group.parent.id} className="space-y-4">
+                      <div key={group.parent.id} className="space-y-5 bg-gradient-to-br from-[#259783]/5 via-transparent to-[#3bd522]/5 dark:from-[#259783]/10 dark:via-transparent dark:to-[#3bd522]/10 rounded-2xl p-5 sm:p-6 border border-[#259783]/10 dark:border-[#259783]/20">
                         {/* Parent Label */}
-                        <div className="flex items-center gap-3">
-                          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#259783]/30 to-transparent"></div>
-                          <div className="px-5 py-2.5 bg-gradient-to-r from-[#259783]/10 to-[#3bd522]/10 dark:from-[#259783]/20 dark:to-[#3bd522]/20 rounded-full border border-[#259783]/30 dark:border-[#259783]/40 shadow-sm">
-                            <h2 className="text-base font-bold text-[#259783] dark:text-[#3bd522] uppercase tracking-wide whitespace-nowrap">
-                              {group.parent.name}
-                            </h2>
+                        <div className="relative">
+                          <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-[#259783]/20 dark:border-[#259783]/30"></div>
                           </div>
-                          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#259783]/30 to-transparent"></div>
+                          <div className="relative flex justify-center">
+                            <div className="px-6 py-3 bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-full shadow-lg shadow-[#259783]/30 border-2 border-white dark:border-slate-900">
+                              <h2 className="text-base font-extrabold text-white uppercase tracking-wider whitespace-nowrap drop-shadow-sm">
+                                {group.parent.name}
+                              </h2>
+                            </div>
+                          </div>
                         </div>
                         {/* Children Grid */}
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
@@ -1800,7 +1807,7 @@ export default function POSPage() {
                                 handleSelectItem(item);
                                 setCategoryDrawerOpen(false);
                               }}
-                              className="group bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:border-[#259783] hover:shadow-md active:scale-95 transition-all overflow-hidden text-left"
+                              className="group bg-white dark:bg-slate-800 rounded-xl shadow-md hover:shadow-xl border border-slate-200 dark:border-slate-700 hover:border-[#259783] active:scale-[0.98] transition-all duration-200 overflow-hidden text-left"
                             >
                               <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-xl overflow-hidden relative">
                                 {group.parent && getItemImage(group.parent.name) ? (
@@ -1823,16 +1830,16 @@ export default function POSPage() {
                                   </div>
                                 )}
                               </div>
-                              <div className="p-3">
-                                <h3 className="font-bold text-sm mb-2 line-clamp-2 text-slate-900 dark:text-white">
+                              <div className="p-3.5">
+                                <h3 className="font-bold text-sm mb-2.5 line-clamp-2 text-slate-900 dark:text-white leading-tight">
                                   {item.name}
                                 </h3>
-                                <div className="space-y-1.5">
-                                  <div className="flex items-center gap-2">
-                                    <span className="bg-[#259783] text-white font-bold text-sm px-2 py-1 rounded">
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="bg-gradient-to-r from-[#259783] to-[#3bd522] text-white font-bold text-sm px-3 py-1.5 rounded-lg shadow-md">
                                       KES {item.current_sell_price.toFixed(0)}
                                     </span>
-                                    <span className="text-xs text-slate-600 dark:text-slate-400">
+                                    <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
                                       / {item.unit_type}
                                     </span>
                                   </div>
@@ -1853,14 +1860,14 @@ export default function POSPage() {
                     );
                   } else if (group.type === 'standalone' && group.item) {
                     return (
-                      <button
-                        key={group.item.id}
-                        onClick={() => {
-                          handleSelectItem(group.item!);
-                          setCategoryDrawerOpen(false);
-                        }}
-                        className="group bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:border-[#259783] hover:shadow-md active:scale-95 transition-all overflow-hidden text-left w-full max-w-xs mx-auto"
-                      >
+                      <div key={group.item.id} className="flex justify-center">
+                        <button
+                          onClick={() => {
+                            handleSelectItem(group.item!);
+                            setCategoryDrawerOpen(false);
+                          }}
+                          className="group bg-white dark:bg-slate-800 rounded-xl shadow-md hover:shadow-xl border border-slate-200 dark:border-slate-700 hover:border-[#259783] active:scale-[0.98] transition-all duration-200 overflow-hidden text-left w-full max-w-xs"
+                        >
                         <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-xl overflow-hidden relative">
                           {getItemImage(group.item.name) ? (
                             <img
@@ -1882,16 +1889,16 @@ export default function POSPage() {
                             </div>
                           )}
                         </div>
-                        <div className="p-3">
-                          <h3 className="font-bold text-sm mb-2 line-clamp-2 text-slate-900 dark:text-white">
+                        <div className="p-3.5">
+                          <h3 className="font-bold text-sm mb-2.5 line-clamp-2 text-slate-900 dark:text-white leading-tight">
                             {group.item.name}
                           </h3>
-                          <div className="space-y-1.5">
-                            <div className="flex items-center gap-2">
-                              <span className="bg-[#259783] text-white font-bold text-sm px-2 py-1 rounded">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="bg-gradient-to-r from-[#259783] to-[#3bd522] text-white font-bold text-sm px-3 py-1.5 rounded-lg shadow-md">
                                 KES {group.item.current_sell_price.toFixed(0)}
                               </span>
-                              <span className="text-xs text-slate-600 dark:text-slate-400">
+                              <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
                                 / {group.item.unit_type}
                               </span>
                             </div>
@@ -1906,6 +1913,7 @@ export default function POSPage() {
                           </div>
                         </div>
                       </button>
+                      </div>
                     );
                   }
                   return null;
