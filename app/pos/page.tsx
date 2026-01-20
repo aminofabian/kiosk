@@ -167,6 +167,7 @@ export default function POSPage() {
   const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
   const [drawerCategoryId, setDrawerCategoryId] = useState<string | null>(null);
   const [drawerCategoryItems, setDrawerCategoryItems] = useState<ItemWithVariants[]>([]);
+  const [drawerGroupedItems, setDrawerGroupedItems] = useState<GroupedItem[]>([]);
   const [drawerItemsLoading, setDrawerItemsLoading] = useState(false);
   const [drawerSearchQuery, setDrawerSearchQuery] = useState('');
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
@@ -691,6 +692,7 @@ export default function POSPage() {
   useEffect(() => {
     if (!drawerCategoryId || !categoryDrawerOpen) {
       setDrawerCategoryItems([]);
+      setDrawerGroupedItems([]);
       return;
     }
 
@@ -704,10 +706,12 @@ export default function POSPage() {
           // Build parent name map and identify which items have variants
           const parentNames = new Map<string, string>();
           const parentIds = new Set<string>();
+          const parentItems = new Map<string, Item>();
           
           for (const item of allItems) {
             if (!item.parent_item_id) {
               parentNames.set(item.id, item.name);
+              parentItems.set(item.id, item);
             }
           }
           
@@ -717,30 +721,74 @@ export default function POSPage() {
             }
           }
 
-          // Show only sellable items: variants and standalone items (not parents with children)
-          const processedItems: ItemWithVariants[] = [];
-          
+          // Group items by parent
+          const grouped: GroupedItem[] = [];
+          const childrenByParent = new Map<string, Item[]>();
+          const standaloneItems: Item[] = [];
+
+          // Group children by parent
           for (const item of allItems) {
             if (item.parent_item_id) {
-              // This is a variant - show it with parent name context
-              processedItems.push({
-                ...item,
-                parentName: parentNames.get(item.parent_item_id) || undefined,
-              });
+              if (!childrenByParent.has(item.parent_item_id)) {
+                childrenByParent.set(item.parent_item_id, []);
+              }
+              childrenByParent.get(item.parent_item_id)!.push(item);
             } else if (!parentIds.has(item.id)) {
               // Standalone item (not a parent with children)
-              processedItems.push(item);
+              standaloneItems.push(item);
             }
           }
 
-          // Sort: variants by parent name then variant name, then standalone items
-          processedItems.sort((a, b) => {
-            const parentA = a.parentName || '';
-            const parentB = b.parentName || '';
-            if (parentA !== parentB) return parentA.localeCompare(parentB);
-            return (a.variant_name || a.name).localeCompare(b.variant_name || b.name);
+          // Add parent groups
+          for (const [parentId, children] of childrenByParent.entries()) {
+            const parent = parentItems.get(parentId);
+            if (parent) {
+              grouped.push({
+                type: 'parent',
+                parent,
+                children: children.sort((a, b) => 
+                  (a.variant_name || a.name).localeCompare(b.variant_name || b.name)
+                ),
+              });
+            }
+          }
+
+          // Add standalone items
+          for (const item of standaloneItems) {
+            grouped.push({
+              type: 'standalone',
+              item,
+            });
+          }
+
+          // Sort grouped items: parents alphabetically, then standalone items
+          grouped.sort((a, b) => {
+            if (a.type === 'parent' && b.type === 'parent') {
+              return (a.parent?.name || '').localeCompare(b.parent?.name || '');
+            }
+            if (a.type === 'standalone' && b.type === 'standalone') {
+              return (a.item?.name || '').localeCompare(b.item?.name || '');
+            }
+            // Parents come before standalone
+            return a.type === 'parent' ? -1 : 1;
           });
 
+          setDrawerGroupedItems(grouped);
+
+          // Also keep flat list for backward compatibility
+          const processedItems: ItemWithVariants[] = [];
+          for (const group of grouped) {
+            if (group.type === 'parent' && group.children) {
+              for (const child of group.children) {
+                processedItems.push({
+                  ...child,
+                  parentName: group.parent?.name,
+                });
+              }
+            } else if (group.type === 'standalone' && group.item) {
+              processedItems.push(group.item);
+            }
+          }
           setDrawerCategoryItems(processedItems);
         }
       } catch (err) {
@@ -757,13 +805,31 @@ export default function POSPage() {
     ? filteredCategories.find((c) => c.id === drawerCategoryId)
     : null;
 
-  const filteredDrawerItems = drawerSearchQuery
-    ? drawerCategoryItems.filter((item) =>
-        item.name.toLowerCase().includes(drawerSearchQuery.toLowerCase()) ||
-        item.variant_name?.toLowerCase().includes(drawerSearchQuery.toLowerCase()) ||
-        item.parentName?.toLowerCase().includes(drawerSearchQuery.toLowerCase())
-      )
-    : drawerCategoryItems;
+  const filteredDrawerGroupedItems = drawerSearchQuery
+    ? drawerGroupedItems.filter((group) => {
+        if (group.type === 'parent') {
+          const matchesParent = group.parent?.name.toLowerCase().includes(drawerSearchQuery.toLowerCase());
+          const matchesChildren = group.children?.some(child => 
+            child.name.toLowerCase().includes(drawerSearchQuery.toLowerCase()) ||
+            child.variant_name?.toLowerCase().includes(drawerSearchQuery.toLowerCase())
+          );
+          return matchesParent || matchesChildren;
+        } else {
+          return group.item?.name.toLowerCase().includes(drawerSearchQuery.toLowerCase());
+        }
+      }).map(group => {
+        if (group.type === 'parent' && group.children) {
+          // Filter children if search query doesn't match parent
+          const filteredChildren = group.children.filter(child =>
+            child.name.toLowerCase().includes(drawerSearchQuery.toLowerCase()) ||
+            child.variant_name?.toLowerCase().includes(drawerSearchQuery.toLowerCase()) ||
+            group.parent?.name.toLowerCase().includes(drawerSearchQuery.toLowerCase())
+          );
+          return { ...group, children: filteredChildren };
+        }
+        return group;
+      })
+    : drawerGroupedItems;
 
   // Fetch receipt data when drawer opens
   useEffect(() => {
@@ -821,13 +887,22 @@ export default function POSPage() {
     parentName?: string; // Parent name for variants
   }
 
+  interface GroupedItem {
+    type: 'parent' | 'standalone';
+    parent?: Item;
+    children?: Item[];
+    item?: Item;
+  }
+
   const [categoryItems, setCategoryItems] = useState<ItemWithVariants[]>([]);
+  const [groupedCategoryItems, setGroupedCategoryItems] = useState<GroupedItem[]>([]);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
 
   useEffect(() => {
     if (!selectedCategoryId) {
       setCategoryItems([]);
+      setGroupedCategoryItems([]);
       setCategorySearchQuery('');
       return;
     }
@@ -842,10 +917,12 @@ export default function POSPage() {
           // Build parent name map and identify which items have variants
           const parentNames = new Map<string, string>();
           const parentIds = new Set<string>();
+          const parentItems = new Map<string, Item>();
           
           for (const item of allItems) {
             if (!item.parent_item_id) {
               parentNames.set(item.id, item.name);
+              parentItems.set(item.id, item);
             }
           }
           
@@ -855,31 +932,74 @@ export default function POSPage() {
             }
           }
 
-          // Show only sellable items: variants and standalone items (not parents with children)
-          const processedItems: ItemWithVariants[] = [];
-          
+          // Group items by parent
+          const grouped: GroupedItem[] = [];
+          const childrenByParent = new Map<string, Item[]>();
+          const standaloneItems: Item[] = [];
+
+          // Group children by parent
           for (const item of allItems) {
             if (item.parent_item_id) {
-              // This is a variant - show it with parent name context
-              processedItems.push({
-                ...item,
-                parentName: parentNames.get(item.parent_item_id) || undefined,
-              });
+              if (!childrenByParent.has(item.parent_item_id)) {
+                childrenByParent.set(item.parent_item_id, []);
+              }
+              childrenByParent.get(item.parent_item_id)!.push(item);
             } else if (!parentIds.has(item.id)) {
               // Standalone item (not a parent with children)
-              processedItems.push(item);
+              standaloneItems.push(item);
             }
-            // Skip parent items - they're just labels
           }
 
-          // Sort: variants by parent name then variant name, then standalone items
-          processedItems.sort((a, b) => {
-            const parentA = a.parentName || '';
-            const parentB = b.parentName || '';
-            if (parentA !== parentB) return parentA.localeCompare(parentB);
-            return (a.variant_name || a.name).localeCompare(b.variant_name || b.name);
+          // Add parent groups
+          for (const [parentId, children] of childrenByParent.entries()) {
+            const parent = parentItems.get(parentId);
+            if (parent) {
+              grouped.push({
+                type: 'parent',
+                parent,
+                children: children.sort((a, b) => 
+                  (a.variant_name || a.name).localeCompare(b.variant_name || b.name)
+                ),
+              });
+            }
+          }
+
+          // Add standalone items
+          for (const item of standaloneItems) {
+            grouped.push({
+              type: 'standalone',
+              item,
+            });
+          }
+
+          // Sort grouped items: parents alphabetically, then standalone items
+          grouped.sort((a, b) => {
+            if (a.type === 'parent' && b.type === 'parent') {
+              return (a.parent?.name || '').localeCompare(b.parent?.name || '');
+            }
+            if (a.type === 'standalone' && b.type === 'standalone') {
+              return (a.item?.name || '').localeCompare(b.item?.name || '');
+            }
+            // Parents come before standalone
+            return a.type === 'parent' ? -1 : 1;
           });
 
+          setGroupedCategoryItems(grouped);
+
+          // Also keep flat list for backward compatibility
+          const processedItems: ItemWithVariants[] = [];
+          for (const group of grouped) {
+            if (group.type === 'parent' && group.children) {
+              for (const child of group.children) {
+                processedItems.push({
+                  ...child,
+                  parentName: group.parent?.name,
+                });
+              }
+            } else if (group.type === 'standalone' && group.item) {
+              processedItems.push(group.item);
+            }
+          }
           setCategoryItems(processedItems);
         }
       } catch (err) {
@@ -892,13 +1012,31 @@ export default function POSPage() {
     fetchCategoryItems();
   }, [selectedCategoryId]);
 
-  const filteredCategoryItems = categorySearchQuery
-    ? categoryItems.filter((item) =>
-        item.name.toLowerCase().includes(categorySearchQuery.toLowerCase()) ||
-        item.variant_name?.toLowerCase().includes(categorySearchQuery.toLowerCase()) ||
-        item.parentName?.toLowerCase().includes(categorySearchQuery.toLowerCase())
-      )
-    : categoryItems;
+  const filteredGroupedCategoryItems = categorySearchQuery
+    ? groupedCategoryItems.filter((group) => {
+        if (group.type === 'parent') {
+          const matchesParent = group.parent?.name.toLowerCase().includes(categorySearchQuery.toLowerCase());
+          const matchesChildren = group.children?.some(child => 
+            child.name.toLowerCase().includes(categorySearchQuery.toLowerCase()) ||
+            child.variant_name?.toLowerCase().includes(categorySearchQuery.toLowerCase())
+          );
+          return matchesParent || matchesChildren;
+        } else {
+          return group.item?.name.toLowerCase().includes(categorySearchQuery.toLowerCase());
+        }
+      }).map(group => {
+        if (group.type === 'parent' && group.children) {
+          // Filter children if search query doesn't match parent
+          const filteredChildren = group.children.filter(child =>
+            child.name.toLowerCase().includes(categorySearchQuery.toLowerCase()) ||
+            child.variant_name?.toLowerCase().includes(categorySearchQuery.toLowerCase()) ||
+            group.parent?.name.toLowerCase().includes(categorySearchQuery.toLowerCase())
+          );
+          return { ...group, children: filteredChildren };
+        }
+        return group;
+      })
+    : groupedCategoryItems;
 
   const handleMobileItemClick = (item: ItemWithVariants) => {
     // All items are now directly selectable (variants or standalone)
@@ -1178,7 +1316,7 @@ export default function POSPage() {
                 <div className="flex items-center justify-center h-64">
                   <div className="w-10 h-10 border-4 border-[#259783]/20 border-t-[#259783] rounded-full animate-spin"></div>
                 </div>
-              ) : filteredCategoryItems.length === 0 ? (
+              ) : filteredGroupedCategoryItems.length === 0 ? (
                 <div className="flex items-center justify-center h-64">
                   <p className="text-gray-500">
                     {categorySearchQuery
@@ -1187,66 +1325,136 @@ export default function POSPage() {
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-4 py-4">
-                  {filteredCategoryItems.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => handleMobileItemClick(item)}
-                      className="bg-[#1c2e18] dark:bg-[#132210] rounded-xl shadow-sm overflow-hidden active:scale-95 transition-transform relative"
-                    >
-                      <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-xl overflow-hidden relative">
-                        {getItemImage(item.parentName || item.name) ? (
-                          <img
-                            src={getItemImage(item.parentName || item.name)!}
-                            alt={item.variant_name || item.name}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              const parentEl = target.parentElement;
-                              if (parentEl) {
-                                parentEl.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800"><svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></div>';
-                              }
-                            }}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Package className="w-12 h-12 text-gray-400" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-3">
-                        {/* Show parent name as label for variants */}
-                        {item.parentName && (
-                          <p className="text-[10px] font-semibold text-[#259783] uppercase tracking-wide mb-1 text-left">
-                            {item.parentName}
-                          </p>
-                        )}
-                        <h3 className="font-bold text-sm text-left mb-2 line-clamp-2 text-white">
-                          {item.variant_name || item.name}
-                        </h3>
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-2">
-                            <span className="bg-[#259783] text-white font-bold text-sm px-2 py-1 rounded">
-                              {formatPrice(item.current_sell_price)}
-                            </span>
-                            <span className="text-xs text-white/80">
-                              / {item.unit_type}
-                            </span>
-                          </div>
-                          {/* Bundle Pricing Badge */}
-                          {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
-                            <div className="flex items-center gap-1.5">
-                              <span className="bg-amber-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded flex items-center gap-1">
-                                <Tag className="w-2.5 h-2.5" />
-                                {item.bundle_name || `${item.bundle_quantity} for ${formatPrice(item.bundle_price)}`}
-                              </span>
+                <div className="space-y-6 py-4">
+                  {filteredGroupedCategoryItems.map((group, groupIndex) => {
+                    if (group.type === 'parent' && group.parent && group.children && group.children.length > 0) {
+                      return (
+                        <div key={group.parent.id} className="space-y-3">
+                          {/* Parent Label */}
+                          <div className="flex items-center gap-2 px-2">
+                            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#259783]/30 to-transparent"></div>
+                            <div className="px-4 py-2 bg-gradient-to-r from-[#259783]/10 to-[#3bd522]/10 dark:from-[#259783]/20 dark:to-[#3bd522]/20 rounded-full border border-[#259783]/30 dark:border-[#259783]/40">
+                              <h2 className="text-sm font-bold text-[#259783] dark:text-[#3bd522] uppercase tracking-wide whitespace-nowrap">
+                                {group.parent.name}
+                              </h2>
                             </div>
-                          )}
+                            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#259783]/30 to-transparent"></div>
+                          </div>
+                          {/* Children Grid */}
+                          <div className="grid grid-cols-2 gap-4">
+                            {group.children.map((item) => (
+                              <button
+                                key={item.id}
+                                onClick={() => handleMobileItemClick(item)}
+                                className="bg-[#1c2e18] dark:bg-[#132210] rounded-xl shadow-sm overflow-hidden active:scale-95 transition-transform relative"
+                              >
+                                <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-xl overflow-hidden relative">
+                                  {group.parent && getItemImage(group.parent.name) ? (
+                                    <img
+                                      src={getItemImage(group.parent.name)!}
+                                      alt={item.variant_name || item.name}
+                                      className="w-full h-full object-cover"
+                                      loading="lazy"
+                                      onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        const parentEl = target.parentElement;
+                                        if (parentEl) {
+                                          parentEl.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800"><svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></div>';
+                                        }
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <Package className="w-12 h-12 text-gray-400" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="p-3">
+                                  <h3 className="font-bold text-sm text-left mb-2 line-clamp-2 text-white">
+                                    {item.variant_name || item.name}
+                                  </h3>
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center gap-2">
+                                      <span className="bg-[#259783] text-white font-bold text-sm px-2 py-1 rounded">
+                                        {formatPrice(item.current_sell_price)}
+                                      </span>
+                                      <span className="text-xs text-white/80">
+                                        / {item.unit_type}
+                                      </span>
+                                    </div>
+                                    {/* Bundle Pricing Badge */}
+                                    {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
+                                      <div className="flex items-center gap-1.5">
+                                        <span className="bg-amber-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded flex items-center gap-1">
+                                          <Tag className="w-2.5 h-2.5" />
+                                          {item.bundle_name || `${item.bundle_quantity} for ${formatPrice(item.bundle_price)}`}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      );
+                    } else if (group.type === 'standalone' && group.item) {
+                      return (
+                        <button
+                          key={group.item.id}
+                          onClick={() => handleMobileItemClick(group.item!)}
+                          className="bg-[#1c2e18] dark:bg-[#132210] rounded-xl shadow-sm overflow-hidden active:scale-95 transition-transform relative w-full max-w-xs mx-auto"
+                        >
+                          <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-xl overflow-hidden relative">
+                            {getItemImage(group.item.name) ? (
+                              <img
+                                src={getItemImage(group.item.name)!}
+                                alt={group.item.name}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  const parentEl = target.parentElement;
+                                  if (parentEl) {
+                                    parentEl.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800"><svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></div>';
+                                  }
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Package className="w-12 h-12 text-gray-400" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="p-3">
+                            <h3 className="font-bold text-sm text-left mb-2 line-clamp-2 text-white">
+                              {group.item.name}
+                            </h3>
+                            <div className="space-y-1.5">
+                              <div className="flex items-center gap-2">
+                                <span className="bg-[#259783] text-white font-bold text-sm px-2 py-1 rounded">
+                                  {formatPrice(group.item.current_sell_price)}
+                                </span>
+                                <span className="text-xs text-white/80">
+                                  / {group.item.unit_type}
+                                </span>
+                              </div>
+                              {/* Bundle Pricing Badge */}
+                              {group.item.bundle_quantity && group.item.bundle_price && group.item.bundle_quantity > 0 && group.item.bundle_price > 0 && (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="bg-amber-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded flex items-center gap-1">
+                                    <Tag className="w-2.5 h-2.5" />
+                                    {group.item.bundle_name || `${group.item.bundle_quantity} for ${formatPrice(group.item.bundle_price)}`}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    }
+                    return null;
+                  })}
                 </div>
               )}
             </main>
@@ -1529,7 +1737,7 @@ export default function POSPage() {
                   <DrawerDescription className="mt-1 text-sm text-slate-600 dark:text-slate-400">
                     {drawerItemsLoading 
                       ? 'Loading products...' 
-                      : `${filteredDrawerItems.length} ${filteredDrawerItems.length === 1 ? 'product' : 'products'} available`}
+                      : `${drawerCategoryItems.length} ${drawerCategoryItems.length === 1 ? 'product' : 'products'} available`}
                   </DrawerDescription>
                 </div>
               </div>
@@ -1558,7 +1766,7 @@ export default function POSPage() {
               <div className="flex items-center justify-center h-64">
                 <div className="w-10 h-10 border-4 border-[#259783]/20 border-t-[#259783] rounded-full animate-spin"></div>
               </div>
-            ) : filteredDrawerItems.length === 0 ? (
+            ) : filteredDrawerGroupedItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 gap-4">
                 <Package className="w-16 h-16 text-gray-300 dark:text-gray-600" />
                 <p className="text-gray-500 dark:text-gray-400 text-center">
@@ -1568,67 +1776,140 @@ export default function POSPage() {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {filteredDrawerItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      handleSelectItem(item);
-                      setCategoryDrawerOpen(false);
-                    }}
-                    className="group bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:border-[#259783] hover:shadow-md active:scale-95 transition-all overflow-hidden text-left"
-                  >
-                    <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-xl overflow-hidden relative">
-                      {getItemImage(item.parentName || item.name) ? (
-                        <img
-                          src={getItemImage(item.parentName || item.name)!}
-                          alt={item.variant_name || item.name}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                          loading="lazy"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            const parentEl = target.parentElement;
-                            if (parentEl) {
-                              parentEl.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800"><svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></div>';
-                            }
-                          }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Package className="w-12 h-12 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-3">
-                      {item.parentName && (
-                        <p className="text-[10px] font-semibold text-[#259783] uppercase tracking-wide mb-1">
-                          {item.parentName}
-                        </p>
-                      )}
-                      <h3 className="font-bold text-sm mb-2 line-clamp-2 text-slate-900 dark:text-white">
-                        {item.variant_name || item.name}
-                      </h3>
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="bg-[#259783] text-white font-bold text-sm px-2 py-1 rounded">
-                            KES {item.current_sell_price.toFixed(0)}
-                          </span>
-                          <span className="text-xs text-slate-600 dark:text-slate-400">
-                            / {item.unit_type}
-                          </span>
-                        </div>
-                        {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
-                          <div className="flex items-center gap-1.5">
-                            <span className="bg-amber-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded flex items-center gap-1">
-                              <Tag className="w-2.5 h-2.5" />
-                              {item.bundle_name || `${item.bundle_quantity} for KES ${item.bundle_price.toFixed(0)}`}
-                            </span>
+              <div className="space-y-6">
+                {filteredDrawerGroupedItems.map((group) => {
+                  if (group.type === 'parent' && group.parent && group.children && group.children.length > 0) {
+                    return (
+                      <div key={group.parent.id} className="space-y-4">
+                        {/* Parent Label */}
+                        <div className="flex items-center gap-3">
+                          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#259783]/30 to-transparent"></div>
+                          <div className="px-5 py-2.5 bg-gradient-to-r from-[#259783]/10 to-[#3bd522]/10 dark:from-[#259783]/20 dark:to-[#3bd522]/20 rounded-full border border-[#259783]/30 dark:border-[#259783]/40 shadow-sm">
+                            <h2 className="text-base font-bold text-[#259783] dark:text-[#3bd522] uppercase tracking-wide whitespace-nowrap">
+                              {group.parent.name}
+                            </h2>
                           </div>
-                        )}
+                          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-[#259783]/30 to-transparent"></div>
+                        </div>
+                        {/* Children Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                          {group.children.map((item) => (
+                            <button
+                              key={item.id}
+                              onClick={() => {
+                                handleSelectItem(item);
+                                setCategoryDrawerOpen(false);
+                              }}
+                              className="group bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:border-[#259783] hover:shadow-md active:scale-95 transition-all overflow-hidden text-left"
+                            >
+                              <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-xl overflow-hidden relative">
+                                {group.parent && getItemImage(group.parent.name) ? (
+                                  <img
+                                    src={getItemImage(group.parent.name)!}
+                                    alt={item.variant_name || item.name}
+                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                    loading="lazy"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      const parentEl = target.parentElement;
+                                      if (parentEl) {
+                                        parentEl.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800"><svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></div>';
+                                      }
+                                    }}
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <Package className="w-12 h-12 text-gray-400" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="p-3">
+                                <h3 className="font-bold text-sm mb-2 line-clamp-2 text-slate-900 dark:text-white">
+                                  {item.variant_name || item.name}
+                                </h3>
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center gap-2">
+                                    <span className="bg-[#259783] text-white font-bold text-sm px-2 py-1 rounded">
+                                      KES {item.current_sell_price.toFixed(0)}
+                                    </span>
+                                    <span className="text-xs text-slate-600 dark:text-slate-400">
+                                      / {item.unit_type}
+                                    </span>
+                                  </div>
+                                  {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="bg-amber-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded flex items-center gap-1">
+                                        <Tag className="w-2.5 h-2.5" />
+                                        {item.bundle_name || `${item.bundle_quantity} for KES ${item.bundle_price.toFixed(0)}`}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                ))}
+                    );
+                  } else if (group.type === 'standalone' && group.item) {
+                    return (
+                      <button
+                        key={group.item.id}
+                        onClick={() => {
+                          handleSelectItem(group.item!);
+                          setCategoryDrawerOpen(false);
+                        }}
+                        className="group bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 hover:border-[#259783] hover:shadow-md active:scale-95 transition-all overflow-hidden text-left w-full max-w-xs mx-auto"
+                      >
+                        <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-xl overflow-hidden relative">
+                          {getItemImage(group.item.name) ? (
+                            <img
+                              src={getItemImage(group.item.name)!}
+                              alt={group.item.name}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                              loading="lazy"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                const parentEl = target.parentElement;
+                                if (parentEl) {
+                                  parentEl.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800"><svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></div>';
+                                }
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Package className="w-12 h-12 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-3">
+                          <h3 className="font-bold text-sm mb-2 line-clamp-2 text-slate-900 dark:text-white">
+                            {group.item.name}
+                          </h3>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="bg-[#259783] text-white font-bold text-sm px-2 py-1 rounded">
+                                KES {group.item.current_sell_price.toFixed(0)}
+                              </span>
+                              <span className="text-xs text-slate-600 dark:text-slate-400">
+                                / {group.item.unit_type}
+                              </span>
+                            </div>
+                            {group.item.bundle_quantity && group.item.bundle_price && group.item.bundle_quantity > 0 && group.item.bundle_price > 0 && (
+                              <div className="flex items-center gap-1.5">
+                                <span className="bg-amber-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded flex items-center gap-1">
+                                  <Tag className="w-2.5 h-2.5" />
+                                  {group.item.bundle_name || `${group.item.bundle_quantity} for KES ${group.item.bundle_price.toFixed(0)}`}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  }
+                  return null;
+                })}
               </div>
             )}
           </div>
