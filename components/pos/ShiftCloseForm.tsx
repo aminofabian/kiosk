@@ -52,6 +52,10 @@ interface ShiftSummary {
   cashExpenses: { count: number; total: number };
 }
 
+interface CreateBalanceApprovalResponse {
+  requestId: string;
+}
+
 export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
   const router = useRouter();
   const { user } = useCurrentUser();
@@ -159,7 +163,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
     try {
       if (requiresApproval || isCashier) {
         // Submit for approval instead of closing directly
-        const result = await apiPost('/api/balance/approvals', {
+        const result = await apiPost<CreateBalanceApprovalResponse>('/api/balance/approvals', {
           balanceType: 'closing',
           amount: totalCash,
           expectedAmount: expectedCashAfterExpenses,
@@ -178,10 +182,10 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
           }
         });
 
-        if (result.success) {
+        if (result.success && result.data) {
           setSubmitted(true);
           setPendingApproval({
-            id: result.data?.requestId,
+            id: result.data.requestId,
             balance_type: 'closing',
             amount: totalCash,
             status: 'pending',

@@ -1421,7 +1421,6 @@ export function ItemsManager() {
             </div>
           </DrawerContent>
         </Drawer>
-      </div>
     </div>
   );
 }
