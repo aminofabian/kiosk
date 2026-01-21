@@ -1,6 +1,4 @@
 'use client';
-
-import Image from 'next/image';
 import type { Sale, SaleItem } from '@/lib/db/types';
 
 interface ReceiptProps {
@@ -50,23 +48,16 @@ export function Receipt({ sale, items }: ReceiptProps) {
     <div className="p-4 print:p-0 flex justify-center bg-gray-50 print:bg-white">
       <div className="w-full max-w-[80mm] bg-white print:max-w-none print:w-[80mm] shadow-lg print:shadow-none rounded-lg print:rounded-none overflow-hidden font-mono">
         {/* Receipt Container */}
-        <div className="px-3 py-4 print:px-2 print:py-3 text-[11px] print:text-[10px] leading-tight">
-          {/* Logo and Header */}
+        <div className="px-3 py-4 print:px-2 print:py-3 text-[12px] print:text-[11px] leading-tight">
+          {/* Header (text-only, no logo for clear thermal printing) */}
           <div className="text-center mb-3 print:mb-2">
-            <div className="flex justify-center mb-1 print:mb-0.5">
-              <Image
-                src="/fruits/logo.png"
-                alt="FnM's Logo"
-                width={120}
-                height={120}
-                className="object-contain"
-                priority
-              />
-            </div>
-            <p className="text-xs font-bold mb-1 print:text-[10px]">
-              Fresh n More
+            <p className="text-sm print:text-[12px] font-extrabold tracking-[0.15em] mb-0.5">
+              {sale.business_name || "FnM's"}
             </p>
-            <p className="text-[10px] print:text-[9px] mb-2 print:mb-1">
+            <p className="text-[10px] print:text-[9px] tracking-wide mb-1">
+              Fresh and More
+            </p>
+            <p className="text-[11px] print:text-[10px] mb-2 print:mb-1">
               Thank you for your purchase!
             </p>
           </div>
@@ -75,7 +66,7 @@ export function Receipt({ sale, items }: ReceiptProps) {
           <div className="border-t border-black my-2 print:my-1"></div>
 
           {/* Receipt Info */}
-          <div className="space-y-0.5 mb-2 print:mb-1.5 text-[10px] print:text-[9px]">
+          <div className="space-y-0.5 mb-2 print:mb-1.5 text-[11px] print:text-[10px]">
             <div className="flex justify-between">
               <span>Receipt #:</span>
               <span className="font-bold">{sale.id.slice(0, 8).toUpperCase()}</span>
@@ -110,7 +101,7 @@ export function Receipt({ sale, items }: ReceiptProps) {
           <div className="border-t border-black my-2 print:my-1"></div>
 
           {/* Items Header */}
-          <div className="text-[10px] print:text-[9px] font-bold mb-1 print:mb-0.5">
+          <div className="text-[11px] print:text-[10px] font-bold mb-1 print:mb-0.5">
             <div className="grid grid-cols-12">
               <div className="col-span-6">ITEM</div>
               <div className="col-span-2 text-right">QTY</div>
@@ -127,7 +118,7 @@ export function Receipt({ sale, items }: ReceiptProps) {
             {items.map((item) => {
               const itemTotal = item.quantity_sold * item.sell_price_per_unit;
               return (
-                <div key={item.id} className="text-[10px] print:text-[9px]">
+                <div key={item.id} className="text-[11px] print:text-[10px]">
                   <div className="grid grid-cols-12">
                     <div className="col-span-6 leading-tight">
                       {item.item_name}
@@ -143,7 +134,7 @@ export function Receipt({ sale, items }: ReceiptProps) {
                     </div>
                   </div>
                   {item.item_unit_type && (
-                    <div className="text-[9px] print:text-[8px] ml-0 mt-0">
+                    <div className="text-[10px] print:text-[9px] ml-0 mt-0">
                       @ {formatPrice(item.sell_price_per_unit)}/{item.item_unit_type}
                     </div>
                   )}
@@ -157,7 +148,7 @@ export function Receipt({ sale, items }: ReceiptProps) {
 
           {/* Totals */}
           <div className="space-y-1 mb-2 print:mb-1.5">
-            <div className="flex justify-between text-[10px] print:text-[9px]">
+            <div className="flex justify-between text-[11px] print:text-[10px]">
               <span>SUBTOTAL:</span>
               <span className="font-bold">KES {formatPrice(subtotal)}</span>
             </div>
@@ -171,7 +162,7 @@ export function Receipt({ sale, items }: ReceiptProps) {
           <div className="border-t border-black my-2 print:my-1"></div>
 
           {/* Footer */}
-          <div className="text-center space-y-0.5 text-[10px] print:text-[9px]">
+          <div className="text-center space-y-0.5 text-[11px] print:text-[10px]">
             <p className="font-bold mb-1 print:mb-0.5">Thank you for shopping with us!</p>
             
             {/* Contact Information */}
@@ -184,7 +175,7 @@ export function Receipt({ sale, items }: ReceiptProps) {
 
             {/* Additional Info */}
             <div className="mt-2 print:mt-1.5 space-y-0.5">
-              <p className="text-[9px] print:text-[8px]">
+              <p className="text-[10px] print:text-[9px]">
                 Quality Products • Best Prices • Great Service
               </p>
               <p className="font-bold">
@@ -192,7 +183,7 @@ export function Receipt({ sale, items }: ReceiptProps) {
               </p>
             </div>
 
-            <p className="mt-2 print:mt-1.5 text-[9px] print:text-[8px]">
+            <p className="mt-2 print:mt-1.5 text-[10px] print:text-[9px]">
               {formatDate(sale.sale_date)}
             </p>
           </div>
