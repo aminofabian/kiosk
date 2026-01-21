@@ -48,7 +48,7 @@ interface ItemWithCategory extends Item {
   variantCount?: number;
 }
 
-export default function ItemsPage() {
+export function ItemsManager() {
   const { user } = useCurrentUser();
   const isCashier = user?.role === 'cashier';
   const [items, setItems] = useState<ItemWithCategory[]>([]);
@@ -482,8 +482,7 @@ export default function ItemsPage() {
   };
 
   return (
-    <AdminLayout>
-      <div className="min-h-screen">
+    <div className="min-h-screen">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-white/80 dark:bg-[#0f1a0d]/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800">
           <div className="px-4 md:px-6 py-4">
@@ -1423,6 +1422,14 @@ export default function ItemsPage() {
           </DrawerContent>
         </Drawer>
       </div>
+    </div>
+  );
+}
+
+export default function ItemsPage() {
+  return (
+    <AdminLayout>
+      <ItemsManager />
     </AdminLayout>
   );
 }

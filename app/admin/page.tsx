@@ -26,6 +26,7 @@ import { StockTakeForm } from '@/components/admin/StockTakeForm';
 import { ShiftOpenForm } from '@/components/pos/ShiftOpenForm';
 import { ShiftCloseForm } from '@/components/pos/ShiftCloseForm';
 import { BalanceApprovals } from '@/components/admin/BalanceApprovals';
+import { ItemsManager } from '@/app/admin/items/page';
 import type { Shift } from '@/lib/db/types';
 import {
   Plus,
@@ -380,6 +381,7 @@ export default function AdminDashboardPage() {
   const [balanceApprovalsDrawerOpen, setBalanceApprovalsDrawerOpen] = useState(false);
   const [withdrawalDrawerOpen, setWithdrawalDrawerOpen] = useState(false);
   const [guideDrawerOpen, setGuideDrawerOpen] = useState(false);
+  const [itemsDrawerOpen, setItemsDrawerOpen] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
   const [existingCategories, setExistingCategories] = useState<Category[]>([]);
   const [isMobile, setIsMobile] = useState(false);
@@ -570,6 +572,19 @@ export default function AdminDashboardPage() {
             router.push('/admin/balance/approvals');
           } else {
             setBalanceApprovalsDrawerOpen(true);
+          }
+        },
+      };
+    }
+    if (button.label === 'View Items' && !button.onClick) {
+      return {
+        ...button,
+        href: isMobile ? '/admin/items' : undefined,
+        onClick: () => {
+          if (isMobile) {
+            router.push('/admin/items');
+          } else {
+            setItemsDrawerOpen(true);
           }
         },
       };
@@ -965,6 +980,26 @@ export default function AdminDashboardPage() {
             <div className="max-w-md mx-auto">
               <WithdrawalForm onSuccess={() => setWithdrawalDrawerOpen(false)} />
             </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Items Drawer */}
+      <Drawer open={itemsDrawerOpen && !isMobile} onOpenChange={setItemsDrawerOpen} direction="right">
+        <DrawerContent className="!w-full sm:!w-[900px] md:!w-[1100px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-purple-500/10 via-[#259783]/10 to-blue-50 dark:from-purple-500/20 dark:via-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
+            <DrawerTitle className="flex items-center gap-3 text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-[#259783] flex items-center justify-center shadow-sm">
+                <Package className="w-5 h-5 text-white" />
+              </div>
+              Items
+            </DrawerTitle>
+            <DrawerDescription className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              Manage your product catalog without leaving the dashboard
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="overflow-y-auto flex-1 bg-slate-50 dark:bg-slate-900/50">
+            <ItemsManager />
           </div>
         </DrawerContent>
       </Drawer>
