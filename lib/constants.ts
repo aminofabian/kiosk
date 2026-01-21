@@ -2,6 +2,14 @@
 export const UNIT_TYPES = ['kg', 'g', 'piece', 'bunch', 'tray', 'litre', 'ml'] as const;
 export type UnitType = (typeof UNIT_TYPES)[number];
 
+// Discrete unit types that should use integers (not floats)
+const DISCRETE_UNIT_TYPES: UnitType[] = ['piece', 'bunch', 'tray'];
+
+// Helper function to check if a unit type should use integers
+export function isDiscreteUnitType(unitType: UnitType): boolean {
+  return DISCRETE_UNIT_TYPES.includes(unitType);
+}
+
 // User roles
 export const USER_ROLES = ['owner', 'admin', 'cashier', 'superadmin'] as const;
 export type UserRole = (typeof USER_ROLES)[number];

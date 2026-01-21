@@ -26,8 +26,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { Item } from '@/lib/db/types';
-import type { AdjustmentReason } from '@/lib/constants';
-import { ADJUSTMENT_REASONS } from '@/lib/constants';
+import type { AdjustmentReason, UnitType } from '@/lib/constants';
+import { ADJUSTMENT_REASONS, isDiscreteUnitType } from '@/lib/constants';
 import { useBarcodeScanner } from '@/lib/hooks/use-barcode-scanner';
 import { apiGet } from '@/lib/utils/api-client';
 
@@ -118,12 +118,13 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
       return;
     }
 
+    const isDiscrete = isDiscreteUnitType(item.unit_type);
     const newItem: StockTakeItem = {
       itemId: item.id,
       itemName: item.name,
       unitType: item.unit_type,
       systemStock: item.current_stock,
-      actualStock: item.current_stock.toFixed(2),
+      actualStock: isDiscrete ? Math.round(item.current_stock).toString() : item.current_stock.toFixed(2),
       difference: 0,
       reason: globalReason,
       notes: globalNotes,
@@ -150,12 +151,13 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
         }
         
         // Add the item to stock take (using the same logic as handleAddItem)
+        const isDiscrete = isDiscreteUnitType(result.data.unit_type);
         const newItem: StockTakeItem = {
           itemId: result.data.id,
           itemName: result.data.name,
           unitType: result.data.unit_type,
           systemStock: result.data.current_stock,
-          actualStock: result.data.current_stock.toFixed(2),
+          actualStock: isDiscrete ? Math.round(result.data.current_stock).toString() : result.data.current_stock.toFixed(2),
           difference: 0,
           reason: globalReason,
           notes: globalNotes,
@@ -189,7 +191,10 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
         if (item.itemId === itemId) {
           const updated = { ...item, ...updates };
           if (updates.actualStock !== undefined) {
-            const actual = parseFloat(updates.actualStock) || 0;
+            const isDiscrete = isDiscreteUnitType(item.unitType as UnitType);
+            const actual = isDiscrete 
+              ? parseInt(updates.actualStock, 10) || 0
+              : parseFloat(updates.actualStock) || 0;
             updated.difference = actual - item.systemStock;
           }
           return updated;
@@ -239,7 +244,12 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
   const handleCopySystemStock = (itemId: string) => {
     const item = stockTakeItems.find((i) => i.itemId === itemId);
     if (item) {
-      handleUpdateItem(itemId, { actualStock: item.systemStock.toFixed(2) });
+      const isDiscrete = isDiscreteUnitType(item.unitType as UnitType);
+      handleUpdateItem(itemId, { 
+        actualStock: isDiscrete 
+          ? Math.round(item.systemStock).toString()
+          : item.systemStock.toFixed(2) 
+      });
     }
   };
 
@@ -255,15 +265,23 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
 
   const totalDifference = useMemo(() => {
     return stockTakeItems.reduce((sum, item) => {
-      const actual = parseFloat(item.actualStock) || 0;
+      const isDiscrete = isDiscreteUnitType(item.unitType as UnitType);
+      const actual = isDiscrete 
+        ? parseInt(item.actualStock, 10) || 0
+        : parseFloat(item.actualStock) || 0;
       return sum + (actual - item.systemStock);
     }, 0);
   }, [stockTakeItems]);
 
   const itemsWithDifference = useMemo(() => {
     return stockTakeItems.filter((item) => {
-      const actual = parseFloat(item.actualStock) || 0;
-      return Math.abs(actual - item.systemStock) > 0.01;
+      const isDiscrete = isDiscreteUnitType(item.unitType as UnitType);
+      const actual = isDiscrete 
+        ? parseInt(item.actualStock, 10) || 0
+        : parseFloat(item.actualStock) || 0;
+      return isDiscrete 
+        ? Math.abs(actual - item.systemStock) > 0
+        : Math.abs(actual - item.systemStock) > 0.01;
     }).length;
   }, [stockTakeItems]);
 
@@ -276,9 +294,14 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
       return;
     }
 
-    const invalidItems = stockTakeItems.filter(
-      (item) => !item.actualStock || isNaN(parseFloat(item.actualStock))
-    );
+    const invalidItems = stockTakeItems.filter((item) => {
+      if (!item.actualStock) return true;
+      const isDiscrete = isDiscreteUnitType(item.unitType as UnitType);
+      const value = isDiscrete 
+        ? parseInt(item.actualStock, 10)
+        : parseFloat(item.actualStock);
+      return isNaN(value);
+    });
 
     if (invalidItems.length > 0) {
       setError('Please enter actual stock for all items');
@@ -294,12 +317,17 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          items: stockTakeItems.map((item) => ({
-            itemId: item.itemId,
-            actualStock: parseFloat(item.actualStock),
-            reason: item.reason,
-            notes: item.notes || null,
-          })),
+          items: stockTakeItems.map((item) => {
+            const isDiscrete = isDiscreteUnitType(item.unitType as UnitType);
+            return {
+              itemId: item.itemId,
+              actualStock: isDiscrete 
+                ? parseInt(item.actualStock, 10) || 0
+                : parseFloat(item.actualStock) || 0,
+              reason: item.reason,
+              notes: item.notes || null,
+            };
+          }),
         }),
       });
 
@@ -428,7 +456,9 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                             </p>
                             <div className="flex items-center gap-2 mt-1.5">
                               <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                                {item.current_stock.toFixed(2)} {item.unit_type}
+                                {isDiscreteUnitType(item.unit_type as UnitType)
+                                  ? Math.round(item.current_stock).toString()
+                                  : item.current_stock.toFixed(2)} {item.unit_type}
                               </span>
                               {isLow && (
                                 <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
@@ -551,7 +581,9 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                           className="text-xs font-bold px-3 py-1"
                         >
                           {totalDifference > 0 ? '+' : ''}
-                          {totalDifference.toFixed(2)} total
+                          {stockTakeItems.some(item => isDiscreteUnitType(item.unitType as UnitType))
+                            ? Math.round(totalDifference).toString()
+                            : totalDifference.toFixed(2)} total
                         </Badge>
                       )}
                     </div>
@@ -561,9 +593,14 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-4 max-h-[500px] md:max-h-[600px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-600">
                       {stockTakeItems.map((item, index) => {
-                        const actual = parseFloat(item.actualStock) || 0;
+                        const isDiscrete = isDiscreteUnitType(item.unitType as UnitType);
+                        const actual = isDiscrete 
+                          ? parseInt(item.actualStock, 10) || 0
+                          : parseFloat(item.actualStock) || 0;
                         const diff = actual - item.systemStock;
-                        const hasDifference = Math.abs(diff) > 0.01;
+                        const hasDifference = isDiscrete 
+                          ? Math.abs(diff) > 0
+                          : Math.abs(diff) > 0.01;
                         const isNegative = diff < 0;
 
                         return (
@@ -608,7 +645,9 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                                           <TrendingUp className="h-3 w-3 mr-1" />
                                         )}
                                         {diff > 0 ? '+' : ''}
-                                        {diff.toFixed(2)}
+                                        {isDiscrete 
+                                          ? Math.round(diff).toString()
+                                          : diff.toFixed(2)}
                                       </Badge>
                                     )}
                                   </div>
@@ -637,7 +676,9 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                                     <div className="p-4 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-xl border-2 border-slate-200 dark:border-slate-700 shadow-sm">
                                       <div className="flex items-baseline gap-2">
                                         <span className="font-bold text-2xl text-slate-900 dark:text-white">
-                                          {item.systemStock.toFixed(2)}
+                                          {isDiscrete 
+                                            ? Math.round(item.systemStock).toString()
+                                            : item.systemStock.toFixed(2)}
                                         </span>
                                         <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
                                           {item.unitType}
@@ -655,15 +696,26 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                                     <div className="space-y-2">
                                       <Input
                                         type="number"
-                                        step="0.01"
+                                        step={isDiscrete ? "1" : "0.01"}
                                         min="0"
                                         value={item.actualStock}
-                                        onChange={(e) =>
-                                          handleUpdateItem(item.itemId, {
-                                            actualStock: e.target.value,
-                                          })
-                                        }
-                                        placeholder="Enter new stock count"
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+                                          if (isDiscrete) {
+                                            // Only allow integers for discrete units
+                                            const intValue = parseInt(value, 10);
+                                            if (value === '' || (!isNaN(intValue) && intValue >= 0)) {
+                                              handleUpdateItem(item.itemId, {
+                                                actualStock: value === '' ? '' : intValue.toString(),
+                                              });
+                                            }
+                                          } else {
+                                            handleUpdateItem(item.itemId, {
+                                              actualStock: value,
+                                            });
+                                          }
+                                        }}
+                                        placeholder={isDiscrete ? "Enter count" : "Enter new stock count"}
                                         required
                                         className="h-14 text-lg font-bold border-2 focus:border-[#259783] focus:ring-2 focus:ring-[#259783]/20"
                                       />
@@ -698,7 +750,9 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                                     <div className="flex items-baseline gap-2">
                                       <span className="text-2xl">
                                         {diff >= 0 ? '+' : ''}
-                                        {diff.toFixed(2)}
+                                        {isDiscrete 
+                                          ? Math.round(diff).toString()
+                                          : diff.toFixed(2)}
                                       </span>
                                       <span className="text-sm font-medium opacity-75">
                                         {item.unitType}

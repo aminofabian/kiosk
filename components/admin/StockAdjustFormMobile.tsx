@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import type { Item } from '@/lib/db/types';
 import type { AdjustmentReason } from '@/lib/constants';
-import { ADJUSTMENT_REASONS } from '@/lib/constants';
+import { ADJUSTMENT_REASONS, isDiscreteUnitType } from '@/lib/constants';
 
 const REASON_LABELS: Record<AdjustmentReason, string> = {
   restock: 'Restock / New Delivery',
@@ -121,7 +121,9 @@ function SelectItemStep({
                     <p className="font-semibold text-base mb-1">{item.name}</p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm text-muted-foreground">
-                        {item.current_stock.toFixed(2)} {item.unit_type}
+                        {isDiscreteUnitType(item.unit_type)
+                          ? Math.round(item.current_stock).toString()
+                          : item.current_stock.toFixed(2)} {item.unit_type}
                       </span>
                       {isLow && (
                         <Badge variant="destructive" className="text-xs">
@@ -195,8 +197,9 @@ function AdjustDetailsStep({
   onSubmit: (e: React.FormEvent) => Promise<void>;
 }) {
   const handleQuantityQuickSet = (multiplier: number) => {
+    const isDiscrete = isDiscreteUnitType(selectedItem.unit_type);
     const newQty = selectedItem.current_stock * multiplier;
-    setQuantity(newQty.toFixed(2));
+    setQuantity(isDiscrete ? Math.round(newQty).toString() : newQty.toFixed(2));
   };
 
   return (
@@ -210,7 +213,9 @@ function AdjustDetailsStep({
           <span className="text-base font-medium text-muted-foreground">Current Stock</span>
           <div className="flex items-center gap-2">
             <span className="text-2xl font-bold">
-              {selectedItem.current_stock.toFixed(2)}
+              {isDiscreteUnitType(selectedItem.unit_type)
+                ? Math.round(selectedItem.current_stock).toString()
+                : selectedItem.current_stock.toFixed(2)}
             </span>
             <span className="text-sm text-muted-foreground">
               {selectedItem.unit_type}
@@ -274,11 +279,22 @@ function AdjustDetailsStep({
         <Input
           id="quantity-mobile"
           type="number"
-          step="0.01"
+          step={isDiscreteUnitType(selectedItem.unit_type) ? "1" : "0.01"}
           min="0"
           value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
-          placeholder="0.00"
+          onChange={(e) => {
+            const value = e.target.value;
+            if (isDiscreteUnitType(selectedItem.unit_type)) {
+              // Only allow integers for discrete units
+              const intValue = parseInt(value, 10);
+              if (value === '' || (!isNaN(intValue) && intValue >= 0)) {
+                setQuantity(value === '' ? '' : intValue.toString());
+              }
+            } else {
+              setQuantity(value);
+            }
+          }}
+          placeholder={isDiscreteUnitType(selectedItem.unit_type) ? "0" : "0.00"}
           required
           className="text-xl h-14"
         />
@@ -291,7 +307,9 @@ function AdjustDetailsStep({
             <span className="text-base font-medium">New Stock</span>
             <div className="flex items-center gap-2">
               <span className="text-3xl font-bold text-primary">
-                {calculatedNewStock.toFixed(2)}
+                {isDiscreteUnitType(selectedItem.unit_type)
+                  ? Math.round(calculatedNewStock).toString()
+                  : calculatedNewStock.toFixed(2)}
               </span>
               <span className="text-sm text-muted-foreground">
                 {selectedItem.unit_type}
@@ -302,7 +320,9 @@ function AdjustDetailsStep({
             <ArrowRight className="h-4 w-4" />
             <span className="text-muted-foreground">
               {adjustmentType === 'increase' ? '+' : '-'}
-              {parseFloat(quantity).toFixed(2)} {selectedItem.unit_type}
+              {isDiscreteUnitType(selectedItem.unit_type)
+                ? (parseInt(quantity, 10) || 0).toString()
+                : parseFloat(quantity).toFixed(2)} {selectedItem.unit_type}
             </span>
           </div>
           {willGoNegative && (
@@ -429,7 +449,8 @@ export function StockAdjustFormMobile({
 
   const calculatedNewStock = useMemo(() => {
     if (!selectedItem || !quantity) return null;
-    const qty = parseFloat(quantity);
+    const isDiscrete = isDiscreteUnitType(selectedItem.unit_type);
+    const qty = isDiscrete ? parseInt(quantity, 10) : parseFloat(quantity);
     if (isNaN(qty) || qty <= 0) return null;
     return adjustmentType === 'increase'
       ? selectedItem.current_stock + qty
