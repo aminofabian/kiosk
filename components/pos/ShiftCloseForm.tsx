@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -18,9 +19,12 @@ import {
   TrendingDown,
   Minus,
   AlertCircle,
+  Clock,
+  Send,
 } from 'lucide-react';
-import type { Shift } from '@/lib/db/types';
+import type { Shift, BalanceApprovalRequest } from '@/lib/db/types';
 import { apiGet, apiPost } from '@/lib/utils/api-client';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 
 const DENOMINATIONS = [
   { value: 1000, label: '1000', icon: Banknote, color: 'bg-emerald-100 dark:bg-emerald-900 border-emerald-300' },
@@ -50,6 +54,7 @@ interface ShiftSummary {
 
 export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
   const router = useRouter();
+  const { user } = useCurrentUser();
   const [denominations, setDenominations] = useState<DenominationCounts>({
     1: 0, 5: 0, 10: 0, 20: 0, 50: 0, 100: 0, 200: 0, 500: 0, 1000: 0
   });
@@ -57,6 +62,13 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
   const [salesSummary, setSalesSummary] = useState<ShiftSummary | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingApproval, setPendingApproval] = useState<BalanceApprovalRequest | null>(null);
+  const [requiresApproval, setRequiresApproval] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  // Cashiers MUST submit for approval, admin/owner can close directly or submit for approval
+  const isCashier = user?.role === 'cashier';
+  const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner';
 
   useEffect(() => {
     async function fetchSalesSummary() {
@@ -69,7 +81,23 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
         console.error('Error fetching sales summary:', err);
       }
     }
+
+    async function checkPendingApproval() {
+      try {
+        const result = await apiGet<BalanceApprovalRequest[]>('/api/balance/approvals?status=pending');
+        if (result.success && result.data) {
+          const closingRequest = result.data.find(r => r.balance_type === 'closing' && r.shift_id === shift.id);
+          if (closingRequest) {
+            setPendingApproval(closingRequest);
+          }
+        }
+      } catch (err) {
+        console.error('Error checking pending approval:', err);
+      }
+    }
+
     fetchSalesSummary();
+    checkPendingApproval();
   }, [shift.id]);
 
   const formatPrice = (price: number) => {
@@ -93,11 +121,17 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
     }, 0);
   }, [denominations]);
 
-  // Calculate expected cash considering expenses
-  const cashExpenses = salesSummary?.cashExpenses?.total || 0;
-  const expectedCashBeforeExpenses = shift.expected_closing_cash;
-  const expectedCashAfterExpenses = expectedCashBeforeExpenses - cashExpenses;
-  const cashDifference = totalCash - expectedCashAfterExpenses;
+  // Calculate expected cash in drawer:
+  // Formula: Opening Cash + Cash Received - Cash Given Out = Expected Cash
+  // - Cash Received = Cash Sales + Cash Credit Payments
+  // - Cash Given Out = Cash Expenses/Withdrawals during shift
+  const cashSales = salesSummary?.sales?.total || 0;
+  const creditPayments = salesSummary?.creditPayments?.total || 0;
+  const cashIn = cashSales + creditPayments; // Total cash received during shift
+  const cashExpenses = salesSummary?.cashExpenses?.total || 0; // Total cash given out (expenses/withdrawals)
+  const expectedCashBeforeExpenses = shift.opening_cash + cashIn;
+  const expectedCashAfterExpenses = expectedCashBeforeExpenses - cashExpenses; // Final expected amount
+  const cashDifference = totalCash - expectedCashAfterExpenses; // Actual vs Expected difference
 
   const updateDenomination = (value: number, count: number) => {
     setDenominations(prev => ({
@@ -115,37 +149,134 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
       return;
     }
 
+    // Cashiers must always submit for approval
+    if (isCashier) {
+      setRequiresApproval(true);
+    }
+
     setIsSubmitting(true);
 
     try {
-      const result = await apiPost(`/api/shifts/${shift.id}/close`, {
-        actualClosingCash: totalCash,
-        cashExpenses: cashExpenses,
-        denominations: {
-          denom_1: denominations[1],
-          denom_5: denominations[5],
-          denom_10: denominations[10],
-          denom_20: denominations[20],
-          denom_50: denominations[50],
-          denom_100: denominations[100],
-          denom_200: denominations[200],
-          denom_500: denominations[500],
-          denom_1000: denominations[1000],
-        }
-      });
+      if (requiresApproval || isCashier) {
+        // Submit for approval instead of closing directly
+        const result = await apiPost('/api/balance/approvals', {
+          balanceType: 'closing',
+          amount: totalCash,
+          expectedAmount: expectedCashAfterExpenses,
+          shiftId: shift.id,
+          cashExpenses: cashExpenses,
+          denominations: {
+            denom_1: denominations[1],
+            denom_5: denominations[5],
+            denom_10: denominations[10],
+            denom_20: denominations[20],
+            denom_50: denominations[50],
+            denom_100: denominations[100],
+            denom_200: denominations[200],
+            denom_500: denominations[500],
+            denom_1000: denominations[1000],
+          }
+        });
 
-      if (result.success) {
-        router.push('/pos');
+        if (result.success) {
+          setSubmitted(true);
+          setPendingApproval({
+            id: result.data?.requestId,
+            balance_type: 'closing',
+            amount: totalCash,
+            status: 'pending',
+            shift_id: shift.id,
+          } as BalanceApprovalRequest);
+        } else {
+          setError(result.message || 'Failed to submit for approval');
+        }
       } else {
-        setError(result.message || 'Failed to close shift');
-        setIsSubmitting(false);
+        // Close shift directly
+        const result = await apiPost(`/api/shifts/${shift.id}/close`, {
+          actualClosingCash: totalCash,
+          cashExpenses: cashExpenses,
+          denominations: {
+            denom_1: denominations[1],
+            denom_5: denominations[5],
+            denom_10: denominations[10],
+            denom_20: denominations[20],
+            denom_50: denominations[50],
+            denom_100: denominations[100],
+            denom_200: denominations[200],
+            denom_500: denominations[500],
+            denom_1000: denominations[1000],
+          }
+        });
+
+        if (result.success) {
+          router.push('/pos');
+        } else {
+          setError(result.message || 'Failed to close shift');
+        }
       }
     } catch (err) {
       console.error('Shift close error:', err);
       setError('An error occurred. Please try again.');
+    } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Show pending approval status
+  if (pendingApproval || submitted) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-full p-6">
+        <div className="text-center space-y-4 max-w-md">
+          <div className="w-20 h-20 mx-auto bg-amber-100 dark:bg-amber-900/30 rounded-2xl flex items-center justify-center">
+            <Clock className="w-10 h-10 text-amber-600 dark:text-amber-400" />
+          </div>
+          <h2 className="text-2xl font-bold">Closing Balance Submitted</h2>
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-left space-y-2">
+            <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+              Amount: {formatPrice(pendingApproval?.amount || totalCash)}
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              Your closing balance has been submitted for admin review. The shift will remain open until an admin approves or rejects your closing balance.
+            </p>
+            {expectedCashAfterExpenses && (
+              <div className="pt-2 border-t border-amber-200 dark:border-amber-800">
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Expected: {formatPrice(expectedCashAfterExpenses)} | 
+                  Difference: {cashDifference >= 0 ? '+' : ''}{formatPrice(cashDifference)}
+                </p>
+              </div>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            You will be notified once the admin reviews your submission.
+          </p>
+          <div className="pt-4 space-y-2">
+            <Button 
+              onClick={() => {
+                setPendingApproval(null);
+                setSubmitted(false);
+                // Refresh to check status
+                window.location.reload();
+              }} 
+              variant="outline" 
+              size="touch" 
+              className="w-full"
+            >
+              Refresh Status
+            </Button>
+            <Button 
+              onClick={() => router.push('/pos')} 
+              variant="ghost" 
+              size="sm"
+              className="text-muted-foreground w-full"
+            >
+              Back to Dashboard
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex items-center justify-center min-h-full p-4 pb-24">
@@ -206,22 +337,23 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
             
             {/* Expected Cash Calculation */}
             <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg space-y-2">
+              <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">Expected Cash Calculation:</p>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Opening Cash:</span>
                 <span className="font-medium">{formatPrice(shift.opening_cash)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">+ Cash In (Sales + Payments):</span>
+                <span className="text-muted-foreground">+ Cash Received (Sales + Credit Payments):</span>
                 <span className="font-medium text-green-600">
-                  {formatPrice(expectedCashBeforeExpenses - shift.opening_cash)}
+                  + {formatPrice(cashIn)}
                 </span>
               </div>
-              {cashExpenses > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">- Cash Out (Expenses):</span>
-                  <span className="font-medium text-red-600">{formatPrice(cashExpenses)}</span>
-                </div>
-              )}
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">- Cash Given Out (Expenses/Withdrawals):</span>
+                <span className="font-medium text-red-600">
+                  - {formatPrice(cashExpenses)}
+                </span>
+              </div>
               <Separator />
               <div className="flex justify-between items-center">
                 <span className="font-bold text-slate-900 dark:text-white">Expected Cash in Drawer:</span>
@@ -229,6 +361,9 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
                   {formatPrice(expectedCashAfterExpenses)}
                 </span>
               </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 italic">
+                Formula: Opening + Cash In - Cash Out = Expected
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -352,6 +487,40 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
                 </div>
               )}
 
+              {/* Approval Info */}
+              {isCashier ? (
+                <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg space-y-2">
+                  <div className="flex items-start gap-2">
+                    <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                        Requires Admin Approval
+                      </p>
+                      <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                        As a cashier, your closing balance must be reviewed and approved by an admin before the shift can be closed.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : isAdminOrOwner ? (
+                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg space-y-3">
+                  <Label className="text-sm font-medium flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={requiresApproval}
+                      onChange={(e) => setRequiresApproval(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-300 cursor-pointer"
+                    />
+                    Submit for approval (optional)
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {requiresApproval 
+                      ? 'This closing balance will be recorded as a request for review. Useful for audit trail.'
+                      : 'Shift will close immediately with this balance.'}
+                  </p>
+                </div>
+              ) : null}
+
               {error && (
                 <div className="p-3 bg-destructive/10 text-destructive rounded-md text-sm">
                   {error}
@@ -362,12 +531,21 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
                 type="submit"
                 size="touch"
                 disabled={isSubmitting || totalCash === 0}
-                className="w-full bg-[#259783] hover:bg-[#1a7a69] text-white font-bold"
+                className={`w-full font-bold ${
+                  requiresApproval 
+                    ? 'bg-amber-600 hover:bg-amber-700' 
+                    : 'bg-[#259783] hover:bg-[#1a7a69]'
+                } text-white`}
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Closing...
+                    {requiresApproval || isCashier ? 'Submitting...' : 'Closing...'}
+                  </>
+                ) : requiresApproval || isCashier ? (
+                  <>
+                    <Send className="mr-2 h-5 w-5" />
+                    {isCashier ? 'Submit for Admin Approval' : 'Submit for Approval'}
                   </>
                 ) : (
                   <>Close Shift</>

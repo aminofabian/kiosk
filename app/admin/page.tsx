@@ -8,6 +8,9 @@ import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { ShopTypeSelector } from '@/components/pos/ShopTypeSelector';
 import { getShopType, setShopType, type ShopType } from '@/lib/utils/shop-type';
 import type { Category } from '@/lib/db/types';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Drawer,
   DrawerContent,
@@ -20,6 +23,10 @@ import { CategoryForm } from '@/components/admin/CategoryForm';
 import { ItemForm } from '@/components/admin/ItemForm';
 import { StockAdjustForm } from '@/components/admin/StockAdjustForm';
 import { StockTakeForm } from '@/components/admin/StockTakeForm';
+import { ShiftOpenForm } from '@/components/pos/ShiftOpenForm';
+import { ShiftCloseForm } from '@/components/pos/ShiftCloseForm';
+import { BalanceApprovals } from '@/components/admin/BalanceApprovals';
+import type { Shift } from '@/lib/db/types';
 import {
   Plus,
   Package,
@@ -37,6 +44,8 @@ import {
   AlertCircle,
   Loader2,
   Percent,
+  Banknote,
+  Wallet,
   Image,
   HelpCircle,
   ArrowRight,
@@ -61,6 +70,18 @@ const ACTION_BUTTONS: ActionButton[] = [
     label: 'Open POS',
     description: 'Start selling',
     icon: ShoppingCart,
+  },
+  {
+    label: 'Open Shift',
+    description: 'Record opening balance',
+    icon: Banknote,
+    roles: ['cashier', 'admin', 'owner'],
+  },
+  {
+    label: 'Close Shift',
+    description: 'Record closing balance',
+    icon: Receipt,
+    roles: ['cashier', 'admin', 'owner'],
   },
   {
     label: 'Create Category',
@@ -131,6 +152,12 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: Receipt,
   },
   {
+    label: 'Record Withdrawal',
+    description: 'Cash taken from drawer',
+    icon: Wallet,
+    roles: ['cashier', 'admin', 'owner'],
+  },
+  {
     href: '/admin/supplier-bills/new',
     label: 'Record Supplier Bill',
     description: 'Pending payments',
@@ -141,6 +168,12 @@ const ACTION_BUTTONS: ActionButton[] = [
     label: 'Stock Approvals',
     description: 'Pending approvals',
     icon: Scale,
+    roles: ['admin', 'owner'],
+  },
+  {
+    label: 'Balance Approvals',
+    description: 'Cash balance requests',
+    icon: DollarSign,
     roles: ['admin', 'owner'],
   },
   {
@@ -165,6 +198,176 @@ const ACTION_BUTTONS: ActionButton[] = [
   },
 ];
 
+function CloseShiftDrawerContent() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [shift, setShift] = useState<Shift | null>(null);
+
+  useEffect(() => {
+    async function fetchShift() {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/shifts/current');
+        const result = await response.json();
+
+        if (result.success && result.data) {
+          setShift(result.data);
+        } else {
+          setError('No open shift found');
+        }
+      } catch (err) {
+        setError('Failed to load shift');
+        console.error('Error fetching shift:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchShift();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center space-y-3">
+          <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Loading shift...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !shift) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 space-y-4">
+        <p className="text-destructive text-sm">{error || 'No open shift found'}</p>
+        <Button onClick={() => router.push('/pos')} size="touch">
+          Go to POS
+        </Button>
+      </div>
+    );
+  }
+
+  return <ShiftCloseForm shift={shift} />;
+}
+
+function BalanceApprovalsDrawerContent() {
+  return (
+    <div className="p-4">
+      <BalanceApprovals />
+    </div>
+  );
+}
+
+interface WithdrawalFormProps {
+  onSuccess: () => void;
+}
+
+function WithdrawalForm({ onSuccess }: WithdrawalFormProps) {
+  const [amount, setAmount] = useState('');
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      setError('Please enter a valid amount');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const response = await fetch('/api/expenses', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: reason || 'Cash Withdrawal',
+          category: 'variable',
+          amount: numericAmount,
+          frequency: 'one-time',
+          startDate: today,
+          notes: reason || 'Cash taken from drawer',
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setAmount('');
+        setReason('');
+        onSuccess();
+      } else {
+        setError(result.message || 'Failed to record withdrawal');
+      }
+    } catch (err) {
+      console.error('Error recording withdrawal:', err);
+      setError('An error occurred. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+          Amount to Withdraw (KES)
+        </Label>
+        <Input
+          type="number"
+          min="0"
+          step="0.01"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="e.g., 5000"
+          className="h-11"
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label className="text-sm font-medium text-slate-700 dark:text-slate-200">
+          Reason / Notes (optional)
+        </Label>
+        <Input
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="e.g., Owner withdrawal, petty cash, etc."
+          className="h-11"
+        />
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          This will be recorded as a one-time variable expense and deducted from the expected cash in drawer.
+        </p>
+      </div>
+      {error && (
+        <div className="p-3 text-sm rounded-md bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-300">
+          {error}
+        </div>
+      )}
+      <Button
+        type="submit"
+        className="w-full bg-[#259783] hover:bg-[#1a7a69] text-white font-semibold"
+        disabled={submitting}
+      >
+        {submitting ? (
+          <>
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            Recording...
+          </>
+        ) : (
+          <>Record Withdrawal</>
+        )}
+      </Button>
+    </form>
+  );
+}
+
 export default function AdminDashboardPage() {
   const { user } = useCurrentUser();
   const router = useRouter();
@@ -172,6 +375,10 @@ export default function AdminDashboardPage() {
   const [itemDrawerOpen, setItemDrawerOpen] = useState(false);
   const [stockAdjustDrawerOpen, setStockAdjustDrawerOpen] = useState(false);
   const [stockTakeDrawerOpen, setStockTakeDrawerOpen] = useState(false);
+  const [openShiftDrawerOpen, setOpenShiftDrawerOpen] = useState(false);
+  const [closeShiftDrawerOpen, setCloseShiftDrawerOpen] = useState(false);
+  const [balanceApprovalsDrawerOpen, setBalanceApprovalsDrawerOpen] = useState(false);
+  const [withdrawalDrawerOpen, setWithdrawalDrawerOpen] = useState(false);
   const [guideDrawerOpen, setGuideDrawerOpen] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
   const [existingCategories, setExistingCategories] = useState<Category[]>([]);
@@ -266,6 +473,8 @@ export default function AdminDashboardPage() {
     // For cashiers, only show allowed buttons
     if (user?.role === 'cashier') {
       const allowedCashierButtons = [
+        'Open Shift',
+        'Close Shift',
         'Create Category',
         'Add Item',
         'Add Stock',
@@ -329,11 +538,59 @@ export default function AdminDashboardPage() {
         },
       };
     }
+    if (button.label === 'Open Shift' && !button.onClick) {
+      return {
+        ...button,
+        onClick: () => {
+          if (isMobile) {
+            router.push('/pos/shift/open');
+          } else {
+            setOpenShiftDrawerOpen(true);
+          }
+        },
+      };
+    }
+    if (button.label === 'Close Shift' && !button.onClick) {
+      return {
+        ...button,
+        onClick: () => {
+          if (isMobile) {
+            router.push('/pos/shift/close');
+          } else {
+            setCloseShiftDrawerOpen(true);
+          }
+        },
+      };
+    }
+    if (button.label === 'Balance Approvals' && !button.onClick) {
+      return {
+        ...button,
+        onClick: () => {
+          if (isMobile) {
+            router.push('/admin/balance/approvals');
+          } else {
+            setBalanceApprovalsDrawerOpen(true);
+          }
+        },
+      };
+    }
     if (button.label === 'Record Supplier Bill' && !button.onClick) {
       return {
         ...button,
         onClick: () => {
           router.push('/admin/supplier-bills/new');
+        },
+      };
+    }
+    if (button.label === 'Record Withdrawal' && !button.onClick) {
+      return {
+        ...button,
+        onClick: () => {
+          if (isMobile) {
+            router.push('/admin/expenses');
+          } else {
+            setWithdrawalDrawerOpen(true);
+          }
         },
       };
     }
@@ -620,6 +877,94 @@ export default function AdminDashboardPage() {
             <StockTakeForm
               onCancel={() => setStockTakeDrawerOpen(false)}
             />
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Open Shift Drawer */}
+      <Drawer open={openShiftDrawerOpen && !isMobile} onOpenChange={setOpenShiftDrawerOpen} direction="right">
+        <DrawerContent className="!w-full sm:!w-[480px] md:!w-[520px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-emerald-50 dark:from-[#259783]/20 dark:to-emerald-950/20 px-6 py-5">
+            <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-emerald-500 flex items-center justify-center shadow-sm">
+                <Banknote className="w-5 h-5 text-white" />
+              </div>
+              Open Shift
+            </DrawerTitle>
+            <DrawerDescription className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              Cashier records the opening cash balance for the drawer
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 sm:px-6 py-4 flex-1 bg-slate-50 dark:bg-slate-900/50">
+            <div className="max-w-md mx-auto">
+              <ShiftOpenForm />
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Close Shift Drawer */}
+      <Drawer open={closeShiftDrawerOpen && !isMobile} onOpenChange={setCloseShiftDrawerOpen} direction="right">
+        <DrawerContent className="!w-full sm:!w-[520px] md:!w-[560px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-amber-50 to-[#259783]/10 dark:from-amber-950/20 dark:to-[#259783]/20 px-6 py-5">
+            <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-[#259783] flex items-center justify-center shadow-sm">
+                <Receipt className="w-5 h-5 text-white" />
+              </div>
+              Close Shift
+            </DrawerTitle>
+            <DrawerDescription className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              Cashier records the closing cash balance and differences
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 sm:px-6 py-4 flex-1 bg-slate-50 dark:bg-slate-900/50">
+            <div className="max-w-2xl mx-auto">
+              <CloseShiftDrawerContent />
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Balance Approvals Drawer */}
+      <Drawer open={balanceApprovalsDrawerOpen && !isMobile} onOpenChange={setBalanceApprovalsDrawerOpen} direction="right">
+        <DrawerContent className="!w-full sm:!w-[720px] md:!w-[840px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-6 py-5">
+            <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-blue-500 flex items-center justify-center shadow-sm">
+                <DollarSign className="w-5 h-5 text-white" />
+              </div>
+              Balance Approvals
+            </DrawerTitle>
+            <DrawerDescription className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              Review and approve opening/closing cash balance requests from cashiers
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="overflow-y-auto flex-1 bg-slate-50 dark:bg-slate-900/50 px-4 sm:px-6 py-4">
+            <div className="max-w-4xl mx-auto">
+              <BalanceApprovalsDrawerContent />
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Record Withdrawal Drawer */}
+      <Drawer open={withdrawalDrawerOpen && !isMobile} onOpenChange={setWithdrawalDrawerOpen} direction="right">
+        <DrawerContent className="!w-full sm:!w-[420px] md:!w-[460px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-red-50 to-[#259783]/10 dark:from-red-950/20 dark:to-[#259783]/20 px-6 py-5">
+            <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-red-500 to-[#259783] flex items-center justify-center shadow-sm">
+                <Wallet className="w-5 h-5 text-white" />
+              </div>
+              Record Cash Withdrawal
+            </DrawerTitle>
+            <DrawerDescription className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              Log cash taken out of the drawer so it is reflected in your expected cash calculations.
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="overflow-y-auto flex-1 bg-slate-50 dark:bg-slate-900/50 px-4 sm:px-6 py-4">
+            <div className="max-w-md mx-auto">
+              <WithdrawalForm onSuccess={() => setWithdrawalDrawerOpen(false)} />
+            </div>
           </div>
         </DrawerContent>
       </Drawer>

@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Banknote, Coins, ChevronDown, ChevronUp } from 'lucide-react';
+import { Loader2, Banknote, Coins, ChevronDown, ChevronUp, Clock, CheckCircle2, Send } from 'lucide-react';
 import { apiGet, apiPost } from '@/lib/utils/api-client';
-import type { Shift } from '@/lib/db/types';
+import type { Shift, BalanceApprovalRequest } from '@/lib/db/types';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 
 const DENOMINATIONS = [
   { value: 1000, label: '1000', icon: Banknote, color: 'bg-emerald-100 dark:bg-emerald-900 border-emerald-300' },
@@ -29,6 +30,7 @@ interface DenominationCounts {
 
 export function ShiftOpenForm() {
   const router = useRouter();
+  const { user } = useCurrentUser();
   const [denominations, setDenominations] = useState<DenominationCounts>({
     1: 0, 5: 0, 10: 0, 20: 0, 50: 0, 100: 0, 200: 0, 500: 0, 1000: 0
   });
@@ -36,6 +38,12 @@ export function ShiftOpenForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasOpenShift, setHasOpenShift] = useState<boolean | null>(null);
+  const [pendingApproval, setPendingApproval] = useState<BalanceApprovalRequest | null>(null);
+  const [requiresApproval, setRequiresApproval] = useState(false);
+
+  // Cashiers MUST submit for approval, admin/owner can open directly or submit for approval
+  const isCashier = user?.role === 'cashier';
+  const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner';
 
   useEffect(() => {
     async function checkOpenShift() {
@@ -51,7 +59,23 @@ export function ShiftOpenForm() {
         setHasOpenShift(false);
       }
     }
+
+    async function checkPendingApproval() {
+      try {
+        const result = await apiGet<BalanceApprovalRequest[]>('/api/balance/approvals?status=pending');
+        if (result.success && result.data) {
+          const openingRequest = result.data.find(r => r.balance_type === 'opening');
+          if (openingRequest) {
+            setPendingApproval(openingRequest);
+          }
+        }
+      } catch (err) {
+        console.error('Error checking pending approval:', err);
+      }
+    }
+
     checkOpenShift();
+    checkPendingApproval();
   }, []);
 
   const totalCash = useMemo(() => {
@@ -76,33 +100,69 @@ export function ShiftOpenForm() {
       return;
     }
 
+    // Cashiers must always submit for approval
+    if (isCashier) {
+      setRequiresApproval(true);
+    }
+
     setIsSubmitting(true);
 
     try {
-      const result = await apiPost('/api/shifts', { 
-        openingCash: totalCash,
-        denominations: {
-          denom_1: denominations[1],
-          denom_5: denominations[5],
-          denom_10: denominations[10],
-          denom_20: denominations[20],
-          denom_50: denominations[50],
-          denom_100: denominations[100],
-          denom_200: denominations[200],
-          denom_500: denominations[500],
-          denom_1000: denominations[1000],
-        }
-      });
+      if (requiresApproval || isCashier) {
+        // Submit for approval instead of opening directly
+        const result = await apiPost('/api/balance/approvals', {
+          balanceType: 'opening',
+          amount: totalCash,
+          denominations: {
+            denom_1: denominations[1],
+            denom_5: denominations[5],
+            denom_10: denominations[10],
+            denom_20: denominations[20],
+            denom_50: denominations[50],
+            denom_100: denominations[100],
+            denom_200: denominations[200],
+            denom_500: denominations[500],
+            denom_1000: denominations[1000],
+          }
+        });
 
-      if (result.success) {
-        router.push('/pos');
+        if (result.success) {
+          setPendingApproval({
+            id: result.data?.requestId,
+            balance_type: 'opening',
+            amount: totalCash,
+            status: 'pending',
+          } as BalanceApprovalRequest);
+        } else {
+          setError(result.message || 'Failed to submit for approval');
+        }
       } else {
-        setError(result.message || 'Failed to open shift');
-        setIsSubmitting(false);
+        // Open shift directly
+        const result = await apiPost('/api/shifts', { 
+          openingCash: totalCash,
+          denominations: {
+            denom_1: denominations[1],
+            denom_5: denominations[5],
+            denom_10: denominations[10],
+            denom_20: denominations[20],
+            denom_50: denominations[50],
+            denom_100: denominations[100],
+            denom_200: denominations[200],
+            denom_500: denominations[500],
+            denom_1000: denominations[1000],
+          }
+        });
+
+        if (result.success) {
+          router.push('/pos');
+        } else {
+          setError(result.message || 'Failed to open shift');
+        }
       }
     } catch (err) {
       console.error('Shift open error:', err);
       setError('An error occurred. Please try again.');
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -136,6 +196,53 @@ export function ShiftOpenForm() {
           <Button onClick={() => router.push('/pos')} size="touch">
             Go to POS
           </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show pending approval status
+  if (pendingApproval && pendingApproval.balance_type === 'opening') {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-6">
+        <div className="text-center space-y-4 max-w-md">
+          <div className="w-20 h-20 mx-auto bg-amber-100 dark:bg-amber-900/30 rounded-2xl flex items-center justify-center">
+            <Clock className="w-10 h-10 text-amber-600 dark:text-amber-400" />
+          </div>
+          <h2 className="text-2xl font-bold">Opening Balance Submitted</h2>
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-left space-y-2">
+            <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+              Amount: {formatPrice(pendingApproval.amount)}
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              Your opening balance has been submitted for admin review. The shift will be opened automatically once an admin approves your request.
+            </p>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            You will be notified once the admin reviews your submission.
+          </p>
+          <div className="pt-4 space-y-2">
+            <Button 
+              onClick={() => {
+                setPendingApproval(null);
+                // Refresh to check status
+                window.location.reload();
+              }} 
+              variant="outline" 
+              size="touch" 
+              className="w-full"
+            >
+              Refresh Status
+            </Button>
+            <Button 
+              onClick={() => router.push('/pos')} 
+              variant="ghost" 
+              size="sm"
+              className="text-muted-foreground w-full"
+            >
+              Back to Dashboard
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -218,6 +325,40 @@ export function ShiftOpenForm() {
 
             <Separator />
 
+            {/* Approval Info */}
+            {isCashier ? (
+              <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg space-y-2">
+                <div className="flex items-start gap-2">
+                  <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                      Requires Admin Approval
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                      As a cashier, your opening balance must be reviewed and approved by an admin before the shift can be opened.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : isAdminOrOwner ? (
+              <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg space-y-3">
+                <Label className="text-sm font-medium flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={requiresApproval}
+                    onChange={(e) => setRequiresApproval(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 cursor-pointer"
+                  />
+                  Submit for approval (optional)
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {requiresApproval 
+                    ? 'This opening balance will be recorded as a request for review. Useful for audit trail.'
+                    : 'Shift will open immediately with this balance.'}
+                </p>
+              </div>
+            ) : null}
+
             {error && (
               <div className="p-3 bg-destructive/10 text-destructive rounded-md text-sm">
                 {error}
@@ -228,12 +369,21 @@ export function ShiftOpenForm() {
               type="submit"
               size="touch"
               disabled={isSubmitting}
-              className="w-full bg-[#259783] hover:bg-[#1a7a69] text-white font-bold"
+              className={`w-full font-bold ${
+                requiresApproval 
+                  ? 'bg-amber-600 hover:bg-amber-700' 
+                  : 'bg-[#259783] hover:bg-[#1a7a69]'
+              } text-white`}
             >
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Opening...
+                  {requiresApproval || isCashier ? 'Submitting...' : 'Opening...'}
+                </>
+              ) : requiresApproval || isCashier ? (
+                <>
+                  <Send className="mr-2 h-5 w-5" />
+                  {isCashier ? 'Submit for Admin Approval' : 'Submit for Approval'} ({formatPrice(totalCash)})
                 </>
               ) : (
                 <>Open Shift with {formatPrice(totalCash)}</>

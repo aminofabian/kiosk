@@ -252,6 +252,37 @@ export interface StockApprovalRequest {
   created_at: number;
 }
 
+export type BalanceApprovalStatus = 'pending' | 'approved' | 'rejected';
+export type BalanceType = 'opening' | 'closing';
+
+export interface BalanceApprovalRequest {
+  id: string;
+  business_id: string;
+  shift_id: string | null;
+  user_id: string;
+  balance_type: BalanceType;
+  amount: number;
+  expected_amount: number | null;
+  notes: string | null;
+  status: BalanceApprovalStatus;
+  approved_by: string | null;
+  approved_at: number | null;
+  rejection_reason: string | null;
+  created_at: number;
+  // Denomination breakdown
+  denom_1: number;
+  denom_5: number;
+  denom_10: number;
+  denom_20: number;
+  denom_50: number;
+  denom_100: number;
+  denom_200: number;
+  denom_500: number;
+  denom_1000: number;
+  // For closing balance
+  cash_expenses: number;
+}
+
 export type SupplierBillStatus = 'pending' | 'paid' | 'overdue' | 'cancelled';
 
 export interface SupplierBill {

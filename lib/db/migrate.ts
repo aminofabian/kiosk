@@ -306,6 +306,13 @@ export async function runMigrations() {
       console.error('⚠ shift_denominations migration skipped:', error);
     }
 
+    try {
+      const { migrateBalanceApprovals } = await import('./migrate-balance-approvals');
+      await migrateBalanceApprovals();
+    } catch (error) {
+      console.error('⚠ balance_approval_requests migration skipped:', error);
+    }
+
     console.log('✅ Migration completed successfully!');
     return true;
   } catch (error) {
