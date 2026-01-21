@@ -28,6 +28,10 @@ interface DenominationCounts {
   [key: number]: number;
 }
 
+interface CreateBalanceApprovalResponse {
+  requestId: string;
+}
+
 export function ShiftOpenForm() {
   const router = useRouter();
   const { user } = useCurrentUser();
@@ -110,7 +114,7 @@ export function ShiftOpenForm() {
     try {
       if (requiresApproval || isCashier) {
         // Submit for approval instead of opening directly
-        const result = await apiPost('/api/balance/approvals', {
+        const result = await apiPost<CreateBalanceApprovalResponse>('/api/balance/approvals', {
           balanceType: 'opening',
           amount: totalCash,
           denominations: {
@@ -126,9 +130,9 @@ export function ShiftOpenForm() {
           }
         });
 
-        if (result.success) {
+        if (result.success && result.data) {
           setPendingApproval({
-            id: result.data?.requestId,
+            id: result.data.requestId,
             balance_type: 'opening',
             amount: totalCash,
             status: 'pending',
