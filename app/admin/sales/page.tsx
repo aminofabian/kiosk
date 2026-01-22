@@ -38,6 +38,8 @@ interface ItemSalesData {
   item_name: string;
   variant_name: string | null;
   category_name: string;
+  parent_name: string | null;
+  parent_item_id: string | null;
   total_quantity_sold: number;
   total_revenue: number;
   total_cost: number;
@@ -46,6 +48,16 @@ interface ItemSalesData {
   min_stock_level: number | null;
   transaction_count: number;
   avg_sell_price: number;
+}
+
+interface ParentItem {
+  id: string;
+  name: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
 }
 
 interface SalesSummary {
@@ -87,18 +99,51 @@ export default function SalesAnalyticsPage() {
   const [data, setData] = useState<SalesAnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [period, setPeriod] = useState('all');
+  const [period, setPeriod] = useState('today');
   const [searchQuery, setSearchQuery] = useState('');
   const [stockFilter, setStockFilter] = useState('all');
+  const [parentFilter, setParentFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [parentItems, setParentItems] = useState<ParentItem[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
     fetchData();
-  }, [period]);
+  }, [period, parentFilter, categoryFilter]);
+
+  useEffect(() => {
+    fetchFilters();
+  }, []);
+
+  const fetchFilters = async () => {
+    try {
+      // Fetch parent items
+      const parentsResult = await apiGet<ParentItem[]>('/api/items?all=true&parentsOnly=true');
+      if (parentsResult.success && parentsResult.data) {
+        setParentItems(parentsResult.data);
+      }
+
+      // Fetch categories
+      const categoriesResult = await apiGet<Category[]>('/api/categories');
+      if (categoriesResult.success && categoriesResult.data) {
+        setCategories(categoriesResult.data);
+      }
+    } catch (err) {
+      console.error('Error fetching filters:', err);
+    }
+  };
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const result = await apiGet<SalesAnalyticsData>(`/api/sales/analytics?period=${period}`);
+      let url = `/api/sales/analytics?period=${period}`;
+      if (parentFilter !== 'all') {
+        url += `&parentId=${parentFilter}`;
+      }
+      if (categoryFilter !== 'all') {
+        url += `&categoryId=${categoryFilter}`;
+      }
+      const result = await apiGet<SalesAnalyticsData>(url);
       if (result.success && result.data) {
         setData(result.data);
       } else {
@@ -132,12 +177,12 @@ export default function SalesAnalyticsPage() {
 
   // Filter items
   const filteredItems = data?.items.filter((item) => {
-    const matchesSearch = 
+    const matchesSearch =
       item.item_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.variant_name?.toLowerCase().includes(searchQuery.toLowerCase())) ||
       item.category_name.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStock = 
+
+    const matchesStock =
       stockFilter === 'all' ||
       (stockFilter === 'in-stock' && item.current_stock > 0 && (!item.min_stock_level || item.current_stock > item.min_stock_level)) ||
       (stockFilter === 'low-stock' && item.min_stock_level && item.current_stock > 0 && item.current_stock <= item.min_stock_level) ||
@@ -212,8 +257,17 @@ export default function SalesAnalyticsPage() {
 
             {/* Filters */}
             <div className="flex flex-wrap items-center gap-3">
+              <Button
+                variant={period === 'today' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPeriod('today')}
+                className={`h-9 ${period === 'today' ? 'bg-[#259783] hover:bg-[#1a7a69]' : ''}`}
+              >
+                <Calendar className="w-4 h-4 mr-1" />
+                Today
+              </Button>
+
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-slate-500" />
                 <Select value={period} onValueChange={setPeriod}>
                   <SelectTrigger className="w-[140px] h-9 border-2 border-slate-200 dark:border-slate-700">
                     <SelectValue />
@@ -227,6 +281,38 @@ export default function SalesAnalyticsPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {categories.length > 0 && (
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-[150px] h-9 border-2 border-slate-200 dark:border-slate-700">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {parentItems.length > 0 && (
+                <Select value={parentFilter} onValueChange={setParentFilter}>
+                  <SelectTrigger className="w-[160px] h-9 border-2 border-slate-200 dark:border-slate-700">
+                    <SelectValue placeholder="Parent Product" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Products</SelectItem>
+                    {parentItems.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
 
               <div className="flex items-center gap-2">
                 <Package className="w-4 h-4 text-slate-500" />
@@ -244,6 +330,22 @@ export default function SalesAnalyticsPage() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {(categoryFilter !== 'all' || parentFilter !== 'all' || stockFilter !== 'all') && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setCategoryFilter('all');
+                    setParentFilter('all');
+                    setStockFilter('all');
+                  }}
+                  className="h-9 text-slate-500 hover:text-slate-700"
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  Clear Filters
+                </Button>
+              )}
 
               <div className="relative flex-1 min-w-[200px] max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -371,7 +473,7 @@ export default function SalesAnalyticsPage() {
             const soldItems = data.items.filter(i => i.total_quantity_sold > 0)
               .sort((a, b) => b.total_quantity_sold - a.total_quantity_sold);
             const maxSold = soldItems.length > 0 ? soldItems[0].total_quantity_sold : 1;
-            
+
             return soldItems.length > 0 && (
               <Card className="border-2 border-slate-200 dark:border-slate-700">
                 <CardHeader className="pb-3">
@@ -559,11 +661,10 @@ export default function SalesAnalyticsPage() {
                               </Badge>
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <span className={`font-bold text-sm ${
-                                item.total_quantity_sold > 0 
-                                  ? 'text-slate-900 dark:text-white' 
-                                  : 'text-slate-400'
-                              }`}>
+                              <span className={`font-bold text-sm ${item.total_quantity_sold > 0
+                                ? 'text-slate-900 dark:text-white'
+                                : 'text-slate-400'
+                                }`}>
                                 {formatNumber(item.total_quantity_sold)}
                               </span>
                             </td>
@@ -573,9 +674,8 @@ export default function SalesAnalyticsPage() {
                               </span>
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <span className={`font-semibold text-sm ${
-                                item.total_profit > 0 ? 'text-green-600' : 'text-slate-400'
-                              }`}>
+                              <span className={`font-semibold text-sm ${item.total_profit > 0 ? 'text-green-600' : 'text-slate-400'
+                                }`}>
                                 {formatPrice(item.total_profit)}
                               </span>
                             </td>

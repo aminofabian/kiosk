@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,6 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerClose,
+} from '@/components/ui/drawer';
 import {
   Loader2,
   Search,
@@ -19,7 +25,6 @@ import {
   CheckCircle2,
   ArrowRight,
   X,
-  ChevronRight,
 } from 'lucide-react';
 import type { Item } from '@/lib/db/types';
 import type { AdjustmentReason } from '@/lib/constants';
@@ -33,8 +38,6 @@ const REASON_LABELS: Record<AdjustmentReason, string> = {
   damage: 'Damage',
   other: 'Other',
 };
-
-type Step = 'select' | 'adjust';
 
 interface StockAdjustFormMobileProps {
   items: Item[];
@@ -56,108 +59,7 @@ interface StockAdjustFormMobileProps {
   onSubmit: (e: React.FormEvent) => Promise<void>;
 }
 
-function SelectItemStep({
-  items,
-  searchQuery,
-  setSearchQuery,
-  selectedItemId,
-  setSelectedItemId,
-  onNext,
-}: {
-  items: Item[];
-  searchQuery: string;
-  setSearchQuery: (q: string) => void;
-  selectedItemId: string;
-  setSelectedItemId: (id: string) => void;
-  onNext: () => void;
-}) {
-  const filteredItems = useMemo(() => {
-    if (!searchQuery.trim()) return items;
-    const query = searchQuery.toLowerCase();
-    return items.filter(
-      (item) =>
-        item.name.toLowerCase().includes(query) ||
-        item.unit_type.toLowerCase().includes(query)
-    );
-  }, [items, searchQuery]);
-
-  const selectedItem = items.find((i) => i.id === selectedItemId);
-
-  return (
-    <div className="space-y-4 pb-24">
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-        <Input
-          placeholder="Search items..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-12 h-14 text-base"
-        />
-      </div>
-
-      <div className="space-y-3 max-h-[60vh] overflow-y-auto -mx-1 px-1">
-        {filteredItems.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
-            <p className="text-base">No items found</p>
-          </div>
-        ) : (
-          filteredItems.map((item) => {
-            const isSelected = item.id === selectedItemId;
-            const isLow = item.current_stock < 10;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setSelectedItemId(item.id)}
-                className={`w-full text-left p-4 rounded-xl border-2 transition-all active:scale-[0.98] ${
-                  isSelected
-                    ? 'border-primary bg-primary/10 shadow-md'
-                    : 'border-border bg-card'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-base mb-1">{item.name}</p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm text-muted-foreground">
-                        {isDiscreteUnitType(item.unit_type)
-                          ? Math.round(item.current_stock).toString()
-                          : item.current_stock.toFixed(2)} {item.unit_type}
-                      </span>
-                      {isLow && (
-                        <Badge variant="destructive" className="text-xs">
-                          Low Stock
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  {isSelected && (
-                    <CheckCircle2 className="h-6 w-6 text-primary shrink-0" />
-                  )}
-                </div>
-              </button>
-            );
-          })
-        )}
-      </div>
-
-      {selectedItem && (
-        <Button
-          type="button"
-          onClick={onNext}
-          className="fixed bottom-16 left-0 right-0 mx-4 h-14 text-base bg-gradient-to-r from-emerald-600 to-teal-600 z-[60] shadow-lg"
-          size="lg"
-        >
-          Continue with {selectedItem.name}
-          <ChevronRight className="ml-2 h-5 w-5" />
-        </Button>
-      )}
-    </div>
-  );
-}
-
-function AdjustDetailsStep({
+function AdjustDetailsDrawerContent({
   selectedItem,
   adjustmentType,
   setAdjustmentType,
@@ -173,8 +75,7 @@ function AdjustDetailsStep({
   isLowStock,
   isSubmitting,
   error,
-  onBack,
-  onReset,
+  onClose,
   onSubmit,
 }: {
   selectedItem: Item;
@@ -192,27 +93,16 @@ function AdjustDetailsStep({
   isLowStock: boolean;
   isSubmitting: boolean;
   error: string | null;
-  onBack: () => void;
-  onReset: () => void;
+  onClose: () => void;
   onSubmit: (e: React.FormEvent) => Promise<void>;
 }) {
-  const handleQuantityQuickSet = (multiplier: number) => {
-    const isDiscrete = isDiscreteUnitType(selectedItem.unit_type);
-    const newQty = selectedItem.current_stock * multiplier;
-    setQuantity(isDiscrete ? Math.round(newQty).toString() : newQty.toFixed(2));
-  };
-
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
-      <div className="p-5 rounded-xl bg-muted space-y-3">
+    <form onSubmit={onSubmit} className="space-y-5 p-4 pb-8 overflow-y-auto">
+      <div className="p-4 rounded-xl bg-muted space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-base font-medium text-muted-foreground">Item</span>
-          <span className="font-semibold text-lg">{selectedItem.name}</span>
-        </div>
-        <div className="flex items-center justify-between pt-2 border-t border-border">
-          <span className="text-base font-medium text-muted-foreground">Current Stock</span>
+          <span className="text-sm font-medium text-muted-foreground">Current Stock</span>
           <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold">
+            <span className="text-xl font-bold">
               {isDiscreteUnitType(selectedItem.unit_type)
                 ? Math.round(selectedItem.current_stock).toString()
                 : selectedItem.current_stock.toFixed(2)}
@@ -230,50 +120,50 @@ function AdjustDetailsStep({
         )}
       </div>
 
-      <div className="space-y-3">
-        <Label className="text-base">Adjustment Type</Label>
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Adjustment Type</Label>
         <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
             onClick={() => setAdjustmentType('increase')}
-            className={`p-5 rounded-xl border-2 transition-all active:scale-[0.98] ${
+            className={`p-4 rounded-xl border-2 transition-all active:scale-[0.98] ${
               adjustmentType === 'increase'
                 ? 'border-green-500 bg-green-50 dark:bg-green-950 shadow-md'
                 : 'border-border bg-card'
             }`}
           >
-            <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center gap-1.5">
               <TrendingUp
-                className={`h-6 w-6 ${
+                className={`h-5 w-5 ${
                   adjustmentType === 'increase' ? 'text-green-600' : 'text-muted-foreground'
                 }`}
               />
-              <span className="font-semibold text-base">Increase</span>
+              <span className="font-semibold text-sm">Increase</span>
             </div>
           </button>
           <button
             type="button"
             onClick={() => setAdjustmentType('decrease')}
-            className={`p-5 rounded-xl border-2 transition-all active:scale-[0.98] ${
+            className={`p-4 rounded-xl border-2 transition-all active:scale-[0.98] ${
               adjustmentType === 'decrease'
                 ? 'border-red-500 bg-red-50 dark:bg-red-950 shadow-md'
                 : 'border-border bg-card'
             }`}
           >
-            <div className="flex flex-col items-center gap-2">
+            <div className="flex flex-col items-center gap-1.5">
               <TrendingDown
-                className={`h-6 w-6 ${
+                className={`h-5 w-5 ${
                   adjustmentType === 'decrease' ? 'text-red-600' : 'text-muted-foreground'
                 }`}
               />
-              <span className="font-semibold text-base">Decrease</span>
+              <span className="font-semibold text-sm">Decrease</span>
             </div>
           </button>
         </div>
       </div>
 
-      <div className="space-y-3">
-        <Label htmlFor="quantity-mobile" className="text-base">
+      <div className="space-y-2">
+        <Label htmlFor="quantity-mobile" className="text-sm font-medium">
           Quantity ({selectedItem.unit_type}) *
         </Label>
         <Input
@@ -285,7 +175,6 @@ function AdjustDetailsStep({
           onChange={(e) => {
             const value = e.target.value;
             if (isDiscreteUnitType(selectedItem.unit_type)) {
-              // Only allow integers for discrete units
               const intValue = parseInt(value, 10);
               if (value === '' || (!isNaN(intValue) && intValue >= 0)) {
                 setQuantity(value === '' ? '' : intValue.toString());
@@ -296,17 +185,16 @@ function AdjustDetailsStep({
           }}
           placeholder={isDiscreteUnitType(selectedItem.unit_type) ? "0" : "0.00"}
           required
-          className="text-xl h-14"
+          className="text-lg h-12"
         />
-        </div>
-       
+      </div>
 
       {calculatedNewStock !== null && (
-        <div className="p-5 rounded-xl bg-primary/5 border-2 border-primary/20 space-y-3">
+        <div className="p-4 rounded-xl bg-primary/5 border-2 border-primary/20 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-base font-medium">New Stock</span>
+            <span className="text-sm font-medium">New Stock</span>
             <div className="flex items-center gap-2">
-              <span className="text-3xl font-bold text-primary">
+              <span className="text-2xl font-bold text-primary">
                 {isDiscreteUnitType(selectedItem.unit_type)
                   ? Math.round(calculatedNewStock).toString()
                   : calculatedNewStock.toFixed(2)}
@@ -340,13 +228,13 @@ function AdjustDetailsStep({
         </div>
       )}
 
-      <div className="space-y-3">
-        <Label htmlFor="reason-mobile" className="text-base">Reason *</Label>
+      <div className="space-y-2">
+        <Label htmlFor="reason-mobile" className="text-sm font-medium">Reason *</Label>
         <Select
           value={reason}
           onValueChange={(v) => setReason(v as AdjustmentReason)}
         >
-          <SelectTrigger id="reason-mobile" className="h-14 text-base">
+          <SelectTrigger id="reason-mobile" className="h-12 text-base">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -359,30 +247,30 @@ function AdjustDetailsStep({
         </Select>
       </div>
 
-      <div className="space-y-3">
-        <Label htmlFor="notes-mobile" className="text-base">Notes (Optional)</Label>
+      <div className="space-y-2">
+        <Label htmlFor="notes-mobile" className="text-sm font-medium">Notes (Optional)</Label>
         <Textarea
           id="notes-mobile"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Add any additional details..."
-          rows={4}
+          rows={3}
           className="text-base"
         />
       </div>
 
       {error && (
-        <div className="p-4 bg-destructive/10 text-destructive rounded-xl text-sm flex items-center gap-2">
-          <AlertTriangle className="h-5 w-5" />
+        <div className="p-3 bg-destructive/10 text-destructive rounded-xl text-sm flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
-      <div className="space-y-3 pt-4">
+      <div className="space-y-3 pt-2">
         <Button
           type="submit"
           disabled={isSubmitting || willGoNegative}
-          className="w-full h-14 text-base bg-gradient-to-r from-emerald-600 to-teal-600"
+          className="w-full h-12 text-base bg-gradient-to-r from-emerald-600 to-teal-600"
           size="lg"
         >
           {isSubmitting ? (
@@ -397,27 +285,16 @@ function AdjustDetailsStep({
             </>
           )}
         </Button>
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onBack}
-            disabled={isSubmitting}
-            className="h-12"
-          >
-            Back
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onReset}
-            disabled={isSubmitting}
-            className="h-12"
-          >
-            <X className="h-4 w-4 mr-2" />
-            Reset
-          </Button>
-        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onClose}
+          disabled={isSubmitting}
+          className="w-full h-10"
+        >
+          <X className="h-4 w-4 mr-2" />
+          Cancel
+        </Button>
       </div>
     </form>
   );
@@ -442,10 +319,20 @@ export function StockAdjustFormMobile({
   onReset,
   onSubmit,
 }: StockAdjustFormMobileProps) {
-  const [step, setStep] = useState<Step>('select');
   const [searchQuery, setSearchQuery] = useState('');
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const selectedItem = items.find((i) => i.id === selectedItemId);
+
+  const filteredItems = useMemo(() => {
+    if (!searchQuery.trim()) return items;
+    const query = searchQuery.toLowerCase();
+    return items.filter(
+      (item) =>
+        item.name.toLowerCase().includes(query) ||
+        item.unit_type.toLowerCase().includes(query)
+    );
+  }, [items, searchQuery]);
 
   const calculatedNewStock = useMemo(() => {
     if (!selectedItem || !quantity) return null;
@@ -461,12 +348,28 @@ export function StockAdjustFormMobile({
   const willGoNegative = calculatedNewStock !== null && calculatedNewStock < 0;
   const willBeLowStock = calculatedNewStock !== null && calculatedNewStock < 10 && calculatedNewStock >= 0;
 
+  const handleItemSelect = (itemId: string) => {
+    setSelectedItemId(itemId);
+    setDrawerOpen(true);
+  };
+
+  const handleDrawerClose = () => {
+    setDrawerOpen(false);
+    // Reset form state when closing drawer
+    onReset();
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    await onSubmit(e);
+    // Don't close drawer here - let the parent handle success state
+  };
+
+  // Close drawer when reset is triggered (e.g., after successful submission)
   useEffect(() => {
-    if (!selectedItemId) {
-      setStep('select');
-      setSearchQuery('');
+    if (!selectedItemId && drawerOpen) {
+      setDrawerOpen(false);
     }
-  }, [selectedItemId]);
+  }, [selectedItemId, drawerOpen]);
 
   if (loadingItems) {
     return (
@@ -491,7 +394,7 @@ export function StockAdjustFormMobile({
                   Stock adjusted successfully!
                 </p>
                 <p className="text-sm text-green-700 dark:text-green-200">
-                  Redirecting to stock page...
+                  Ready for another adjustment
                 </p>
               </div>
             </div>
@@ -503,21 +406,80 @@ export function StockAdjustFormMobile({
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
             <Package className="h-6 w-6" />
-            {step === 'select' ? 'Select Item' : 'Adjust Stock'}
+            Select Item
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {step === 'select' ? (
-            <SelectItemStep
-              items={items}
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
-              selectedItemId={selectedItemId}
-              setSelectedItemId={setSelectedItemId}
-              onNext={() => setStep('adjust')}
-            />
-          ) : selectedItem ? (
-            <AdjustDetailsStep
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input
+                placeholder="Search items..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-12 h-14 text-base"
+              />
+            </div>
+
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto -mx-1 px-1">
+              {filteredItems.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-base">No items found</p>
+                </div>
+              ) : (
+                filteredItems.map((item) => {
+                  const isLow = item.current_stock < 10;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleItemSelect(item.id)}
+                      className="w-full text-left p-4 rounded-xl border-2 border-border bg-card transition-all active:scale-[0.98] hover:border-primary/50"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-base mb-1">{item.name}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm text-muted-foreground">
+                              {isDiscreteUnitType(item.unit_type)
+                                ? Math.round(item.current_stock).toString()
+                                : item.current_stock.toFixed(2)} {item.unit_type}
+                            </span>
+                            {isLow && (
+                              <Badge variant="destructive" className="text-xs">
+                                Low Stock
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <DrawerContent>
+          <DrawerHeader className="border-b">
+            <div className="flex items-center justify-between">
+              <DrawerTitle className="text-lg flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                {selectedItem?.name || 'Adjust Stock'}
+              </DrawerTitle>
+              <DrawerClose asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <X className="h-4 w-4" />
+                </Button>
+              </DrawerClose>
+            </div>
+          </DrawerHeader>
+          {selectedItem && (
+            <AdjustDetailsDrawerContent
               selectedItem={selectedItem}
               adjustmentType={adjustmentType}
               setAdjustmentType={setAdjustmentType}
@@ -533,21 +495,12 @@ export function StockAdjustFormMobile({
               isLowStock={isLowStock}
               isSubmitting={isSubmitting}
               error={error}
-              onBack={() => setStep('select')}
-              onReset={() => {
-                onReset();
-                setStep('select');
-              }}
-              onSubmit={onSubmit}
+              onClose={handleDrawerClose}
+              onSubmit={handleSubmit}
             />
-          ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              <Package className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p>Select an item to adjust stock</p>
-            </div>
           )}
-        </CardContent>
-      </Card>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }

@@ -12,6 +12,8 @@ interface ItemSalesData {
   item_name: string;
   variant_name: string | null;
   category_name: string;
+  parent_name: string | null;
+  parent_item_id: string | null;
   total_quantity_sold: number;
   total_revenue: number;
   total_cost: number;
@@ -41,6 +43,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || 'all';
+    const categoryId = searchParams.get('categoryId');
+    const parentId = searchParams.get('parentId');
 
     // Calculate date range
     const now = Math.floor(Date.now() / 1000);
@@ -67,6 +71,20 @@ export async function GET(request: NextRequest) {
         break;
     }
 
+    // Build filters for item-level sales data
+    let itemFilters = '';
+    const itemParams: (string | number)[] = [startDate, auth.businessId];
+
+    if (categoryId) {
+      itemFilters += ' AND i.category_id = ?';
+      itemParams.push(categoryId);
+    }
+
+    if (parentId) {
+      itemFilters += ' AND i.parent_item_id = ?';
+      itemParams.push(parentId);
+    }
+
     // Get item-level sales data
     const itemSales = await query<ItemSalesData>(
       `SELECT 
@@ -74,6 +92,8 @@ export async function GET(request: NextRequest) {
         i.name as item_name,
         i.variant_name,
         c.name as category_name,
+        parent.name as parent_name,
+        i.parent_item_id,
         COALESCE(SUM(si.quantity_sold), 0) as total_quantity_sold,
         COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
         COALESCE(SUM(si.quantity_sold * si.buy_price_per_unit), 0) as total_cost,
@@ -84,6 +104,7 @@ export async function GET(request: NextRequest) {
         COALESCE(AVG(si.sell_price_per_unit), i.current_sell_price) as avg_sell_price
       FROM items i
       LEFT JOIN categories c ON i.category_id = c.id
+      LEFT JOIN items parent ON i.parent_item_id = parent.id
       LEFT JOIN sale_items si ON i.id = si.item_id
       LEFT JOIN sales s ON si.sale_id = s.id AND s.status = 'completed' AND s.sale_date >= ?
       WHERE i.business_id = ? 
@@ -92,9 +113,10 @@ export async function GET(request: NextRequest) {
              (i.parent_item_id IS NULL AND NOT EXISTS (
                SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1
              )))
-      GROUP BY i.id, i.name, i.variant_name, c.name, i.current_stock, i.min_stock_level, i.current_sell_price
+        ${itemFilters}
+      GROUP BY i.id, i.name, i.variant_name, c.name, parent.name, i.parent_item_id, i.current_stock, i.min_stock_level, i.current_sell_price
       ORDER BY total_quantity_sold DESC`,
-      [startDate, auth.businessId]
+      itemParams
     );
 
     // Get overall sales summary
@@ -138,8 +160,8 @@ export async function GET(request: NextRequest) {
       totalRevenue: summaryData.total_revenue,
       totalCost: summaryData.total_cost,
       totalProfit: summaryData.total_profit,
-      profitMargin: summaryData.total_revenue > 0 
-        ? (summaryData.total_profit / summaryData.total_revenue) * 100 
+      profitMargin: summaryData.total_revenue > 0
+        ? (summaryData.total_profit / summaryData.total_revenue) * 100
         : 0,
       uniqueProductsSold,
       lowStockCount,
