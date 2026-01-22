@@ -1,12 +1,23 @@
 'use client';
 import type { Sale, SaleItem } from '@/lib/db/types';
 
+interface SplitPayment {
+  id: string;
+  sale_id: string;
+  payment_method: 'cash' | 'mpesa' | 'credit';
+  amount: number;
+  customer_name: string | null;
+  customer_phone: string | null;
+  created_at: number;
+}
+
 interface ReceiptProps {
   sale: Sale & { business_name?: string; user_name?: string | null };
   items: (SaleItem & { item_name: string; item_unit_type: string })[];
+  splitPayments?: SplitPayment[];
 }
 
-export function Receipt({ sale, items }: ReceiptProps) {
+export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
   const formatPrice = (price: number) => {
     return price.toFixed(0);
   };
@@ -83,6 +94,22 @@ export function Receipt({ sale, items }: ReceiptProps) {
               <span className="text-black" style={{ color: '#000000' }}>Payment:</span>
               <span className="uppercase font-bold text-black" style={{ color: '#000000' }}>{sale.payment_method}</span>
             </div>
+            {/* Split Payment Details */}
+            {sale.payment_method === 'split' && splitPayments && splitPayments.length > 0 && (
+              <div className="mt-1 pl-2 border-l-2 border-black space-y-0.5" style={{ color: '#000000' }}>
+                {splitPayments.map((payment) => (
+                  <div key={payment.id} className="flex justify-between text-sm print:text-[12px]" style={{ color: '#000000' }}>
+                    <span className="uppercase text-black" style={{ color: '#000000' }}>
+                      {payment.payment_method}
+                      {payment.payment_method === 'credit' && payment.customer_name && (
+                        <span className="normal-case"> ({payment.customer_name})</span>
+                      )}
+                    </span>
+                    <span className="font-bold text-black" style={{ color: '#000000' }}>KES {formatPrice(payment.amount)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             {sale.user_name && (
               <div className="flex justify-between" style={{ color: '#000000' }}>
                 <span className="text-black" style={{ color: '#000000' }}>Served by:</span>

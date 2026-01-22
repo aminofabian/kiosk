@@ -117,7 +117,7 @@ export default function ReceiptPage() {
         </div>
       }
     >
-      <Receipt sale={receiptData.sale} items={receiptData.items} />
+      <Receipt sale={receiptData.sale} items={receiptData.items} splitPayments={receiptData.splitPayments} />
     </POSLayout>
   );
 }

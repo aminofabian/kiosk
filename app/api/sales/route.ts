@@ -39,6 +39,13 @@ export async function GET() {
   }
 }
 
+interface SplitPaymentInput {
+  method: 'cash' | 'mpesa' | 'credit';
+  amount: number;
+  customerName?: string;
+  customerPhone?: string;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await requirePermission('sell');
@@ -51,6 +58,7 @@ export async function POST(request: NextRequest) {
       cashReceived,
       customerName,
       customerPhone,
+      splitPayments,
     } = body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -67,6 +75,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate split payments if split method is selected
+    if (paymentMethod === 'split') {
+      if (!splitPayments || !Array.isArray(splitPayments) || splitPayments.length === 0) {
+        return jsonResponse(
+          { success: false, message: 'Split payments are required for split payment method' },
+          400
+        );
+      }
+      
+      // Check that each credit payment has a customer name
+      for (const payment of splitPayments as SplitPaymentInput[]) {
+        if (payment.method === 'credit' && (!payment.customerName || payment.customerName.trim().length === 0)) {
+          return jsonResponse(
+            { success: false, message: 'Customer name is required for credit payments' },
+            400
+          );
+        }
+      }
+    }
+
     const now = Math.floor(Date.now() / 1000);
     const saleId = generateUUID();
 
@@ -75,6 +103,20 @@ export async function POST(request: NextRequest) {
         sum + item.quantity * item.price,
       0
     );
+
+    // Validate split payments total matches order total
+    if (paymentMethod === 'split' && splitPayments) {
+      const splitTotal = (splitPayments as SplitPaymentInput[]).reduce(
+        (sum, p) => sum + p.amount,
+        0
+      );
+      if (Math.abs(splitTotal - totalAmount) > 0.01) {
+        return jsonResponse(
+          { success: false, message: 'Split payment total must equal order total' },
+          400
+        );
+      }
+    }
 
     // Get current open shift for user
     const shift = await queryOne<{ id: string }>(
@@ -86,6 +128,20 @@ export async function POST(request: NextRequest) {
     );
 
     const shiftId = shift?.id || null;
+
+    // For split payments, we'll store customer info from credit portion if any
+    let saleCustomerName = null;
+    let saleCustomerPhone = null;
+    if (paymentMethod === 'credit') {
+      saleCustomerName = customerName || null;
+      saleCustomerPhone = customerPhone || null;
+    } else if (paymentMethod === 'split' && splitPayments) {
+      const creditPayment = (splitPayments as SplitPaymentInput[]).find(p => p.method === 'credit');
+      if (creditPayment) {
+        saleCustomerName = creditPayment.customerName || null;
+        saleCustomerPhone = creditPayment.customerPhone || null;
+      }
+    }
 
     await execute(
       `INSERT INTO sales (
@@ -100,21 +156,51 @@ export async function POST(request: NextRequest) {
         totalAmount,
         paymentMethod,
         'completed',
-        paymentMethod === 'credit' ? customerName || null : null,
-        paymentMethod === 'credit' ? customerPhone || null : null,
+        saleCustomerName,
+        saleCustomerPhone,
         now,
         now,
       ]
     );
 
-    // Update shift expected_closing_cash if shift exists and payment is cash
-    if (shiftId && paymentMethod === 'cash') {
+    // Calculate cash amount for shift tracking
+    let cashAmountForShift = 0;
+    if (paymentMethod === 'cash') {
+      cashAmountForShift = totalAmount;
+    } else if (paymentMethod === 'split' && splitPayments) {
+      const cashPayment = (splitPayments as SplitPaymentInput[]).find(p => p.method === 'cash');
+      cashAmountForShift = cashPayment?.amount || 0;
+    }
+
+    // Update shift expected_closing_cash if shift exists and there's cash payment
+    if (shiftId && cashAmountForShift > 0) {
       await execute(
         `UPDATE shifts 
          SET expected_closing_cash = expected_closing_cash + ? 
          WHERE id = ?`,
-        [totalAmount, shiftId]
+        [cashAmountForShift, shiftId]
       );
+    }
+
+    // Store split payment details if split payment
+    if (paymentMethod === 'split' && splitPayments) {
+      for (const payment of splitPayments as SplitPaymentInput[]) {
+        const paymentId = generateUUID();
+        await execute(
+          `INSERT INTO sale_payments (
+            id, sale_id, payment_method, amount, customer_name, customer_phone, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            paymentId,
+            saleId,
+            payment.method,
+            payment.amount,
+            payment.customerName || null,
+            payment.customerPhone || null,
+            now,
+          ]
+        );
+      }
     }
 
     // Process each item with FIFO
@@ -222,8 +308,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Handle credit account creation if payment is credit
-    if (paymentMethod === 'credit' && customerName) {
+    // Handle credit account creation if payment is credit or split with credit
+    const handleCreditPayment = async (creditCustomerName: string, creditCustomerPhone: string | null, creditAmount: number) => {
       // Find existing credit account by phone or name
       const creditAccount = await queryOne<{ id: string; total_credit: number }>(
         `SELECT id, total_credit FROM credit_accounts 
@@ -232,8 +318,8 @@ export async function POST(request: NextRequest) {
          LIMIT 1`,
         [
           auth.businessId,
-          customerPhone || null,
-          customerName,
+          creditCustomerPhone,
+          creditCustomerName,
         ]
       );
 
@@ -247,7 +333,7 @@ export async function POST(request: NextRequest) {
            SET total_credit = total_credit + ?, 
                last_transaction_at = ? 
            WHERE id = ?`,
-          [totalAmount, now, creditAccountId]
+          [creditAmount, now, creditAccountId]
         );
       } else {
         // Create new account
@@ -260,9 +346,9 @@ export async function POST(request: NextRequest) {
           [
             creditAccountId,
             auth.businessId,
-            customerName,
-            customerPhone || null,
-            totalAmount,
+            creditCustomerName,
+            creditCustomerPhone,
+            creditAmount,
             now,
             now,
           ]
@@ -281,11 +367,28 @@ export async function POST(request: NextRequest) {
           creditAccountId,
           saleId,
           'debt',
-          totalAmount,
+          creditAmount,
           auth.userId,
           now,
         ]
       );
+    };
+
+    // Handle credit for regular credit payment
+    if (paymentMethod === 'credit' && customerName) {
+      await handleCreditPayment(customerName, customerPhone || null, totalAmount);
+    }
+
+    // Handle credit for split payment with credit portion
+    if (paymentMethod === 'split' && splitPayments) {
+      const creditPayment = (splitPayments as SplitPaymentInput[]).find(p => p.method === 'credit');
+      if (creditPayment && creditPayment.customerName && creditPayment.amount > 0) {
+        await handleCreditPayment(
+          creditPayment.customerName,
+          creditPayment.customerPhone || null,
+          creditPayment.amount
+        );
+      }
     }
 
     return jsonResponse({

@@ -289,6 +289,22 @@ CREATE INDEX IF NOT EXISTS idx_sale_items_item_id ON sale_items(item_id);
 CREATE INDEX IF NOT EXISTS idx_sale_items_batch_id ON sale_items(inventory_batch_id);
 
 -- ============================================
+-- 12.5. sale_payments (Split Payment Support)
+-- ============================================
+CREATE TABLE IF NOT EXISTS sale_payments (
+  id TEXT PRIMARY KEY,
+  sale_id TEXT NOT NULL,
+  payment_method TEXT NOT NULL CHECK (payment_method IN ('cash', 'mpesa', 'credit')),
+  amount REAL NOT NULL,
+  customer_name TEXT, -- for credit portion
+  customer_phone TEXT, -- for credit portion
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_sale_payments_sale_id ON sale_payments(sale_id);
+
+-- ============================================
 -- 13. shifts (Cashier Accountability)
 -- ============================================
 CREATE TABLE IF NOT EXISTS shifts (

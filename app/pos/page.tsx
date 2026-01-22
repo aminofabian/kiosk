@@ -174,7 +174,7 @@ export default function POSPage() {
   const [checkoutDrawerOpen, setCheckoutDrawerOpen] = useState(false);
   const [receiptDrawerOpen, setReceiptDrawerOpen] = useState(false);
   const [receiptSaleId, setReceiptSaleId] = useState<string | null>(null);
-  const [receiptData, setReceiptData] = useState<{ sale: any; items: any[] } | null>(null);
+  const [receiptData, setReceiptData] = useState<{ sale: any; items: any[]; splitPayments?: any[] } | null>(null);
   const [receiptLoading, setReceiptLoading] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -843,7 +843,7 @@ export default function POSPage() {
       try {
         setReceiptLoading(true);
         setReceiptError(null);
-        const result = await apiGet<{ sale: any; items: any[] }>(`/api/sales/${receiptSaleId}`);
+        const result = await apiGet<{ sale: any; items: any[]; splitPayments?: any[] }>(`/api/sales/${receiptSaleId}`);
         if (result.success && result.data) {
           setReceiptData(result.data);
         } else {
@@ -2117,7 +2117,7 @@ export default function POSPage() {
               </div>
             ) : (
               <div className="print:p-0">
-                <Receipt sale={receiptData.sale} items={receiptData.items} />
+                <Receipt sale={receiptData.sale} items={receiptData.items} splitPayments={receiptData.splitPayments} />
                 <div className="mt-6 flex gap-3 print:hidden">
                   <Button
                     variant="outline"

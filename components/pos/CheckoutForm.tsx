@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, Smartphone, CheckCircle2, XCircle } from 'lucide-react';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
 import { CreditForm } from './CreditForm';
+import { SplitPaymentForm, type SplitPayment } from './SplitPaymentForm';
 import type { PaymentMethod } from '@/lib/constants';
 import { apiPost, apiGet } from '@/lib/utils/api-client';
 
@@ -47,6 +48,10 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
+  // Split payment state
+  const [splitPayments, setSplitPayments] = useState<SplitPayment[]>([]);
+  const [isSplitValid, setIsSplitValid] = useState(false);
+  
   // M-Pesa STK Push state
   const [mpesaStatus, setMpesaStatus] = useState<MpesaStatus>('idle');
   const [orderTrackingId, setOrderTrackingId] = useState<string | null>(null);
@@ -68,7 +73,15 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
         ? cashAmount >= total && total > 0
         : paymentMethod === 'mpesa'
           ? total > 0
-          : false;
+          : paymentMethod === 'split'
+            ? isSplitValid
+            : false;
+
+  // Handle split payment changes
+  const handleSplitPaymentsChange = useCallback((payments: SplitPayment[], isValid: boolean) => {
+    setSplitPayments(payments);
+    setIsSplitValid(isValid);
+  }, []);
 
   const formatPrice = (price: number) => {
     return `KES ${price.toFixed(0)}`;
@@ -182,17 +195,32 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
     setIsProcessing(true);
 
     try {
-      const result = await apiPost<{ saleId: string }>('/api/sales', {
+      // Build the request body based on payment method
+      const requestBody: Record<string, unknown> = {
         items: items.map((item) => ({
           itemId: item.itemId,
           quantity: item.quantity,
           price: item.price,
         })),
         paymentMethod,
-        cashReceived: paymentMethod === 'cash' ? cashAmount : undefined,
-        customerName: paymentMethod === 'credit' ? customerName : undefined,
-        customerPhone: paymentMethod === 'credit' ? customerPhone || undefined : undefined,
-      });
+      };
+
+      if (paymentMethod === 'cash') {
+        requestBody.cashReceived = cashAmount;
+      } else if (paymentMethod === 'credit') {
+        requestBody.customerName = customerName;
+        requestBody.customerPhone = customerPhone || undefined;
+      } else if (paymentMethod === 'split') {
+        // Send split payments data
+        requestBody.splitPayments = splitPayments.map(p => ({
+          method: p.method,
+          amount: p.amount,
+          customerName: p.customerName || undefined,
+          customerPhone: p.customerPhone || undefined,
+        }));
+      }
+
+      const result = await apiPost<{ saleId: string }>('/api/sales', requestBody);
 
       if (result.success && result.data) {
         clearCart();
@@ -579,6 +607,13 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
                 />
               )}
 
+              {paymentMethod === 'split' && (
+                <SplitPaymentForm
+                  total={total}
+                  onPaymentsChange={handleSplitPaymentsChange}
+                />
+              )}
+
               {error && (
                 <div className="p-3 bg-destructive/10 text-destructive rounded-md text-sm">
                   {error}
@@ -608,7 +643,7 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
           >
             Cancel
           </Button>
-          {paymentMethod !== 'mpesa' && (
+          {(paymentMethod !== 'mpesa') && (
             <Button
               type="submit"
               size="touch"
@@ -620,6 +655,8 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                   Processing...
                 </>
+              ) : paymentMethod === 'split' ? (
+                'Complete Split Payment'
               ) : (
                 'Complete Sale'
               )}

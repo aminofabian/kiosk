@@ -313,6 +313,13 @@ export async function runMigrations() {
       console.error('⚠ balance_approval_requests migration skipped:', error);
     }
 
+    try {
+      const { migrateSalePayments } = await import('./migrate-sale-payments');
+      await migrateSalePayments();
+    } catch (error) {
+      console.error('⚠ sale_payments migration skipped:', error);
+    }
+
     console.log('✅ Migration completed successfully!');
     return true;
   } catch (error) {

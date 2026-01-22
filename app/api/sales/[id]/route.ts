@@ -4,6 +4,16 @@ import type { Sale, SaleItem } from '@/lib/db/types';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
 
+interface SalePayment {
+  id: string;
+  sale_id: string;
+  payment_method: 'cash' | 'mpesa' | 'credit';
+  amount: number;
+  customer_name: string | null;
+  customer_phone: string | null;
+  created_at: number;
+}
+
 export async function OPTIONS() {
   return optionsResponse();
 }
@@ -53,11 +63,21 @@ export async function GET(
       [saleId]
     );
 
+    // Fetch split payments if payment method is 'split'
+    let splitPayments: SalePayment[] = [];
+    if (sale.payment_method === 'split') {
+      splitPayments = await query<SalePayment>(
+        `SELECT * FROM sale_payments WHERE sale_id = ? ORDER BY created_at ASC`,
+        [saleId]
+      );
+    }
+
     return jsonResponse({
       success: true,
       data: {
         sale,
         items: saleItems,
+        splitPayments: splitPayments.length > 0 ? splitPayments : undefined,
       },
     });
   } catch (error) {
