@@ -179,6 +179,7 @@ export default function POSPage() {
   const [receiptError, setReceiptError] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
+  const printedReceiptIdRef = useRef<string | null>(null);
   const { items: cartItems } = useCartStore();
   const { user } = useCurrentUser();
   const isOwnerOrAdmin = user?.role === 'owner' || user?.role === 'admin';
@@ -866,10 +867,13 @@ export default function POSPage() {
       const urlParams = new URLSearchParams(window.location.search);
       const shouldPrint = urlParams.get('print') === 'true';
       
-      if (shouldPrint) {
+      // Only print if we haven't already printed this receipt
+      if (shouldPrint && printedReceiptIdRef.current !== receiptSaleId) {
         // Small delay to ensure receipt is rendered
         const printTimer = setTimeout(() => {
           window.print();
+          // Mark this receipt as printed
+          printedReceiptIdRef.current = receiptSaleId;
           // Remove print param from URL after printing
           const newUrl = window.location.pathname + window.location.search.replace(/[?&]print=true/, '');
           window.history.replaceState({}, '', newUrl);
@@ -877,6 +881,11 @@ export default function POSPage() {
 
         return () => clearTimeout(printTimer);
       }
+    }
+    
+    // Reset printed receipt when drawer closes
+    if (!receiptDrawerOpen) {
+      printedReceiptIdRef.current = null;
     }
   }, [receiptDrawerOpen, receiptData, receiptSaleId]);
 
@@ -1050,7 +1059,7 @@ export default function POSPage() {
   return (
     <>
       {/* Mobile Kiosk Design */}
-      <div className="md:hidden bg-[#f6f8f6] dark:bg-[#132210] text-[#101b0d] dark:text-[#f0fdf4] min-h-screen w-full overflow-hidden flex flex-col antialiased">
+      <div className="md:hidden print:hidden bg-[#f6f8f6] dark:bg-[#132210] text-[#101b0d] dark:text-[#f0fdf4] min-h-screen w-full overflow-hidden flex flex-col antialiased">
         <style jsx global>{`
           .no-scrollbar::-webkit-scrollbar {
             display: none;
@@ -1492,7 +1501,7 @@ export default function POSPage() {
       </div>
 
       {/* Desktop Original Design */}
-      <div className="hidden md:block">
+      <div className="hidden md:block print:hidden">
         <POSLayout
           header={
             <div className="flex items-center justify-between gap-4 border-b border-gray-200 dark:border-gray-800 pb-3">
@@ -1682,7 +1691,7 @@ export default function POSPage() {
 
       {/* Barcode Scan Status Notification */}
       {(barcodeScanStatus.scanning || barcodeScanStatus.error || barcodeScanStatus.success) && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-2 duration-300">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-2 duration-300 print:hidden">
           <div className={`
             flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border backdrop-blur-sm
             ${barcodeScanStatus.scanning 
@@ -1727,7 +1736,7 @@ export default function POSPage() {
 
       {/* Category Products Drawer */}
       <Drawer open={categoryDrawerOpen} onOpenChange={setCategoryDrawerOpen} direction="right">
-        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
+        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900 print:hidden">
           <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
             <div className="flex items-center justify-between pr-8">
               <div className="flex items-center gap-3">
@@ -1926,7 +1935,7 @@ export default function POSPage() {
 
       {/* Cart Drawer */}
       <Drawer open={cartDrawerOpen} onOpenChange={setCartDrawerOpen} direction="right">
-        <DrawerContent className="!w-full sm:!w-[500px] md:!w-[600px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
+        <DrawerContent className="!w-full sm:!w-[500px] md:!w-[600px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900 print:hidden">
           <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
             <div className="flex items-center justify-between pr-8">
               <div className="flex items-center gap-3">
@@ -1966,7 +1975,7 @@ export default function POSPage() {
 
       {/* Checkout Drawer */}
       <Drawer open={checkoutDrawerOpen} onOpenChange={setCheckoutDrawerOpen} direction="right">
-        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
+        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900 print:hidden">
           <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
             <div className="flex items-center justify-between pr-8">
               <div className="flex items-center gap-3">
@@ -2018,7 +2027,7 @@ export default function POSPage() {
       {/* Receipt Drawer */}
       <Drawer open={receiptDrawerOpen} onOpenChange={setReceiptDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[600px] md:!w-[800px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5 print:hidden">
             <div className="flex items-center justify-between pr-8">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm flex-shrink-0">
@@ -2055,7 +2064,7 @@ export default function POSPage() {
               </div>
             </div>
           </DrawerHeader>
-          <div className="overflow-y-auto flex-1 bg-gradient-to-b from-white via-slate-50/30 to-white dark:from-slate-900 dark:via-slate-900/50 dark:to-slate-900 px-4 sm:px-6 py-6">
+          <div className="overflow-y-auto flex-1 bg-gradient-to-b from-white via-slate-50/30 to-white dark:from-slate-900 dark:via-slate-900/50 dark:to-slate-900 px-4 sm:px-6 py-6 print:bg-white print:p-0">
             {receiptLoading ? (
               <div className="flex flex-col items-center justify-center h-64 gap-4">
                 <Loader2 className="w-8 h-8 animate-spin text-[#259783]" />

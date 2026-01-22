@@ -235,3 +235,48 @@
     animation: gentle-pulse 2s ease-in-out infinite;
   }
 }
+
+/* Print Styles - Only show receipt when printing */
+@media print {
+  /* Page settings for thermal receipt */
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+  
+  /* Reset body */
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    width: 80mm !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  
+  /* Hide everything first */
+  body * {
+    visibility: hidden !important;
+  }
+  
+  /* Show only the receipt */
+  #receipt-to-print,
+  #receipt-to-print * {
+    visibility: visible !important;
+  }
+  
+  /* Position receipt at origin */
+  #receipt-to-print {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 80mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+  }
+  
+  /* Tailwind's print:hidden classes are automatically handled by Tailwind */
+}

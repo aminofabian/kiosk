@@ -45,7 +45,7 @@ export function Receipt({ sale, items }: ReceiptProps) {
   );
 
   return (
-    <div className="p-4 print:p-0 flex justify-center bg-gray-50 print:bg-white">
+    <div id="receipt-to-print" className="receipt-print-container p-4 print:p-0 flex justify-center bg-gray-50 print:bg-white">
       <div className="w-full max-w-[80mm] bg-white print:max-w-none print:w-[80mm] shadow-lg print:shadow-none rounded-lg print:rounded-none overflow-hidden font-mono">
         {/* Receipt Container */}
         <div className="px-3 py-4 print:px-2 print:py-3 text-[12px] print:text-[11px] leading-tight">
@@ -190,22 +190,8 @@ export function Receipt({ sale, items }: ReceiptProps) {
         </div>
       </div>
 
-      {/* Print Styles */}
+      {/* Font Styles */}
       <style jsx global>{`
-        @media print {
-          @page {
-            size: 80mm auto;
-            margin: 0;
-          }
-          body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Courier New', Courier, monospace;
-          }
-          .print\\:hidden {
-            display: none !important;
-          }
-        }
         .font-mono {
           font-family: 'Courier New', Courier, 'Lucida Console', Monaco, monospace;
         }
