@@ -238,22 +238,30 @@
 
 /* Print Styles - Only show receipt when printing */
 @media print {
-  /* Page settings for thermal receipt */
+  /* Page settings for thermal receipt - optimized for direct printer output */
   @page {
     size: 80mm auto;
     margin: 0;
+    /* Ensure printer-friendly settings */
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
   }
   
-  /* Reset body */
+  /* Reset body for direct printing */
   html, body {
     margin: 0 !important;
     padding: 0 !important;
     background: white !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    color-adjust: exact !important;
     width: 80mm !important;
     height: auto !important;
     overflow: visible !important;
+    /* Prevent PDF generation, force printer output */
+    page-break-after: avoid !important;
+    page-break-before: avoid !important;
   }
   
   /* Hide everything first */
@@ -265,9 +273,12 @@
   #receipt-to-print,
   #receipt-to-print * {
     visibility: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
   }
   
-  /* Position receipt at origin */
+  /* Position receipt at origin for direct printing */
   #receipt-to-print {
     position: absolute !important;
     left: 0 !important;
@@ -276,6 +287,21 @@
     margin: 0 !important;
     padding: 0 !important;
     background: white !important;
+    /* Ensure no page breaks */
+    page-break-inside: avoid !important;
+    page-break-after: avoid !important;
+    page-break-before: avoid !important;
+  }
+  
+  /* Hide drawer and other UI elements */
+  [class*="drawer"],
+  [class*="Drawer"],
+  header,
+  nav,
+  footer,
+  button {
+    display: none !important;
+    visibility: hidden !important;
   }
   
   /* Tailwind's print:hidden classes are automatically handled by Tailwind */

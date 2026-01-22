@@ -860,6 +860,21 @@ export default function POSPage() {
     fetchReceipt();
   }, [receiptSaleId, receiptDrawerOpen]);
 
+  // Direct print function - opens print dialog for printer selection
+  const handleDirectPrint = () => {
+    // Ensure receipt is visible for printing
+    const receiptElement = document.getElementById('receipt-to-print');
+    if (receiptElement) {
+      // Small delay to ensure everything is ready
+      setTimeout(() => {
+        window.print();
+      }, 100);
+    } else {
+      // Fallback if element not found
+      window.print();
+    }
+  };
+
   // Auto-print receipt when drawer opens with print flag
   useEffect(() => {
     if (receiptDrawerOpen && receiptData && receiptSaleId) {
@@ -871,7 +886,7 @@ export default function POSPage() {
       if (shouldPrint && printedReceiptIdRef.current !== receiptSaleId) {
         // Small delay to ensure receipt is rendered
         const printTimer = setTimeout(() => {
-          window.print();
+          handleDirectPrint();
           // Mark this receipt as printed
           printedReceiptIdRef.current = receiptSaleId;
           // Remove print param from URL after printing
@@ -2047,7 +2062,7 @@ export default function POSPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => window.print()}
+                    onClick={handleDirectPrint}
                     className="hidden sm:flex"
                   >
                     Print
@@ -2093,7 +2108,7 @@ export default function POSPage() {
                   <Button
                     variant="outline"
                     size="touch"
-                    onClick={() => window.print()}
+                    onClick={handleDirectPrint}
                     className="flex-1 sm:hidden"
                   >
                     Print
