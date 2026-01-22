@@ -259,50 +259,49 @@
     width: 80mm !important;
     height: auto !important;
     overflow: visible !important;
-    /* Prevent PDF generation, force printer output */
-    page-break-after: avoid !important;
-    page-break-before: avoid !important;
   }
   
-  /* Hide everything first */
-  body * {
-    visibility: hidden !important;
-  }
-  
-  /* Show only the receipt */
+  /* Show receipt and all its parents - force visibility */
   #receipt-to-print,
-  #receipt-to-print * {
+  #receipt-to-print *,
+  #receipt-to-print * * {
     visibility: visible !important;
+    display: revert !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
   }
   
-  /* Position receipt at origin for direct printing */
+  /* Ensure receipt container is visible and properly styled */
   #receipt-to-print {
-    position: absolute !important;
+    display: block !important;
+    visibility: visible !important;
+    position: relative !important;
     left: 0 !important;
     top: 0 !important;
     width: 80mm !important;
-    margin: 0 !important;
+    max-width: 80mm !important;
+    margin: 0 auto !important;
     padding: 0 !important;
     background: white !important;
-    /* Ensure no page breaks */
     page-break-inside: avoid !important;
     page-break-after: avoid !important;
     page-break-before: avoid !important;
   }
   
-  /* Hide drawer and other UI elements */
-  [class*="drawer"],
-  [class*="Drawer"],
-  header,
-  nav,
-  footer,
-  button {
+  /* Keep layout properties for receipt content */
+  #receipt-to-print .grid {
+    display: grid !important;
+  }
+  
+  #receipt-to-print .flex {
+    display: flex !important;
+  }
+  
+  /* Hide UI elements that shouldn't print, but keep receipt parents visible */
+  button:not([id*="receipt"]),
+  [class*="print:hidden"] {
     display: none !important;
     visibility: hidden !important;
   }
-  
-  /* Tailwind's print:hidden classes are automatically handled by Tailwind */
 }

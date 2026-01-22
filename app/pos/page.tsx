@@ -862,13 +862,27 @@ export default function POSPage() {
 
   // Direct print function - opens print dialog for printer selection
   const handleDirectPrint = () => {
-    // Ensure receipt is visible for printing
+    // Find the receipt element
     const receiptElement = document.getElementById('receipt-to-print');
+    
     if (receiptElement) {
+      // Ensure receipt is visible and accessible for printing
+      receiptElement.style.visibility = 'visible';
+      receiptElement.style.display = 'block';
+      receiptElement.style.position = 'relative';
+      
+      // Force all parent containers to be visible during print
+      let parent = receiptElement.parentElement;
+      while (parent && parent !== document.body) {
+        parent.style.visibility = 'visible';
+        parent.style.display = 'block';
+        parent = parent.parentElement;
+      }
+      
       // Small delay to ensure everything is ready
       setTimeout(() => {
         window.print();
-      }, 100);
+      }, 300);
     } else {
       // Fallback if element not found
       window.print();
