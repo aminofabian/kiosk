@@ -180,6 +180,7 @@ export default function POSPage() {
   const [receiptLoading, setReceiptLoading] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [showClearCartToast, setShowClearCartToast] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const printedReceiptIdRef = useRef<string | null>(null);
@@ -381,11 +382,17 @@ export default function POSPage() {
 
   const handleClearCart = useCallback(() => {
     if (cartItemCount === 0) return;
-    const itemText = cartItemCount === 1 ? 'item' : 'items';
-    if (confirm(`Are you sure you want to clear all ${cartItemCount} ${itemText} from your cart?`)) {
-      clearCart();
-    }
-  }, [cartItemCount, clearCart]);
+    setShowClearCartToast(true);
+  }, [cartItemCount]);
+
+  const confirmClearCart = useCallback(() => {
+    clearCart();
+    setShowClearCartToast(false);
+  }, [clearCart]);
+
+  const cancelClearCart = useCallback(() => {
+    setShowClearCartToast(false);
+  }, []);
 
   const getCategoryImage = (categoryName: string) => {
     if (!categoryName) return null;
@@ -1845,6 +1852,71 @@ export default function POSPage() {
         onSelectVariant={handleVariantSelected}
       />
 
+      {/* Clear Cart Confirmation Toast */}
+      {showClearCartToast && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:hidden">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/40 dark:bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={cancelClearCart}
+          />
+          
+          {/* Toast Content */}
+          <div className="relative w-full max-w-md animate-in zoom-in-95 fade-in duration-300">
+            {/* Main Card */}
+            <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 backdrop-blur-xl overflow-hidden">
+              <div className="p-6">
+                {/* Header Section */}
+                <div className="flex items-start gap-4 mb-5">
+                  {/* Icon Container */}
+                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                    <Trash2 className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+                  </div>
+                  
+                  {/* Text Content */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                      Clear Cart?
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+                      Remove all <span className="font-medium text-gray-900 dark:text-gray-200">{cartItemCount}</span> {cartItemCount === 1 ? 'item' : 'items'} from your cart?
+                    </p>
+                  </div>
+                  
+                  {/* Close Button */}
+                  <button
+                    onClick={cancelClearCart}
+                    className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    aria-label="Close"
+                  >
+                    <X className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                  </button>
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="flex items-center gap-3">
+                  <Button
+                    onClick={cancelClearCart}
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 h-10 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium rounded-xl"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={confirmClearCart}
+                    size="sm"
+                    className="flex-1 h-10 bg-gray-900 dark:bg-gray-100 hover:bg-gray-800 dark:hover:bg-gray-200 text-white dark:text-gray-900 font-medium rounded-xl transition-colors"
+                  >
+                    Clear Cart
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Barcode Scan Status Notification */}
       {(barcodeScanStatus.scanning || barcodeScanStatus.error || barcodeScanStatus.success) && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-2 duration-300 print:hidden">
@@ -2274,4 +2346,3 @@ export default function POSPage() {
     </>
   );
 }
-
