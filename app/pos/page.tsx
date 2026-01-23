@@ -60,6 +60,7 @@ import {
   Heart as HeartIcon,
   Home as HomeIcon,
   UtensilsCrossed,
+  RefreshCw,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Item } from '@/lib/db/types';
@@ -177,6 +178,7 @@ export default function POSPage() {
   const [receiptData, setReceiptData] = useState<{ sale: any; items: any[]; splitPayments?: any[] } | null>(null);
   const [receiptLoading, setReceiptLoading] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const printedReceiptIdRef = useRef<string | null>(null);
@@ -278,18 +280,23 @@ export default function POSPage() {
     }
   }, [searchQuery, handleBarcodeScan]);
 
-  useEffect(() => {
-    async function fetchCategories() {
-      try {
-        const result = await apiGet<Category[]>('/api/categories');
-        if (result.success) {
-          setCategories(result.data ?? []);
-        }
-      } catch (err) {
-        console.error('Error fetching categories:', err);
+  const fetchCategories = useCallback(async () => {
+    try {
+      const result = await apiGet<Category[]>('/api/categories');
+      if (result.success) {
+        setCategories(result.data ?? []);
       }
+    } catch (err) {
+      console.error('Error fetching categories:', err);
     }
+  }, []);
+
+  useEffect(() => {
     fetchCategories();
+  }, [fetchCategories]);
+
+  const handleRefresh = useCallback(() => {
+    window.location.reload();
   }, []);
 
   useEffect(() => {
@@ -1120,6 +1127,15 @@ export default function POSPage() {
                 />
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  aria-label="Refresh"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="flex size-12 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform disabled:opacity-50"
+                  title="Refresh"
+                >
+                  <RefreshCw className={`w-7 h-7 ${refreshing ? 'animate-spin' : ''}`} />
+                </button>
                 {isOwnerOrAdmin && (
                   <Link
                     href="/admin"
@@ -1313,6 +1329,15 @@ export default function POSPage() {
                 />
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  aria-label="Refresh"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="flex size-12 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform disabled:opacity-50"
+                  title="Refresh"
+                >
+                  <RefreshCw className={`w-7 h-7 ${refreshing ? 'animate-spin' : ''}`} />
+                </button>
                 {canAccessAdmin && (
                   <Link
                     href="/admin"
@@ -1620,6 +1645,17 @@ export default function POSPage() {
                 )}
               </div>
               <div className="flex items-center gap-3 flex-shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="hidden sm:flex bg-white hover:bg-[#259783]/10 border-gray-200 hover:border-[#259783] text-gray-700 hover:text-[#259783] transition-smooth disabled:opacity-50"
+                  title="Refresh"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                  <span className="hidden md:inline">Refresh</span>
+                </Button>
                 {canAccessAdmin && (
                   <Link href="/admin">
                     <Button
