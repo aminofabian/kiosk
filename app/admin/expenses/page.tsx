@@ -393,69 +393,71 @@ export default function ExpensesPage() {
             </div>
           ) : data && (
             <div className="space-y-5">
-              {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Daily Operating Cost - THE KEY NUMBER */}
-                <div className="border-2 border-[#259783] bg-[#259783] p-3.5 md:col-span-1">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="w-10 h-10 bg-white/20 flex items-center justify-center">
-                      <Target className="w-5 h-5 text-white" />
+              {/* Summary Cards - Hidden for cashiers */}
+              {!isCashier && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Daily Operating Cost - THE KEY NUMBER */}
+                  <div className="border-2 border-[#259783] bg-[#259783] p-3.5 md:col-span-1">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="w-10 h-10 bg-white/20 flex items-center justify-center">
+                        <Target className="w-5 h-5 text-white" />
+                      </div>
+                      <Badge className="bg-white/20 text-white border-0 text-[9px]">
+                        Survival Rate
+                      </Badge>
                     </div>
-                    <Badge className="bg-white/20 text-white border-0 text-[9px]">
-                      Survival Rate
-                    </Badge>
+                    <p className="text-white/80 text-[9px] font-bold uppercase tracking-wide mb-1">Daily Operating Cost</p>
+                    <p className="text-xl font-black text-white mb-1">{formatPrice(data.summary.dailyOperatingCost)}</p>
+                    <p className="text-white/70 text-[10px]">
+                      You must make at least this much profit daily to survive
+                    </p>
                   </div>
-                  <p className="text-white/80 text-[9px] font-bold uppercase tracking-wide mb-1">Daily Operating Cost</p>
-                  <p className="text-xl font-black text-white mb-1">{formatPrice(data.summary.dailyOperatingCost)}</p>
-                  <p className="text-white/70 text-[10px]">
-                    You must make at least this much profit daily to survive
-                  </p>
-                </div>
 
-                {/* Fixed vs Variable Split */}
-                <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
-                  <div className="flex items-center gap-3 mb-3 pb-3 border-b-2 border-slate-200 dark:border-slate-700">
-                    <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                      <Building2 className="w-4 h-4 text-[#259783]" />
+                  {/* Fixed vs Variable Split */}
+                  <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
+                    <div className="flex items-center gap-3 mb-3 pb-3 border-b-2 border-slate-200 dark:border-slate-700">
+                      <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                        <Building2 className="w-4 h-4 text-[#259783]" />
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Fixed Costs</p>
+                        <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(data.summary.fixedDailyCost)}/day</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Fixed Costs</p>
-                      <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(data.summary.fixedDailyCost)}/day</p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                        <Zap className="w-4 h-4 text-[#259783]" />
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Variable Costs</p>
+                        <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(data.summary.variableDailyCost)}/day</p>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                      <Zap className="w-4 h-4 text-[#259783]" />
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Variable Costs</p>
-                      <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(data.summary.variableDailyCost)}/day</p>
-                    </div>
-                  </div>
-                </div>
 
-                {/* Monthly Projection */}
-                <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
-                  <div className="flex items-center gap-3 mb-3 pb-3 border-b-2 border-slate-200 dark:border-slate-700">
-                    <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                      <Calendar className="w-4 h-4 text-[#259783]" />
+                  {/* Monthly Projection */}
+                  <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
+                    <div className="flex items-center gap-3 mb-3 pb-3 border-b-2 border-slate-200 dark:border-slate-700">
+                      <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                        <Calendar className="w-4 h-4 text-[#259783]" />
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Monthly Total</p>
+                        <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(data.summary.monthlyOperatingCost)}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Monthly Total</p>
-                      <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(data.summary.monthlyOperatingCost)}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                      <Wallet className="w-4 h-4 text-[#259783]" />
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Weekly Total</p>
-                      <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(data.summary.weeklyOperatingCost)}</p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
+                        <Wallet className="w-4 h-4 text-[#259783]" />
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Weekly Total</p>
+                        <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(data.summary.weeklyOperatingCost)}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Fixed Expenses */}
               {fixedExpenses.length > 0 && (

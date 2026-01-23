@@ -48,14 +48,14 @@ export async function GET() {
   }
 }
 
-// POST - Create supplier (admin/owner only)
+// POST - Create supplier (admin/owner/cashier)
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
 
-    // Only admin and owner can create suppliers
-    if (auth.role !== 'admin' && auth.role !== 'owner') {
+    // Admin, owner, and cashier can create suppliers
+    if (auth.role !== 'admin' && auth.role !== 'owner' && auth.role !== 'cashier') {
       return jsonResponse(
         { success: false, message: 'Forbidden' },
         403

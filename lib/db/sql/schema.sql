@@ -404,8 +404,11 @@ CREATE TABLE IF NOT EXISTS expenses (
   notes TEXT,
   active INTEGER NOT NULL DEFAULT 1,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-  FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+  created_by TEXT,
+  FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_expenses_business_id ON expenses(business_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_active ON expenses(business_id, active);
+CREATE INDEX IF NOT EXISTS idx_expenses_created_by ON expenses(created_by);

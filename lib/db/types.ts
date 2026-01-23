@@ -318,6 +318,7 @@ export interface Expense {
   notes: string | null;
   active: number;
   created_at: number;
+  created_by: string | null;
 }
 
 export interface PasswordResetToken {

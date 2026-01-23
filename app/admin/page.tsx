@@ -593,7 +593,11 @@ export default function AdminDashboardPage() {
       return {
         ...button,
         onClick: () => {
-          router.push('/admin/supplier-bills/new');
+          if (isMobile) {
+            router.push('/admin/supplier-bills/new');
+          } else {
+            router.push('/admin/supplier-bills?new=true');
+          }
         },
       };
     }

@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -11,14 +14,23 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
   Receipt,
   Loader2,
   AlertTriangle,
   Calendar,
   Clock,
   CheckCircle,
+  CheckCircle2,
 } from 'lucide-react';
-import { apiGet } from '@/lib/utils/api-client';
+import { apiGet, apiPost } from '@/lib/utils/api-client';
 import type { SupplierBill } from '@/lib/db/types';
 
 interface SupplierBillWithDetails extends SupplierBill {
@@ -32,15 +44,16 @@ export function SupplierBillsList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<string>('all');
+  const [markAsPaidDialog, setMarkAsPaidDialog] = useState<{
+    open: boolean;
+    bill: SupplierBillWithDetails | null;
+  }>({ open: false, bill: null });
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [paymentNotes, setPaymentNotes] = useState('');
+  const [isMarkingAsPaid, setIsMarkingAsPaid] = useState(false);
 
-  useEffect(() => {
-    fetchBills();
-    // Auto-refresh every 30 seconds to update overdue status
-    const interval = setInterval(fetchBills, 30000);
-    return () => clearInterval(interval);
-  }, [statusFilter]);
-
-  const fetchBills = async () => {
+  const fetchBills = useCallback(async () => {
     try {
       setLoading(true);
       const url = statusFilter === 'all' 
@@ -58,6 +71,49 @@ export function SupplierBillsList() {
     } finally {
       setLoading(false);
     }
+  }, [statusFilter]);
+
+  useEffect(() => {
+    fetchBills();
+    // Auto-refresh every 30 seconds to update overdue status
+    const interval = setInterval(fetchBills, 30000);
+    return () => clearInterval(interval);
+  }, [fetchBills]);
+
+  const handleMarkAsPaid = (bill: SupplierBillWithDetails) => {
+    setPaymentMethod('');
+    setPaymentNotes('');
+    setMarkAsPaidDialog({ open: true, bill });
+  };
+
+  const handleConfirmMarkAsPaid = async () => {
+    if (!markAsPaidDialog.bill) return;
+
+    setIsMarkingAsPaid(true);
+    try {
+      const result = await apiPost(
+        `/api/supplier-bills/${markAsPaidDialog.bill.id}/pay`,
+        {
+          paymentMethod: paymentMethod.trim() || null,
+          paymentNotes: paymentNotes.trim() || null,
+        }
+      );
+
+      if (result.success) {
+        setMarkAsPaidDialog({ open: false, bill: null });
+        setPaymentMethod('');
+        setPaymentNotes('');
+        // Refresh the bills list
+        await fetchBills();
+      } else {
+        setError(result.message || 'Failed to mark bill as paid');
+      }
+    } catch (err) {
+      console.error('Error marking bill as paid:', err);
+      setError('An error occurred. Please try again.');
+    } finally {
+      setIsMarkingAsPaid(false);
+    }
   };
 
 
@@ -67,6 +123,48 @@ export function SupplierBillsList() {
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  const isDateInRange = (timestamp: number, range: string): boolean => {
+    const now = Math.floor(Date.now() / 1000);
+    const billDate = timestamp;
+    const todayStart = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
+    const todayEnd = todayStart + 86400; // 24 hours in seconds
+
+    switch (range) {
+      case 'today':
+        return billDate >= todayStart && billDate < todayEnd;
+      case 'yesterday': {
+        const yesterdayStart = todayStart - 86400;
+        const yesterdayEnd = todayStart;
+        return billDate >= yesterdayStart && billDate < yesterdayEnd;
+      }
+      case 'this_week': {
+        const weekStart = todayStart - (new Date().getDay() * 86400);
+        return billDate >= weekStart;
+      }
+      case 'last_week': {
+        const weekStart = todayStart - (new Date().getDay() * 86400);
+        const lastWeekStart = weekStart - 604800; // 7 days
+        return billDate >= lastWeekStart && billDate < weekStart;
+      }
+      case 'this_month': {
+        const monthStart = Math.floor(new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime() / 1000);
+        return billDate >= monthStart;
+      }
+      case 'last_month': {
+        const thisMonthStart = Math.floor(new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime() / 1000);
+        const lastMonthStart = Math.floor(new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).getTime() / 1000);
+        return billDate >= lastMonthStart && billDate < thisMonthStart;
+      }
+      case 'last_7_days':
+        return billDate >= (now - 604800); // 7 days ago
+      case 'last_30_days':
+        return billDate >= (now - 2592000); // 30 days ago
+      case 'all':
+      default:
+        return true;
+    }
   };
 
   const formatPrice = (price: number) => {
@@ -139,18 +237,25 @@ export function SupplierBillsList() {
     );
   }
 
-  const filteredBills = bills.filter((bill) => {
-    if (statusFilter === 'all') return true;
-    if (statusFilter === 'pending') {
-      const daysUntilDue = getDaysUntilDue(bill.due_date);
-      return bill.status === 'pending' && daysUntilDue >= 0;
-    }
-    if (statusFilter === 'overdue') {
-      const daysUntilDue = getDaysUntilDue(bill.due_date);
-      return bill.status === 'overdue' || (bill.status === 'pending' && daysUntilDue < 0);
-    }
-    return bill.status === statusFilter;
-  });
+  const filteredBills = bills
+    .filter((bill) => {
+      // Status filter
+      if (statusFilter !== 'all') {
+        if (statusFilter === 'pending') {
+          const daysUntilDue = getDaysUntilDue(bill.due_date);
+          if (!(bill.status === 'pending' && daysUntilDue >= 0)) return false;
+        } else if (statusFilter === 'overdue') {
+          const daysUntilDue = getDaysUntilDue(bill.due_date);
+          if (!(bill.status === 'overdue' || (bill.status === 'pending' && daysUntilDue < 0))) return false;
+        } else {
+          if (bill.status !== statusFilter) return false;
+        }
+      }
+
+      // Date filter
+      return isDateInRange(bill.created_at, dateFilter);
+    })
+    .sort((a, b) => b.created_at - a.created_at); // Sort by creation date, newest first
 
   const totalPending = filteredBills
     .filter((b) => b.status === 'pending' || b.status === 'overdue')
@@ -172,17 +277,35 @@ export function SupplierBillsList() {
             )}
           </p>
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Bills</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="overdue">Overdue</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-3">
+          <Select value={dateFilter} onValueChange={setDateFilter}>
+            <SelectTrigger className="w-48">
+              <SelectValue placeholder="Filter by date" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Time</SelectItem>
+              <SelectItem value="today">Today</SelectItem>
+              <SelectItem value="yesterday">Yesterday</SelectItem>
+              <SelectItem value="this_week">This Week</SelectItem>
+              <SelectItem value="last_7_days">Last 7 Days</SelectItem>
+              <SelectItem value="this_month">This Month</SelectItem>
+              <SelectItem value="last_30_days">Last 30 Days</SelectItem>
+              <SelectItem value="last_week">Last Week</SelectItem>
+              <SelectItem value="last_month">Last Month</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Bills</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="overdue">Overdue</SelectItem>
+              <SelectItem value="paid">Paid</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {filteredBills.length === 0 ? (
@@ -260,16 +383,31 @@ export function SupplierBillsList() {
                           </p>
                         </div>
                         <div>
-                          <p className="text-slate-500 dark:text-slate-400 mb-1">Created By</p>
+                          <p className="text-slate-500 dark:text-slate-400 mb-1">Created</p>
                           <p className="font-semibold text-slate-700 dark:text-slate-300">
-                            {bill.creator_name}
+                            {formatDate(bill.created_at)}
+                          </p>
+                          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                            by {bill.creator_name}
                           </p>
                         </div>
-                        {bill.payment_date && (
+                        {bill.payment_date ? (
                           <div>
                             <p className="text-slate-500 dark:text-slate-400 mb-1">Paid On</p>
                             <p className="font-semibold text-green-600 dark:text-green-400">
                               {formatDate(bill.payment_date)}
+                            </p>
+                            {bill.payer_name && (
+                              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                                by {bill.payer_name}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="text-slate-500 dark:text-slate-400 mb-1">Status</p>
+                            <p className="font-semibold text-slate-700 dark:text-slate-300">
+                              {bill.status === 'paid' ? 'Paid' : bill.status === 'overdue' ? 'Overdue' : 'Pending'}
                             </p>
                           </div>
                         )}
@@ -282,6 +420,19 @@ export function SupplierBillsList() {
                           </p>
                         </div>
                       )}
+
+                      {bill.status !== 'paid' && (
+                        <div className="pt-2">
+                          <Button
+                            onClick={() => handleMarkAsPaid(bill)}
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                            size="sm"
+                          >
+                            <CheckCircle2 className="w-4 h-4 mr-2" />
+                            Mark as Paid
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
@@ -291,6 +442,89 @@ export function SupplierBillsList() {
         </div>
       )}
 
+      {/* Mark as Paid Dialog */}
+      <Dialog
+        open={markAsPaidDialog.open}
+        onOpenChange={(open) =>
+          setMarkAsPaidDialog({ open, bill: open ? markAsPaidDialog.bill : null })
+        }
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mark Bill as Paid</DialogTitle>
+            <DialogDescription>
+              {markAsPaidDialog.bill && (
+                <>
+                  Mark the bill from <strong>{markAsPaidDialog.bill.supplier_name}</strong> as
+                  paid. You can optionally add payment details below.
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {markAsPaidDialog.bill && (
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-slate-600 dark:text-slate-400">Amount:</span>
+                  <span className="font-bold text-slate-900 dark:text-white">
+                    {formatPrice(markAsPaidDialog.bill.amount)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-slate-600 dark:text-slate-400">Description:</span>
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                    {markAsPaidDialog.bill.bill_description}
+                  </span>
+                </div>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="paymentMethod">Payment Method (Optional)</Label>
+              <Input
+                id="paymentMethod"
+                placeholder="e.g., Cash, M-Pesa, Bank Transfer"
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="paymentNotes">Payment Notes (Optional)</Label>
+              <Input
+                id="paymentNotes"
+                placeholder="Any additional notes about the payment"
+                value={paymentNotes}
+                onChange={(e) => setPaymentNotes(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setMarkAsPaidDialog({ open: false, bill: null })}
+              disabled={isMarkingAsPaid}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmMarkAsPaid}
+              disabled={isMarkingAsPaid}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              {isMarkingAsPaid ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Marking as Paid...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  Mark as Paid
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

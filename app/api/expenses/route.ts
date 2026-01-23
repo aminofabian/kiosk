@@ -26,12 +26,84 @@ export async function GET() {
     const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
 
-    const expenses = await query<Expense>(
-      `SELECT * FROM expenses 
-       WHERE business_id = ? 
-       ORDER BY category ASC, amount DESC`,
-      [auth.businessId]
-    );
+    // Check if created_by column exists (for backward compatibility)
+    // Try multiple methods to check for column existence
+    let hasCreatedByColumn = false;
+    try {
+      const tableInfo = await query<{ sql: string }>(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='expenses'"
+      );
+      hasCreatedByColumn = tableInfo.length > 0 && tableInfo[0].sql?.includes('created_by');
+      
+      // Also try a direct query to verify column exists
+      if (hasCreatedByColumn) {
+        try {
+          await query('SELECT created_by FROM expenses LIMIT 1');
+        } catch {
+          // Column might not actually exist despite being in schema
+          hasCreatedByColumn = false;
+        }
+      }
+    } catch (error) {
+      console.error('[Expenses API GET] Error checking for created_by column:', error);
+      hasCreatedByColumn = false;
+    }
+    
+    console.log(`[Expenses API GET] hasCreatedByColumn: ${hasCreatedByColumn}, User role: ${auth.role}, User ID: ${auth.userId}`);
+
+    // For cashiers, show expenses created by any cashier (hide admin/owner/superadmin created expenses)
+    // If migration hasn't run yet, show empty list (can't determine creator)
+    // For other roles, show all expenses
+    let expenses: Expense[];
+    if (auth.role === 'cashier') {
+      if (hasCreatedByColumn) {
+        // Show expenses created by any cashier (exclude admin/owner/superadmin created and NULL created_by)
+        try {
+          // First, let's check what expenses exist and their created_by values
+          const allExpenses = await query<Expense & { created_by: string | null }>(
+            `SELECT e.*, e.created_by FROM expenses e WHERE e.business_id = ?`,
+            [auth.businessId]
+          );
+          console.log(`[Expenses API] Total expenses in business: ${allExpenses.length}`);
+          console.log(`[Expenses API] Expenses with created_by:`, allExpenses.map(e => ({ id: e.id, name: e.name, created_by: e.created_by })));
+          
+          // Now get cashier-created expenses
+          expenses = await query<Expense>(
+            `SELECT e.* FROM expenses e
+             INNER JOIN users u ON e.created_by = u.id
+             WHERE e.business_id = ? 
+               AND e.created_by IS NOT NULL
+               AND u.role = 'cashier'
+             ORDER BY e.category ASC, e.amount DESC`,
+            [auth.businessId]
+          );
+          console.log(`[Expenses API] Cashier view: Found ${expenses.length} cashier-created expenses for business ${auth.businessId}`);
+          console.log(`[Expenses API] Cashier user ID: ${auth.userId}, Role: ${auth.role}`);
+          
+          // Also check if there are any expenses with this user's ID
+          const userExpenses = await query<Expense>(
+            `SELECT * FROM expenses WHERE business_id = ? AND created_by = ?`,
+            [auth.businessId, auth.userId]
+          );
+          console.log(`[Expenses API] Expenses created by current user (${auth.userId}): ${userExpenses.length}`);
+        } catch (error) {
+          console.error('[Expenses API] Error fetching cashier expenses:', error);
+          expenses = [];
+        }
+      } else {
+        // Migration hasn't run - can't determine creator, so show nothing to cashiers
+        console.log('[Expenses API] Cashier view: Migration not run (created_by column missing), showing empty list');
+        expenses = [];
+      }
+    } else {
+      expenses = await query<Expense>(
+        `SELECT * FROM expenses 
+         WHERE business_id = ? 
+         ORDER BY category ASC, amount DESC`,
+        [auth.businessId]
+      );
+      console.log(`[Expenses API] ${auth.role} view: Found ${expenses.length} expenses`);
+    }
 
     // Calculate daily cost for each expense
     const expensesWithDailyCost: ExpenseWithDailyCost[] = expenses.map((exp) => ({
@@ -115,21 +187,64 @@ export async function POST(request: NextRequest) {
     const expenseId = generateUUID();
     const expenseStartDate = startDate ? Math.floor(new Date(startDate).getTime() / 1000) : now;
 
-    await execute(
-      `INSERT INTO expenses (id, business_id, name, category, amount, frequency, start_date, notes, active, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
-      [
-        expenseId,
-        auth.businessId,
-        name.trim(),
-        category as ExpenseCategory,
-        amount,
-        frequency as ExpenseFrequency,
-        expenseStartDate,
-        notes?.trim() || null,
-        now,
-      ]
-    );
+    // Check if created_by column exists (for backward compatibility)
+    let hasCreatedByColumn = false;
+    try {
+      const tableInfo = await query<{ sql: string }>(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='expenses'"
+      );
+      hasCreatedByColumn = tableInfo.length > 0 && tableInfo[0].sql?.includes('created_by');
+      
+      // Also try a direct query to verify column exists
+      if (hasCreatedByColumn) {
+        try {
+          await query('SELECT created_by FROM expenses LIMIT 1');
+        } catch {
+          hasCreatedByColumn = false;
+        }
+      }
+    } catch (error) {
+      console.error('[Expenses API POST] Error checking for created_by column:', error);
+      hasCreatedByColumn = false;
+    }
+    
+    console.log(`[Expenses API POST] hasCreatedByColumn: ${hasCreatedByColumn}, User role: ${auth.role}, User ID: ${auth.userId}`);
+
+    if (hasCreatedByColumn) {
+      await execute(
+        `INSERT INTO expenses (id, business_id, name, category, amount, frequency, start_date, notes, active, created_at, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+        [
+          expenseId,
+          auth.businessId,
+          name.trim(),
+          category as ExpenseCategory,
+          amount,
+          frequency as ExpenseFrequency,
+          expenseStartDate,
+          notes?.trim() || null,
+          now,
+          auth.userId,
+        ]
+      );
+      console.log(`[Expenses API] Created expense ${expenseId} with created_by=${auth.userId} (role: ${auth.role})`);
+    } else {
+      await execute(
+        `INSERT INTO expenses (id, business_id, name, category, amount, frequency, start_date, notes, active, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+        [
+          expenseId,
+          auth.businessId,
+          name.trim(),
+          category as ExpenseCategory,
+          amount,
+          frequency as ExpenseFrequency,
+          expenseStartDate,
+          notes?.trim() || null,
+          now,
+        ]
+      );
+    }
 
     return jsonResponse({
       success: true,

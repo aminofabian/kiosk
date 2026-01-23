@@ -210,10 +210,12 @@ export async function runMigrations() {
           console.log(`✓ Executed statement ${i + 1}/${cleanedLines.length}`);
         } catch (error) {
           // Some statements like CREATE INDEX IF NOT EXISTS might fail if already exists
+          // or if the column doesn't exist yet (will be created by migration)
           if (error instanceof Error &&
             (error.message.includes('already exists') ||
-              error.message.includes('duplicate column'))) {
-            console.log(`⚠ Statement ${i + 1} skipped (already exists)`);
+              error.message.includes('duplicate column') ||
+              error.message.includes('no such column'))) {
+            console.log(`⚠ Statement ${i + 1} skipped (${error.message.includes('no such column') ? 'column will be added by migration' : 'already exists'})`);
           } else {
             console.error(`✗ Error executing statement ${i + 1}:`, error);
             console.error(`Statement was: ${statement.substring(0, 100)}...`);
@@ -318,6 +320,13 @@ export async function runMigrations() {
       await migrateSalePayments();
     } catch (error) {
       console.error('⚠ sale_payments migration skipped:', error);
+    }
+
+    try {
+      const { migrateExpensesCreatedBy } = await import('./migrate-expenses-created-by');
+      await migrateExpensesCreatedBy();
+    } catch (error) {
+      console.error('⚠ expenses created_by migration skipped:', error);
     }
 
     console.log('✅ Migration completed successfully!');

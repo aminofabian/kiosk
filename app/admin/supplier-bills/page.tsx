@@ -1,31 +1,120 @@
 'use client';
 
+import { useState, useEffect, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { SupplierBillsList } from '@/components/admin/SupplierBillsList';
-import { Receipt } from 'lucide-react';
+import { SupplierBillForm } from '@/components/admin/SupplierBillForm';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+} from '@/components/ui/drawer';
+import { Button } from '@/components/ui/button';
+import { Receipt, Plus, X, Loader2 } from 'lucide-react';
 
-export default function SupplierBillsPage() {
+function SupplierBillsPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Check if we should open the drawer from URL query parameter
+  useEffect(() => {
+    const shouldOpen = searchParams.get('new') === 'true';
+    if (shouldOpen) {
+      setDrawerOpen(true);
+      // Clean up the URL
+      router.replace('/admin/supplier-bills', { scroll: false });
+    }
+  }, [searchParams, router]);
+
+  const handleSuccess = () => {
+    setDrawerOpen(false);
+    // Trigger refresh of the list by changing the key
+    setRefreshKey((prev) => prev + 1);
+  };
+
   return (
     <AdminLayout>
       <div className="min-h-screen p-4 md:p-6">
         <div className="max-w-5xl mx-auto">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-md shadow-[#259783]/30">
-              <Receipt className="w-5 h-5 text-white" />
+          <div className="flex items-center justify-between gap-3 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-md shadow-[#259783]/30">
+                <Receipt className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+                  Supplier Bills
+                </h1>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Manage pending payments to suppliers
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                Supplier Bills
-              </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Manage pending payments to suppliers
-              </p>
-            </div>
+            <Button
+              onClick={() => setDrawerOpen(true)}
+              className="bg-[#259783] hover:bg-[#1e7a6a] text-white"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Bill
+            </Button>
           </div>
 
-          <SupplierBillsList />
+          <SupplierBillsList key={refreshKey} />
+
+          {/* New Supplier Bill Drawer */}
+          <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
+            <DrawerContent className="!w-full sm:!w-[500px] !max-w-none h-full max-h-screen">
+              <DrawerHeader className="border-b-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 relative pr-12">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setDrawerOpen(false)}
+                  className="absolute right-4 top-4 h-10 w-10 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 border-2 border-slate-300 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-700 transition-all shadow-sm hover:shadow-md rounded-lg"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+                <DrawerTitle className="flex items-center gap-2 text-slate-900 dark:text-white pr-8">
+                  <Receipt className="w-5 h-5 text-[#259783]" />
+                  New Supplier Bill
+                </DrawerTitle>
+                <DrawerDescription className="text-slate-600 dark:text-slate-400">
+                  Record a pending payment to a supplier
+                </DrawerDescription>
+              </DrawerHeader>
+              <div className="overflow-y-auto p-6 flex-1 bg-white dark:bg-[#0f1a0d]">
+                <SupplierBillForm
+                  onSuccess={handleSuccess}
+                  onCancel={() => setDrawerOpen(false)}
+                />
+              </div>
+            </DrawerContent>
+          </Drawer>
         </div>
       </div>
     </AdminLayout>
+  );
+}
+
+export default function SupplierBillsPage() {
+  return (
+    <Suspense
+      fallback={
+        <AdminLayout>
+          <div className="min-h-screen p-4 md:p-6 flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#259783]" />
+              <p className="text-slate-500">Loading...</p>
+            </div>
+          </div>
+        </AdminLayout>
+      }
+    >
+      <SupplierBillsPageContent />
+    </Suspense>
   );
 }
