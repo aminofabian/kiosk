@@ -32,6 +32,7 @@ import {
   X,
 } from 'lucide-react';
 import { apiGet } from '@/lib/utils/api-client';
+import { getCategoryShopType, type ShopType } from '@/lib/utils/shop-type';
 
 interface ItemSalesData {
   item_id: string;
@@ -104,6 +105,7 @@ export default function SalesAnalyticsPage() {
   const [stockFilter, setStockFilter] = useState('all');
   const [parentFilter, setParentFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [shopTypeFilter, setShopTypeFilter] = useState<'all' | ShopType>('all');
   const [parentItems, setParentItems] = useState<ParentItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
 
@@ -175,8 +177,59 @@ export default function SalesAnalyticsPage() {
     return { label: 'In Stock', color: 'bg-green-500', textColor: 'text-green-600' };
   };
 
+  // Filter items by shop type
+  const shopTypeFilteredItems = data?.items.filter((item) => {
+    if (shopTypeFilter === 'all') return true;
+    
+    // Skip items without category names
+    if (!item.category_name || item.category_name.trim() === '') return false;
+    
+    const itemShopType = getCategoryShopType(item.category_name);
+    // Only include items whose category matches the selected shop type
+    // Strictly exclude items with null shop type (unclassified categories)
+    // This ensures we only show items that are definitively grocery or retail
+    if (itemShopType === null) return false;
+    return itemShopType === shopTypeFilter;
+  }) || [];
+
+  // Calculate filtered summary stats
+  // When filter is 'all', use the original summary from API (more accurate, calculated at DB level)
+  // When filtering by shop type, recalculate from filtered items
+  const filteredSummary = shopTypeFilter === 'all' && data?.summary 
+    ? data.summary 
+    : (shopTypeFilteredItems.length > 0 ? {
+        // Note: We can't accurately count unique transactions from item-level data
+        // (summing transaction_count would count transactions multiple times)
+        // So we use the max transaction_count as a rough estimate, or keep original if available
+        totalTransactions: data?.summary?.totalTransactions || Math.max(...shopTypeFilteredItems.map(i => i.transaction_count), 0),
+        totalItemsSold: shopTypeFilteredItems.reduce((sum, item) => sum + item.total_quantity_sold, 0),
+        totalRevenue: shopTypeFilteredItems.reduce((sum, item) => sum + item.total_revenue, 0),
+        totalCost: shopTypeFilteredItems.reduce((sum, item) => sum + item.total_cost, 0),
+        totalProfit: shopTypeFilteredItems.reduce((sum, item) => sum + item.total_profit, 0),
+        profitMargin: (() => {
+          const revenue = shopTypeFilteredItems.reduce((sum, item) => sum + item.total_revenue, 0);
+          const profit = shopTypeFilteredItems.reduce((sum, item) => sum + item.total_profit, 0);
+          return revenue > 0 ? (profit / revenue) * 100 : 0;
+        })(),
+        uniqueProductsSold: shopTypeFilteredItems.filter((i) => i.total_quantity_sold > 0).length,
+        lowStockCount: shopTypeFilteredItems.filter(
+          (i) => i.min_stock_level !== null && i.current_stock > 0 && i.current_stock <= i.min_stock_level
+        ).length,
+        outOfStockCount: shopTypeFilteredItems.filter((i) => i.current_stock <= 0).length,
+      } : data?.summary || {
+        totalTransactions: 0,
+        totalItemsSold: 0,
+        totalRevenue: 0,
+        totalCost: 0,
+        totalProfit: 0,
+        profitMargin: 0,
+        uniqueProductsSold: 0,
+        lowStockCount: 0,
+        outOfStockCount: 0,
+      });
+
   // Filter items
-  const filteredItems = data?.items.filter((item) => {
+  const filteredItems = shopTypeFilteredItems.filter((item) => {
     const matchesSearch =
       item.item_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.variant_name?.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -191,7 +244,7 @@ export default function SalesAnalyticsPage() {
       (stockFilter === 'not-sold' && item.total_quantity_sold === 0);
 
     return matchesSearch && matchesStock;
-  }) || [];
+  });
 
   if (loading) {
     return (
@@ -246,7 +299,12 @@ export default function SalesAnalyticsPage() {
                     Sales Analytics
                   </h1>
                   <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {periodLabels[period]} • {formatNumber(data.summary.totalTransactions)} transactions
+                    {periodLabels[period]} • {formatNumber(filteredSummary.totalTransactions)} transactions
+                    {shopTypeFilter !== 'all' && (
+                      <span className="ml-2 px-2 py-0.5 bg-[#259783]/10 text-[#259783] rounded text-xs font-semibold">
+                        {shopTypeFilter === 'grocery' ? '🥬 Grocery' : '🏪 Retail'}
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -280,6 +338,33 @@ export default function SalesAnalyticsPage() {
                     <SelectItem value="all">All Time</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="flex items-center gap-2 border-l border-slate-200 dark:border-slate-700 pl-3">
+                <Button
+                  variant={shopTypeFilter === 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setShopTypeFilter('all')}
+                  className={`h-9 ${shopTypeFilter === 'all' ? 'bg-[#259783] hover:bg-[#1a7a69]' : ''}`}
+                >
+                  All
+                </Button>
+                <Button
+                  variant={shopTypeFilter === 'grocery' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setShopTypeFilter('grocery')}
+                  className={`h-9 ${shopTypeFilter === 'grocery' ? 'bg-[#259783] hover:bg-[#1a7a69]' : ''}`}
+                >
+                  🥬 Grocery
+                </Button>
+                <Button
+                  variant={shopTypeFilter === 'retail' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setShopTypeFilter('retail')}
+                  className={`h-9 ${shopTypeFilter === 'retail' ? 'bg-[#259783] hover:bg-[#1a7a69]' : ''}`}
+                >
+                  🏪 Retail
+                </Button>
               </div>
 
               {categories.length > 0 && (
@@ -331,7 +416,7 @@ export default function SalesAnalyticsPage() {
                 </Select>
               </div>
 
-              {(categoryFilter !== 'all' || parentFilter !== 'all' || stockFilter !== 'all') && (
+              {(categoryFilter !== 'all' || parentFilter !== 'all' || stockFilter !== 'all' || shopTypeFilter !== 'all') && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -339,6 +424,7 @@ export default function SalesAnalyticsPage() {
                     setCategoryFilter('all');
                     setParentFilter('all');
                     setStockFilter('all');
+                    setShopTypeFilter('all');
                   }}
                   className="h-9 text-slate-500 hover:text-slate-700"
                 >
@@ -381,7 +467,7 @@ export default function SalesAnalyticsPage() {
                   </Badge>
                 </div>
                 <p className="text-blue-100 text-xs font-medium mb-1">Total Revenue</p>
-                <p className="text-xl font-black text-white">{formatPrice(data.summary.totalRevenue)}</p>
+                <p className="text-xl font-black text-white">{formatPrice(filteredSummary.totalRevenue)}</p>
               </CardContent>
             </Card>
 
@@ -390,11 +476,11 @@ export default function SalesAnalyticsPage() {
                 <div className="flex items-center justify-between mb-2">
                   <TrendingUp className="w-5 h-5 text-white/80" />
                   <Badge className="bg-white/20 text-white border-0 text-[10px]">
-                    {data.summary.profitMargin.toFixed(1)}% margin
+                    {filteredSummary.profitMargin.toFixed(1)}% margin
                   </Badge>
                 </div>
                 <p className="text-green-100 text-xs font-medium mb-1">Total Profit</p>
-                <p className="text-xl font-black text-white">{formatPrice(data.summary.totalProfit)}</p>
+                <p className="text-xl font-black text-white">{formatPrice(filteredSummary.totalProfit)}</p>
               </CardContent>
             </Card>
 
@@ -403,11 +489,11 @@ export default function SalesAnalyticsPage() {
                 <div className="flex items-center justify-between mb-2">
                   <Package className="w-5 h-5 text-white/80" />
                   <Badge className="bg-white/20 text-white border-0 text-[10px]">
-                    {data.summary.uniqueProductsSold} products
+                    {filteredSummary.uniqueProductsSold} products
                   </Badge>
                 </div>
                 <p className="text-purple-100 text-xs font-medium mb-1">Items Sold</p>
-                <p className="text-xl font-black text-white">{formatNumber(data.summary.totalItemsSold)}</p>
+                <p className="text-xl font-black text-white">{formatNumber(filteredSummary.totalItemsSold)}</p>
               </CardContent>
             </Card>
 
@@ -419,12 +505,12 @@ export default function SalesAnalyticsPage() {
                 <p className="text-orange-100 text-xs font-medium mb-1">Stock Alerts</p>
                 <div className="flex items-center gap-3">
                   <div>
-                    <p className="text-xl font-black text-white">{data.summary.outOfStockCount}</p>
+                    <p className="text-xl font-black text-white">{filteredSummary.outOfStockCount}</p>
                     <p className="text-[10px] text-orange-100">Out</p>
                   </div>
                   <div className="w-px h-8 bg-white/20" />
                   <div>
-                    <p className="text-xl font-black text-white">{data.summary.lowStockCount}</p>
+                    <p className="text-xl font-black text-white">{filteredSummary.lowStockCount}</p>
                     <p className="text-[10px] text-orange-100">Low</p>
                   </div>
                 </div>
@@ -470,17 +556,19 @@ export default function SalesAnalyticsPage() {
 
           {/* Products Sold Breakdown */}
           {(() => {
-            const soldItems = data.items.filter(i => i.total_quantity_sold > 0)
+            const soldItems = shopTypeFilteredItems.filter(i => i.total_quantity_sold > 0)
               .sort((a, b) => b.total_quantity_sold - a.total_quantity_sold);
             const maxSold = soldItems.length > 0 ? soldItems[0].total_quantity_sold : 1;
 
-            return soldItems.length > 0 && (
+            if (soldItems.length === 0) return null;
+
+            return (
               <Card className="border-2 border-slate-200 dark:border-slate-700">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base font-bold flex items-center justify-between">
                     <span className="flex items-center gap-2">
                       <ShoppingCart className="w-4 h-4 text-[#259783]" />
-                      Products Sold ({soldItems.length} products, {formatNumber(data.summary.totalItemsSold)} units)
+                      Products Sold ({soldItems.length} products, {formatNumber(filteredSummary.totalItemsSold)} units)
                     </span>
                   </CardTitle>
                 </CardHeader>
@@ -532,17 +620,25 @@ export default function SalesAnalyticsPage() {
           })()}
 
           {/* Top Sellers */}
-          {data.topSellers.length > 0 && (
-            <Card className="border-2 border-slate-200 dark:border-slate-700">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <ArrowUpRight className="w-4 h-4 text-green-500" />
-                  Top Selling Products
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-                  {data.topSellers.slice(0, 5).map((item, index) => {
+          {(() => {
+            const topSellers = shopTypeFilteredItems
+              .filter((i) => i.total_quantity_sold > 0)
+              .sort((a, b) => b.total_quantity_sold - a.total_quantity_sold)
+              .slice(0, 5);
+            
+            if (topSellers.length === 0) return null;
+
+            return (
+              <Card className="border-2 border-slate-200 dark:border-slate-700">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <ArrowUpRight className="w-4 h-4 text-green-500" />
+                    Top Selling Products
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+                    {topSellers.map((item, index) => {
                     const stockStatus = getStockStatus(item);
                     return (
                       <div
@@ -589,7 +685,8 @@ export default function SalesAnalyticsPage() {
                 </div>
               </CardContent>
             </Card>
-          )}
+            );
+          })()}
 
           {/* All Products Table */}
           <Card className="border-2 border-slate-200 dark:border-slate-700">
@@ -700,17 +797,21 @@ export default function SalesAnalyticsPage() {
           </Card>
 
           {/* No Sales Items */}
-          {data.noSalesItems.length > 0 && stockFilter === 'all' && !searchQuery && (
-            <Card className="border-2 border-orange-200 dark:border-orange-800">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-bold flex items-center gap-2 text-orange-600">
-                  <ArrowDownRight className="w-4 h-4" />
-                  Products with No Sales ({data.noSalesItems.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {data.noSalesItems.map((item) => (
+          {(() => {
+            const noSalesItems = shopTypeFilteredItems.filter((i) => i.total_quantity_sold === 0);
+            if (noSalesItems.length === 0 || stockFilter !== 'all' || searchQuery) return null;
+
+            return (
+              <Card className="border-2 border-orange-200 dark:border-orange-800">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-bold flex items-center gap-2 text-orange-600">
+                    <ArrowDownRight className="w-4 h-4" />
+                    Products with No Sales ({noSalesItems.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {noSalesItems.map((item) => (
                     <Badge
                       key={item.item_id}
                       variant="outline"
@@ -722,11 +823,12 @@ export default function SalesAnalyticsPage() {
                         Stock: {formatNumber(item.current_stock)}
                       </span>
                     </Badge>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
         </div>
       </div>
     </AdminLayout>

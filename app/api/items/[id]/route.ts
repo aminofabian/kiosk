@@ -318,7 +318,7 @@ export async function PUT(
         buyPriceNum, 
         isUndefined: buyPriceNum === undefined, 
         isNull: buyPriceNum === null, 
-        isNaN: isNaN(buyPriceNum),
+        isNaN: buyPriceNum !== undefined ? isNaN(buyPriceNum) : true,
         condition: buyPriceNum !== undefined && buyPriceNum !== null && !isNaN(buyPriceNum)
       });
       
@@ -369,7 +369,7 @@ export async function PUT(
           console.log('Batch insert result:', insertResult, 'rowsAffected:', insertResult.rowsAffected);
         }
       } else {
-        console.log('Buy price not provided or is invalid:', { buyPrice, buyPriceNum, undefined: buyPrice === undefined, null: buyPrice === null, isNaN: isNaN(buyPriceNum) });
+        console.log('Buy price not provided or is invalid:', { buyPrice, buyPriceNum, undefined: buyPrice === undefined, null: buyPrice === null, isNaN: buyPriceNum !== undefined ? isNaN(buyPriceNum) : true });
       }
     }
 
@@ -422,7 +422,7 @@ export async function PUT(
         console.log('Batch insert result:', insertResult, 'rowsAffected:', insertResult.rowsAffected);
       }
     } else {
-      console.log('Buy price not provided or is invalid (outside parent/child check):', { buyPrice, buyPriceNum, undefined: buyPrice === undefined, null: buyPrice === null, isNaN: isNaN(buyPriceNum) });
+      console.log('Buy price not provided or is invalid (outside parent/child check):', { buyPrice, buyPriceNum, undefined: buyPrice === undefined, null: buyPrice === null, isNaN: buyPriceNum !== undefined ? isNaN(buyPriceNum) : true });
     }
 
     // Fetch and return the updated item
