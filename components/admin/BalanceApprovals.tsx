@@ -392,13 +392,15 @@ export function BalanceApprovals() {
                             {/* Submitted Amount and Difference */}
                             <div className="grid grid-cols-2 gap-4 text-sm">
                               <div className="p-3 bg-[#259783]/10 dark:bg-[#259783]/20 rounded-lg">
-                                <p className="text-slate-500 dark:text-slate-400 mb-1">Submitted Amount</p>
+                                <p className="text-slate-500 dark:text-slate-400 mb-1">Actual Cash Count</p>
                                 <p className="text-xl font-black text-[#259783]">
                                   {formatPrice(request.amount)}
                                 </p>
                               </div>
                               <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                                <p className="text-slate-500 dark:text-slate-400 mb-1">Difference</p>
+                                <p className="text-slate-500 dark:text-slate-400 mb-1">
+                                  Difference (Actual - Opening)
+                                </p>
                                 <p className={`font-semibold flex items-center gap-1 text-lg ${
                                   difference === 0 
                                     ? 'text-slate-600' 
@@ -417,6 +419,52 @@ export function BalanceApprovals() {
                                 </p>
                               </div>
                             </div>
+
+                            {/* Expenses List */}
+                            {shiftSummaries[request.id]?.expensesList && 
+                             shiftSummaries[request.id].expensesList.length > 0 && (
+                              <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800">
+                                <p className="text-sm font-semibold text-red-900 dark:text-red-100 mb-3 flex items-center gap-2">
+                                  <TrendingDown className="w-4 h-4" />
+                                  Expenses Generated During This Shift ({shiftSummaries[request.id].expensesList.length})
+                                </p>
+                                <div className="space-y-2">
+                                  {shiftSummaries[request.id].expensesList.map((expense) => (
+                                    <div
+                                      key={expense.id}
+                                      className="flex justify-between items-start p-2 bg-white dark:bg-slate-800 rounded border border-red-200 dark:border-red-800"
+                                    >
+                                      <div className="flex-1">
+                                        <p className="text-sm font-medium text-slate-900 dark:text-white">
+                                          {expense.name}
+                                        </p>
+                                        {expense.notes && (
+                                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                            {expense.notes}
+                                          </p>
+                                        )}
+                                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                                          {formatDate(expense.created_at)} • {expense.category}
+                                        </p>
+                                      </div>
+                                      <p className="text-sm font-bold text-red-600 dark:text-red-400 ml-3">
+                                        - {formatPrice(expense.amount)}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-800">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-sm font-semibold text-red-900 dark:text-red-100">
+                                      Total Expenses:
+                                    </span>
+                                    <span className="text-lg font-black text-red-600 dark:text-red-400">
+                                      {formatPrice(shiftSummaries[request.id].cashExpenses.total)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </>
                         )}
                       </div>
