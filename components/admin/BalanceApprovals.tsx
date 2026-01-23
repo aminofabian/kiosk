@@ -18,6 +18,7 @@ import {
   ArrowDownCircle,
   TrendingUp,
   TrendingDown,
+  DollarSign,
 } from 'lucide-react';
 import type { BalanceApprovalRequest } from '@/lib/db/types';
 
@@ -25,6 +26,23 @@ interface BalanceApprovalRequestWithDetails extends BalanceApprovalRequest {
   user_name: string;
   user_email: string;
   approver_name: string | null;
+  shift_opening_cash?: number | null;
+  shift_started_at?: number | null;
+}
+
+interface ShiftSummary {
+  sales: { count: number; total: number };
+  creditPayments: { count: number; total: number };
+  cashExpenses: { count: number; total: number };
+  expensesList?: Array<{
+    id: string;
+    name: string;
+    amount: number;
+    category: string;
+    created_at: number;
+    created_by: string | null;
+    notes: string | null;
+  }>;
 }
 
 const DENOMINATIONS = [
@@ -47,6 +65,7 @@ export function BalanceApprovals() {
   const [rejectReason, setRejectReason] = useState<Record<string, string>>({});
   const [showRejectDialog, setShowRejectDialog] = useState<Record<string, boolean>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [shiftSummaries, setShiftSummaries] = useState<Record<string, ShiftSummary>>({});
 
   useEffect(() => {
     fetchRequests();
@@ -59,7 +78,25 @@ export function BalanceApprovals() {
       const result = await response.json();
 
       if (result.success) {
-        setRequests(result.data || []);
+        const fetchedRequests = result.data || [];
+        setRequests(fetchedRequests);
+        
+        // Fetch shift summaries for closing requests
+        const summaries: Record<string, ShiftSummary> = {};
+        for (const request of fetchedRequests) {
+          if (request.balance_type === 'closing' && request.shift_id) {
+            try {
+              const summaryResponse = await fetch(`/api/shifts/${request.shift_id}/summary`);
+              const summaryResult = await summaryResponse.json();
+              if (summaryResult.success) {
+                summaries[request.id] = summaryResult.data;
+              }
+            } catch (err) {
+              console.error(`Error fetching shift summary for ${request.shift_id}:`, err);
+            }
+          }
+        }
+        setShiftSummaries(summaries);
       } else {
         setError(result.message || 'Failed to load approval requests');
       }
@@ -122,7 +159,13 @@ export function BalanceApprovals() {
   };
 
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp * 1000).toLocaleString();
+    return new Date(timestamp * 1000).toLocaleString('en-KE', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   const formatPrice = (amount: number) => {
@@ -194,9 +237,13 @@ export function BalanceApprovals() {
           const isExpanded = expandedId === request.id;
           const isOpening = request.balance_type === 'opening';
           const denomBreakdown = getDenominationBreakdown(request);
-          const difference = request.expected_amount 
-            ? request.amount - request.expected_amount 
-            : null;
+          // For closing: difference = actual cash - opening cash
+          // For opening: difference = amount - expected (if any)
+          const difference = !isOpening && request.shift_opening_cash !== null && request.shift_opening_cash !== undefined
+            ? request.amount - request.shift_opening_cash
+            : request.expected_amount 
+              ? request.amount - request.expected_amount 
+              : null;
 
           return (
             <Card key={request.id} className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
@@ -231,46 +278,155 @@ export function BalanceApprovals() {
                       </Badge>
                     </div>
 
-                    <div className="p-4 bg-[#259783]/10 dark:bg-[#259783]/20 rounded-xl">
-                      <p className="text-sm text-muted-foreground mb-1">Submitted Amount</p>
-                      <p className="text-2xl font-black text-[#259783]">{formatPrice(request.amount)}</p>
-                    </div>
+                    {/* For closing requests, show detailed breakdown */}
+                    {!isOpening && request.shift_id && (
+                      <div className="bg-white dark:bg-[#1c2e18] border-2 border-slate-200 dark:border-slate-700 rounded-xl p-5 space-y-4">
+                        <div className="flex items-center gap-2 mb-4">
+                          <div className="w-8 h-8 rounded-lg bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center">
+                            <DollarSign className="w-5 h-5 text-[#259783]" />
+                          </div>
+                          <h4 className="text-lg font-bold text-slate-900 dark:text-white">Shift Summary</h4>
+                        </div>
 
-                    {!isOpening && request.expected_amount !== null && (
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                          <p className="text-slate-500 dark:text-slate-400 mb-1">Expected Amount</p>
-                          <p className="font-semibold text-slate-900 dark:text-white">
-                            {formatPrice(request.expected_amount)}
-                          </p>
-                        </div>
-                        <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                          <p className="text-slate-500 dark:text-slate-400 mb-1">Difference</p>
-                          <p className={`font-semibold flex items-center gap-1 ${
-                            difference === 0 
-                              ? 'text-slate-600' 
-                              : difference && difference > 0 
-                                ? 'text-green-600' 
-                                : 'text-red-600'
-                          }`}>
-                            {difference !== null && difference !== 0 && (
-                              difference > 0 
-                                ? <TrendingUp className="w-4 h-4" />
-                                : <TrendingDown className="w-4 h-4" />
-                            )}
-                            {difference !== null ? (
-                              `${difference >= 0 ? '+' : ''}${formatPrice(difference)}`
-                            ) : 'N/A'}
-                          </p>
-                        </div>
+                        {request.shift_started_at && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600 dark:text-slate-400">Started:</span>
+                            <span className="font-medium text-slate-900 dark:text-white">
+                              {formatDate(request.shift_started_at)}
+                            </span>
+                          </div>
+                        )}
+
+                        {request.shift_opening_cash !== null && request.shift_opening_cash !== undefined && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600 dark:text-slate-400">Opening Cash:</span>
+                            <span className="font-bold text-slate-900 dark:text-white">
+                              {formatPrice(request.shift_opening_cash)}
+                            </span>
+                          </div>
+                        )}
+
+                        {shiftSummaries[request.id] && (
+                          <>
+                            <div className="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-2">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                                  <TrendingUp className="w-4 h-4 text-green-500" />
+                                  Cash Sales ({shiftSummaries[request.id].sales.count}):
+                                </span>
+                                <span className="font-bold text-green-600">
+                                  + {formatPrice(shiftSummaries[request.id].sales.total)}
+                                </span>
+                              </div>
+
+                              {shiftSummaries[request.id].creditPayments.total > 0 && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                                    <TrendingUp className="w-4 h-4 text-green-500" />
+                                    Credit Payments ({shiftSummaries[request.id].creditPayments.count}):
+                                  </span>
+                                  <span className="font-bold text-green-600">
+                                    + {formatPrice(shiftSummaries[request.id].creditPayments.total)}
+                                  </span>
+                                </div>
+                              )}
+
+                              {shiftSummaries[request.id].cashExpenses.total > 0 && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                                    <TrendingDown className="w-4 h-4 text-red-500" />
+                                    Cash Expenses ({shiftSummaries[request.id].cashExpenses.count}):
+                                  </span>
+                                  <span className="font-bold text-red-600">
+                                    - {formatPrice(shiftSummaries[request.id].cashExpenses.total)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Expected Cash Calculation */}
+                            <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg space-y-2 border border-slate-200 dark:border-slate-700">
+                              <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                                Expected Cash Calculation:
+                              </p>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-slate-600 dark:text-slate-400">Opening Cash:</span>
+                                <span className="font-medium text-slate-900 dark:text-white">
+                                  {formatPrice(request.shift_opening_cash || 0)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-slate-600 dark:text-slate-400">
+                                  + Cash Received (Sales + Credit Payments):
+                                </span>
+                                <span className="font-medium text-green-600">
+                                  + {formatPrice(
+                                    shiftSummaries[request.id].sales.total + 
+                                    shiftSummaries[request.id].creditPayments.total
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-sm">
+                                <span className="text-slate-600 dark:text-slate-400">
+                                  - Cash Given Out (Expenses/Withdrawals):
+                                </span>
+                                <span className="font-medium text-red-600">
+                                  - {formatPrice(shiftSummaries[request.id].cashExpenses.total)}
+                                </span>
+                              </div>
+                              <div className="border-t border-slate-300 dark:border-slate-600 pt-2 mt-2">
+                                <div className="flex justify-between items-center">
+                                  <span className="font-bold text-slate-900 dark:text-white">
+                                    Expected Cash in Drawer:
+                                  </span>
+                                  <span className="text-2xl font-black text-[#259783]">
+                                    {formatPrice(request.expected_amount || 0)}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 italic">
+                                  Formula: Opening + Cash In - Cash Out = Expected
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Submitted Amount and Difference */}
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                              <div className="p-3 bg-[#259783]/10 dark:bg-[#259783]/20 rounded-lg">
+                                <p className="text-slate-500 dark:text-slate-400 mb-1">Submitted Amount</p>
+                                <p className="text-xl font-black text-[#259783]">
+                                  {formatPrice(request.amount)}
+                                </p>
+                              </div>
+                              <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                                <p className="text-slate-500 dark:text-slate-400 mb-1">Difference</p>
+                                <p className={`font-semibold flex items-center gap-1 text-lg ${
+                                  difference === 0 
+                                    ? 'text-slate-600' 
+                                    : difference && difference > 0 
+                                      ? 'text-green-600' 
+                                      : 'text-red-600'
+                                }`}>
+                                  {difference !== null && difference !== 0 && (
+                                    difference > 0 
+                                      ? <TrendingUp className="w-4 h-4" />
+                                      : <TrendingDown className="w-4 h-4" />
+                                  )}
+                                  {difference !== null ? (
+                                    `${difference >= 0 ? '+' : ''}${formatPrice(difference)}`
+                                  ) : 'N/A'}
+                                </p>
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
                     )}
 
-                    {request.cash_expenses > 0 && (
-                      <div className="p-3 bg-red-50 dark:bg-red-900/10 rounded-lg text-sm">
-                        <p className="text-red-700 dark:text-red-300">
-                          <span className="font-semibold">Cash Expenses:</span> {formatPrice(request.cash_expenses)}
-                        </p>
+                    {/* For opening requests, show simple amount */}
+                    {isOpening && (
+                      <div className="p-4 bg-[#259783]/10 dark:bg-[#259783]/20 rounded-xl">
+                        <p className="text-sm text-muted-foreground mb-1">Submitted Amount</p>
+                        <p className="text-2xl font-black text-[#259783]">{formatPrice(request.amount)}</p>
                       </div>
                     )}
 

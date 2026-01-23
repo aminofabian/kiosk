@@ -28,15 +28,20 @@ export async function GET(request: NextRequest) {
         user_name: string;
         user_email: string;
         approver_name: string | null;
+        shift_opening_cash: number | null;
+        shift_started_at: number | null;
       }>(
         `SELECT 
           bar.*,
           u.name as user_name,
           u.email as user_email,
-          a.name as approver_name
+          a.name as approver_name,
+          s.opening_cash as shift_opening_cash,
+          s.started_at as shift_started_at
         FROM balance_approval_requests bar
         JOIN users u ON bar.user_id = u.id
         LEFT JOIN users a ON bar.approved_by = a.id
+        LEFT JOIN shifts s ON bar.shift_id = s.id
         WHERE bar.business_id = ? AND bar.status = ?
         ORDER BY bar.created_at DESC`,
         [auth.businessId, status]
@@ -47,15 +52,20 @@ export async function GET(request: NextRequest) {
         user_name: string;
         user_email: string;
         approver_name: string | null;
+        shift_opening_cash: number | null;
+        shift_started_at: number | null;
       }>(
         `SELECT 
           bar.*,
           u.name as user_name,
           u.email as user_email,
-          a.name as approver_name
+          a.name as approver_name,
+          s.opening_cash as shift_opening_cash,
+          s.started_at as shift_started_at
         FROM balance_approval_requests bar
         JOIN users u ON bar.user_id = u.id
         LEFT JOIN users a ON bar.approved_by = a.id
+        LEFT JOIN shifts s ON bar.shift_id = s.id
         WHERE bar.business_id = ? AND bar.user_id = ? AND bar.status = ?
         ORDER BY bar.created_at DESC`,
         [auth.businessId, auth.userId, status]

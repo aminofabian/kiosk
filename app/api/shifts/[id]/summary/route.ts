@@ -69,7 +69,7 @@ export async function GET(
 
     // Get cash expenses during this shift
     // Expenses are considered "today" based on created_at timestamp
-    const cashExpenses = await queryOne<{
+    const cashExpensesSummary = await queryOne<{
       count: number;
       total: number;
     }>(
@@ -84,12 +84,34 @@ export async function GET(
       [auth.businessId, shiftInfo.started_at, endTime]
     );
 
+    // Get detailed expenses list for this shift
+    const expensesList = await query<{
+      id: string;
+      name: string;
+      amount: number;
+      category: string;
+      created_at: number;
+      created_by: string | null;
+      notes: string | null;
+    }>(
+      `SELECT 
+        id, name, amount, category, created_at, created_by, notes
+       FROM expenses
+       WHERE business_id = ?
+         AND created_at >= ?
+         AND created_at <= ?
+         AND active = 1
+       ORDER BY created_at DESC`,
+      [auth.businessId, shiftInfo.started_at, endTime]
+    );
+
     return jsonResponse({
       success: true,
       data: {
         sales: salesSummary || { count: 0, total: 0 },
         creditPayments: creditPayments || { count: 0, total: 0 },
-        cashExpenses: cashExpenses || { count: 0, total: 0 },
+        cashExpenses: cashExpensesSummary || { count: 0, total: 0 },
+        expensesList: expensesList || [],
       },
     });
   } catch (error) {
