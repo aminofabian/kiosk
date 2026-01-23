@@ -38,36 +38,33 @@ export async function GET(request: NextRequest) {
       );
     } else if (search) {
       const searchLower = search.toLowerCase();
-      const searchTerm = `%${searchLower}%`;
-      const searchStart = `${searchLower}%`;
+      const searchContains = `%${searchLower}%`;  // Matches anywhere in the string
+      const searchStarts = `${searchLower}%`;    // Matches at the start (for prioritization)
       // Search includes both parent names and variant names
       // Use LOWER() for case-insensitive matching and search in both name and variant_name
+      // The % wildcard on both sides ensures it matches anywhere in the string
       items = await query<Item>(
         `SELECT * FROM items 
          WHERE business_id = ? AND active = 1 
          AND (
            LOWER(name) LIKE ? 
            OR LOWER(variant_name) LIKE ?
-           OR LOWER(name) LIKE ?
-           OR LOWER(variant_name) LIKE ?
          )
          ORDER BY 
            CASE 
              WHEN LOWER(name) LIKE ? THEN 1 
-             WHEN LOWER(name) LIKE ? THEN 2
-             WHEN LOWER(variant_name) LIKE ? THEN 3
+             WHEN LOWER(variant_name) LIKE ? THEN 2
+             WHEN LOWER(name) LIKE ? THEN 3
              ELSE 4 
            END,
            name ASC`,
         [
           auth.businessId, 
-          searchTerm,      // name contains search
-          searchTerm,      // variant_name contains search
-          searchStart,     // name starts with search
-          searchStart,     // variant_name starts with search
-          searchStart,     // priority: name starts with
-          searchTerm,      // priority: name contains
-          searchTerm       // priority: variant_name contains
+          searchContains,  // name contains search (anywhere)
+          searchContains,  // variant_name contains search (anywhere)
+          searchStarts,    // priority 1: name starts with search
+          searchStarts,    // priority 2: variant_name starts with search
+          searchContains   // priority 3: name contains search
         ]
       );
     } else if (all) {
