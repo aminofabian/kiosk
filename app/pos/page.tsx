@@ -61,6 +61,7 @@ import {
   Home as HomeIcon,
   UtensilsCrossed,
   RefreshCw,
+  Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Item } from '@/lib/db/types';
@@ -182,7 +183,7 @@ export default function POSPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const printedReceiptIdRef = useRef<string | null>(null);
-  const { items: cartItems } = useCartStore();
+  const { items: cartItems, clearCart } = useCartStore();
   const { user } = useCurrentUser();
   const isOwnerOrAdmin = user?.role === 'owner' || user?.role === 'admin';
   const canAccessAdmin = isOwnerOrAdmin || user?.role === 'cashier';
@@ -377,6 +378,14 @@ export default function POSPage() {
     (sum, item) => sum + item.price * item.quantity,
     0
   );
+
+  const handleClearCart = useCallback(() => {
+    if (cartItemCount === 0) return;
+    const itemText = cartItemCount === 1 ? 'item' : 'items';
+    if (confirm(`Are you sure you want to clear all ${cartItemCount} ${itemText} from your cart?`)) {
+      clearCart();
+    }
+  }, [cartItemCount, clearCart]);
 
   const getCategoryImage = (categoryName: string) => {
     if (!categoryName) return null;
@@ -1108,61 +1117,75 @@ export default function POSPage() {
 
         {!selectedCategoryId ? (
           <>
-            <header className="flex items-center justify-between p-4 pt-6 bg-[#f6f8f6] dark:bg-[#132210] sticky top-0 z-20 border-b border-black/5 dark:border-white/5">
-              <div className="flex items-center gap-2">
+            <header className="relative bg-gradient-to-br from-white via-[#f6f8f6] to-white dark:from-slate-900 dark:via-[#132210] dark:to-slate-900 sticky top-0 z-20 border-b border-gray-200/60 dark:border-gray-800/60 backdrop-blur-xl shadow-sm">
+              {/* Decorative gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-r from-[#259783]/5 via-transparent to-[#3bd522]/5 pointer-events-none" />
+              
+              <div className="relative flex items-center justify-between p-4 pt-5 pb-4">
+                {/* Left - Menu */}
                 <button
                   aria-label="Menu"
-                  className="flex size-12 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform"
+                  className="flex size-12 items-center justify-center rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm hover:bg-[#259783]/10 dark:hover:bg-[#259783]/20 border border-gray-200/60 dark:border-gray-700/60 active:scale-95 transition-all shadow-md hover:shadow-lg group"
+                  onClick={() => setCategoryDrawerOpen(true)}
                 >
-                  <Menu className="w-8 h-8" />
+                  <Menu className="w-6 h-6 text-gray-700 dark:text-gray-300 group-hover:text-[#259783] transition-colors" />
                 </button>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <h1 className="text-xl font-extrabold tracking-tight uppercase text-[#101b0d]/80 dark:text-[#259783]/90">
-                  Kiosk POS
-                </h1>
-                <ShopTypeSelector 
-                  onShopTypeChange={handleShopTypeChange}
-                  className="scale-90"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  aria-label="Refresh"
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  className="flex size-12 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform disabled:opacity-50"
-                  title="Refresh"
-                >
-                  <RefreshCw className={`w-7 h-7 ${refreshing ? 'animate-spin' : ''}`} />
-                </button>
-                {isOwnerOrAdmin && (
-                  <Link
-                    href="/admin"
-                    className="flex items-center justify-center gap-2 px-4 h-12 rounded-full bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] active:scale-95 transition-all shadow-lg shadow-[#259783]/40 hover:shadow-[#3bd522]/40 text-white font-bold text-sm relative overflow-hidden group"
-                    aria-label="Admin"
-                    style={{ backgroundColor: '#259783' }}
+
+                {/* Center - Brand */}
+                <div className="flex flex-col items-center gap-1.5 flex-1">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#259783] to-[#3bd522] blur-lg opacity-30" />
+                    <h1 className="relative text-lg font-extrabold bg-gradient-to-r from-[#259783] via-[#2ab870] to-[#3bd522] bg-clip-text text-transparent tracking-tight">
+                      Kiosk POS
+                    </h1>
+                  </div>
+                  <ShopTypeSelector 
+                    onShopTypeChange={handleShopTypeChange}
+                    className="scale-90"
+                  />
+                </div>
+
+                {/* Right - Actions */}
+                <div className="flex items-center gap-2">
+                  <button
+                    aria-label="Refresh"
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="flex size-12 items-center justify-center rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm hover:bg-[#259783]/10 dark:hover:bg-[#259783]/20 border border-gray-200/60 dark:border-gray-700/60 active:scale-95 transition-all shadow-md hover:shadow-lg disabled:opacity-50 group"
+                    title="Refresh"
                   >
-                    <div className="absolute inset-0 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
-                    <Settings className="w-5 h-5 relative z-10" style={{ color: '#ffffff' }} />
-                    <span className="relative z-10" style={{ color: '#ffffff' }}>Admin</span>
-                  </Link>
-                )}
-                <button
-                  aria-label="Search"
-                  onClick={() => setShowSearch(!showSearch)}
-                  className="flex size-12 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform"
-                >
-                  <Search className="w-7 h-7" />
-                </button>
-                <button
-                  aria-label="Logout"
-                  onClick={() => signOut({ callbackUrl: '/pos/login' })}
-                  className="flex size-12 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform"
-                  title="Logout"
-                >
-                  <LogOut className="w-7 h-7" />
-                </button>
+                    <RefreshCw className={`w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:text-[#259783] transition-colors ${refreshing ? 'animate-spin' : ''}`} />
+                  </button>
+                  
+                  {isOwnerOrAdmin && (
+                    <Link
+                      href="/admin"
+                      className="flex items-center justify-center gap-1.5 px-3 h-11 rounded-2xl bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] active:scale-95 transition-all shadow-lg shadow-[#259783]/30 hover:shadow-[#3bd522]/40 text-white font-bold text-xs relative overflow-hidden group"
+                      aria-label="Admin"
+                    >
+                      <div className="absolute inset-0 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300" />
+                      <Settings className="w-4 h-4 relative z-10" />
+                      <span className="relative z-10 hidden xs:inline">Admin</span>
+                    </Link>
+                  )}
+                  
+                  <button
+                    aria-label="Search"
+                    onClick={() => setShowSearch(!showSearch)}
+                    className="flex size-12 items-center justify-center rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm hover:bg-[#259783]/10 dark:hover:bg-[#259783]/20 border border-gray-200/60 dark:border-gray-700/60 active:scale-95 transition-all shadow-md hover:shadow-lg group"
+                  >
+                    <Search className="w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:text-[#259783] transition-colors" />
+                  </button>
+                  
+                  <button
+                    aria-label="Logout"
+                    onClick={() => signOut({ callbackUrl: '/pos/login' })}
+                    className="flex size-12 items-center justify-center rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm hover:bg-red-50 dark:hover:bg-red-950/20 border border-gray-200/60 dark:border-gray-700/60 active:scale-95 transition-all shadow-md hover:shadow-lg group"
+                    title="Logout"
+                  >
+                    <LogOut className="w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors" />
+                  </button>
+                </div>
               </div>
             </header>
 
@@ -1310,54 +1333,66 @@ export default function POSPage() {
           </>
         ) : (
           <>
-            <header className="flex items-center justify-between p-4 pt-6 bg-[#f6f8f6] dark:bg-[#132210] sticky top-0 z-20 border-b border-black/5 dark:border-white/5">
-              <div className="flex items-center gap-2">
+            <header className="relative bg-gradient-to-br from-white via-[#f6f8f6] to-white dark:from-slate-900 dark:via-[#132210] dark:to-slate-900 sticky top-0 z-20 border-b border-gray-200/60 dark:border-gray-800/60 backdrop-blur-xl shadow-sm">
+              {/* Decorative gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-r from-[#259783]/5 via-transparent to-[#3bd522]/5 pointer-events-none" />
+              
+              <div className="relative flex items-center justify-between p-4 pt-5 pb-4">
+                {/* Left - Back */}
                 <button
                   onClick={() => setSelectedCategoryId(null)}
-                  className="flex size-12 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform"
+                  className="flex size-12 items-center justify-center rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm hover:bg-[#259783]/10 dark:hover:bg-[#259783]/20 border border-gray-200/60 dark:border-gray-700/60 active:scale-95 transition-all shadow-md hover:shadow-lg group"
                 >
-                  <ArrowLeft className="w-8 h-8" />
+                  <ArrowLeft className="w-6 h-6 text-gray-700 dark:text-gray-300 group-hover:text-[#259783] transition-colors" />
                 </button>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <h1 className="text-xl font-bold text-[#101b0d] dark:text-[#f0fdf4]">
-                  {selectedCategory?.name || 'Category'}
-                </h1>
-                <ShopTypeSelector 
-                  onShopTypeChange={handleShopTypeChange}
-                  className="scale-90"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  aria-label="Refresh"
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  className="flex size-12 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform disabled:opacity-50"
-                  title="Refresh"
-                >
-                  <RefreshCw className={`w-7 h-7 ${refreshing ? 'animate-spin' : ''}`} />
-                </button>
-                {canAccessAdmin && (
-                  <Link
-                    href="/admin"
-                    className="flex items-center justify-center gap-2 px-4 h-12 rounded-full bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] active:scale-95 transition-all shadow-lg shadow-[#259783]/40 hover:shadow-[#3bd522]/40 text-white font-bold text-sm relative overflow-hidden group"
-                    aria-label="Admin"
-                    style={{ backgroundColor: '#259783' }}
+
+                {/* Center - Category Name */}
+                <div className="flex flex-col items-center gap-1.5 flex-1">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#259783] to-[#3bd522] blur-lg opacity-30" />
+                    <h1 className="relative text-lg font-bold bg-gradient-to-r from-[#259783] to-[#3bd522] bg-clip-text text-transparent">
+                      {selectedCategory?.name || 'Category'}
+                    </h1>
+                  </div>
+                  <ShopTypeSelector 
+                    onShopTypeChange={handleShopTypeChange}
+                    className="scale-90"
+                  />
+                </div>
+
+                {/* Right - Actions */}
+                <div className="flex items-center gap-2">
+                  <button
+                    aria-label="Refresh"
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="flex size-12 items-center justify-center rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm hover:bg-[#259783]/10 dark:hover:bg-[#259783]/20 border border-gray-200/60 dark:border-gray-700/60 active:scale-95 transition-all shadow-md hover:shadow-lg disabled:opacity-50 group"
+                    title="Refresh"
                   >
-                    <div className="absolute inset-0 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
-                    <Settings className="w-5 h-5 relative z-10" style={{ color: '#ffffff' }} />
-                    <span className="relative z-10" style={{ color: '#ffffff' }}>Admin</span>
-                  </Link>
-                )}
-                <button
-                  aria-label="Logout"
-                  onClick={() => signOut({ callbackUrl: '/pos/login' })}
-                  className="flex size-12 items-center justify-center rounded-full hover:bg-black/5 dark:hover:bg-white/10 active:scale-95 transition-transform"
-                  title="Logout"
-                >
-                  <LogOut className="w-7 h-7" />
-                </button>
+                    <RefreshCw className={`w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:text-[#259783] transition-colors ${refreshing ? 'animate-spin' : ''}`} />
+                  </button>
+                  
+                  {canAccessAdmin && (
+                    <Link
+                      href="/admin"
+                      className="flex items-center justify-center gap-1.5 px-3 h-11 rounded-2xl bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] active:scale-95 transition-all shadow-lg shadow-[#259783]/30 hover:shadow-[#3bd522]/40 text-white font-bold text-xs relative overflow-hidden group"
+                      aria-label="Admin"
+                    >
+                      <div className="absolute inset-0 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300" />
+                      <Settings className="w-4 h-4 relative z-10" />
+                      <span className="relative z-10 hidden xs:inline">Admin</span>
+                    </Link>
+                  )}
+                  
+                  <button
+                    aria-label="Logout"
+                    onClick={() => signOut({ callbackUrl: '/pos/login' })}
+                    className="flex size-12 items-center justify-center rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm hover:bg-red-50 dark:hover:bg-red-950/20 border border-gray-200/60 dark:border-gray-700/60 active:scale-95 transition-all shadow-md hover:shadow-lg group"
+                    title="Logout"
+                  >
+                    <LogOut className="w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors" />
+                  </button>
+                </div>
               </div>
             </header>
 
@@ -1528,12 +1563,24 @@ export default function POSPage() {
           </>
         )}
 
-        <div className="fixed bottom-6 left-0 right-0 px-4 flex flex-col items-center gap-3 z-30 pointer-events-none">
+        <div className="fixed bottom-6 left-0 right-0 px-4 flex flex-col items-center gap-2.5 z-30 pointer-events-none">
           <button
             onClick={() => setCartDrawerOpen(true)}
-            className="pointer-events-auto shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_30px_rgb(75,238,43,0.3)] active:scale-95 transition-all w-full max-w-md h-[72px] bg-[#259783] rounded-full flex items-center justify-between px-2 pr-6 group text-white"
+            className="pointer-events-auto shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:shadow-[0_8px_30px_rgb(75,238,43,0.3)] active:scale-95 transition-all w-full max-w-md h-[72px] bg-[#259783] rounded-full flex items-center justify-between px-2 pr-6 group text-white relative"
             style={{ backgroundColor: '#259783' }}
           >
+            {cartItemCount > 0 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleClearCart();
+                }}
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm flex items-center justify-center transition-all active:scale-90 z-10"
+                title="Clear Cart"
+              >
+                <Trash2 className="w-4 h-4 text-white" />
+              </button>
+            )}
             <div className="flex items-center gap-3">
               <div className="bg-black/10 w-[56px] h-[56px] rounded-full flex items-center justify-center group-hover:bg-black/20 transition-colors">
                 <ShoppingCart className="w-7 h-7 text-white" style={{ color: '#ffffff' }} />
@@ -1558,149 +1605,193 @@ export default function POSPage() {
       <div className="hidden md:block print:hidden">
         <POSLayout
           header={
-            <div className="flex items-center justify-between gap-4 border-b border-gray-200 dark:border-gray-800 pb-3">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <div className="w-10 h-10 bg-gradient-to-br from-[#259783] to-[#3bd522] rounded-xl flex items-center justify-center shadow-md shadow-[#259783]/30 flex-shrink-0">
-                  <ShoppingCart className="w-5 h-5 text-white" />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-[#259783] to-[#3bd522] bg-clip-text text-transparent hidden sm:block">
-                    {user?.businessName || 'POS'}
-                  </h1>
-                  <ShopTypeSelector 
-                    onShopTypeChange={handleShopTypeChange}
-                    className="hidden sm:flex"
-                  />
-                </div>
-                {showSearch ? (
-                  <div className="flex-1 max-w-lg relative animate-in fade-in slide-in-from-top-1 duration-200">
-                    <form onSubmit={handleSearchSubmit}>
-                      <div className="relative">
-                        {isSearchPending || barcodeScanStatus.scanning ? (
-                          <Loader2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#259783] animate-spin" />
-                        ) : isValidBarcode(searchQuery) ? (
-                          <QrCode className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#259783]" />
-                        ) : (
-                          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                        )}
-                        <Input
-                          ref={searchInputRef}
-                          type="text"
-                          placeholder="Search or scan barcode... (Esc to close)"
-                          value={searchQuery}
-                          onChange={(e) => handleSearchChange(e.target.value)}
-                          className="pl-10 pr-24 h-11 border-2 border-gray-200 focus:border-[#259783] focus:ring-4 focus:ring-[#259783]/20 rounded-xl text-sm font-medium bg-white shadow-sm"
-                          autoComplete="off"
-                          autoCorrect="off"
-                          spellCheck={false}
-                          data-barcode-enabled="true"
-                        />
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                          {searchQuery && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 w-7 p-0 hover:bg-gray-100 rounded-lg"
-                              onClick={clearSearch}
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          )}
-                          <kbd className="pointer-events-none h-6 select-none items-center gap-1 rounded-md border bg-gray-50 px-1.5 font-mono text-[10px] font-medium text-gray-500 hidden sm:flex">
-                            Esc
-                          </kbd>
-                        </div>
+            <div className="relative bg-gradient-to-br from-white via-[#f6f8f6] to-white dark:from-slate-900 dark:via-[#132210] dark:to-slate-900 border-b border-gray-200/60 dark:border-gray-800/60 backdrop-blur-xl">
+              {/* Decorative gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-r from-[#259783]/5 via-transparent to-[#3bd522]/5 pointer-events-none" />
+              
+              <div className="relative flex items-center justify-between gap-4 px-4 py-4">
+                {/* Left Section - Brand & Search */}
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                  {/* Logo/Brand Section */}
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <div className="relative group">
+                      <div className="absolute inset-0 bg-gradient-to-br from-[#259783] to-[#3bd522] rounded-2xl blur-md opacity-50 group-hover:opacity-75 transition-opacity" />
+                      <div className="relative w-12 h-12 bg-gradient-to-br from-[#259783] to-[#3bd522] rounded-2xl flex items-center justify-center shadow-lg shadow-[#259783]/30 group-hover:shadow-[#3bd522]/40 transition-all group-hover:scale-105">
+                        <ShoppingCart className="w-6 h-6 text-white drop-shadow-sm" />
                       </div>
-                    </form>
-                    {searchQuery && (
-                      <div className="absolute top-full left-0 right-0 mt-1 text-xs text-gray-500 flex items-center gap-1.5 pl-1">
-                        {isSearchPending ? (
-                          <>
-                            <span className="inline-block w-1.5 h-1.5 bg-[#259783] rounded-full animate-pulse"></span>
-                            Searching...
-                          </>
-                        ) : isValidBarcode(searchQuery) ? (
-                          <>
-                            <QrCode className="w-3 h-3 text-[#259783]" />
-                            <span className="text-[#259783] font-medium">Press Enter to scan barcode</span>
-                          </>
-                        ) : null}
-                      </div>
-                    )}
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <h1 className="text-xl sm:text-2xl font-extrabold bg-gradient-to-r from-[#259783] via-[#2ab870] to-[#3bd522] bg-clip-text text-transparent hidden sm:block tracking-tight">
+                        {user?.businessName || 'POS'}
+                      </h1>
+                      <ShopTypeSelector 
+                        onShopTypeChange={handleShopTypeChange}
+                        className="hidden sm:flex scale-95"
+                      />
+                    </div>
                   </div>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowSearch(true)}
-                    className="hidden sm:flex items-center gap-2 bg-white hover:bg-[#259783]/10 border-gray-200 hover:border-[#259783] transition-all h-10 px-4 rounded-xl shadow-sm"
-                  >
-                    <Search className="w-4 h-4 text-gray-500" />
-                    <span className="hidden md:inline text-gray-600">Search products</span>
-                    <kbd className="hidden lg:inline pointer-events-none h-5 select-none items-center gap-1 rounded-md border bg-gray-50 px-1.5 font-mono text-[10px] font-medium text-gray-500">
-                      <span className="text-xs">⌘</span>K
-                    </kbd>
-                  </Button>
-                )}
-              </div>
-              <div className="flex items-center gap-3 flex-shrink-0">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  className="hidden sm:flex bg-white hover:bg-[#259783]/10 border-gray-200 hover:border-[#259783] text-gray-700 hover:text-[#259783] transition-smooth disabled:opacity-50"
-                  title="Refresh"
-                >
-                  <RefreshCw className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-                  <span className="hidden md:inline">Refresh</span>
-                </Button>
-                {canAccessAdmin && (
-                  <Link href="/admin">
+
+                  {/* Search Section */}
+                  {showSearch ? (
+                    <div className="flex-1 max-w-2xl relative animate-in fade-in slide-in-from-top-1 duration-300">
+                      <form onSubmit={handleSearchSubmit}>
+                        <div className="relative group">
+                          {/* Glow effect on focus */}
+                          <div className="absolute -inset-0.5 bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-2xl opacity-0 group-focus-within:opacity-20 blur transition-opacity duration-300" />
+                          
+                          <div className="relative flex items-center">
+                            <div className="absolute left-4 z-10">
+                              {isSearchPending || barcodeScanStatus.scanning ? (
+                                <Loader2 className="w-5 h-5 text-[#259783] animate-spin" />
+                              ) : isValidBarcode(searchQuery) ? (
+                                <QrCode className="w-5 h-5 text-[#259783]" />
+                              ) : (
+                                <Search className="w-5 h-5 text-gray-400 group-focus-within:text-[#259783] transition-colors" />
+                              )}
+                            </div>
+                            <Input
+                              ref={searchInputRef}
+                              type="text"
+                              placeholder="Search products or scan barcode..."
+                              value={searchQuery}
+                              onChange={(e) => handleSearchChange(e.target.value)}
+                              className="pl-12 pr-28 h-12 border-2 border-gray-200/80 dark:border-gray-700/80 focus:border-[#259783] focus:ring-4 focus:ring-[#259783]/20 rounded-2xl text-sm font-medium bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm shadow-lg shadow-gray-200/50 dark:shadow-gray-900/50 transition-all"
+                              autoComplete="off"
+                              autoCorrect="off"
+                              spellCheck={false}
+                              data-barcode-enabled="true"
+                            />
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                              {searchQuery && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
+                                  onClick={clearSearch}
+                                >
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              )}
+                              <kbd className="pointer-events-none h-7 select-none items-center gap-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 px-2 font-mono text-[10px] font-semibold text-gray-600 dark:text-gray-400 hidden sm:flex shadow-sm">
+                                Esc
+                              </kbd>
+                            </div>
+                          </div>
+                        </div>
+                        {searchQuery && (
+                          <div className="absolute top-full left-0 right-0 mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5 pl-4 animate-in fade-in slide-in-from-top-1">
+                            {isSearchPending ? (
+                              <>
+                                <span className="inline-block w-1.5 h-1.5 bg-[#259783] rounded-full animate-pulse"></span>
+                                <span>Searching...</span>
+                              </>
+                            ) : isValidBarcode(searchQuery) ? (
+                              <>
+                                <QrCode className="w-3.5 h-3.5 text-[#259783]" />
+                                <span className="text-[#259783] font-medium">Press Enter to scan barcode</span>
+                              </>
+                            ) : null}
+                          </div>
+                        )}
+                      </form>
+                    </div>
+                  ) : (
                     <Button
+                      variant="outline"
                       size="sm"
-                      className="flex items-center gap-2 bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] text-white font-semibold shadow-lg shadow-[#259783]/40 hover:shadow-[#3bd522]/40 transition-all relative overflow-hidden group"
-                      style={{ backgroundColor: '#259783' }}
+                      onClick={() => setShowSearch(true)}
+                      className="hidden sm:flex items-center gap-2.5 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm hover:bg-[#259783]/10 dark:hover:bg-[#259783]/20 border-gray-200/80 dark:border-gray-700/80 hover:border-[#259783] transition-all h-11 px-5 rounded-2xl shadow-md hover:shadow-lg hover:scale-105 group"
                     >
-                      <div className="absolute inset-0 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
-                      <Settings className="w-4 h-4 relative z-10" style={{ color: '#ffffff' }} />
-                      <span className="hidden md:inline relative z-10" style={{ color: '#ffffff' }}>Admin</span>
+                      <Search className="w-4 h-4 text-gray-500 group-hover:text-[#259783] transition-colors" />
+                      <span className="hidden md:inline text-gray-600 dark:text-gray-300 font-medium">Search</span>
+                      <kbd className="hidden lg:inline pointer-events-none h-6 select-none items-center gap-1 rounded-md border border-gray-200 dark:border-gray-700 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 px-1.5 font-mono text-[10px] font-semibold text-gray-500 dark:text-gray-400">
+                        <span className="text-xs">⌘</span>K
+                      </kbd>
                     </Button>
-                  </Link>
-                )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => signOut({ callbackUrl: '/pos/login' })}
-                  className="hidden sm:flex bg-white hover:bg-red-50 border-gray-200 hover:border-red-300 text-gray-700 hover:text-red-600 transition-smooth"
-                  title="Logout"
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  <span className="hidden md:inline">Logout</span>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="touch"
-                  onClick={() => setCartDrawerOpen(true)}
-                  className="relative bg-white hover:bg-[#259783]/10 border-gray-200 hover:border-[#259783] transition-smooth shadow-sm hover:shadow-md"
-                >
-                  <ShoppingCart className="mr-2" />
-                  <span className="hidden sm:inline">Cart</span>
-                  {cartItemCount > 0 && (
-                    <>
-                      <Badge
-                        variant="destructive"
-                        className="absolute -top-2 -right-2 h-6 w-6 flex items-center justify-center p-0 animate-pulse"
-                      >
-                        {cartItemCount}
-                      </Badge>
-                      <span className="hidden md:inline ml-2 font-semibold text-[#259783]">
-                        KES {cartTotal.toFixed(0)}
-                      </span>
-                    </>
                   )}
-                </Button>
+                </div>
+
+                {/* Right Section - Actions & Cart */}
+                <div className="flex items-center gap-2.5 flex-shrink-0">
+                  {/* Action Buttons Group */}
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm border border-gray-200/60 dark:border-gray-700/60">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRefresh}
+                      disabled={refreshing}
+                      className="hidden sm:flex h-9 w-9 p-0 hover:bg-[#259783]/10 dark:hover:bg-[#259783]/20 text-gray-600 dark:text-gray-300 hover:text-[#259783] transition-all rounded-xl disabled:opacity-50"
+                      title="Refresh"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    </Button>
+                    
+                    {canAccessAdmin && (
+                      <Link href="/admin">
+                        <Button
+                          size="sm"
+                          className="hidden sm:flex items-center gap-2 h-9 px-3 bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] text-white font-semibold shadow-lg shadow-[#259783]/30 hover:shadow-[#3bd522]/40 transition-all relative overflow-hidden group rounded-xl"
+                        >
+                          <div className="absolute inset-0 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300" />
+                          <Settings className="w-4 h-4 relative z-10" />
+                          <span className="hidden md:inline relative z-10 text-sm">Admin</span>
+                        </Button>
+                      </Link>
+                    )}
+                    
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => signOut({ callbackUrl: '/pos/login' })}
+                      className="hidden sm:flex h-9 w-9 p-0 hover:bg-red-50 dark:hover:bg-red-950/20 text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-all rounded-xl"
+                      title="Logout"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  {/* Cart Section */}
+                  <div className="flex items-center gap-2 pl-3 border-l border-gray-200/60 dark:border-gray-700/60">
+                    {cartItemCount > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleClearCart}
+                        className="hidden sm:flex h-10 w-10 p-0 hover:bg-red-50 dark:hover:bg-red-950/20 text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-all rounded-xl group"
+                        title="Clear Cart"
+                      >
+                        <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="touch"
+                      onClick={() => setCartDrawerOpen(true)}
+                      className="relative h-12 px-4 bg-gradient-to-br from-white to-gray-50 dark:from-slate-800 dark:to-slate-900 hover:from-[#259783]/10 hover:to-[#3bd522]/10 dark:hover:from-[#259783]/20 dark:hover:to-[#3bd522]/20 border-2 border-gray-200/80 dark:border-gray-700/80 hover:border-[#259783] transition-all shadow-lg hover:shadow-xl hover:scale-105 rounded-2xl group"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className="relative">
+                          <ShoppingCart className="w-5 h-5 text-[#259783] group-hover:scale-110 transition-transform" />
+                          {cartItemCount > 0 && (
+                            <Badge
+                              variant="destructive"
+                              className="absolute -top-2.5 -right-2.5 h-5 w-5 flex items-center justify-center p-0 text-xs font-bold animate-pulse shadow-lg"
+                            >
+                              {cartItemCount}
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="hidden sm:inline font-semibold text-gray-700 dark:text-gray-200">Cart</span>
+                        {cartItemCount > 0 && (
+                          <span className="hidden md:inline ml-1 font-bold text-[#259783] text-sm">
+                            KES {cartTotal.toFixed(0)}
+                          </span>
+                        )}
+                      </div>
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           }
