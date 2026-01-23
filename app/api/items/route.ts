@@ -37,16 +37,38 @@ export async function GET(request: NextRequest) {
         [auth.businessId, parentId]
       );
     } else if (search) {
-      const searchTerm = `%${search}%`;
+      const searchLower = search.toLowerCase();
+      const searchTerm = `%${searchLower}%`;
+      const searchStart = `${searchLower}%`;
       // Search includes both parent names and variant names
+      // Use LOWER() for case-insensitive matching and search in both name and variant_name
       items = await query<Item>(
         `SELECT * FROM items 
          WHERE business_id = ? AND active = 1 
-         AND (name LIKE ? OR name LIKE ? OR variant_name LIKE ?)
+         AND (
+           LOWER(name) LIKE ? 
+           OR LOWER(variant_name) LIKE ?
+           OR LOWER(name) LIKE ?
+           OR LOWER(variant_name) LIKE ?
+         )
          ORDER BY 
-           CASE WHEN name LIKE ? THEN 1 ELSE 2 END,
+           CASE 
+             WHEN LOWER(name) LIKE ? THEN 1 
+             WHEN LOWER(name) LIKE ? THEN 2
+             WHEN LOWER(variant_name) LIKE ? THEN 3
+             ELSE 4 
+           END,
            name ASC`,
-        [auth.businessId, searchTerm, searchTerm.toLowerCase(), searchTerm, `${search}%`]
+        [
+          auth.businessId, 
+          searchTerm,      // name contains search
+          searchTerm,      // variant_name contains search
+          searchStart,     // name starts with search
+          searchStart,     // variant_name starts with search
+          searchStart,     // priority: name starts with
+          searchTerm,      // priority: name contains
+          searchTerm       // priority: variant_name contains
+        ]
       );
     } else if (all) {
       if (parentsOnly) {
