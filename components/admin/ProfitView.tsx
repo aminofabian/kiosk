@@ -25,6 +25,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import { ProfitCalendar } from './ProfitCalendar';
+import { apiPut, apiGet } from '@/lib/utils/api-client';
+import { Edit2, Check, X } from 'lucide-react';
 
 interface ProfitData {
   totalProfit: number;
@@ -57,6 +59,7 @@ interface ProfitData {
     total_sales: number;
     total_cost: number;
     quantity_sold: number;
+    has_buy_price?: number;
   }>;
 }
 
@@ -85,6 +88,9 @@ export function ProfitView() {
     const today = `${year}-${month}-${day}`;
     return { start: today, end: today };
   });
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [editBuyPrice, setEditBuyPrice] = useState<string>('');
+  const [updatingPrice, setUpdatingPrice] = useState<string | null>(null);
 
   useEffect(() => {
     updateDateRangeFromPreset(datePreset);
@@ -195,6 +201,67 @@ export function ProfitView() {
     const avgMargin = profitData.profitMargin || 0.25;
     if (avgMargin <= 0) return 0;
     return (expenseData.dailyOperatingCost * getPeriodDays()) / avgMargin;
+  };
+
+  const handleStartEdit = (itemId: string, currentBuyPrice: number) => {
+    setEditingItemId(itemId);
+    setEditBuyPrice(currentBuyPrice.toString());
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItemId(null);
+    setEditBuyPrice('');
+  };
+
+  const handleSaveBuyPrice = async (itemId: string) => {
+    const price = parseFloat(editBuyPrice);
+    if (isNaN(price) || price < 0) {
+      alert('Please enter a valid price');
+      return;
+    }
+
+    setUpdatingPrice(itemId);
+    try {
+      // First fetch the item to get all required fields
+      const itemResult = await apiGet<{
+        id: string;
+        name: string;
+        category_id: string;
+        unit_type: string;
+        current_sell_price: number;
+        parent_item_id: string | null;
+      }>(`/api/items/${itemId}`);
+
+      if (!itemResult.success || !itemResult.data) {
+        alert('Failed to fetch item details');
+        return;
+      }
+
+      const item = itemResult.data;
+
+      // Update the item with the new buy price
+      const result = await apiPut(`/api/items/${itemId}`, {
+        name: item.name,
+        categoryId: item.category_id,
+        unitType: item.unit_type,
+        sellPrice: item.current_sell_price,
+        buyPrice: price,
+      });
+
+      if (result.success) {
+        setEditingItemId(null);
+        setEditBuyPrice('');
+        // Refresh profit data to reflect the updated buy price
+        await fetchProfitData();
+      } else {
+        alert(result.message || 'Failed to update buy price');
+      }
+    } catch (err) {
+      console.error('Error updating buy price:', err);
+      alert('Failed to update buy price');
+    } finally {
+      setUpdatingPrice(null);
+    }
   };
 
   if (loading) {
@@ -593,20 +660,83 @@ export function ProfitView() {
                   const avgBuy = item.quantity_sold > 0 ? item.total_cost / item.quantity_sold : 0;
                   const avgSell = item.quantity_sold > 0 ? item.total_sales / item.quantity_sold : 0;
                   const avgProfit = item.quantity_sold > 0 ? item.total_profit / item.quantity_sold : 0;
+                  const hasBuyPrice = item.has_buy_price !== undefined ? item.has_buy_price === 1 : avgBuy > 0;
+                  const isExcluded = !hasBuyPrice;
 
                   return (
                     <tr 
                       key={item.item_id} 
-                      className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30"
+                      className={`border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30 ${
+                        isExcluded ? 'bg-yellow-50 dark:bg-yellow-900/10 border-yellow-200 dark:border-yellow-800' : ''
+                      }`}
                     >
                       <td className="px-6 py-3">
                         <div className="flex items-center gap-2">
                           {isPositive ? <TrendingUp className="h-4 w-4 text-[#259783]" /> : <TrendingDown className="h-4 w-4 text-red-500" />}
                           <span className="font-bold text-slate-900 dark:text-white">{item.item_name}</span>
+                          {isExcluded && (
+                            <Badge variant="outline" className="text-xs border-yellow-400 text-yellow-700 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30">
+                              No Buy Price
+                            </Badge>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-3 text-right font-semibold text-slate-600 dark:text-slate-300">{item.quantity_sold.toFixed(1)}</td>
-                      <td className="px-6 py-3 text-right text-slate-500">{formatPrice(avgBuy)}</td>
+                      <td className="px-6 py-3 text-right text-slate-500">
+                        {editingItemId === item.item_id ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <Input
+                              type="number"
+                              value={editBuyPrice}
+                              onChange={(e) => setEditBuyPrice(e.target.value)}
+                              className="w-24 h-8 text-xs text-right"
+                              step="0.01"
+                              min="0"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleSaveBuyPrice(item.item_id);
+                                } else if (e.key === 'Escape') {
+                                  handleCancelEdit();
+                                }
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0"
+                              onClick={() => handleSaveBuyPrice(item.item_id)}
+                              disabled={updatingPrice === item.item_id}
+                            >
+                              {updatingPrice === item.item_id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Check className="h-3 w-3 text-green-600" />
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0"
+                              onClick={handleCancelEdit}
+                              disabled={updatingPrice === item.item_id}
+                            >
+                              <X className="h-3 w-3 text-red-600" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-end gap-2 group">
+                            <span>{formatPrice(avgBuy)}</span>
+                            <button
+                              onClick={() => handleStartEdit(item.item_id, avgBuy)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+                              title="Edit buy price"
+                            >
+                              <Edit2 className="h-3 w-3 text-slate-400 hover:text-[#259783]" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
                       <td className="px-6 py-3 text-right text-slate-600 dark:text-slate-300">{formatPrice(avgSell)}</td>
                       <td className={`px-6 py-3 text-right font-bold ${isPositive ? 'text-[#259783]' : 'text-red-500'}`}>
                         {formatPrice(avgProfit)}
@@ -633,21 +763,28 @@ export function ProfitView() {
 
 // Compact Item Row Component
 function ItemRow({ item, index, type, formatPrice }: {
-  item: { item_id: string; item_name: string; total_profit: number; total_sales: number; total_cost: number; quantity_sold: number };
+  item: { item_id: string; item_name: string; total_profit: number; total_sales: number; total_cost: number; quantity_sold: number; has_buy_price?: number };
   index: number;
   type: 'top' | 'least' | 'low';
   formatPrice: (n: number) => string;
 }) {
   const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
   const isNegative = item.total_profit < 0;
+  const avgBuy = item.quantity_sold > 0 ? item.total_cost / item.quantity_sold : 0;
+  const hasBuyPrice = item.has_buy_price !== undefined ? item.has_buy_price === 1 : avgBuy > 0;
+  const isExcluded = !hasBuyPrice;
   
-  const bgColor = type === 'top' 
+  const bgColor = isExcluded
+    ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700'
+    : type === 'top' 
     ? 'bg-[#259783]/5 border-[#259783]/20' 
     : isNegative 
     ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800' 
     : 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800';
   
-  const textColor = type === 'top' 
+  const textColor = isExcluded
+    ? 'text-yellow-700 dark:text-yellow-400'
+    : type === 'top' 
     ? 'text-[#259783]' 
     : isNegative 
     ? 'text-red-600 dark:text-red-400' 
@@ -655,11 +792,26 @@ function ItemRow({ item, index, type, formatPrice }: {
 
   return (
     <div className={`flex items-center gap-2 p-2.5 border-2 ${bgColor}`}>
-      <div className={`w-6 h-6 flex items-center justify-center border-2 ${type === 'top' ? 'border-[#259783] bg-[#259783]' : isNegative ? 'border-red-500 bg-red-500' : 'border-orange-500 bg-orange-500'}`}>
+      <div className={`w-6 h-6 flex items-center justify-center border-2 ${
+        isExcluded 
+          ? 'border-yellow-500 bg-yellow-500' 
+          : type === 'top' 
+          ? 'border-[#259783] bg-[#259783]' 
+          : isNegative 
+          ? 'border-red-500 bg-red-500' 
+          : 'border-orange-500 bg-orange-500'
+      }`}>
         <span className="text-xs font-black text-white">{index + 1}</span>
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-bold text-xs text-slate-900 dark:text-white truncate">{item.item_name}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="font-bold text-xs text-slate-900 dark:text-white truncate">{item.item_name}</p>
+          {isExcluded && (
+            <span className="text-[9px] font-bold text-yellow-700 dark:text-yellow-400 bg-yellow-200 dark:bg-yellow-900/40 px-1 py-0.5 rounded">
+              No Buy Price
+            </span>
+          )}
+        </div>
         <p className="text-[10px] text-slate-500">{item.quantity_sold.toFixed(0)} sold • {margin.toFixed(0)}%</p>
       </div>
       <p className={`text-xs font-black ${textColor}`}>

@@ -116,6 +116,19 @@ export async function PUT(
       bundleQuantity, bundlePrice, bundleName,
     } = body;
 
+    // Ensure buyPrice is a number if provided
+    const buyPriceNum = buyPrice !== undefined && buyPrice !== null ? Number(buyPrice) : undefined;
+    
+    console.log('PUT /api/items/[id] - Received body:', { 
+      itemId, 
+      buyPrice, 
+      buyPriceNum,
+      buyPriceType: typeof buyPrice,
+      buyPriceNumType: typeof buyPriceNum,
+      buyPriceIsUndefined: buyPrice === undefined,
+      buyPriceIsNull: buyPrice === null 
+    });
+
     // Verify item exists and check if it's a parent
     const existingItem = await queryOne<{
       id: string;
@@ -199,6 +212,8 @@ export async function PUT(
 
     const now = Math.floor(Date.now() / 1000);
 
+    console.log('Item type check:', { isParentItem, itemId, buyPriceNum });
+
     if (isParentItem) {
       // Update parent item (only name and category)
       const updateResult = await execute(
@@ -215,6 +230,9 @@ export async function PUT(
           400
         );
       }
+      
+      // Note: Parent items don't have buy prices directly, but we can still update batches if provided
+      // This allows setting buy prices for parent items that might have stock
     } else {
       // Update regular item or variant
       const updateResult = await execute(
@@ -293,32 +311,118 @@ export async function PUT(
         );
       }
 
-      // If buyPrice provided and item has stock, create/update inventory batch
-      if (buyPrice && buyPrice > 0 && existingItem.current_stock > 0) {
+      console.log('About to check buy price - inside else block for non-parent items');
+      
+      // If buyPrice provided, create/update inventory batch
+      console.log('Checking buy price condition:', { 
+        buyPriceNum, 
+        isUndefined: buyPriceNum === undefined, 
+        isNull: buyPriceNum === null, 
+        isNaN: isNaN(buyPriceNum),
+        condition: buyPriceNum !== undefined && buyPriceNum !== null && !isNaN(buyPriceNum)
+      });
+      
+      if (buyPriceNum !== undefined && buyPriceNum !== null && !isNaN(buyPriceNum)) {
+        console.log('Updating buy price:', { itemId, buyPrice: buyPriceNum, currentStock: existingItem.current_stock });
+        
+        // First, try to find the most recent batch (even if quantity_remaining = 0)
         const existingBatch = await queryOne<{ id: string; quantity_remaining: number }>(
           `SELECT id, quantity_remaining FROM inventory_batches 
-           WHERE item_id = ? AND business_id = ? AND quantity_remaining > 0
+           WHERE item_id = ? AND business_id = ?
            ORDER BY received_at DESC LIMIT 1`,
           [itemId, auth.businessId]
         );
 
+        console.log('Existing batch:', existingBatch);
+
         if (existingBatch) {
-          await execute(
-            `UPDATE inventory_batches SET buy_price_per_unit = ? WHERE id = ?`,
-            [buyPrice, existingBatch.id]
+          // Update the most recent batch with the new buy price and update received_at to make it the most recent
+          console.log('Updating existing batch:', existingBatch.id, 'with buy price:', buyPriceNum);
+          const updateResult = await execute(
+            `UPDATE inventory_batches 
+             SET buy_price_per_unit = ?, received_at = ? 
+             WHERE id = ?`,
+            [buyPriceNum, now, existingBatch.id]
           );
+          console.log('Batch update result:', updateResult, 'rowsAffected:', updateResult.rowsAffected);
+          
+          // Verify the update
+          const verifyBatch = await queryOne<{ buy_price_per_unit: number }>(
+            `SELECT buy_price_per_unit FROM inventory_batches WHERE id = ?`,
+            [existingBatch.id]
+          );
+          console.log('Verified batch buy price after update:', verifyBatch);
         } else {
+          // No batch exists, create a new one
+          // Use current stock if available, otherwise use 0
+          const stockToUse = existingItem.current_stock > 0 ? existingItem.current_stock : 0;
           const batchId = generateUUID();
-          await execute(
+          console.log('Creating new batch:', batchId, 'with buy price:', buyPriceNum, 'stock:', stockToUse);
+          const insertResult = await execute(
             `INSERT INTO inventory_batches (
               id, business_id, item_id, source_breakdown_id, initial_quantity,
               quantity_remaining, buy_price_per_unit, received_at, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [batchId, auth.businessId, itemId, null, existingItem.current_stock,
-              existingItem.current_stock, buyPrice, now, now]
+            [batchId, auth.businessId, itemId, null, stockToUse,
+              stockToUse, buyPriceNum, now, now]
           );
+          console.log('Batch insert result:', insertResult, 'rowsAffected:', insertResult.rowsAffected);
         }
+      } else {
+        console.log('Buy price not provided or is invalid:', { buyPrice, buyPriceNum, undefined: buyPrice === undefined, null: buyPrice === null, isNaN: isNaN(buyPriceNum) });
       }
+    }
+
+    // Handle buy price update for ALL items (parent or not) - buy prices are stored in inventory_batches
+    // This runs after the item update, regardless of whether it's a parent item or not
+    if (buyPriceNum !== undefined && buyPriceNum !== null && !isNaN(buyPriceNum)) {
+      console.log('Updating buy price for item (parent or child):', { itemId, buyPrice: buyPriceNum, currentStock: existingItem.current_stock });
+      
+      // First, try to find the most recent batch (even if quantity_remaining = 0)
+      const existingBatch = await queryOne<{ id: string; quantity_remaining: number }>(
+        `SELECT id, quantity_remaining FROM inventory_batches 
+         WHERE item_id = ? AND business_id = ?
+         ORDER BY received_at DESC LIMIT 1`,
+        [itemId, auth.businessId]
+      );
+
+      console.log('Existing batch:', existingBatch);
+
+      if (existingBatch) {
+        // Update the most recent batch with the new buy price and update received_at to make it the most recent
+        console.log('Updating existing batch:', existingBatch.id, 'with buy price:', buyPriceNum);
+        const updateResult = await execute(
+          `UPDATE inventory_batches 
+           SET buy_price_per_unit = ?, received_at = ? 
+           WHERE id = ?`,
+          [buyPriceNum, now, existingBatch.id]
+        );
+        console.log('Batch update result:', updateResult, 'rowsAffected:', updateResult.rowsAffected);
+        
+        // Verify the update
+        const verifyBatch = await queryOne<{ buy_price_per_unit: number }>(
+          `SELECT buy_price_per_unit FROM inventory_batches WHERE id = ?`,
+          [existingBatch.id]
+        );
+        console.log('Verified batch buy price after update:', verifyBatch);
+      } else {
+        // No batch exists, create a new one
+        // Use current stock if available, otherwise use 0
+        const stockToUse = existingItem.current_stock > 0 ? existingItem.current_stock : 0;
+        const batchId = generateUUID();
+        console.log('Creating new batch:', batchId, 'with buy price:', buyPriceNum, 'stock:', stockToUse);
+        const insertResult = await execute(
+          `INSERT INTO inventory_batches (
+            id, business_id, item_id, source_breakdown_id, initial_quantity,
+            quantity_remaining, buy_price_per_unit, received_at, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [batchId, auth.businessId, itemId, null, stockToUse,
+            stockToUse, buyPriceNum, now, now]
+        );
+        console.log('Batch insert result:', insertResult, 'rowsAffected:', insertResult.rowsAffected);
+      }
+    } else {
+      console.log('Buy price not provided or is invalid (outside parent/child check):', { buyPrice, buyPriceNum, undefined: buyPrice === undefined, null: buyPrice === null, isNaN: isNaN(buyPriceNum) });
     }
 
     // Fetch and return the updated item
@@ -335,19 +439,27 @@ export async function PUT(
     }
 
     // Get the latest buy price from inventory batches
-    const latestBatch = await queryOne<{ buy_price_per_unit: number }>(
-      `SELECT buy_price_per_unit FROM inventory_batches 
+    // Order by received_at DESC, then by created_at DESC to ensure we get the most recent
+    // Also check if buyPriceNum was just set
+    const latestBatch = await queryOne<{ buy_price_per_unit: number; received_at: number }>(
+      `SELECT buy_price_per_unit, received_at FROM inventory_batches 
        WHERE item_id = ? AND business_id = ?
-       ORDER BY received_at DESC LIMIT 1`,
+       ORDER BY received_at DESC, created_at DESC LIMIT 1`,
       [itemId, auth.businessId]
     );
+
+    console.log('Latest batch buy price:', latestBatch, 'Expected:', buyPriceNum);
+    
+    // If we just set a buy price but the query doesn't return it, there might be a timing issue
+    // In that case, if buyPriceNum was provided, use it directly
+    const finalBuyPrice = latestBatch?.buy_price_per_unit ?? (buyPriceNum !== undefined ? buyPriceNum : null);
 
     return jsonResponse({
       success: true,
       message: 'Item updated successfully',
       data: {
         ...updatedItem,
-        buy_price: latestBatch?.buy_price_per_unit || null,
+        buy_price: finalBuyPrice,
       },
     });
   } catch (error) {

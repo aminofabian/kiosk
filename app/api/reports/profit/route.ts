@@ -61,8 +61,9 @@ export async function GET(request: NextRequest) {
        WHERE s.business_id = ? 
          AND s.status = 'completed'
          AND s.sale_date >= ? 
-         AND s.sale_date <= ?`,
-      [auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp]
+         AND s.sale_date <= ?
+         AND ${buyPriceFallback} > 0`,
+      [auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp, auth.businessId]
     );
 
     const totalSales = summary?.total_sales || 0;
@@ -105,10 +106,11 @@ export async function GET(request: NextRequest) {
            AND s.status = 'completed'
            AND s.sale_date >= ? 
            AND s.sale_date <= ?
+           AND ${buyPriceFallback} > 0
          GROUP BY i.id, i.name
          HAVING total_sales > 0
          ORDER BY total_profit DESC`,
-        [auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp]
+        [auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp, auth.businessId]
       );
     } else {
       // Profit by category with buy_price fallback
@@ -141,10 +143,11 @@ export async function GET(request: NextRequest) {
            AND s.status = 'completed'
            AND s.sale_date >= ? 
            AND s.sale_date <= ?
+           AND ${buyPriceFallback} > 0
          GROUP BY c.id, c.name
          HAVING total_sales > 0
          ORDER BY total_profit DESC`,
-        [auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp]
+        [auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp, auth.businessId]
       );
     }
 
