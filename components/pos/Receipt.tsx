@@ -57,29 +57,29 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
 
   return (
     <div id="receipt-to-print" className="receipt-print-container p-4 print:p-0 flex justify-center bg-gray-50 print:bg-white" style={{ color: '#000000', WebkitTextFillColor: '#000000' } as React.CSSProperties}>
-      <div className="w-full max-w-[80mm] bg-white print:max-w-none print:w-[80mm] shadow-lg print:shadow-none rounded-lg print:rounded-none overflow-hidden font-mono text-black" style={{ color: '#000000', WebkitTextFillColor: '#000000' } as React.CSSProperties}>
+      <div className="w-full max-w-[80mm] bg-white print:max-w-none print:w-[72mm] shadow-lg print:shadow-none rounded-lg print:rounded-none overflow-hidden font-mono text-black" style={{ color: '#000000', WebkitTextFillColor: '#000000' } as React.CSSProperties}>
         {/* Receipt Container */}
-        <div className="px-3 py-4 print:px-2 print:py-3 text-base print:text-[14px] leading-relaxed text-black" style={{ color: '#000000', WebkitTextFillColor: '#000000', WebkitFontSmoothing: 'none', MozOsxFontSmoothing: 'grayscale' } as React.CSSProperties}>
+        <div className="px-3 py-4 print:px-1 print:py-2 text-sm print:text-[10px] leading-tight text-black" style={{ color: '#000000', WebkitTextFillColor: '#000000', WebkitFontSmoothing: 'none', MozOsxFontSmoothing: 'grayscale' } as React.CSSProperties}>
           {/* Header (text-only, no logo for clear thermal printing) */}
-          <div className="text-center mb-3 print:mb-2 text-black" style={{ color: '#000000' }}>
-            <p className="text-xl print:text-lg font-extrabold tracking-[0.15em] mb-0.5 text-black" style={{ color: '#000000' }}>
+          <div className="text-center mb-3 print:mb-1 text-black" style={{ color: '#000000' }}>
+            <p className="text-lg print:text-[12px] font-extrabold tracking-wide mb-0.5 text-black" style={{ color: '#000000' }}>
               {sale.business_name || "FnM's"}
             </p>
-            <p className="text-sm print:text-[13px] tracking-wide mb-1 text-black" style={{ color: '#000000' }}>
+            <p className="text-xs print:text-[9px] tracking-wide mb-1 text-black" style={{ color: '#000000' }}>
               Fresh and More
             </p>
-            <p className="text-base print:text-[14px] mb-2 print:mb-1 text-black" style={{ color: '#000000' }}>
+            <p className="text-sm print:text-[10px] mb-2 print:mb-1 text-black" style={{ color: '#000000' }}>
               Thank you for your purchase!
             </p>
           </div>
 
           {/* Divider */}
-          <div className="border-t-2 border-black my-2 print:my-1"></div>
+          <div className="border-t border-black my-1 print:my-0.5"></div>
 
           {/* Receipt Info */}
-          <div className="space-y-1 mb-2 print:mb-1.5 text-base print:text-[14px] text-black" style={{ color: '#000000' }}>
+          <div className="space-y-0.5 mb-1 print:mb-1 text-sm print:text-[10px] text-black" style={{ color: '#000000' }}>
             <div className="flex justify-between" style={{ color: '#000000' }}>
-              <span className="text-black" style={{ color: '#000000' }}>Receipt #:</span>
+              <span className="text-black" style={{ color: '#000000' }}>Receipt#:</span>
               <span className="font-bold text-black" style={{ color: '#000000' }}>{sale.id.slice(0, 8).toUpperCase()}</span>
             </div>
             <div className="flex justify-between" style={{ color: '#000000' }}>
@@ -96,9 +96,9 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
             </div>
             {/* Split Payment Details */}
             {sale.payment_method === 'split' && splitPayments && splitPayments.length > 0 && (
-              <div className="mt-1 pl-2 border-l-2 border-black space-y-0.5" style={{ color: '#000000' }}>
+              <div className="mt-0.5 pl-1 border-l border-black space-y-0.5" style={{ color: '#000000' }}>
                 {splitPayments.map((payment) => (
-                  <div key={payment.id} className="flex justify-between text-sm print:text-[12px]" style={{ color: '#000000' }}>
+                  <div key={payment.id} className="flex justify-between text-xs print:text-[9px]" style={{ color: '#000000' }}>
                     <span className="uppercase text-black" style={{ color: '#000000' }}>
                       {payment.payment_method}
                       {payment.payment_method === 'credit' && payment.customer_name && (
@@ -113,55 +113,62 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
             {sale.user_name && (
               <div className="flex justify-between" style={{ color: '#000000' }}>
                 <span className="text-black" style={{ color: '#000000' }}>Served by:</span>
-                <span className="font-bold text-black" style={{ color: '#000000' }}>{sale.user_name}</span>
+                <span className="font-bold text-black truncate max-w-[50%]" style={{ color: '#000000' }}>{sale.user_name}</span>
               </div>
             )}
             {sale.customer_name && (
               <div className="flex justify-between" style={{ color: '#000000' }}>
                 <span className="text-black" style={{ color: '#000000' }}>Customer:</span>
-                <span className="text-black" style={{ color: '#000000' }}>{sale.customer_name}</span>
+                <span className="text-black truncate max-w-[50%]" style={{ color: '#000000' }}>{sale.customer_name}</span>
               </div>
             )}
           </div>
 
           {/* Divider */}
-          <div className="border-t-2 border-black my-2 print:my-1"></div>
+          <div className="border-t border-black my-1 print:my-0.5"></div>
 
           {/* Items Header */}
-          <div className="text-base print:text-[14px] font-bold mb-1 print:mb-0.5 text-black" style={{ color: '#000000' }}>
-            <div className="grid grid-cols-12" style={{ color: '#000000' }}>
-              <div className="col-span-6 text-black" style={{ color: '#000000' }}>ITEM</div>
-              <div className="col-span-2 text-right text-black" style={{ color: '#000000' }}>QTY</div>
-              <div className="col-span-2 text-right text-black" style={{ color: '#000000' }}>PRICE</div>
-              <div className="col-span-2 text-right text-black" style={{ color: '#000000' }}>TOTAL</div>
+          <div className="text-xs print:text-[9px] font-bold mb-0.5 print:mb-0 text-black" style={{ color: '#000000' }}>
+            <div className="flex justify-between" style={{ color: '#000000' }}>
+              <span className="flex-1 text-black" style={{ color: '#000000' }}>ITEM</span>
+              <span className="w-8 text-right text-black" style={{ color: '#000000' }}>QTY</span>
+              <span className="w-12 text-right text-black" style={{ color: '#000000' }}>PRICE</span>
+              <span className="w-14 text-right text-black" style={{ color: '#000000' }}>TOTAL</span>
             </div>
           </div>
 
           {/* Divider */}
-          <div className="border-t-2 border-black my-1 print:my-0.5"></div>
+          <div className="border-t border-black my-0.5 print:my-0"></div>
 
           {/* Items List */}
-          <div className="space-y-1.5 mb-2 print:mb-1.5" style={{ color: '#000000' }}>
+          <div className="space-y-0.5 mb-1 print:mb-1" style={{ color: '#000000' }}>
             {items.map((item) => {
               const itemTotal = item.quantity_sold * item.sell_price_per_unit;
+              // Truncate long item names for print
+              const truncatedName = item.item_name.length > 18 
+                ? item.item_name.substring(0, 16) + '..' 
+                : item.item_name;
               return (
-                <div key={item.id} className="text-base print:text-[14px] text-black" style={{ color: '#000000' }}>
-                  <div className="grid grid-cols-12" style={{ color: '#000000' }}>
-                    <div className="col-span-6 leading-relaxed text-black" style={{ color: '#000000' }}>
+                <div key={item.id} className="text-xs print:text-[9px] text-black" style={{ color: '#000000' }}>
+                  <div className="flex justify-between" style={{ color: '#000000' }}>
+                    <span className="flex-1 leading-tight text-black print:hidden" style={{ color: '#000000' }}>
                       {item.item_name}
-                    </div>
-                    <div className="col-span-2 text-right text-black" style={{ color: '#000000' }}>
+                    </span>
+                    <span className="flex-1 leading-tight text-black hidden print:inline" style={{ color: '#000000' }}>
+                      {truncatedName}
+                    </span>
+                    <span className="w-8 text-right text-black" style={{ color: '#000000' }}>
                       {item.quantity_sold}
-                    </div>
-                    <div className="col-span-2 text-right text-black" style={{ color: '#000000' }}>
+                    </span>
+                    <span className="w-12 text-right text-black" style={{ color: '#000000' }}>
                       {formatPrice(item.sell_price_per_unit)}
-                    </div>
-                    <div className="col-span-2 text-right font-bold text-black" style={{ color: '#000000' }}>
+                    </span>
+                    <span className="w-14 text-right font-bold text-black" style={{ color: '#000000' }}>
                       {formatPrice(itemTotal)}
-                    </div>
+                    </span>
                   </div>
                   {item.item_unit_type && (
-                    <div className="text-sm print:text-[12px] ml-0 mt-0.5 text-black" style={{ color: '#000000' }}>
+                    <div className="text-[10px] print:text-[8px] ml-0 text-black" style={{ color: '#000000' }}>
                       @ {formatPrice(item.sell_price_per_unit)}/{item.item_unit_type}
                     </div>
                   )}
@@ -171,46 +178,42 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
           </div>
 
           {/* Divider */}
-          <div className="border-t-2 border-black my-2 print:my-1"></div>
+          <div className="border-t border-black my-1 print:my-0.5"></div>
 
           {/* Totals */}
-          <div className="space-y-1.5 mb-2 print:mb-1.5" style={{ color: '#000000' }}>
-            <div className="flex justify-between text-base print:text-[14px] text-black" style={{ color: '#000000' }}>
+          <div className="space-y-0.5 mb-1 print:mb-1" style={{ color: '#000000' }}>
+            <div className="flex justify-between text-sm print:text-[10px] text-black" style={{ color: '#000000' }}>
               <span className="text-black" style={{ color: '#000000' }}>SUBTOTAL:</span>
               <span className="font-bold text-black" style={{ color: '#000000' }}>KES {formatPrice(subtotal)}</span>
             </div>
-            <div className="flex justify-between text-lg print:text-base border-t-2 border-black pt-1.5 print:pt-1 mt-1.5 print:mt-1" style={{ color: '#000000' }}>
+            <div className="flex justify-between text-base print:text-[11px] border-t border-black pt-1 print:pt-0.5 mt-1 print:mt-0.5" style={{ color: '#000000' }}>
               <span className="font-bold uppercase text-black" style={{ color: '#000000' }}>TOTAL:</span>
               <span className="font-bold text-black" style={{ color: '#000000' }}>KES {formatPrice(sale.total_amount)}</span>
             </div>
           </div>
 
           {/* Divider */}
-          <div className="border-t-2 border-black my-2 print:my-1"></div>
+          <div className="border-t border-black my-1 print:my-0.5"></div>
 
           {/* Footer */}
-          <div className="text-center space-y-1 text-base print:text-[14px] text-black" style={{ color: '#000000' }}>
-            <p className="font-bold mb-1 print:mb-0.5 text-black" style={{ color: '#000000' }}>Thank you for shopping with us!</p>
+          <div className="text-center space-y-0.5 text-xs print:text-[9px] text-black" style={{ color: '#000000' }}>
+            <p className="font-bold mb-0.5 print:mb-0 text-black" style={{ color: '#000000' }}>Thank you for shopping!</p>
             
             {/* Contact Information */}
-            <div className="space-y-1 mt-2 print:mt-1.5 pt-2 print:pt-1 border-t-2 border-black text-black" style={{ color: '#000000' }}>
+            <div className="space-y-0 mt-1 print:mt-0.5 pt-1 print:pt-0.5 border-t border-black text-black" style={{ color: '#000000' }}>
               <p className="font-bold text-black" style={{ color: '#000000' }}>Get in Touch</p>
               <p className="text-black" style={{ color: '#000000' }}>www.fnms.co.ke</p>
               <p className="text-black" style={{ color: '#000000' }}>Tel: 0721 530 181</p>
-              <p className="text-black" style={{ color: '#000000' }}>Email: support@fnms.co.ke</p>
             </div>
 
             {/* Additional Info */}
-            <div className="mt-2 print:mt-1.5 space-y-1 text-black" style={{ color: '#000000' }}>
-              <p className="text-sm print:text-[13px] text-black" style={{ color: '#000000' }}>
-                Quality Products • Best Prices • Great Service
-              </p>
-              <p className="font-bold text-black" style={{ color: '#000000' }}>
-                We appreciate your business!
+            <div className="mt-1 print:mt-0.5 space-y-0 text-black" style={{ color: '#000000' }}>
+              <p className="text-[10px] print:text-[8px] text-black" style={{ color: '#000000' }}>
+                Quality • Value • Service
               </p>
             </div>
 
-            <p className="mt-2 print:mt-1.5 text-sm print:text-[13px] text-black" style={{ color: '#000000' }}>
+            <p className="mt-1 print:mt-0.5 text-[10px] print:text-[8px] text-black" style={{ color: '#000000' }}>
               {formatDate(sale.sale_date)}
             </p>
           </div>

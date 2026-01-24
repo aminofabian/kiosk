@@ -240,8 +240,8 @@
 @media print {
   /* Page settings for thermal receipt - optimized for direct printer output */
   @page {
-    size: 80mm auto;
-    margin: 0;
+    size: 72mm auto;
+    margin: 0mm 2mm;
     /* Ensure printer-friendly settings */
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -256,9 +256,11 @@
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
-    width: 80mm !important;
+    width: 72mm !important;
+    max-width: 72mm !important;
     height: auto !important;
     overflow: visible !important;
+    font-size: 10px !important;
   }
   
   /* Show receipt and all its parents - force visibility */
@@ -279,14 +281,15 @@
     position: relative !important;
     left: 0 !important;
     top: 0 !important;
-    width: 80mm !important;
-    max-width: 80mm !important;
-    margin: 0 auto !important;
+    width: 72mm !important;
+    max-width: 72mm !important;
+    margin: 0 !important;
     padding: 0 !important;
     background: white !important;
     page-break-inside: avoid !important;
     page-break-after: avoid !important;
     page-break-before: avoid !important;
+    overflow: hidden !important;
   }
   
   /* Keep layout properties for receipt content */
@@ -296,6 +299,21 @@
   
   #receipt-to-print .flex {
     display: flex !important;
+  }
+  
+  /* Prevent text overflow */
+  #receipt-to-print span,
+  #receipt-to-print p,
+  #receipt-to-print div {
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+  
+  /* Allow wrapping for item names on their own line */
+  #receipt-to-print .flex-1 {
+    white-space: normal !important;
+    word-break: break-word !important;
   }
   
   /* Hide UI elements that shouldn't print, but keep receipt parents visible */
