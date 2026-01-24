@@ -232,7 +232,7 @@ export default async function HomePage() {
               {user ? (
                 <>
                   <Link href="/admin">
-                    <Button variant="outline" size="sm" className="gap-2">
+                    <Button variant="outline" size="sm" className="gap-2 border-emerald-600 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700">
                       <BarChart3 className="w-4 h-4" />
                       Dashboard
                     </Button>

@@ -552,7 +552,7 @@ export function ItemGrid({
                           
                           {/* Price and Bundle Info */}
                           <div className="space-y-2">
-                            <div className="text-lg sm:text-xl font-bold bg-gradient-to-r from-[#259783] to-[#3bd522] bg-clip-text text-transparent">
+                            <div className="text-lg sm:text-xl font-bold text-[#259783]" style={{ background: 'linear-gradient(to right, #259783, #3bd522)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                               {formatPrice(item.current_sell_price)}
                             </div>
                             {/* Bundle Pricing Badge */}
@@ -624,7 +624,7 @@ export function ItemGrid({
                     
                     {/* Price and Bundle Info */}
                     <div className="space-y-2">
-                      <div className="text-lg sm:text-xl font-bold bg-gradient-to-r from-[#259783] to-[#3bd522] bg-clip-text text-transparent">
+                      <div className="text-lg sm:text-xl font-bold text-[#259783]" style={{ background: 'linear-gradient(to right, #259783, #3bd522)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
                         {formatPrice(group.item.current_sell_price)}
                       </div>
                     {/* Bundle Pricing Badge */}
