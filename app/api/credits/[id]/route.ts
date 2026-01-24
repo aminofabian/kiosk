@@ -11,7 +11,6 @@ interface SaleItemWithDetails extends SaleItem {
 
 interface CreditTransactionWithDetails extends CreditTransaction {
   user_name?: string;
-  sale_id?: string;
   sale_date?: number;
   items?: SaleItemWithDetails[];
 }
