@@ -298,14 +298,14 @@ export function CreditList() {
                       <div className="flex items-center justify-center py-8">
                         <Loader2 className="w-6 h-6 text-[#259783] animate-spin" />
                       </div>
-                    ) : transactions.filter(t => t.type === 'credit' && t.items && t.items.length > 0).length === 0 ? (
+                    ) : transactions.filter(t => t.type === 'debt' && t.items && t.items.length > 0).length === 0 ? (
                       <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
                         No item details available
                       </p>
                     ) : (
                       <div className="space-y-4">
                         {transactions
-                          .filter(t => t.type === 'credit' && t.items && t.items.length > 0)
+                          .filter(t => t.type === 'debt' && t.items && t.items.length > 0)
                           .map((transaction) => (
                             <div key={transaction.id} className="border border-slate-100 dark:border-slate-800 rounded-lg p-3">
                               <div className="flex items-center justify-between mb-2">
