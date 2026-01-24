@@ -844,7 +844,7 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                       <Button
                         type="submit"
                         disabled={isSubmitting}
-                        className="flex-1 h-12 bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#259783]/90 hover:to-[#3bd522]/90 text-white font-bold shadow-lg shadow-[#259783]/30 disabled:opacity-50"
+                        className="flex-1 h-12 bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#259783]/90 hover:to-[#3bd522]/90 text-white font-bold shadow-lg shadow-[#259783]/30 disabled:opacity-50"
                       >
                         {isSubmitting ? (
                           <>

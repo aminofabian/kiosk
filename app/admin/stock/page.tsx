@@ -72,7 +72,7 @@ export default function StockPage() {
                 <Button
                   onClick={() => setAddStockDrawerOpen(true)}
                   size="sm"
-                  className="h-9 px-3 bg-gradient-to-r from-[#259783] to-[#45d827] hover:from-[#45d827] hover:to-[#259783] text-white shadow-md shadow-[#259783]/20"
+                  className="h-9 px-3 bg-[#259783] bg-gradient-to-r from-[#259783] to-[#45d827] hover:from-[#45d827] hover:to-[#259783] text-white shadow-md shadow-[#259783]/20"
                 >
                   <Plus className="w-4 h-4 mr-1.5" />
                   Add Stock

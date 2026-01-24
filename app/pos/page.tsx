@@ -1167,7 +1167,7 @@ export default function POSPage() {
                   {isOwnerOrAdmin && (
                     <Link
                       href="/admin"
-                      className="flex items-center justify-center gap-1.5 px-3 h-11 rounded-2xl bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] active:scale-95 transition-all shadow-lg shadow-[#259783]/30 hover:shadow-[#3bd522]/40 text-white font-bold text-xs relative overflow-hidden group"
+                      className="flex items-center justify-center gap-1.5 px-3 h-11 rounded-2xl bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] active:scale-95 transition-all shadow-lg shadow-[#259783]/30 hover:shadow-[#3bd522]/40 text-white font-bold text-xs relative overflow-hidden group"
                       aria-label="Admin"
                     >
                       <div className="absolute inset-0 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300" />
@@ -1382,7 +1382,7 @@ export default function POSPage() {
                   {canAccessAdmin && (
                     <Link
                       href="/admin"
-                      className="flex items-center justify-center gap-1.5 px-3 h-11 rounded-2xl bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] active:scale-95 transition-all shadow-lg shadow-[#259783]/30 hover:shadow-[#3bd522]/40 text-white font-bold text-xs relative overflow-hidden group"
+                      className="flex items-center justify-center gap-1.5 px-3 h-11 rounded-2xl bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] active:scale-95 transition-all shadow-lg shadow-[#259783]/30 hover:shadow-[#3bd522]/40 text-white font-bold text-xs relative overflow-hidden group"
                       aria-label="Admin"
                     >
                       <div className="absolute inset-0 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300" />
@@ -1441,7 +1441,7 @@ export default function POSPage() {
                               <div className="w-full border-t border-[#259783]/20 dark:border-[#259783]/30"></div>
                             </div>
                             <div className="relative flex justify-center">
-                              <div className="px-5 py-2.5 bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-full shadow-lg shadow-[#259783]/30 border-2 border-white dark:border-[#132210]">
+                              <div className="px-5 py-2.5 bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-full shadow-lg shadow-[#259783]/30 border-2 border-white dark:border-[#132210]">
                                 <h2 className="text-sm font-extrabold text-white uppercase tracking-wider whitespace-nowrap drop-shadow-sm">
                                   {group.parent.name}
                                 </h2>
@@ -1483,7 +1483,7 @@ export default function POSPage() {
                                   </h3>
                                   <div className="space-y-2">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="bg-gradient-to-r from-[#259783] to-[#3bd522] text-white font-bold text-sm px-3 py-1.5 rounded-lg shadow-md">
+                                      <span className="bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] text-white font-bold text-sm px-3 py-1.5 rounded-lg shadow-md">
                                         {formatPrice(item.current_sell_price)}
                                       </span>
                                       <span className="text-xs text-white/70 font-medium">
@@ -1540,7 +1540,7 @@ export default function POSPage() {
                             </h3>
                             <div className="space-y-2">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="bg-gradient-to-r from-[#259783] to-[#3bd522] text-white font-bold text-sm px-3 py-1.5 rounded-lg shadow-md">
+                                <span className="bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] text-white font-bold text-sm px-3 py-1.5 rounded-lg shadow-md">
                                   {formatPrice(group.item.current_sell_price)}
                                 </span>
                                 <span className="text-xs text-white/70 font-medium">
@@ -1738,7 +1738,7 @@ export default function POSPage() {
                       <Link href="/admin">
                         <Button
                           size="sm"
-                          className="hidden sm:flex items-center gap-2 h-9 px-3 bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] text-white font-semibold shadow-lg shadow-[#259783]/30 hover:shadow-[#3bd522]/40 transition-all relative overflow-hidden group rounded-xl"
+                          className="hidden sm:flex items-center gap-2 h-9 px-3 bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#3bd522] hover:to-[#259783] text-white font-semibold shadow-lg shadow-[#259783]/30 hover:shadow-[#3bd522]/40 transition-all relative overflow-hidden group rounded-xl"
                         >
                           <div className="absolute inset-0 bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300" />
                           <Settings className="w-4 h-4 relative z-10" />
@@ -2028,7 +2028,7 @@ export default function POSPage() {
                             <div className="w-full border-t border-[#259783]/20 dark:border-[#259783]/30"></div>
                           </div>
                           <div className="relative flex justify-center">
-                            <div className="px-6 py-3 bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-full shadow-lg shadow-[#259783]/30 border-2 border-white dark:border-slate-900">
+                            <div className="px-6 py-3 bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-full shadow-lg shadow-[#259783]/30 border-2 border-white dark:border-slate-900">
                               <h2 className="text-base font-extrabold text-white uppercase tracking-wider whitespace-nowrap drop-shadow-sm">
                                 {group.parent.name}
                               </h2>
@@ -2073,7 +2073,7 @@ export default function POSPage() {
                                 </h3>
                                 <div className="space-y-2">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="bg-gradient-to-r from-[#259783] to-[#3bd522] text-white font-bold text-sm px-3 py-1.5 rounded-lg shadow-md">
+                                    <span className="bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] text-white font-bold text-sm px-3 py-1.5 rounded-lg shadow-md">
                                       KES {item.current_sell_price.toFixed(0)}
                                     </span>
                                     <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
@@ -2132,7 +2132,7 @@ export default function POSPage() {
                           </h3>
                           <div className="space-y-2">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="bg-gradient-to-r from-[#259783] to-[#3bd522] text-white font-bold text-sm px-3 py-1.5 rounded-lg shadow-md">
+                              <span className="bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] text-white font-bold text-sm px-3 py-1.5 rounded-lg shadow-md">
                                 KES {group.item.current_sell_price.toFixed(0)}
                               </span>
                               <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">

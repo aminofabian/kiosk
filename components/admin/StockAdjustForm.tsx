@@ -583,7 +583,7 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
                   <Button
                     type="submit"
                     disabled={isSubmitting || willGoNegative}
-                    className="flex-1 h-11 bg-gradient-to-r from-[#259783] to-[#45d827] hover:from-[#45d827] hover:to-[#259783] text-white shadow-md shadow-[#259783]/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 h-11 bg-[#259783] bg-gradient-to-r from-[#259783] to-[#45d827] hover:from-[#45d827] hover:to-[#259783] text-white shadow-md shadow-[#259783]/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? (
                       <>

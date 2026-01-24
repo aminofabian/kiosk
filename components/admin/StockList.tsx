@@ -384,7 +384,7 @@ export function StockList() {
             onClick={() => setStockStatus('all')}
             className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 overflow-hidden ${
               stockStatus === 'all'
-                ? 'bg-gradient-to-r from-[#259783] via-[#259783]/95 to-[#45d827] text-white shadow-lg shadow-[#259783]/25 border border-white/20'
+                ? 'bg-[#259783] bg-gradient-to-r from-[#259783] via-[#259783]/95 to-[#45d827] text-white shadow-lg shadow-[#259783]/25 border border-white/20'
                 : 'bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-[#259783]/40 hover:bg-slate-50 dark:hover:bg-slate-800'
             }`}
           >
@@ -403,7 +403,7 @@ export function StockList() {
             onClick={() => setStockStatus('in_stock')}
             className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 overflow-hidden ${
               stockStatus === 'in_stock'
-                ? 'bg-gradient-to-r from-[#259783] via-[#259783]/95 to-[#45d827] text-white shadow-lg shadow-[#259783]/25 border border-white/20'
+                ? 'bg-[#259783] bg-gradient-to-r from-[#259783] via-[#259783]/95 to-[#45d827] text-white shadow-lg shadow-[#259783]/25 border border-white/20'
                 : 'bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-[#259783] hover:border-[#259783]/40 hover:bg-[#259783]/5'
             }`}
           >
@@ -665,7 +665,7 @@ export function StockList() {
                         <td className="p-4 text-center">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold shadow-sm ${
                             isStable
-                              ? 'bg-gradient-to-r from-[#259783] to-[#45d827] text-white'
+                              ? 'bg-[#259783] bg-gradient-to-r from-[#259783] to-[#45d827] text-white'
                               : `${trendConfig.bg} ${trendConfig.color}`
                           }`}>
                             <TrendIcon className="w-3 h-3" />
