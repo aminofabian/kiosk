@@ -420,16 +420,15 @@ export function BalanceApprovals() {
                               </div>
                             </div>
 
-                            {/* Expenses List */}
-                            {shiftSummaries[request.id]?.expensesList && 
-                             shiftSummaries[request.id].expensesList.length > 0 && (
+                           {/* Expenses List */}
+                           {(shiftSummaries[request.id]?.expensesList?.length ?? 0) > 0 && (
                               <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800">
                                 <p className="text-sm font-semibold text-red-900 dark:text-red-100 mb-3 flex items-center gap-2">
                                   <TrendingDown className="w-4 h-4" />
-                                  Expenses Generated During This Shift ({shiftSummaries[request.id].expensesList.length})
+                                  Expenses Generated During This Shift ({shiftSummaries[request.id]?.expensesList?.length})
                                 </p>
                                 <div className="space-y-2">
-                                  {shiftSummaries[request.id].expensesList.map((expense) => (
+                                  {shiftSummaries[request.id]?.expensesList?.map((expense) => (
                                     <div
                                       key={expense.id}
                                       className="flex justify-between items-start p-2 bg-white dark:bg-slate-800 rounded border border-red-200 dark:border-red-800"
