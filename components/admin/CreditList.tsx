@@ -11,11 +11,23 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from '@/components/ui/drawer';
-import { ArrowRight, User, Loader2, CreditCard, CheckCircle, DollarSign, X } from 'lucide-react';
-import type { CreditAccount } from '@/lib/db/types';
+import { ArrowRight, User, Loader2, CreditCard, CheckCircle, DollarSign, X, ShoppingBag, Package } from 'lucide-react';
+import type { CreditAccount, CreditTransaction, SaleItem } from '@/lib/db/types';
 import { SearchFilterSection } from './SearchFilterSection';
 import { PaymentForm } from './PaymentForm';
 import { apiGet } from '@/lib/utils/api-client';
+
+interface SaleItemWithDetails extends SaleItem {
+  item_name: string;
+  item_unit_type: string;
+}
+
+interface CreditTransactionWithDetails extends CreditTransaction {
+  user_name?: string;
+  sale_id?: string;
+  sale_date?: number;
+  items?: SaleItemWithDetails[];
+}
 
 export function CreditList() {
   const [accounts, setAccounts] = useState<CreditAccount[]>([]);
@@ -25,6 +37,8 @@ export function CreditList() {
   const [sortBy, setSortBy] = useState<'name' | 'amount' | 'date'>('amount');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<CreditAccount | null>(null);
+  const [transactions, setTransactions] = useState<CreditTransactionWithDetails[]>([]);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
   useEffect(() => {
     async function fetchCredits() {
@@ -62,9 +76,24 @@ export function CreditList() {
     });
   };
 
-  const handleOpenPaymentDrawer = (account: CreditAccount) => {
+  const handleOpenPaymentDrawer = async (account: CreditAccount) => {
     setSelectedAccount(account);
     setDrawerOpen(true);
+    setLoadingDetails(true);
+    setTransactions([]);
+
+    try {
+      const result = await apiGet<{ account: CreditAccount; transactions: CreditTransactionWithDetails[] }>(
+        `/api/credits/${account.id}`
+      );
+      if (result.success && result.data?.transactions) {
+        setTransactions(result.data.transactions);
+      }
+    } catch (err) {
+      console.error('Error fetching credit details:', err);
+    } finally {
+      setLoadingDetails(false);
+    }
   };
 
   const handlePaymentSuccess = async () => {
@@ -256,7 +285,71 @@ export function CreditList() {
           </DrawerHeader>
           <div className="overflow-y-auto p-6 flex-1 bg-white dark:bg-[#0f1a0d]">
             {selectedAccount && (
-              <PaymentForm account={selectedAccount} onSuccess={handlePaymentSuccess} />
+              <div className="space-y-6">
+                {/* Items Purchased Section */}
+                <Card className="border border-slate-200 dark:border-slate-800">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 mb-4">
+                      <ShoppingBag className="w-5 h-5 text-[#259783]" />
+                      <h3 className="font-bold text-slate-900 dark:text-white">Items Purchased on Credit</h3>
+                    </div>
+                    
+                    {loadingDetails ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="w-6 h-6 text-[#259783] animate-spin" />
+                      </div>
+                    ) : transactions.filter(t => t.type === 'credit' && t.items && t.items.length > 0).length === 0 ? (
+                      <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
+                        No item details available
+                      </p>
+                    ) : (
+                      <div className="space-y-4">
+                        {transactions
+                          .filter(t => t.type === 'credit' && t.items && t.items.length > 0)
+                          .map((transaction) => (
+                            <div key={transaction.id} className="border border-slate-100 dark:border-slate-800 rounded-lg p-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                                  {transaction.sale_date
+                                    ? new Date(transaction.sale_date * 1000).toLocaleDateString('en-KE', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric',
+                                      })
+                                    : formatDate(transaction.created_at)}
+                                </span>
+                                <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 border-amber-200 dark:border-amber-800">
+                                  {formatPrice(transaction.amount)}
+                                </Badge>
+                              </div>
+                              <div className="space-y-1.5">
+                                {transaction.items?.map((item) => (
+                                  <div key={item.id} className="flex items-center justify-between text-sm">
+                                    <div className="flex items-center gap-2">
+                                      <Package className="w-3.5 h-3.5 text-slate-400" />
+                                      <span className="text-slate-700 dark:text-slate-300">{item.item_name}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                                      <span>
+                                        {item.quantity_sold} {item.item_unit_type === 'kg' ? 'kg' : item.quantity_sold === 1 ? 'pc' : 'pcs'}
+                                      </span>
+                                      <span className="font-medium text-slate-700 dark:text-slate-300">
+                                        {formatPrice(item.sell_price_per_unit * item.quantity_sold)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Payment Form */}
+                <PaymentForm account={selectedAccount} onSuccess={handlePaymentSuccess} />
+              </div>
             )}
           </div>
         </DrawerContent>
