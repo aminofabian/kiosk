@@ -1,12 +1,13 @@
 'use client';
 
-import { useCartStore } from '@/lib/stores/cart-store';
+import { useCartItems, useCartTotal } from '@/lib/stores/cart-store';
 import { Badge } from '@/components/ui/badge';
 import { ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 
 export function CartBadge() {
-  const { items, total } = useCartStore();
+  const items = useCartItems();
+  const total = useCartTotal();
 
   if (items.length === 0) {
     return null;

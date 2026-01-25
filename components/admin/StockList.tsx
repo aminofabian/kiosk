@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Loader2, Package, AlertTriangle, TrendingUp, TrendingDown, Minus, Sparkles, Search, ChevronDown, CheckCircle2, XCircle } from 'lucide-react';
+import { Loader2, Package, AlertTriangle, TrendingUp, TrendingDown, Minus, Sparkles, Search, ChevronDown, CheckCircle2, XCircle, X } from 'lucide-react';
 import type { Item, Category } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
 
@@ -235,6 +235,26 @@ export function StockList() {
         </div>
       </div>
 
+      {/* Mobile: Search Bar */}
+      <div className="md:hidden relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Input
+          type="text"
+          placeholder="Search items..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-9 pr-9 py-2.5 text-sm border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+          >
+            <X className="w-4 h-4 text-slate-400" />
+          </button>
+        )}
+      </div>
+
       {/* Mobile: Summary Stats Cards */}
       <div className="md:hidden grid grid-cols-4 gap-2">
         <button
@@ -378,6 +398,36 @@ export function StockList() {
 
       {/* Desktop: Original Filters */}
       <div className="hidden md:block space-y-3">
+        {/* Desktop Search & Stock Status */}
+        <div className="flex items-center gap-3">
+          {/* Search Bar */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input
+              type="text"
+              placeholder="Search items..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-9 h-10 text-sm border-2 border-slate-200 dark:border-slate-700"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+              >
+                <X className="w-4 h-4 text-slate-400 hover:text-slate-600" />
+              </button>
+            )}
+          </div>
+          
+          {/* Filtered count */}
+          {searchQuery && (
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              {filteredItems.length} of {items.length} items
+            </span>
+          )}
+        </div>
+        
         {/* Desktop Stock Status */}
         <div className="flex gap-2">
           <button

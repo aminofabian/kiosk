@@ -46,7 +46,7 @@ export function AddToCartDialog({
       if (existingItem) {
         setQuantity(existingItem.quantity);
       } else {
-        setQuantity(item.unit_type === 'kg' || item.unit_type === 'g' ? 0.5 : 1);
+        setQuantity(1);
       }
     }
   }, [open, item, cartItems]);
@@ -185,7 +185,7 @@ export function AddToCartDialog({
 
   const handleQuantityBlur = () => {
     if (quantity <= 0) {
-      setQuantity(isWeight ? 0.5 : 1);
+      setQuantity(1);
     }
   };
 

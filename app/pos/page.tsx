@@ -184,8 +184,20 @@ export default function POSPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const printedReceiptIdRef = useRef<string | null>(null);
-  const { items: cartItems, clearCart } = useCartStore();
+  const { clearCart, carts, activeCartId, switchCart } = useCartStore();
   const { user } = useCurrentUser();
+  
+  // Auto-select first cart if none is active
+  useEffect(() => {
+    if (!activeCartId && carts.length > 0) {
+      switchCart(carts[0].id);
+    }
+  }, [activeCartId, carts, switchCart]);
+  
+  // Calculate total items across all carts
+  const totalCartsWithItems = carts.filter(c => c.items.length > 0).length;
+  const activeCart = carts.find(c => c.id === activeCartId) || carts[0];
+  const cartItems = activeCart?.items || [];
   const isOwnerOrAdmin = user?.role === 'owner' || user?.role === 'admin';
   const canAccessAdmin = isOwnerOrAdmin || user?.role === 'cashier';
   
@@ -1589,15 +1601,21 @@ export default function POSPage() {
               </button>
             )}
             <div className="flex items-center gap-3">
-              <div className="bg-black/10 w-[56px] h-[56px] rounded-full flex items-center justify-center group-hover:bg-black/20 transition-colors">
+              <div className="relative bg-black/10 w-[56px] h-[56px] rounded-full flex items-center justify-center group-hover:bg-black/20 transition-colors">
                 <ShoppingCart className="w-7 h-7 text-white" style={{ color: '#ffffff' }} />
+                {carts.length > 1 && (
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-amber-400 text-amber-900 text-xs font-bold rounded-full flex items-center justify-center shadow-md">
+                    {carts.length}
+                  </span>
+                )}
               </div>
               <div className="flex flex-col items-start">
                 <span className="text-white font-bold text-lg leading-none" style={{ color: '#ffffff' }}>
-                  Checkout
+                  {activeCart?.name || 'Checkout'}
                 </span>
                 <span className="text-white/90 font-medium text-sm leading-tight mt-1" style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
                   {cartItemCount} {cartItemCount === 1 ? 'item' : 'items'}
+                  {carts.length > 1 && ` • ${carts.length} carts`}
                 </span>
               </div>
             </div>
@@ -1775,28 +1793,32 @@ export default function POSPage() {
                       variant="outline"
                       size="touch"
                       onClick={() => setCartDrawerOpen(true)}
-                      className="relative h-12 px-4 bg-gradient-to-br from-white to-gray-50 dark:from-slate-800 dark:to-slate-900 hover:from-[#259783]/10 hover:to-[#3bd522]/10 dark:hover:from-[#259783]/20 dark:hover:to-[#3bd522]/20 border-2 border-gray-200/80 dark:border-gray-700/80 hover:border-[#259783] transition-all shadow-lg hover:shadow-xl hover:scale-105 rounded-2xl group"
+                      className="relative h-12 px-3 bg-gradient-to-br from-white to-gray-50 dark:from-slate-800 dark:to-slate-900 hover:from-[#259783]/10 hover:to-[#3bd522]/10 dark:hover:from-[#259783]/20 dark:hover:to-[#3bd522]/20 border-2 border-gray-200/80 dark:border-gray-700/80 hover:border-[#259783] transition-all shadow-lg hover:shadow-xl hover:scale-105 rounded-2xl group"
                     >
-                      <div className="flex items-center gap-2.5">
-                        <div className="relative">
-                          <ShoppingCart className="w-5 h-5 text-[#259783] group-hover:scale-110 transition-transform" />
-                          {cartItemCount > 0 && (
-                            <Badge
-                              variant="destructive"
-                              className="absolute -top-2.5 -right-2.5 h-5 w-5 flex items-center justify-center p-0 text-xs font-bold animate-pulse shadow-lg"
-                            >
-                              {cartItemCount}
-                            </Badge>
-                          )}
-                        </div>
-                        <span className="hidden sm:inline font-semibold text-gray-700 dark:text-gray-200">Cart</span>
+                      <div className="relative">
+                        <ShoppingCart className="w-5 h-5 text-[#259783] group-hover:scale-110 transition-transform" />
                         {cartItemCount > 0 && (
-                          <span className="hidden md:inline ml-1 font-bold text-[#259783] text-sm">
-                            KES {cartTotal.toFixed(0)}
-                          </span>
+                          <Badge
+                            variant="destructive"
+                            className="absolute -top-2.5 -right-2.5 h-5 w-5 flex items-center justify-center p-0 text-xs font-bold animate-pulse shadow-lg"
+                          >
+                            {cartItemCount}
+                          </Badge>
+                        )}
+                        {carts.length > 1 && (
+                          <Badge
+                            className="absolute -bottom-2 -right-2 h-4 w-4 flex items-center justify-center p-0 text-[10px] font-bold bg-amber-400 text-amber-900 hover:bg-amber-500"
+                          >
+                            {carts.length}
+                          </Badge>
                         )}
                       </div>
                     </Button>
+                    {cartItemCount > 0 && (
+                      <span className="font-bold text-[#259783] text-base whitespace-nowrap">
+                        KES {cartTotal.toLocaleString()}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2167,15 +2189,23 @@ export default function POSPage() {
           <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
             <div className="flex items-center justify-between pr-8">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm flex-shrink-0">
+                <div className="relative w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm flex-shrink-0">
                   <ShoppingCart className="w-5 h-5 text-white" />
+                  {carts.length > 1 && (
+                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-400 text-amber-900 text-xs font-bold rounded-full flex items-center justify-center shadow-md">
+                      {carts.length}
+                    </span>
+                  )}
                 </div>
                 <div>
                   <DrawerTitle className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                    Shopping Cart
+                    {carts.length > 1 ? 'Shopping Carts' : 'Shopping Cart'}
                   </DrawerTitle>
                   <DrawerDescription className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                    {cartItemCount} {cartItemCount === 1 ? 'item' : 'items'} • KES {cartTotal.toFixed(0)}
+                    {carts.length > 1 
+                      ? `${carts.length} carts • ${activeCart?.name}: ${cartItemCount} items`
+                      : `${cartItemCount} ${cartItemCount === 1 ? 'item' : 'items'} • KES ${cartTotal.toFixed(0)}`
+                    }
                   </DrawerDescription>
                 </div>
               </div>

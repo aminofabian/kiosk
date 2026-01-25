@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCartStore } from '@/lib/stores/cart-store';
+import { useCartStore, useCartItems, useCartTotal } from '@/lib/stores/cart-store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,7 +40,9 @@ interface CheckoutFormProps {
 
 export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete }: CheckoutFormProps = {}) {
   const router = useRouter();
-  const { items, total, clearCart } = useCartStore();
+  const { clearCart } = useCartStore();
+  const items = useCartItems();
+  const total = useCartTotal();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [cashReceived, setCashReceived] = useState<string>('');
   const [customerName, setCustomerName] = useState<string>('');
