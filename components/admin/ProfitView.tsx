@@ -23,6 +23,7 @@ import {
   XCircle,
   ChevronRight,
   Trash2,
+  Search,
 } from 'lucide-react';
 import { ProfitCalendar } from './ProfitCalendar';
 import { apiPut, apiGet } from '@/lib/utils/api-client';
@@ -91,6 +92,7 @@ export function ProfitView() {
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editBuyPrice, setEditBuyPrice] = useState<string>('');
   const [updatingPrice, setUpdatingPrice] = useState<string | null>(null);
+  const [itemSearch, setItemSearch] = useState<string>('');
 
   useEffect(() => {
     updateDateRangeFromPreset(datePreset);
@@ -624,14 +626,26 @@ export function ProfitView() {
       {/* All Items Table */}
       <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
         <div className="p-4 border-b-2 border-slate-200 dark:border-slate-700">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <Package className="w-4 h-4 text-[#259783]" />
               <h3 className="font-black text-sm text-slate-900 dark:text-white">All Items</h3>
+              <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-xs">
+                {profitData.itemProfits.filter(item => 
+                  item.item_name.toLowerCase().includes(itemSearch.toLowerCase())
+                ).length} of {profitData.itemProfits.length} items
+              </Badge>
             </div>
-            <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-xs">
-              {profitData.itemProfits.length} items
-            </Badge>
+            <div className="relative flex-1 max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="Search items..."
+                value={itemSearch}
+                onChange={(e) => setItemSearch(e.target.value)}
+                className="pl-9 h-9 text-sm border-slate-200 dark:border-slate-700"
+              />
+            </div>
           </div>
         </div>
         {profitData.itemProfits.length === 0 ? (
@@ -654,7 +668,10 @@ export function ProfitView() {
                 </tr>
               </thead>
               <tbody>
-                {profitData.itemProfits.sort((a, b) => b.total_profit - a.total_profit).map((item) => {
+                {profitData.itemProfits
+                  .filter(item => item.item_name.toLowerCase().includes(itemSearch.toLowerCase()))
+                  .sort((a, b) => b.total_profit - a.total_profit)
+                  .map((item) => {
                   const margin = item.total_sales > 0 ? item.total_profit / item.total_sales : 0;
                   const isPositive = item.total_profit >= 0;
                   const avgBuy = item.quantity_sold > 0 ? item.total_cost / item.quantity_sold : 0;

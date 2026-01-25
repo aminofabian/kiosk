@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, WifiOff, TrendingUp, TrendingDown, AlertTriangle, Download, ShoppingBag, Receipt, PieChart, Package, Target, CheckCircle2, XCircle, ChevronRight, Trash2 } from 'lucide-react';
+import { ArrowLeft, WifiOff, TrendingUp, TrendingDown, AlertTriangle, Download, ShoppingBag, Receipt, PieChart, Package, Target, CheckCircle2, XCircle, ChevronRight, Trash2, Search, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ProfitCalendar } from './ProfitCalendar';
@@ -60,6 +60,7 @@ export function ProfitViewMobile() {
     return { start: today, end: today };
   });
   const [isOffline, setIsOffline] = useState(false);
+  const [itemSearch, setItemSearch] = useState('');
 
   useEffect(() => { updateDateRangeFromPreset(datePreset); }, [datePreset]);
   useEffect(() => { fetchProfitData(); fetchExpenseData(); }, [dateRange]);
@@ -456,10 +457,32 @@ export function ProfitViewMobile() {
         <div className="px-4 pb-4">
           <h2 className="text-sm font-black text-slate-900 dark:text-white mb-3 flex items-center gap-2 pb-2 border-b-2 border-slate-200 dark:border-slate-800">
             <Package className="w-4 h-4 text-[#259783]" />
-            All Items ({profitData.itemProfits.length})
+            All Items ({profitData.itemProfits.filter(item => item.item_name.toLowerCase().includes(itemSearch.toLowerCase())).length})
           </h2>
+          {/* Search Bar */}
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search items..."
+              value={itemSearch}
+              onChange={(e) => setItemSearch(e.target.value)}
+              className="w-full pl-9 pr-9 py-2.5 text-sm border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#259783]"
+            />
+            {itemSearch && (
+              <button
+                onClick={() => setItemSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
+              >
+                <X className="w-4 h-4 text-slate-400" />
+              </button>
+            )}
+          </div>
           <div className="space-y-2.5">
-            {profitData.itemProfits.sort((a, b) => b.total_profit - a.total_profit).map((item) => {
+            {profitData.itemProfits
+              .filter(item => item.item_name.toLowerCase().includes(itemSearch.toLowerCase()))
+              .sort((a, b) => b.total_profit - a.total_profit)
+              .map((item) => {
               const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
               const isPos = item.total_profit >= 0;
               return (

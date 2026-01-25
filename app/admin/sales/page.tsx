@@ -556,7 +556,13 @@ export default function SalesAnalyticsPage() {
 
           {/* Products Sold Breakdown */}
           {(() => {
-            const soldItems = shopTypeFilteredItems.filter(i => i.total_quantity_sold > 0)
+            const soldItems = shopTypeFilteredItems
+              .filter(i => i.total_quantity_sold > 0)
+              .filter(item => 
+                item.item_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (item.variant_name?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                item.category_name.toLowerCase().includes(searchQuery.toLowerCase())
+              )
               .sort((a, b) => b.total_quantity_sold - a.total_quantity_sold);
             const maxSold = soldItems.length > 0 ? soldItems[0].total_quantity_sold : 1;
 
@@ -623,6 +629,11 @@ export default function SalesAnalyticsPage() {
           {(() => {
             const topSellers = shopTypeFilteredItems
               .filter((i) => i.total_quantity_sold > 0)
+              .filter(item => 
+                item.item_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (item.variant_name?.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                item.category_name.toLowerCase().includes(searchQuery.toLowerCase())
+              )
               .sort((a, b) => b.total_quantity_sold - a.total_quantity_sold)
               .slice(0, 5);
             
