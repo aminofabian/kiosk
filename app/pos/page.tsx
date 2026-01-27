@@ -76,6 +76,8 @@ import { getShopType, shouldShowCategory, type ShopType } from '@/lib/utils/shop
 import { storeUserRole, clearUserRole } from '@/lib/utils/user-role-storage';
 import { useDebounce } from '@/lib/hooks/use-debounce';
 import { useBarcodeScanner, isValidBarcode } from '@/lib/hooks/use-barcode-scanner';
+import { getRecentSearches, addRecentSearch, clearRecentSearches, removeRecentSearch } from '@/lib/utils/recent-searches';
+import { Clock, Command } from 'lucide-react';
 
 const GROCERY_CATEGORY_IMAGE_MAP: Record<string, string> = {
   Vegetables: '/category/vegetables.jpeg',
@@ -184,6 +186,7 @@ export default function POSPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const printedReceiptIdRef = useRef<string | null>(null);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const { clearCart, carts, activeCartId, switchCart } = useCartStore();
   const { user } = useCurrentUser();
   
@@ -201,8 +204,8 @@ export default function POSPage() {
   const isOwnerOrAdmin = user?.role === 'owner' || user?.role === 'admin';
   const canAccessAdmin = isOwnerOrAdmin || user?.role === 'cashier';
   
-  // Debounced search - waits 300ms after user stops typing
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  // Debounced search - waits 150ms after user stops typing (reduced for faster response)
+  const debouncedSearchQuery = useDebounce(searchQuery, 150);
   const isSearchPending = searchQuery !== debouncedSearchQuery && searchQuery.length > 0;
   
   useEffect(() => {
@@ -308,6 +311,24 @@ export default function POSPage() {
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
+
+  // Load recent searches on mount
+  useEffect(() => {
+    const searches = getRecentSearches();
+    setRecentSearches(searches.map(s => s.query));
+  }, []);
+
+  // Save search when user commits to a search
+  useEffect(() => {
+    if (debouncedSearchQuery && debouncedSearchQuery.length >= 2) {
+      addRecentSearch(debouncedSearchQuery);
+      // Update local state
+      setRecentSearches(prev => {
+        const filtered = prev.filter(s => s.toLowerCase() !== debouncedSearchQuery.toLowerCase());
+        return [debouncedSearchQuery, ...filtered].slice(0, 8);
+      });
+    }
+  }, [debouncedSearchQuery]);
 
   const handleRefresh = useCallback(() => {
     window.location.reload();
@@ -1188,12 +1209,17 @@ export default function POSPage() {
                     </Link>
                   )}
                   
+                  {/* Quick search button - opens full search */}
                   <button
-                    aria-label="Search"
-                    onClick={() => setShowSearch(!showSearch)}
-                    className="flex size-12 items-center justify-center rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm hover:bg-[#259783]/10 dark:hover:bg-[#259783]/20 border border-gray-200/60 dark:border-gray-700/60 active:scale-95 transition-all shadow-md hover:shadow-lg group"
+                    aria-label="Search (Ctrl+K)"
+                    onClick={() => setShowSearch(true)}
+                    className="flex size-12 items-center justify-center rounded-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm hover:bg-[#259783]/10 dark:hover:bg-[#259783]/20 border border-gray-200/60 dark:border-gray-700/60 active:scale-95 transition-all shadow-md hover:shadow-lg group relative"
                   >
                     <Search className="w-5 h-5 text-gray-700 dark:text-gray-300 group-hover:text-[#259783] transition-colors" />
+                    {/* Keyboard hint on hover */}
+                    <span className="absolute -bottom-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] px-2 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none hidden md:block">
+                      Ctrl+K
+                    </span>
                   </button>
                   
                   <button
@@ -1220,26 +1246,34 @@ export default function POSPage() {
                     <Input
                       ref={mobileSearchInputRef}
                       type="text"
-                      placeholder="Search or scan barcode..."
+                      placeholder="Search products, scan barcode..."
                       value={searchQuery}
                       onChange={(e) => handleSearchChange(e.target.value)}
-                      className="pl-12 pr-12 h-14 bg-white dark:bg-[#1c2e18] rounded-2xl border-2 border-gray-200 dark:border-gray-700 focus:border-[#259783] focus:ring-4 focus:ring-[#259783]/20 text-base font-medium placeholder:text-gray-400 shadow-sm"
+                      className="pl-12 pr-20 h-14 bg-white dark:bg-[#1c2e18] rounded-2xl border-2 border-gray-200 dark:border-gray-700 focus:border-[#259783] focus:ring-4 focus:ring-[#259783]/20 text-base font-medium placeholder:text-gray-400 shadow-sm"
                       autoComplete="off"
                       autoCorrect="off"
                       spellCheck={false}
                       data-barcode-enabled="true"
                     />
-                    {searchQuery && (
-                      <button
-                        type="button"
-                        onClick={clearSearch}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    )}
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      {searchQuery ? (
+                        <button
+                          type="button"
+                          onClick={clearSearch}
+                          className="h-8 w-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <span className="hidden md:flex items-center gap-0.5 text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-1 rounded">
+                          <Command className="w-3 h-3" />K
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </form>
+                
+                {/* Search status bar */}
                 {searchQuery && (
                   <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
                     <span>
@@ -1263,6 +1297,57 @@ export default function POSPage() {
                     >
                       Clear
                     </button>
+                  </div>
+                )}
+                
+                {/* Recent searches - show when no query */}
+                {!searchQuery && recentSearches.length > 0 && (
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>Recent searches</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          clearRecentSearches();
+                          setRecentSearches([]);
+                        }}
+                        className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      >
+                        Clear all
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {recentSearches.slice(0, 6).map((query, index) => (
+                        <button
+                          key={index}
+                          onClick={() => {
+                            setSearchQuery(query);
+                          }}
+                          className="group flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#1c2e18] rounded-full border border-gray-200 dark:border-gray-700 hover:border-[#259783] text-sm text-gray-700 dark:text-gray-300 hover:text-[#259783] transition-colors"
+                        >
+                          <span className="capitalize">{query}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeRecentSearch(query);
+                              setRecentSearches(prev => prev.filter(s => s !== query));
+                            }}
+                            className="opacity-0 group-hover:opacity-100 -mr-1 p-0.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Quick tips when empty */}
+                {!searchQuery && recentSearches.length === 0 && (
+                  <div className="mt-3 text-xs text-gray-400 flex items-center gap-2">
+                    <span>Tip: Type to search products or scan a barcode</span>
                   </div>
                 )}
               </div>

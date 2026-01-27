@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo, useRef, useCallback, memo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,150 @@ interface ItemGridProps {
   onQuickAdd?: (item: Item, quantity: number) => void;
   shopType?: ShopType;
   categories?: Category[]; // Pass categories from parent to avoid redundant fetch
+}
+
+// Memoized item card component for better performance
+const ItemCard = memo(function ItemCard({
+  item,
+  onSelect,
+  onQuickAdd,
+}: {
+  item: Item;
+  onSelect: (item: Item) => void;
+  onQuickAdd?: (item: Item, quantity: number) => void;
+}) {
+  const formatPrice = (price: number) => `KES ${price.toFixed(0)}`;
+  const formatStock = (stock: number, unitType: UnitType) => {
+    if (stock <= 0) return 'Out of stock';
+    if (stock < 10) return `Low (${stock} ${unitType})`;
+    return `${stock} ${unitType}`;
+  };
+  const isLowStock = (stock: number) => stock > 0 && stock < 10;
+  const getQuickAddQuantity = (item: Item): number => {
+    if (item.unit_type === 'kg' || item.unit_type === 'g') return 0.5;
+    return 1;
+  };
+
+  const quickQty = getQuickAddQuantity(item);
+
+  return (
+    <Card
+      className="group cursor-pointer hover-lift transition-smooth touch-target bg-white border-gray-200 hover:border-[#259783] shadow-md hover:shadow-xl relative overflow-hidden"
+      onClick={() => onSelect(item)}
+    >
+      <CardContent className="p-4 sm:p-5 flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <div className="font-semibold text-sm sm:text-base line-clamp-2 text-gray-800 min-h-[2.5rem] leading-tight">
+            {item.name}
+          </div>
+        </div>
+        
+        <div className="space-y-2">
+          <div className="text-lg sm:text-xl font-bold text-[#259783]" style={{ background: 'linear-gradient(to right, #259783, #3bd522)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+            {formatPrice(item.current_sell_price)}
+          </div>
+          {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
+            <div className="flex items-center gap-1.5">
+              <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] px-2 py-0.5 h-5 flex items-center gap-1">
+                <Tag className="w-2.5 h-2.5" />
+                <span className="font-semibold">
+                  {item.bundle_name || `${item.bundle_quantity} for ${formatPrice(item.bundle_price)}`}
+                </span>
+              </Badge>
+            </div>
+          )}
+        </div>
+        
+        <div className="flex items-center justify-between gap-2 mt-auto">
+          <div className="flex items-center gap-2">
+            {isLowStock(item.current_stock) ? (
+              <Badge variant="destructive" className="text-xs font-semibold animate-pulse">
+                {formatStock(item.current_stock, item.unit_type)}
+              </Badge>
+            ) : (
+              <span className="text-xs text-gray-500 font-medium">
+                {formatStock(item.current_stock, item.unit_type)}
+              </span>
+            )}
+          </div>
+          {onQuickAdd && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[#259783]/10 hover:text-[#259783]"
+              onClick={(e) => {
+                e.stopPropagation();
+                onQuickAdd(item, quickQty);
+              }}
+              title={`Quick add ${quickQty} ${item.unit_type}`}
+            >
+              <Zap className="w-4 h-4" />
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+});
+
+// Utility function to group items - memoized outside component
+function groupItemsForDisplay(items: Item[]): GroupedItem[] {
+  const parentItems = new Map<string, Item>();
+  const childrenByParent = new Map<string, Item[]>();
+  const standaloneItems: Item[] = [];
+  const parentIds = new Set<string>();
+
+  // First pass: identify parents and collect children
+  for (const item of items) {
+    if (!item.parent_item_id) {
+      parentItems.set(item.id, item);
+    } else {
+      parentIds.add(item.parent_item_id);
+      if (!childrenByParent.has(item.parent_item_id)) {
+        childrenByParent.set(item.parent_item_id, []);
+      }
+      childrenByParent.get(item.parent_item_id)!.push(item);
+    }
+  }
+
+  // Second pass: create grouped items
+  const grouped: GroupedItem[] = [];
+
+  // Add parent groups
+  for (const [parentId, children] of childrenByParent.entries()) {
+    const parent = parentItems.get(parentId);
+    if (parent) {
+      grouped.push({
+        type: 'parent',
+        parent,
+        children: children.sort((a, b) => 
+          (a.variant_name || a.name).localeCompare(b.variant_name || b.name)
+        ),
+      });
+    }
+  }
+
+  // Add standalone items (items without parent and without children)
+  for (const [id, item] of parentItems.entries()) {
+    if (!parentIds.has(id) && !childrenByParent.has(id)) {
+      standaloneItems.push(item);
+    }
+  }
+
+  for (const item of standaloneItems) {
+    grouped.push({ type: 'standalone', item });
+  }
+
+  // Sort: parents first (alphabetically), then standalone (alphabetically)
+  return grouped.sort((a, b) => {
+    if (a.type === 'parent' && b.type === 'parent') {
+      return (a.parent?.name || '').localeCompare(b.parent?.name || '');
+    }
+    if (a.type === 'standalone' && b.type === 'standalone') {
+      return (a.item?.name || '').localeCompare(b.item?.name || '');
+    }
+    return a.type === 'parent' ? -1 : 1;
+  });
 }
 
 export function ItemGrid({
@@ -75,7 +219,7 @@ export function ItemGrid({
     fetchCategories();
   }, [propCategories]);
 
-  // Build category map for filtering
+  // Build category map for filtering - memoized
   const categoryMap = useMemo(() => {
     const map = new Map<string, string>();
     categories.forEach((cat: Category) => {
@@ -83,6 +227,11 @@ export function ItemGrid({
     });
     return map;
   }, [categories]);
+
+  // Memoized item click handler
+  const handleItemClick = useCallback((item: ItemWithVariants) => {
+    onSelectItem(item);
+  }, [onSelectItem]);
 
   useEffect(() => {
     // Abort any pending request
@@ -103,8 +252,9 @@ export function ItemGrid({
           setLoading(true);
           setError(null);
           
+          // Request limited results with sellableOnly for faster response
           const response = await fetch(
-            `/api/items?search=${encodeURIComponent(searchQuery || '')}&sellableOnly=true`,
+            `/api/items?search=${encodeURIComponent(searchQuery || '')}&sellableOnly=true&limit=50`,
             { signal: controller.signal }
           );
           
@@ -115,19 +265,18 @@ export function ItemGrid({
           if (result.success) {
             const allItems: Item[] = result.data;
 
-            // First, try to filter by current shop type
+            // Filter by shop type (client-side for now - could be moved to API)
             const filteredByShopType = allItems.filter(item => {
               const categoryName = categoryMap.get(item.category_id);
               if (!categoryName) return true;
               return shouldShowCategory(categoryName, shopType);
             });
 
-            // If no results found in current shop type, also include items from the other shop type
+            // If no results in current shop type, show from other shop type
             let filteredItems = filteredByShopType;
             let isShowingOtherShopType = false;
             
             if (filteredByShopType.length === 0 && allItems.length > 0) {
-              // Fallback: show items from the other shop type
               const otherShopType: ShopType = shopType === 'grocery' ? 'retail' : 'grocery';
               filteredItems = allItems.filter(item => {
                 const categoryName = categoryMap.get(item.category_id);
@@ -139,92 +288,20 @@ export function ItemGrid({
 
             setShowingOtherShopType(isShowingOtherShopType);
             
-            // For search results, also group items by parent
-            const parentNames = new Map<string, string>();
-            const parentIds = new Set<string>();
-            const parentItems = new Map<string, Item>();
-            
-            for (const item of filteredItems) {
-              if (!item.parent_item_id) {
-                parentNames.set(item.id, item.name);
-                parentItems.set(item.id, item);
-              }
-            }
-            
-            for (const item of filteredItems) {
-              if (item.parent_item_id) {
-                parentIds.add(item.parent_item_id);
-              }
-            }
-
-            // Group items by parent
-            const grouped: GroupedItem[] = [];
-            const childrenByParent = new Map<string, Item[]>();
-            const standaloneItems: Item[] = [];
-
-            // Group children by parent
-            for (const item of filteredItems) {
-              if (item.parent_item_id) {
-                if (!childrenByParent.has(item.parent_item_id)) {
-                  childrenByParent.set(item.parent_item_id, []);
-                }
-                childrenByParent.get(item.parent_item_id)!.push(item);
-              } else if (!parentIds.has(item.id)) {
-                // Standalone item (not a parent with children)
-                standaloneItems.push(item);
-              }
-            }
-
-            // Add parent groups
-            for (const [parentId, children] of childrenByParent.entries()) {
-              const parent = parentItems.get(parentId);
-              if (parent) {
-                grouped.push({
-                  type: 'parent',
-                  parent,
-                  children: children.sort((a, b) => 
-                    (a.variant_name || a.name).localeCompare(b.variant_name || b.name)
-                  ),
-                });
-              }
-            }
-
-            // Add standalone items
-            for (const item of standaloneItems) {
-              grouped.push({
-                type: 'standalone',
-                item,
-              });
-            }
-
-            // Sort grouped items: parents alphabetically, then standalone items
-            grouped.sort((a, b) => {
-              if (a.type === 'parent' && b.type === 'parent') {
-                return (a.parent?.name || '').localeCompare(b.parent?.name || '');
-              }
-              if (a.type === 'standalone' && b.type === 'standalone') {
-                return (a.item?.name || '').localeCompare(b.item?.name || '');
-              }
-              // Parents come before standalone
-              return a.type === 'parent' ? -1 : 1;
-            });
-
+            // Use optimized grouping function
+            const grouped = groupItemsForDisplay(filteredItems);
             setGroupedItems(grouped);
 
-            // Also keep flat list for backward compatibility
-            const processedItems: ItemWithVariants[] = [];
-            for (const group of grouped) {
+            // Create flat list for backward compatibility
+            const processedItems: ItemWithVariants[] = grouped.flatMap(group => {
               if (group.type === 'parent' && group.children) {
-                for (const child of group.children) {
-                  processedItems.push({
-                    ...child,
-                    parentName: group.parent?.name,
-                  });
-                }
-              } else if (group.type === 'standalone' && group.item) {
-                processedItems.push(group.item);
+                return group.children.map(child => ({
+                  ...child,
+                  parentName: group.parent?.name,
+                }));
               }
-            }
+              return group.item ? [group.item] : [];
+            });
             setItems(processedItems);
           } else {
             setError(result.message || 'Failed to search items');
@@ -250,6 +327,7 @@ export function ItemGrid({
 
     if (!categoryId) {
       setItems([]);
+      setGroupedItems([]);
       return;
     }
 
@@ -273,92 +351,20 @@ export function ItemGrid({
         if (result.success) {
           const allItems: Item[] = result.data;
           
-          // Build parent name map and identify which items have variants
-          const parentNames = new Map<string, string>();
-          const parentIds = new Set<string>();
-          const parentItems = new Map<string, Item>();
-          
-          for (const item of allItems) {
-            if (!item.parent_item_id) {
-              parentNames.set(item.id, item.name);
-              parentItems.set(item.id, item);
-            }
-          }
-          
-          for (const item of allItems) {
-            if (item.parent_item_id) {
-              parentIds.add(item.parent_item_id);
-            }
-          }
-
-          // Group items by parent
-          const grouped: GroupedItem[] = [];
-          const childrenByParent = new Map<string, Item[]>();
-          const standaloneItems: Item[] = [];
-
-          // Group children by parent
-          for (const item of allItems) {
-            if (item.parent_item_id) {
-              if (!childrenByParent.has(item.parent_item_id)) {
-                childrenByParent.set(item.parent_item_id, []);
-              }
-              childrenByParent.get(item.parent_item_id)!.push(item);
-            } else if (!parentIds.has(item.id)) {
-              // Standalone item (not a parent with children)
-              standaloneItems.push(item);
-            }
-          }
-
-          // Add parent groups
-          for (const [parentId, children] of childrenByParent.entries()) {
-            const parent = parentItems.get(parentId);
-            if (parent) {
-              grouped.push({
-                type: 'parent',
-                parent,
-                children: children.sort((a, b) => 
-                  (a.variant_name || a.name).localeCompare(b.variant_name || b.name)
-                ),
-              });
-            }
-          }
-
-          // Add standalone items
-          for (const item of standaloneItems) {
-            grouped.push({
-              type: 'standalone',
-              item,
-            });
-          }
-
-          // Sort grouped items: parents alphabetically, then standalone items
-          grouped.sort((a, b) => {
-            if (a.type === 'parent' && b.type === 'parent') {
-              return (a.parent?.name || '').localeCompare(b.parent?.name || '');
-            }
-            if (a.type === 'standalone' && b.type === 'standalone') {
-              return (a.item?.name || '').localeCompare(b.item?.name || '');
-            }
-            // Parents come before standalone
-            return a.type === 'parent' ? -1 : 1;
-          });
-
+          // Use optimized grouping function
+          const grouped = groupItemsForDisplay(allItems);
           setGroupedItems(grouped);
 
-          // Also keep flat list for backward compatibility
-          const processedItems: ItemWithVariants[] = [];
-          for (const group of grouped) {
+          // Create flat list for backward compatibility
+          const processedItems: ItemWithVariants[] = grouped.flatMap(group => {
             if (group.type === 'parent' && group.children) {
-              for (const child of group.children) {
-                processedItems.push({
-                  ...child,
-                  parentName: group.parent?.name,
-                });
-              }
-            } else if (group.type === 'standalone' && group.item) {
-              processedItems.push(group.item);
+              return group.children.map(child => ({
+                ...child,
+                parentName: group.parent?.name,
+              }));
             }
-          }
+            return group.item ? [group.item] : [];
+          });
           setItems(processedItems);
         } else {
           setError(result.message || 'Failed to load items');
@@ -458,31 +464,8 @@ export function ItemGrid({
     );
   }
 
-  const formatPrice = (price: number) => {
-    return `KES ${price.toFixed(0)}`;
-  };
-
-  const formatStock = (stock: number, unitType: UnitType) => {
-    if (stock <= 0) {
-      return 'Out of stock';
-    }
-    if (stock < 10) {
-      return `Low (${stock} ${unitType})`;
-    }
-    return `${stock} ${unitType}`;
-  };
-
-  const isLowStock = (stock: number) => stock > 0 && stock < 10;
-
-  const getQuickAddQuantity = (item: Item): number => {
-    if (item.unit_type === 'kg' || item.unit_type === 'g') return 0.5;
-    return 1;
-  };
-
-  const handleItemClick = (item: ItemWithVariants) => {
-    // All items shown are now directly selectable (variants or standalone)
-    onSelectItem(item);
-  };
+  // Format helpers for the parent group header
+  const formatPrice = (price: number) => `KES ${price.toFixed(0)}`;
 
   return (
     <div className="p-4 sm:p-6">
@@ -496,7 +479,7 @@ export function ItemGrid({
                   {items.length} result{items.length !== 1 ? 's' : ''} found
                 </p>
                 <p className="text-xs text-gray-500">
-                  for "{searchQuery}"
+                  for &quot;{searchQuery}&quot;
                 </p>
               </div>
             </div>
@@ -531,147 +514,27 @@ export function ItemGrid({
                     </div>
                   </div>
                 </div>
-                {/* Children Grid */}
+                {/* Children Grid - using memoized ItemCard */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
-                  {group.children.map((item) => {
-                    const canQuickAdd = onQuickAdd;
-                    const quickQty = getQuickAddQuantity(item);
-
-                    return (
-                      <Card
-                        key={item.id}
-                        className="group cursor-pointer hover-lift transition-smooth touch-target bg-white border-gray-200 hover:border-[#259783] shadow-md hover:shadow-xl relative overflow-hidden"
-                        onClick={() => handleItemClick(item)}
-                      >
-                        <CardContent className="p-4 sm:p-5 flex flex-col gap-3">
-                          <div className="flex flex-col gap-1">
-                            <div className="font-semibold text-sm sm:text-base line-clamp-2 text-gray-800 min-h-[2.5rem] leading-tight">
-                              {item.name}
-                            </div>
-                          </div>
-                          
-                          {/* Price and Bundle Info */}
-                          <div className="space-y-2">
-                            <div className="text-lg sm:text-xl font-bold text-[#259783]" style={{ background: 'linear-gradient(to right, #259783, #3bd522)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                              {formatPrice(item.current_sell_price)}
-                            </div>
-                            {/* Bundle Pricing Badge */}
-                            {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
-                              <div className="flex items-center gap-1.5">
-                                <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] px-2 py-0.5 h-5 flex items-center gap-1">
-                                  <Tag className="w-2.5 h-2.5" />
-                                  <span className="font-semibold">
-                                    {item.bundle_name || `${item.bundle_quantity} for ${formatPrice(item.bundle_price)}`}
-                                  </span>
-                                </Badge>
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div className="flex items-center justify-between gap-2 mt-auto">
-                            <div className="flex items-center gap-2">
-                              {isLowStock(item.current_stock) ? (
-                                <Badge
-                                  variant="destructive"
-                                  className="text-xs font-semibold animate-pulse"
-                                >
-                                  {formatStock(item.current_stock, item.unit_type)}
-                                </Badge>
-                              ) : (
-                                <span className="text-xs text-gray-500 font-medium">
-                                  {formatStock(item.current_stock, item.unit_type)}
-                                </span>
-                              )}
-                            </div>
-                            {canQuickAdd && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[#259783]/10 hover:text-[#259783]"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onQuickAdd(item, quickQty);
-                                }}
-                                title={`Quick add ${quickQty} ${item.unit_type}`}
-                              >
-                                <Zap className="w-4 h-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
+                  {group.children.map((item) => (
+                    <ItemCard
+                      key={item.id}
+                      item={item}
+                      onSelect={handleItemClick}
+                      onQuickAdd={onQuickAdd}
+                    />
+                  ))}
                 </div>
               </div>
             );
           } else if (group.type === 'standalone' && group.item) {
-            const canQuickAdd = onQuickAdd;
-            const quickQty = getQuickAddQuantity(group.item);
-
             return (
-              <div key={group.item.id} className="flex justify-center">
-                <Card
-                  className="group cursor-pointer hover-lift transition-smooth touch-target bg-white border-gray-200 hover:border-[#259783] shadow-md hover:shadow-xl relative overflow-hidden max-w-xs w-full"
-                  onClick={() => handleItemClick(group.item!)}
-                >
-                  <CardContent className="p-4 sm:p-5 flex flex-col gap-3">
-                    <div className="flex flex-col gap-1">
-                      <div className="font-semibold text-sm sm:text-base line-clamp-2 text-gray-800 min-h-[2.5rem] leading-tight">
-                        {group.item.name}
-                      </div>
-                    </div>
-                    
-                    {/* Price and Bundle Info */}
-                    <div className="space-y-2">
-                      <div className="text-lg sm:text-xl font-bold text-[#259783]" style={{ background: 'linear-gradient(to right, #259783, #3bd522)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-                        {formatPrice(group.item.current_sell_price)}
-                      </div>
-                    {/* Bundle Pricing Badge */}
-                    {group.item.bundle_quantity && group.item.bundle_price && group.item.bundle_quantity > 0 && group.item.bundle_price > 0 && (
-                      <div className="flex items-center gap-1.5">
-                        <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] px-2 py-0.5 h-5 flex items-center gap-1">
-                          <Tag className="w-2.5 h-2.5" />
-                          <span className="font-semibold">
-                            {group.item.bundle_name || `${group.item.bundle_quantity} for ${formatPrice(group.item.bundle_price)}`}
-                          </span>
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center justify-between gap-2 mt-auto">
-                    <div className="flex items-center gap-2">
-                      {isLowStock(group.item.current_stock) ? (
-                        <Badge
-                          variant="destructive"
-                          className="text-xs font-semibold animate-pulse"
-                        >
-                          {formatStock(group.item.current_stock, group.item.unit_type)}
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-gray-500 font-medium">
-                          {formatStock(group.item.current_stock, group.item.unit_type)}
-                        </span>
-                      )}
-                    </div>
-                    {canQuickAdd && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[#259783]/10 hover:text-[#259783]"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onQuickAdd(group.item!, quickQty);
-                        }}
-                        title={`Quick add ${quickQty} ${group.item.unit_type}`}
-                      >
-                        <Zap className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+              <div key={group.item.id} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+                <ItemCard
+                  item={group.item}
+                  onSelect={handleItemClick}
+                  onQuickAdd={onQuickAdd}
+                />
               </div>
             );
           }

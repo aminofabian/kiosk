@@ -37,36 +37,87 @@ export async function GET(request: NextRequest) {
         [auth.businessId, parentId]
       );
     } else if (search) {
-      const searchLower = search.toLowerCase();
+      const searchLower = search.toLowerCase().trim();
       const searchContains = `%${searchLower}%`;  // Matches anywhere in the string
       const searchStarts = `${searchLower}%`;    // Matches at the start (for prioritization)
-      // Search includes both parent names and variant names
-      // Use LOWER() for case-insensitive matching and search in both name and variant_name
-      // The % wildcard on both sides ensures it matches anywhere in the string
-      items = await query<Item>(
-        `SELECT * FROM items 
-         WHERE business_id = ? AND active = 1 
-         AND (
-           LOWER(name) LIKE ? 
-           OR LOWER(variant_name) LIKE ?
-         )
-         ORDER BY 
-           CASE 
-             WHEN LOWER(name) LIKE ? THEN 1 
-             WHEN LOWER(variant_name) LIKE ? THEN 2
-             WHEN LOWER(name) LIKE ? THEN 3
-             ELSE 4 
-           END,
-           name ASC`,
-        [
-          auth.businessId, 
-          searchContains,  // name contains search (anywhere)
-          searchContains,  // variant_name contains search (anywhere)
-          searchStarts,    // priority 1: name starts with search
-          searchStarts,    // priority 2: variant_name starts with search
-          searchContains   // priority 3: name contains search
-        ]
-      );
+      const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50; // Default limit for faster response
+      
+      // Check if search looks like a barcode (numeric and 8+ digits)
+      const isBarcodeLike = /^\d{8,}$/.test(search.trim());
+      
+      if (isBarcodeLike) {
+        // First try exact barcode match
+        const barcodeItems = await query<Item>(
+          `SELECT * FROM items 
+           WHERE business_id = ? AND active = 1 AND barcode = ?
+           LIMIT 1`,
+          [auth.businessId, search.trim()]
+        );
+        
+        if (barcodeItems.length > 0) {
+          items = barcodeItems;
+        } else {
+          // Fall back to normal search if no barcode match
+          items = await query<Item>(
+            `SELECT * FROM items 
+             WHERE business_id = ? AND active = 1 
+             AND (
+               LOWER(name) LIKE ? 
+               OR LOWER(variant_name) LIKE ?
+               OR barcode LIKE ?
+             )
+             ORDER BY 
+               CASE 
+                 WHEN barcode = ? THEN 0
+                 WHEN LOWER(name) LIKE ? THEN 1 
+                 WHEN LOWER(variant_name) LIKE ? THEN 2
+                 WHEN LOWER(name) LIKE ? THEN 3
+                 ELSE 4 
+               END,
+               name ASC
+             LIMIT ?`,
+            [
+              auth.businessId, 
+              searchContains,
+              searchContains,
+              searchContains,  // barcode contains
+              search.trim(),   // exact barcode match (priority 0)
+              searchStarts,    // priority 1: name starts with search
+              searchStarts,    // priority 2: variant_name starts with search
+              searchContains,  // priority 3: name contains search
+              limit
+            ]
+          );
+        }
+      } else {
+        // Regular text search
+        items = await query<Item>(
+          `SELECT * FROM items 
+           WHERE business_id = ? AND active = 1 
+           AND (
+             LOWER(name) LIKE ? 
+             OR LOWER(variant_name) LIKE ?
+           )
+           ORDER BY 
+             CASE 
+               WHEN LOWER(name) LIKE ? THEN 1 
+               WHEN LOWER(variant_name) LIKE ? THEN 2
+               WHEN LOWER(name) LIKE ? THEN 3
+               ELSE 4 
+             END,
+             name ASC
+           LIMIT ?`,
+          [
+            auth.businessId, 
+            searchContains,  // name contains search (anywhere)
+            searchContains,  // variant_name contains search (anywhere)
+            searchStarts,    // priority 1: name starts with search
+            searchStarts,    // priority 2: variant_name starts with search
+            searchContains,  // priority 3: name contains search
+            limit
+          ]
+        );
+      }
     } else if (all) {
       if (parentsOnly) {
         // Only parent items (no parent_item_id) - for admin management
