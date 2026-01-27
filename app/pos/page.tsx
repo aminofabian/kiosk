@@ -187,6 +187,12 @@ export default function POSPage() {
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const printedReceiptIdRef = useRef<string | null>(null);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [searchSuggestions, setSearchSuggestions] = useState<{ id: string; name: string; variant_name?: string | null; current_sell_price: number }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  const suggestionsAbortRef = useRef<AbortController | null>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
   const { clearCart, carts, activeCartId, switchCart } = useCartStore();
   const { user } = useCurrentUser();
   
@@ -289,13 +295,56 @@ export default function POSPage() {
   });
 
   // Handle search input that might be a barcode
-  const handleSearchSubmit = useCallback((e: React.FormEvent) => {
+  const handleSearchSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // If a suggestion is selected, choose it
+    if (showSuggestions && selectedSuggestionIndex >= 0 && selectedSuggestionIndex < searchSuggestions.length) {
+      const selectedSuggestion = searchSuggestions[selectedSuggestionIndex];
+      setShowSuggestions(false);
+      setSearchQuery('');
+      setShowSearch(false);
+      setSearchSuggestions([]);
+      
+      // Fetch the full item details and open the dialog
+      try {
+        const response = await fetch(`/api/items/${selectedSuggestion.id}`);
+        const result = await response.json();
+        if (result.success && result.data) {
+          setSelectedItem(result.data);
+          setDialogOpen(true);
+        }
+      } catch (err) {
+        console.error('Error fetching item:', err);
+      }
+      return;
+    }
+    
+    // Close suggestions dropdown when submitting
+    setShowSuggestions(false);
+    
     const query = searchQuery.trim();
     if (query && isValidBarcode(query)) {
       handleBarcodeScan(query);
     }
-  }, [searchQuery, handleBarcodeScan]);
+  }, [searchQuery, handleBarcodeScan, showSuggestions, selectedSuggestionIndex, searchSuggestions]);
+
+  // Handle keyboard navigation in suggestions
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!showSuggestions || searchSuggestions.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedSuggestionIndex(prev => 
+        prev < searchSuggestions.length - 1 ? prev + 1 : 0
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedSuggestionIndex(prev => 
+        prev > 0 ? prev - 1 : searchSuggestions.length - 1
+      );
+    }
+  }, [showSuggestions, searchSuggestions.length]);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -330,6 +379,102 @@ export default function POSPage() {
     }
   }, [debouncedSearchQuery]);
 
+  // Fetch search suggestions as user types
+  useEffect(() => {
+    // Cancel any pending request
+    if (suggestionsAbortRef.current) {
+      suggestionsAbortRef.current.abort();
+    }
+
+    // Don't fetch if query is too short or empty
+    if (!searchQuery || searchQuery.length < 2) {
+      setSearchSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    // Skip if it looks like a barcode
+    if (isValidBarcode(searchQuery)) {
+      setSearchSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    suggestionsAbortRef.current = controller;
+
+    async function fetchSuggestions() {
+      try {
+        setLoadingSuggestions(true);
+        const response = await fetch(
+          `/api/items?search=${encodeURIComponent(searchQuery)}&sellableOnly=true&limit=8`,
+          { signal: controller.signal }
+        );
+        
+        if (controller.signal.aborted) return;
+        
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          const suggestions = result.data.map((item: Item) => ({
+            id: item.id,
+            name: item.name,
+            variant_name: item.variant_name,
+            current_sell_price: item.current_sell_price,
+          }));
+          setSearchSuggestions(suggestions);
+          setShowSuggestions(suggestions.length > 0);
+          setSelectedSuggestionIndex(-1); // Reset selection when new suggestions arrive
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
+        console.error('Error fetching suggestions:', err);
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoadingSuggestions(false);
+        }
+      }
+    }
+
+    // Small delay for suggestions (50ms) - faster than full search
+    const timer = setTimeout(fetchSuggestions, 50);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchQuery]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Handle selecting a suggestion
+  const handleSelectSuggestion = useCallback(async (suggestion: { id: string; name: string }) => {
+    setShowSuggestions(false);
+    setSearchQuery('');
+    setShowSearch(false);
+    
+    // Fetch the full item details and open the dialog
+    try {
+      const response = await fetch(`/api/items/${suggestion.id}`);
+      const result = await response.json();
+      if (result.success && result.data) {
+        setSelectedItem(result.data);
+        setDialogOpen(true);
+      }
+    } catch (err) {
+      console.error('Error fetching item:', err);
+    }
+  }, []);
+
   const handleRefresh = useCallback(() => {
     window.location.reload();
   }, []);
@@ -353,15 +498,22 @@ export default function POSPage() {
         e.preventDefault();
         setShowSearch(true);
       }
-      if (e.key === 'Escape' && showSearch) {
-        setShowSearch(false);
-        setSearchQuery('');
+      if (e.key === 'Escape') {
+        if (showSuggestions) {
+          // First escape closes suggestions
+          setShowSuggestions(false);
+        } else if (showSearch) {
+          // Second escape closes search
+          setShowSearch(false);
+          setSearchQuery('');
+          setSearchSuggestions([]);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [showSearch]);
+  }, [showSearch, showSuggestions]);
 
   const handleSelectItem = useCallback((item: Item) => {
     setSelectedItem(item);
@@ -405,6 +557,8 @@ export default function POSPage() {
   const clearSearch = useCallback(() => {
     setShowSearch(false);
     setSearchQuery('');
+    setSearchSuggestions([]);
+    setShowSuggestions(false);
   }, []);
 
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -1236,45 +1390,121 @@ export default function POSPage() {
 
             {showSearch && (
               <div className="px-4 pb-4 bg-[#f6f8f6] dark:bg-[#132210] sticky top-[72px] z-20 border-b border-black/5 dark:border-white/5 animate-in slide-in-from-top-2 duration-200">
-                <form onSubmit={handleSearchSubmit}>
-                  <div className="relative">
-                    {isSearchPending || barcodeScanStatus.scanning ? (
-                      <Loader2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#259783] animate-spin" />
-                    ) : (
-                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    )}
-                    <Input
-                      ref={mobileSearchInputRef}
-                      type="text"
-                      placeholder="Search products, scan barcode..."
-                      value={searchQuery}
-                      onChange={(e) => handleSearchChange(e.target.value)}
-                      className="pl-12 pr-20 h-14 bg-white dark:bg-[#1c2e18] rounded-2xl border-2 border-gray-200 dark:border-gray-700 focus:border-[#259783] focus:ring-4 focus:ring-[#259783]/20 text-base font-medium placeholder:text-gray-400 shadow-sm"
-                      autoComplete="off"
-                      autoCorrect="off"
-                      spellCheck={false}
-                      data-barcode-enabled="true"
-                    />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                      {searchQuery ? (
-                        <button
-                          type="button"
-                          onClick={clearSearch}
-                          className="h-8 w-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
+                <div ref={searchContainerRef} className="relative">
+                  <form onSubmit={handleSearchSubmit}>
+                    <div className="relative">
+                      {isSearchPending || barcodeScanStatus.scanning || loadingSuggestions ? (
+                        <Loader2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#259783] animate-spin" />
                       ) : (
-                        <span className="hidden md:flex items-center gap-0.5 text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-1 rounded">
-                          <Command className="w-3 h-3" />K
-                        </span>
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                       )}
+                      <Input
+                        ref={mobileSearchInputRef}
+                        type="text"
+                        placeholder="Search products, scan barcode..."
+                        value={searchQuery}
+                        onChange={(e) => handleSearchChange(e.target.value)}
+                        onFocus={() => searchSuggestions.length > 0 && setShowSuggestions(true)}
+                        onKeyDown={handleSearchKeyDown}
+                        className="pl-12 pr-20 h-14 bg-white dark:bg-[#1c2e18] rounded-2xl border-2 border-gray-200 dark:border-gray-700 focus:border-[#259783] focus:ring-4 focus:ring-[#259783]/20 text-base font-medium placeholder:text-gray-400 shadow-sm"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        data-barcode-enabled="true"
+                      />
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                        {searchQuery ? (
+                          <button
+                            type="button"
+                            onClick={clearSearch}
+                            className="h-8 w-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        ) : (
+                          <span className="hidden md:flex items-center gap-0.5 text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-1 rounded">
+                            <Command className="w-3 h-3" />K
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </form>
+                  </form>
+
+                  {/* Search Suggestions Dropdown */}
+                  {showSuggestions && searchSuggestions.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#1c2e18] rounded-2xl border-2 border-gray-200 dark:border-gray-700 shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                      <div className="py-2">
+                        <div className="px-4 py-1.5 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Suggestions
+                        </div>
+                        {searchSuggestions.map((suggestion, index) => (
+                          <button
+                            key={suggestion.id}
+                            type="button"
+                            onClick={() => handleSelectSuggestion(suggestion)}
+                            onMouseEnter={() => setSelectedSuggestionIndex(index)}
+                            className={`w-full px-4 py-3 flex items-center justify-between transition-colors text-left group ${
+                              index === selectedSuggestionIndex 
+                                ? 'bg-[#259783]/15 dark:bg-[#259783]/25' 
+                                : 'hover:bg-[#259783]/10 dark:hover:bg-[#259783]/20'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                index === selectedSuggestionIndex
+                                  ? 'bg-gradient-to-br from-[#259783] to-[#3bd522]'
+                                  : 'bg-gradient-to-br from-[#259783]/20 to-[#3bd522]/20'
+                              }`}>
+                                <Package className={`w-4 h-4 ${
+                                  index === selectedSuggestionIndex ? 'text-white' : 'text-[#259783]'
+                                }`} />
+                              </div>
+                              <div className="min-w-0">
+                                <div className={`font-medium truncate transition-colors ${
+                                  index === selectedSuggestionIndex 
+                                    ? 'text-[#259783]' 
+                                    : 'text-gray-800 dark:text-gray-200 group-hover:text-[#259783]'
+                                }`}>
+                                  {suggestion.name}
+                                </div>
+                                {suggestion.variant_name && (
+                                  <div className="text-xs text-gray-500 truncate">
+                                    {suggestion.variant_name}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-sm font-semibold text-[#259783] flex-shrink-0 ml-2">
+                              KES {suggestion.current_sell_price.toFixed(0)}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-200 dark:border-gray-700">
+                        <div className="text-xs text-gray-500 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="flex items-center gap-1">
+                              <kbd className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-[10px] font-mono">↑↓</kbd>
+                              <span>navigate</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <kbd className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-[10px] font-mono">↵</kbd>
+                              <span>select</span>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <kbd className="px-1.5 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-[10px] font-mono">esc</kbd>
+                              <span>close</span>
+                            </span>
+                          </div>
+                          <span className="text-[#259783] font-medium">{searchSuggestions.length} found</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 
-                {/* Search status bar */}
-                {searchQuery && (
+                {/* Search status bar - only show when dropdown is not visible */}
+                {searchQuery && !showSuggestions && (
                   <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
                     <span>
                       {isSearchPending ? (
