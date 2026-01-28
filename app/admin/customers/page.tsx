@@ -195,9 +195,9 @@ export default function CustomersPage() {
   return (
     <AdminLayout>
       {/* Desktop View */}
-      <div className="hidden md:block p-4 md:p-6 space-y-5 max-w-7xl mx-auto">
+      <div className="hidden md:block px-4 py-6 space-y-6 max-w-7xl mx-auto bg-slate-50 dark:bg-[#020617] min-h-screen">
         {/* Header */}
-        <div className="flex items-center justify-between border-b-2 border-slate-200 dark:border-slate-800 pb-4">
+        <div className="flex items-center justify-between border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-xl px-5 py-4 shadow-sm">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 bg-[#259783] flex items-center justify-center">
               <Users className="w-6 h-6 text-white" />
@@ -237,7 +237,7 @@ export default function CustomersPage() {
 
         {/* Hero Metrics */}
         <div className="grid grid-cols-4 gap-4">
-          <div className="border-2 border-[#259783] bg-[#259783] p-5">
+          <div className="border-2 border-[#259783] bg-[#259783] p-5 rounded-xl shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <Users className="w-5 h-5 text-white" />
               <span className="text-white/70 text-[10px] font-bold uppercase">{summary.avgCustomersPerHour.toFixed(1)}/hr</span>
@@ -246,7 +246,7 @@ export default function CustomersPage() {
             <p className="text-3xl font-black text-white">{summary.totalCustomers}</p>
           </div>
 
-          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
+          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <DollarSign className="w-5 h-5 text-[#259783]" />
             </div>
@@ -254,7 +254,7 @@ export default function CustomersPage() {
             <p className="text-3xl font-black text-slate-900 dark:text-white">{formatPrice(summary.avgSpend)}</p>
           </div>
 
-          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
+          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <TrendingUp className="w-5 h-5 text-[#259783]" />
             </div>
@@ -262,7 +262,7 @@ export default function CustomersPage() {
             <p className="text-3xl font-black text-slate-900 dark:text-white">{formatPrice(summary.avgProfit)}</p>
           </div>
 
-          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
+          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <Package className="w-5 h-5 text-[#259783]" />
             </div>
@@ -282,7 +282,7 @@ export default function CustomersPage() {
 
         {/* Day of Week Analysis - Only for Month/Week */}
         {datePreset !== 'today' && dayOfWeek && dayOfWeek.length > 0 && (
-          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl shadow-sm">
             <div className="p-5 border-b-2 border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -394,7 +394,7 @@ export default function CustomersPage() {
         {/* Peak Hours & Hourly Chart */}
         <div className="grid lg:grid-cols-3 gap-4">
           {/* Peak Hours */}
-          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl shadow-sm">
             <div className="p-5 border-b-2 border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-[#259783] flex items-center justify-center">
@@ -432,7 +432,7 @@ export default function CustomersPage() {
           </div>
 
           {/* Hourly Traffic Chart */}
-          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 lg:col-span-2">
+          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 lg:col-span-2 rounded-xl shadow-sm">
             <div className="p-5 border-b-2 border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -507,7 +507,7 @@ export default function CustomersPage() {
         {/* Basket & Payment Distribution */}
         <div className="grid lg:grid-cols-2 gap-4">
           {/* Basket Size */}
-          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl shadow-sm">
             <div className="p-5 border-b-2 border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-[#259783] flex items-center justify-center">
@@ -539,7 +539,7 @@ export default function CustomersPage() {
           </div>
 
           {/* Payment Methods */}
-          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl shadow-sm">
             <div className="p-5 border-b-2 border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-[#259783] flex items-center justify-center">
@@ -560,7 +560,7 @@ export default function CustomersPage() {
 
         {/* Insights */}
         {insights.length > 0 && (
-          <div className="border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+          <div className="border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm">
             <div className="p-5 border-b-2 border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-[#259783] flex items-center justify-center">
@@ -592,7 +592,7 @@ export default function CustomersPage() {
 
         {/* Hourly Breakdown Table */}
         {hourly.length > 0 && (
-          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+          <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl shadow-sm">
             <div className="p-5 border-b-2 border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -662,9 +662,9 @@ export default function CustomersPage() {
       </div>
 
       {/* Mobile View */}
-      <div className="md:hidden bg-slate-50 dark:bg-[#0f1a0d] min-h-screen pb-24">
+      <div className="md:hidden bg-slate-50 dark:bg-[#020617] min-h-screen pb-24">
         {/* Header */}
-        <div className="sticky top-0 z-50 bg-white/95 dark:bg-[#0f1a0d]/95 backdrop-blur-lg px-4 py-4 border-b-2 border-slate-200 dark:border-slate-800">
+        <div className="sticky top-0 z-50 bg-white/95 dark:bg-[#020617]/95 backdrop-blur-lg px-4 py-4 border-b-2 border-slate-200 dark:border-slate-800">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <button onClick={() => router.back()} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800">
@@ -710,7 +710,7 @@ export default function CustomersPage() {
 
         {/* Hero Metrics */}
         <div className="px-4 pb-4">
-          <div className="border-2 border-[#259783] bg-[#259783] p-4 mb-3">
+          <div className="border-2 border-[#259783] bg-[#259783] p-4 mb-3 rounded-xl shadow-sm">
             <p className="text-white/70 text-[10px] uppercase font-bold mb-3">{getPeriodLabel()}&apos;s Story</p>
             <div className="grid grid-cols-2 gap-4">
               <div>
