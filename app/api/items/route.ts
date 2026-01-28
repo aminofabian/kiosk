@@ -38,9 +38,7 @@ export async function GET(request: NextRequest) {
       );
     } else if (search) {
       const searchLower = search.toLowerCase().trim();
-      const searchContains = `%${searchLower}%`;  // Matches anywhere in the string
-      const searchStarts = `${searchLower}%`;    // Matches at the start (for prioritization)
-      const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50; // Default limit for faster response
+      const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50;
       
       // Check if search looks like a barcode (numeric and 8+ digits)
       const isBarcodeLike = /^\d{8,}$/.test(search.trim());
@@ -58,6 +56,8 @@ export async function GET(request: NextRequest) {
           items = barcodeItems;
         } else {
           // Fall back to normal search if no barcode match
+          const searchContains = `%${searchLower}%`;
+          const searchStarts = `${searchLower}%`;
           items = await query<Item>(
             `SELECT * FROM items 
              WHERE business_id = ? AND active = 1 
@@ -80,43 +80,88 @@ export async function GET(request: NextRequest) {
               auth.businessId, 
               searchContains,
               searchContains,
-              searchContains,  // barcode contains
-              search.trim(),   // exact barcode match (priority 0)
-              searchStarts,    // priority 1: name starts with search
-              searchStarts,    // priority 2: variant_name starts with search
-              searchContains,  // priority 3: name contains search
+              searchContains,
+              search.trim(),
+              searchStarts,
+              searchStarts,
+              searchContains,
               limit
             ]
           );
         }
       } else {
-        // Regular text search
-        items = await query<Item>(
-          `SELECT * FROM items 
-           WHERE business_id = ? AND active = 1 
-           AND (
-             LOWER(name) LIKE ? 
-             OR LOWER(variant_name) LIKE ?
-           )
-           ORDER BY 
-             CASE 
-               WHEN LOWER(name) LIKE ? THEN 1 
-               WHEN LOWER(variant_name) LIKE ? THEN 2
-               WHEN LOWER(name) LIKE ? THEN 3
-               ELSE 4 
-             END,
-             name ASC
-           LIMIT ?`,
-          [
-            auth.businessId, 
-            searchContains,  // name contains search (anywhere)
-            searchContains,  // variant_name contains search (anywhere)
-            searchStarts,    // priority 1: name starts with search
-            searchStarts,    // priority 2: variant_name starts with search
-            searchContains,  // priority 3: name contains search
-            limit
-          ]
-        );
+        // Split search into words for multi-word matching
+        const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
+        
+        if (searchWords.length === 1) {
+          // Single word search - simple LIKE query
+          const searchContains = `%${searchLower}%`;
+          const searchStarts = `${searchLower}%`;
+          items = await query<Item>(
+            `SELECT * FROM items 
+             WHERE business_id = ? AND active = 1 
+             AND (
+               LOWER(name) LIKE ? 
+               OR LOWER(variant_name) LIKE ?
+             )
+             ORDER BY 
+               CASE 
+                 WHEN LOWER(name) LIKE ? THEN 1 
+                 WHEN LOWER(variant_name) LIKE ? THEN 2
+                 WHEN LOWER(name) LIKE ? THEN 3
+                 ELSE 4 
+               END,
+               name ASC
+             LIMIT ?`,
+            [
+              auth.businessId, 
+              searchContains,
+              searchContains,
+              searchStarts,
+              searchStarts,
+              searchContains,
+              limit
+            ]
+          );
+        } else {
+          // Multi-word search - match items containing ALL words (in any order)
+          // Build dynamic WHERE clause for each word
+          const wordConditions = searchWords.map(() => 
+            `(LOWER(name) LIKE ? OR LOWER(variant_name) LIKE ?)`
+          ).join(' AND ');
+          
+          const wordParams: string[] = [];
+          searchWords.forEach(word => {
+            wordParams.push(`%${word}%`, `%${word}%`);
+          });
+          
+          // For ordering, prioritize exact phrase match, then first word starts
+          const exactPhrase = `%${searchLower}%`;
+          const firstWordStarts = `${searchWords[0]}%`;
+          
+          items = await query<Item>(
+            `SELECT * FROM items 
+             WHERE business_id = ? AND active = 1 
+             AND (${wordConditions})
+             ORDER BY 
+               CASE 
+                 WHEN LOWER(name) LIKE ? THEN 1
+                 WHEN LOWER(name) LIKE ? THEN 2
+                 WHEN LOWER(variant_name) LIKE ? THEN 3
+                 ELSE 4 
+               END,
+               name ASC
+             LIMIT ?`,
+            [
+              auth.businessId,
+              ...wordParams,
+              exactPhrase,      // priority 1: exact phrase match
+              firstWordStarts,  // priority 2: name starts with first word
+              exactPhrase,      // priority 3: variant has exact phrase
+              limit
+            ]
+          );
+        }
       }
     } else if (all) {
       if (parentsOnly) {
