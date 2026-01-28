@@ -155,25 +155,38 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
 
       if (result.success) {
         setLastResult(result.data || {});
+        // Notify parent in background (for stats refresh etc.)
+        onSuccess?.();
+        
+        // Update the item's stock locally (no refetch needed)
+        if (!result.data?.requiresApproval) {
+          const newStock = adjustmentType === 'increase'
+            ? (selectedItem?.current_stock || 0) + qty
+            : Math.max(0, (selectedItem?.current_stock || 0) - qty);
+          setItems(prev => prev.map(item => 
+            item.id === selectedItemId 
+              ? { ...item, current_stock: newStock }
+              : item
+          ));
+        }
+        
         // Check if approval is required (cashier)
         if (result.data?.requiresApproval) {
           setError(null);
           setShowSuccess(true);
           setIsSubmitting(false);
-          // Reset form and refresh items, but don't close drawer
+          // Clear form fields but keep search query and items list
           setTimeout(() => {
-            handleReset();
-            fetchItems();
+            handleClearForm();
             setShowSuccess(false);
             setLastResult(null);
           }, 2000);
         } else {
           setShowSuccess(true);
           setIsSubmitting(false);
-          // Reset form and refresh items, but don't close drawer
+          // Clear form fields but keep search query and items list
           setTimeout(() => {
-            handleReset();
-            fetchItems();
+            handleClearForm();
             setShowSuccess(false);
             setLastResult(null);
           }, 1500);
@@ -194,6 +207,14 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
     setQuantity('');
     setNotes('');
     setSearchQuery('');
+    setError(null);
+  };
+
+  // Clear form fields after successful adjustment, but keep search query
+  const handleClearForm = () => {
+    setSelectedItemId('');
+    setQuantity('');
+    setNotes('');
     setError(null);
   };
 
@@ -286,7 +307,7 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
                   <p className="text-sm text-green-700 dark:text-green-200">
                     {lastResult?.requiresApproval
                       ? 'Your request is pending admin approval. The stock will be updated once approved.'
-                      : 'Redirecting to stock page...'}
+                      : 'Stock updated. You can add more or close the drawer.'}
                   </p>
                 </div>
               </div>

@@ -430,39 +430,34 @@ export default function AdminDashboardPage() {
     }
   }, [categoryDrawerOpen]);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        // Use a wide date range for all-time stats
-        const startTimestamp = 1; // From beginning (use 1 to avoid falsy check)
-        const endTimestamp = Math.floor(Date.now() / 1000); // Now
-        
-        // Fetch profit data (all-time)
-        const profitResponse = await fetch(`/api/profit?start=${startTimestamp}&end=${endTimestamp}`);
-        const profitResult = await profitResponse.json();
-        
-        // Fetch total products count
-        const itemsResponse = await fetch('/api/items?all=true');
-        const itemsResult = await itemsResponse.json();
-        const totalProducts = itemsResult.success ? itemsResult.data?.length || 0 : 0;
-        
-        if (profitResult.success && profitResult.data) {
-          const data = profitResult.data;
-          setStats({
-            totalProducts,
-            totalSales: data.totalSales || 0,
-            salesCount: data.totalTransactions || 0,
-            totalCost: data.totalCost || 0,
-            totalProfit: data.totalProfit || 0,
-            profitMargin: data.profitMargin || 0,
-          });
-        }
-      } catch (error) {
-        console.error('Failed to fetch stats:', error);
-      } finally {
-        setStatsLoading(false);
+  const fetchStats = async () => {
+    try {
+      const startTimestamp = 1;
+      const endTimestamp = Math.floor(Date.now() / 1000);
+      const profitResponse = await fetch(`/api/profit?start=${startTimestamp}&end=${endTimestamp}`);
+      const profitResult = await profitResponse.json();
+      const itemsResponse = await fetch('/api/items?all=true');
+      const itemsResult = await itemsResponse.json();
+      const totalProducts = itemsResult.success ? itemsResult.data?.length || 0 : 0;
+      if (profitResult.success && profitResult.data) {
+        const data = profitResult.data;
+        setStats({
+          totalProducts,
+          totalSales: data.totalSales || 0,
+          salesCount: data.totalTransactions || 0,
+          totalCost: data.totalCost || 0,
+          totalProfit: data.totalProfit || 0,
+          profitMargin: data.profitMargin || 0,
+        });
       }
-    };
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchStats();
   }, []);
 
@@ -873,6 +868,7 @@ export default function AdminDashboardPage() {
             <div className="px-4 sm:px-6 py-6 max-w-none">
               <StockAdjustForm
                 onCancel={() => setStockAdjustDrawerOpen(false)}
+                onSuccess={() => fetchStats()}
               />
             </div>
           </div>
