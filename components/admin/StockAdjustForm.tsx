@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,6 +25,7 @@ import type { Item } from '@/lib/db/types';
 import type { AdjustmentReason } from '@/lib/constants';
 import { ADJUSTMENT_REASONS, isDiscreteUnitType } from '@/lib/constants';
 import { StockAdjustFormMobile } from './StockAdjustFormMobile';
+import { toast } from 'sonner';
 
 const REASON_LABELS: Record<AdjustmentReason, string> = {
   restock: 'Restock / New Delivery',
@@ -43,7 +43,6 @@ interface StockAdjustFormProps {
 
 export function StockAdjustForm(props: StockAdjustFormProps = {}) {
   const { onSuccess, onCancel } = props;
-  const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
   const [selectedItemId, setSelectedItemId] = useState<string>('');
   const [adjustmentType, setAdjustmentType] = useState<'increase' | 'decrease'>('increase');
@@ -54,8 +53,6 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
   const [error, setError] = useState<string | null>(null);
   const [loadingItems, setLoadingItems] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [lastResult, setLastResult] = useState<{ requiresApproval?: boolean } | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
 
   async function fetchItems() {
@@ -154,7 +151,6 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
       const result = await response.json();
 
       if (result.success) {
-        setLastResult(result.data || {});
         // Notify parent in background (for stats refresh etc.)
         onSuccess?.();
         
@@ -170,27 +166,21 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
           ));
         }
         
-        // Check if approval is required (cashier)
+        // Show toast notification
         if (result.data?.requiresApproval) {
-          setError(null);
-          setShowSuccess(true);
-          setIsSubmitting(false);
-          // Clear form fields but keep search query and items list
-          setTimeout(() => {
-            handleClearForm();
-            setShowSuccess(false);
-            setLastResult(null);
-          }, 2000);
+          toast.info('Request submitted for approval', {
+            description: 'Your stock adjustment is pending admin approval.',
+          });
         } else {
-          setShowSuccess(true);
-          setIsSubmitting(false);
-          // Clear form fields but keep search query and items list
-          setTimeout(() => {
-            handleClearForm();
-            setShowSuccess(false);
-            setLastResult(null);
-          }, 1500);
+          toast.success('Stock adjusted successfully', {
+            description: `${selectedItem?.name}: ${adjustmentType === 'increase' ? '+' : '-'}${qty} ${selectedItem?.unit_type}`,
+          });
         }
+        
+        // Clear only quantity for convenience (keep item selected for more adjustments)
+        setQuantity('');
+        setNotes('');
+        setIsSubmitting(false);
       } else {
         setError(result.message || 'Failed to adjust stock');
         setIsSubmitting(false);
@@ -277,7 +267,6 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
     setNotes,
     isSubmitting,
     error,
-    showSuccess,
     onReset: handleReset,
     onSubmit: async (e: React.FormEvent) => {
       await handleSubmit(e);
@@ -291,30 +280,6 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
       </div>
 
       <div className="hidden md:block space-y-6">
-        {showSuccess && (
-          <Card className="border-green-500/50 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 shadow-sm">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
-                  <CheckCircle2 className="h-5 w-5 text-white" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-green-900 dark:text-green-100">
-                    {lastResult?.requiresApproval 
-                      ? 'Request submitted for approval!'
-                      : 'Stock adjusted successfully!'}
-                  </p>
-                  <p className="text-sm text-green-700 dark:text-green-200">
-                    {lastResult?.requiresApproval
-                      ? 'Your request is pending admin approval. The stock will be updated once approved.'
-                      : 'Stock updated. You can add more or close the drawer.'}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         <div className="grid gap-6 md:grid-cols-2">
         <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
           <CardHeader className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">

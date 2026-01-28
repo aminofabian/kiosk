@@ -54,7 +54,6 @@ interface StockAdjustFormMobileProps {
   setNotes: (notes: string) => void;
   isSubmitting: boolean;
   error: string | null;
-  showSuccess: boolean;
   onReset: () => void;
   onSubmit: (e: React.FormEvent) => Promise<void>;
 }
@@ -315,7 +314,6 @@ export function StockAdjustFormMobile({
   setNotes,
   isSubmitting,
   error,
-  showSuccess,
   onReset,
   onSubmit,
 }: StockAdjustFormMobileProps) {
@@ -384,24 +382,6 @@ export function StockAdjustFormMobile({
 
   return (
     <div className="space-y-4">
-      {showSuccess && (
-        <Card className="border-green-500 bg-green-50 dark:bg-green-950">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-6 w-6 text-green-600" />
-              <div className="flex-1">
-                <p className="font-semibold text-green-900 dark:text-green-100">
-                  Stock adjusted successfully!
-                </p>
-                <p className="text-sm text-green-700 dark:text-green-200">
-                  Ready for another adjustment
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">

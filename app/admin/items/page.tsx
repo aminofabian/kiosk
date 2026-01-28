@@ -30,6 +30,7 @@ import type { UnitType, AdjustmentReason } from '@/lib/constants';
 import { ADJUSTMENT_REASONS } from '@/lib/constants';
 import { getCategoryShopType } from '@/lib/utils/shop-type';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { toast } from 'sonner';
 
 const REASON_LABELS: Record<AdjustmentReason, string> = {
   restock: 'Restock / New Delivery',
@@ -79,9 +80,9 @@ export function ItemsManager() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
 
-  const fetchItems = async () => {
+  const fetchItems = async (background = false) => {
     try {
-      setLoading(true);
+      if (!background) setLoading(true);
       const [itemsRes, categoriesRes] = await Promise.all([
         fetch('/api/items?all=true', { cache: 'no-store' }),
         fetch('/api/categories', { cache: 'no-store' }),
@@ -155,7 +156,7 @@ export function ItemsManager() {
       console.error('Error fetching items:', err);
       return [];
     } finally {
-      setLoading(false);
+      if (!background) setLoading(false);
     }
   };
 
@@ -1137,24 +1138,20 @@ export function ItemsManager() {
                   const parentId = addingVariantToParent;
 
                   // If we have updated item data from the API response, use it directly
-                  // This avoids Turso eventual consistency issues
                   if (updatedItem && editedItemId) {
-                    // Find the category name for display
                     const category = categories.find(c => c.id === updatedItem.category_id);
                     const itemWithCategory: ItemWithCategory = {
                       ...updatedItem,
                       category_name: category?.name,
                     };
 
-                    // Update the item in the local state directly
                     setItems(prevItems => {
                       return prevItems.map(item => {
                         if (item.id === editedItemId) {
                           return { ...item, ...itemWithCategory };
                         }
-                        // Also check if this item has variants that need updating
                         if (item.variants) {
-                          const updatedVariants = item.variants.map(v => 
+                          const updatedVariants = item.variants.map(v =>
                             v.id === editedItemId ? { ...v, ...itemWithCategory } : v
                           );
                           return { ...item, variants: updatedVariants };
@@ -1163,22 +1160,22 @@ export function ItemsManager() {
                       });
                     });
 
-                    // Update selected item if it was the one being edited
                     if (selectedItem?.id === editedItemId) {
                       setSelectedItem(itemWithCategory);
                     }
-                    
-                    // Clear editing state AFTER updating items
+
                     setEditingItem(null);
                     setAddingVariantToParent(null);
+                    toast.success('Item updated successfully', {
+                      description: updatedItem.variant_name ? `${updatedItem.name} – ${updatedItem.variant_name}` : updatedItem.name,
+                    });
                   } else {
                     setEditingItem(null);
                     setAddingVariantToParent(null);
-                    
-                    // For new items or when we don't have updated data, do a full refresh
-                    const updatedItems = await fetchItems();
-                    
-                    // If we added a variant, expand the parent and select it
+                    toast.success(parentId ? 'Variant added successfully' : 'Item added successfully');
+
+                    // Refresh list in background (no loading overlay)
+                    const updatedItems = await fetchItems(true);
                     if (parentId) {
                       setExpandedParents(prev => new Set([...prev, parentId]));
                       const parent = updatedItems.find((i) => i.id === parentId);

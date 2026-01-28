@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 import { DynamicMetaTags } from "@/components/DynamicMetaTags";
+import { Toaster } from "sonner";
 import { getCurrentUser } from "@/lib/auth";
 import "./globals.css";
 
@@ -51,6 +52,7 @@ export default function RootLayout({
         <SessionProvider>
           <DynamicMetaTags />
           {children}
+          <Toaster position="top-center" richColors closeButton />
         </SessionProvider>
       </body>
     </html>
