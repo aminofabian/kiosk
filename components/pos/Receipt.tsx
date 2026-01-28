@@ -77,7 +77,7 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
               {sale.business_name || "FnM's"}
             </p>
             <p className="text-xs print:text-[12px] tracking-wide mb-1 text-black" style={{ color: '#000000' }}>
-              Fresh and More
+              Fresh n More
             </p>
             <p className="text-sm print:text-[12px] mb-2 print:mb-1 text-black" style={{ color: '#000000' }}>
               Thank you for your purchase!
