@@ -85,9 +85,13 @@ export async function GET(request: Request) {
       hourlyMap.set(h, { hour: h, customers: 0, sales: 0, profit: 0, items: 0 });
     }
 
+    // Use business local time (Kenya, UTC+3) for hour bucketing
+    const kenyaOffsetMs = 3 * 60 * 60 * 1000;
+
     for (const sale of sales) {
       const saleDate = new Date(sale.sale_date * 1000);
-      const hour = saleDate.getHours();
+      const kenyaDate = new Date(saleDate.getTime() + kenyaOffsetMs);
+      const hour = kenyaDate.getUTCHours();
       const stat = hourlyMap.get(hour)!;
       stat.customers += 1;
       stat.sales += sale.total_amount;
@@ -114,7 +118,8 @@ export async function GET(request: Request) {
 
     for (const sale of sales) {
       const saleDate = new Date(sale.sale_date * 1000);
-      const dayOfWeek = saleDate.getDay();
+      const kenyaDate = new Date(saleDate.getTime() + kenyaOffsetMs);
+      const dayOfWeek = kenyaDate.getUTCDay();
       const stat = dayOfWeekMap.get(dayOfWeek)!;
       stat.customers += 1;
       stat.sales += sale.total_amount;

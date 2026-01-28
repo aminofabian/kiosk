@@ -145,6 +145,13 @@ export default function CustomersPage() {
   const formatPrice = (n: number) => `KES ${n.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   const formatHour = (h: number) => h === 0 ? '12am' : h === 12 ? '12pm' : h < 12 ? `${h}am` : `${h - 12}pm`;
   const getPeriodLabel = () => datePreset === 'today' ? 'Today' : datePreset === 'week' ? 'This Week' : 'This Month';
+  const formatDateRange = () => {
+    const start = new Date(dateRange.start);
+    const end = new Date(dateRange.end);
+    const startStr = start.toLocaleDateString('en-GB');
+    const endStr = end.toLocaleDateString('en-GB');
+    return `${startStr} - ${endStr}`;
+  };
 
   if (loading) {
     return (
@@ -210,6 +217,9 @@ export default function CustomersPage() {
                 </button>
               ))}
             </div>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">
+              {formatDateRange()}
+            </span>
             {currentTime && (
               <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
                 <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
@@ -687,6 +697,9 @@ export default function CustomersPage() {
               </button>
             ))}
           </div>
+          <p className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400 text-right">
+            {formatDateRange()}
+          </p>
         </div>
 
         {/* Hero Metrics */}
