@@ -215,6 +215,9 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
               <p className="font-bold text-black" style={{ color: '#000000' }}>Get in Touch</p>
               <p className="text-black" style={{ color: '#000000' }}>www.fnms.co.ke</p>
               <p className="text-black" style={{ color: '#000000' }}>Tel: 0721 530 181</p>
+              <p className="text-black font-bold" style={{ color: '#000000' }}>
+                Till: 3020127 &mdash; Zelisline
+              </p>
             </div>
 
             {/* Additional Info */}
