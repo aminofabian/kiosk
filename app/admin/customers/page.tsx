@@ -92,10 +92,16 @@ export default function CustomersPage() {
   const [error, setError] = useState<string | null>(null);
   const [datePreset, setDatePreset] = useState<DatePreset>('today');
   const [currentTime, setCurrentTime] = useState('');
+  const formatDateKey = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
   const [dateRange, setDateRange] = useState(() => {
     const today = new Date();
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
-    return { start: todayStart.toISOString().split('T')[0], end: today.toISOString().split('T')[0] };
+    return { start: formatDateKey(todayStart), end: formatDateKey(today) };
   });
 
   useEffect(() => { updateDateRangeFromPreset(datePreset); }, [datePreset]);
@@ -122,7 +128,7 @@ export default function CustomersPage() {
     if (preset === 'today') start.setHours(0, 0, 0, 0);
     else if (preset === 'week') start.setDate(today.getDate() - 7);
     else start.setDate(1);
-    setDateRange({ start: start.toISOString().split('T')[0], end: today.toISOString().split('T')[0] });
+    setDateRange({ start: formatDateKey(start), end: formatDateKey(today) });
   }
 
   async function fetchData() {
