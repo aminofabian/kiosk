@@ -91,6 +91,7 @@ export default function CustomersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [datePreset, setDatePreset] = useState<DatePreset>('today');
+  const [currentTime, setCurrentTime] = useState('');
   const [dateRange, setDateRange] = useState(() => {
     const today = new Date();
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
@@ -99,6 +100,21 @@ export default function CustomersPage() {
 
   useEffect(() => { updateDateRangeFromPreset(datePreset); }, [datePreset]);
   useEffect(() => { fetchData(); }, [dateRange]);
+  useEffect(() => {
+    const update = () => {
+      setCurrentTime(
+        new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+        })
+      );
+    };
+
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   function updateDateRangeFromPreset(preset: DatePreset) {
     const today = new Date();
@@ -178,20 +194,28 @@ export default function CustomersPage() {
               <p className="text-sm text-slate-500 dark:text-slate-400">Traffic patterns & buying behavior</p>
             </div>
           </div>
-          <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            {(['today', 'week', 'month'] as DatePreset[]).map((preset) => (
-              <button
-                key={preset}
-                onClick={() => setDatePreset(preset)}
-                className={`px-4 py-2 text-xs font-bold transition-all rounded-lg ${
-                  datePreset === preset
-                    ? 'bg-[#259783] text-white shadow-md'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                }`}
-              >
-                {preset === 'today' ? 'Today' : preset === 'week' ? 'Week' : 'Month'}
-              </button>
-            ))}
+          <div className="flex flex-col items-end gap-1">
+            <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+              {(['today', 'week', 'month'] as DatePreset[]).map((preset) => (
+                <button
+                  key={preset}
+                  onClick={() => setDatePreset(preset)}
+                  className={`px-4 py-2 text-xs font-bold transition-all rounded-lg ${
+                    datePreset === preset
+                      ? 'bg-[#259783] text-white shadow-md'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  }`}
+                >
+                  {preset === 'today' ? 'Today' : preset === 'week' ? 'Week' : 'Month'}
+                </button>
+              ))}
+            </div>
+            {currentTime && (
+              <div className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400">
+                <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                <span className="font-medium">Local time: {currentTime}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -633,6 +657,11 @@ export default function CustomersPage() {
               <div>
                 <h1 className="text-lg font-black text-slate-900 dark:text-white">Customers</h1>
                 <p className="text-[10px] text-slate-500">Traffic & behavior</p>
+                {currentTime && (
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Local time: <span className="font-semibold text-slate-600 dark:text-slate-300">{currentTime}</span>
+                  </p>
+                )}
               </div>
             </div>
             <Link href="/admin" className="px-3 py-1.5 text-xs font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg">
