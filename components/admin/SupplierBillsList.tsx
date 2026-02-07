@@ -31,6 +31,7 @@ import {
   CheckCircle2,
   FileText,
   Users,
+  Scale,
 } from 'lucide-react';
 import { apiGet, apiPost } from '@/lib/utils/api-client';
 import type { SupplierBill } from '@/lib/db/types';
@@ -54,6 +55,58 @@ export function SupplierBillsList() {
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [isMarkingAsPaid, setIsMarkingAsPaid] = useState(false);
+  const [salesSummary, setSalesSummary] = useState<{
+    totalRevenue: number;
+    totalTransactions: number;
+  } | null>(null);
+  const [salesLoading, setSalesLoading] = useState(false);
+
+  /** Return [start, end] in Unix seconds for the given date filter (inclusive). */
+  const getDateRangeForFilter = useCallback((range: string): [number, number] | null => {
+    const now = Math.floor(Date.now() / 1000);
+    const todayStart = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
+    const todayEnd = todayStart + 86400 - 1;
+
+    switch (range) {
+      case 'today':
+        return [todayStart, todayEnd];
+      case 'yesterday': {
+        const yesterdayStart = todayStart - 86400;
+        return [yesterdayStart, todayStart - 1];
+      }
+      case 'this_week': {
+        const weekStart = todayStart - new Date().getDay() * 86400;
+        return [weekStart, now];
+      }
+      case 'last_week': {
+        const weekStart = todayStart - new Date().getDay() * 86400;
+        const lastWeekStart = weekStart - 604800;
+        return [lastWeekStart, weekStart - 1];
+      }
+      case 'this_month': {
+        const monthStart = Math.floor(
+          new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime() / 1000
+        );
+        return [monthStart, now];
+      }
+      case 'last_month': {
+        const thisMonthStart = Math.floor(
+          new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime() / 1000
+        );
+        const lastMonthStart = Math.floor(
+          new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1).getTime() / 1000
+        );
+        return [lastMonthStart, thisMonthStart - 1];
+      }
+      case 'last_7_days':
+        return [now - 604800, now];
+      case 'last_30_days':
+        return [now - 2592000, now];
+      case 'all':
+      default:
+        return null;
+    }
+  }, []);
 
   const fetchBills = useCallback(async () => {
     try {
@@ -81,6 +134,28 @@ export function SupplierBillsList() {
     const interval = setInterval(fetchBills, 30000);
     return () => clearInterval(interval);
   }, [fetchBills]);
+
+  useEffect(() => {
+    const range = getDateRangeForFilter(dateFilter);
+    if (!range) {
+      setSalesSummary(null);
+      return;
+    }
+    const [start, end] = range;
+    setSalesLoading(true);
+    apiGet<{ totalRevenue: number; totalTransactions: number }>(
+      `/api/sales/summary?start=${start}&end=${end}`
+    )
+      .then((res) => {
+        if (res.success && res.data) {
+          setSalesSummary({ totalRevenue: res.data.totalRevenue, totalTransactions: res.data.totalTransactions });
+        } else {
+          setSalesSummary(null);
+        }
+      })
+      .catch(() => setSalesSummary(null))
+      .finally(() => setSalesLoading(false));
+  }, [dateFilter, getDateRangeForFilter]);
 
   const handleMarkAsPaid = (bill: SupplierBillWithDetails) => {
     setPaymentMethod('');
@@ -375,6 +450,98 @@ export function SupplierBillsList() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Bills vs Sales in timeframe */}
+      {dateFilter !== 'all' && (
+        <Card className="bg-gradient-to-br from-slate-50 to-emerald-50/30 dark:from-slate-900/50 dark:to-emerald-950/20 border-2 border-slate-200 dark:border-slate-700 overflow-hidden">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 mb-4">
+              <Scale className="w-5 h-5 text-[#259783]" />
+              <span className="text-sm font-semibold uppercase tracking-wide">
+                Bills vs sales in this period
+              </span>
+            </div>
+            {salesLoading ? (
+              <div className="flex items-center gap-3 py-4 text-slate-500">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="text-sm">Loading sales for comparison...</span>
+              </div>
+            ) : salesSummary ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">
+                      Bills total
+                    </p>
+                    <p className="text-lg font-bold text-slate-900 dark:text-white">
+                      {formatPrice(totalAmount)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">
+                      Sales total
+                    </p>
+                    <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
+                      {formatPrice(salesSummary.totalRevenue)}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {salesSummary.totalTransactions} transaction{salesSummary.totalTransactions !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  <div className="col-span-2 sm:col-span-2">
+                    <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">
+                      Difference (sales − bills)
+                    </p>
+                    {(() => {
+                      const diff = salesSummary.totalRevenue - totalAmount;
+                      const isPositive = diff >= 0;
+                      return (
+                        <p
+                          className={`text-lg font-bold ${
+                            isPositive
+                              ? 'text-emerald-700 dark:text-emerald-400'
+                              : 'text-amber-700 dark:text-amber-400'
+                          }`}
+                        >
+                          {isPositive ? '+' : ''}
+                          {formatPrice(diff)}
+                        </p>
+                      );
+                    })()}
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                      {salesSummary.totalRevenue >= totalAmount
+                        ? 'Sales covered your bills in this period'
+                        : 'Bills exceeded sales — consider timing or cash flow'}
+                    </p>
+                  </div>
+                </div>
+                {salesSummary.totalRevenue > 0 && (
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="text-slate-500 dark:text-slate-400">Bills as % of sales</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">
+                        {Math.round((totalAmount / salesSummary.totalRevenue) * 100)}%
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-[#259783] dark:bg-emerald-600 transition-all"
+                        style={{
+                          width: `${Math.min(100, (totalAmount / salesSummary.totalRevenue) * 100)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-slate-500 dark:text-slate-400 py-2">
+                Could not load sales for this period.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* By supplier breakdown */}
       {supplierEntries.length > 0 && (
