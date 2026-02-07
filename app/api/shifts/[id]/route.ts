@@ -92,7 +92,7 @@ export async function PATCH(
     }
 
     const updates: string[] = [];
-    const values: (number | null)[] = [];
+    const values: (number | string | null)[] = [];
 
     // Editable: opening_cash
     if (body.openingCash !== undefined) {

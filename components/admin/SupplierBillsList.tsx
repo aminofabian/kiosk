@@ -423,123 +423,201 @@ export function SupplierBillsList() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4">
-          {filteredBills.map((bill) => {
-            const daysUntilDue = getDaysUntilDue(bill.due_date);
-            const isOverdue = bill.status === 'overdue' || daysUntilDue < 0;
-            const isDueSoon = daysUntilDue <= 3 && daysUntilDue >= 0;
+        <>
+          {/* Mobile: Cards */}
+          <div className="md:hidden grid gap-4">
+            {filteredBills.map((bill) => {
+              const daysUntilDue = getDaysUntilDue(bill.due_date);
+              const isOverdue = bill.status === 'overdue' || daysUntilDue < 0;
+              const isDueSoon = daysUntilDue <= 3 && daysUntilDue >= 0;
 
-            return (
-              <Card
-                key={bill.id}
-                className={`bg-white dark:bg-[#1c2e18] border-2 ${
-                  isOverdue
-                    ? 'border-red-500 dark:border-red-800'
-                    : isDueSoon
-                    ? 'border-orange-500 dark:border-orange-800'
-                    : 'border-slate-200 dark:border-slate-800'
-                }`}
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center">
-                          <Receipt className="w-5 h-5 text-[#259783]" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="font-bold text-slate-900 dark:text-white">
-                            {bill.supplier_name}
-                          </h3>
-                          <p className="text-sm text-slate-600 dark:text-slate-400">
-                            {bill.bill_description}
-                          </p>
-                          {bill.supplier_phone && (
-                            <p className="text-xs text-slate-500 dark:text-slate-500 mt-0.5">
-                              📞 {bill.supplier_phone}
+              return (
+                <Card
+                  key={bill.id}
+                  className={`bg-white dark:bg-[#1c2e18] border-2 ${
+                    isOverdue
+                      ? 'border-red-500 dark:border-red-800'
+                      : isDueSoon
+                      ? 'border-orange-500 dark:border-orange-800'
+                      : 'border-slate-200 dark:border-slate-800'
+                  }`}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 space-y-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center">
+                            <Receipt className="w-5 h-5 text-[#259783]" />
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-bold text-slate-900 dark:text-white">
+                              {bill.supplier_name}
+                            </h3>
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
+                              {bill.bill_description}
                             </p>
-                          )}
-                        </div>
-                        {getStatusBadge(bill)}
-                      </div>
-
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                        <div>
-                          <p className="text-slate-500 dark:text-slate-400 mb-1">Amount</p>
-                          <p className="font-bold text-slate-900 dark:text-white">
-                            {formatPrice(bill.amount)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-slate-500 dark:text-slate-400 mb-1">Due Date</p>
-                          <p className={`font-bold ${
-                            isOverdue
-                              ? 'text-red-600 dark:text-red-400'
-                              : isDueSoon
-                              ? 'text-orange-600 dark:text-orange-400'
-                              : 'text-slate-900 dark:text-white'
-                          }`}>
-                            {formatDate(bill.due_date)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-slate-500 dark:text-slate-400 mb-1">Created</p>
-                          <p className="font-semibold text-slate-700 dark:text-slate-300">
-                            {formatDate(bill.created_at)}
-                          </p>
-                          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                            by {bill.creator_name}
-                          </p>
-                        </div>
-                        {bill.payment_date ? (
-                          <div>
-                            <p className="text-slate-500 dark:text-slate-400 mb-1">Paid On</p>
-                            <p className="font-semibold text-green-600 dark:text-green-400">
-                              {formatDate(bill.payment_date)}
-                            </p>
-                            {bill.payer_name && (
-                              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
-                                by {bill.payer_name}
+                            {bill.supplier_phone && (
+                              <p className="text-xs text-slate-500 dark:text-slate-500 mt-0.5">
+                                📞 {bill.supplier_phone}
                               </p>
                             )}
                           </div>
-                        ) : (
+                          {getStatusBadge(bill)}
+                        </div>
+
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                           <div>
-                            <p className="text-slate-500 dark:text-slate-400 mb-1">Status</p>
+                            <p className="text-slate-500 dark:text-slate-400 mb-1">Amount</p>
+                            <p className="font-bold text-slate-900 dark:text-white">
+                              {formatPrice(bill.amount)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500 dark:text-slate-400 mb-1">Due Date</p>
+                            <p className={`font-bold ${
+                              isOverdue
+                                ? 'text-red-600 dark:text-red-400'
+                                : isDueSoon
+                                ? 'text-orange-600 dark:text-orange-400'
+                                : 'text-slate-900 dark:text-white'
+                            }`}>
+                              {formatDate(bill.due_date)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-slate-500 dark:text-slate-400 mb-1">Created</p>
                             <p className="font-semibold text-slate-700 dark:text-slate-300">
-                              {bill.status === 'paid' ? 'Paid' : bill.status === 'overdue' ? 'Overdue' : 'Pending'}
+                              {formatDate(bill.created_at)}
+                            </p>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                              by {bill.creator_name}
+                            </p>
+                          </div>
+                          {bill.payment_date ? (
+                            <div>
+                              <p className="text-slate-500 dark:text-slate-400 mb-1">Paid On</p>
+                              <p className="font-semibold text-green-600 dark:text-green-400">
+                                {formatDate(bill.payment_date)}
+                              </p>
+                              {bill.payer_name && (
+                                <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                                  by {bill.payer_name}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <div>
+                              <p className="text-slate-500 dark:text-slate-400 mb-1">Status</p>
+                              <p className="font-semibold text-slate-700 dark:text-slate-300">
+                                {bill.status === 'paid' ? 'Paid' : bill.status === 'overdue' ? 'Overdue' : 'Pending'}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {bill.notes && (
+                          <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
+                              {bill.notes}
                             </p>
                           </div>
                         )}
+
+                        {bill.status !== 'paid' && (
+                          <div className="pt-2">
+                            <Button
+                              onClick={() => handleMarkAsPaid(bill)}
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              size="sm"
+                            >
+                              <CheckCircle2 className="w-4 h-4 mr-2" />
+                              Mark as Paid
+                            </Button>
+                          </div>
+                        )}
                       </div>
-
-                      {bill.notes && (
-                        <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                          <p className="text-sm text-slate-600 dark:text-slate-400">
-                            {bill.notes}
-                          </p>
-                        </div>
-                      )}
-
-                      {bill.status !== 'paid' && (
-                        <div className="pt-2">
-                          <Button
-                            onClick={() => handleMarkAsPaid(bill)}
-                            className="bg-green-600 hover:bg-green-700 text-white"
-                            size="sm"
-                          >
-                            <CheckCircle2 className="w-4 h-4 mr-2" />
-                            Mark as Paid
-                          </Button>
-                        </div>
-                      )}
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Desktop: Table */}
+          <Card className="hidden md:block bg-white dark:bg-[#1c2e18] border-2 border-slate-200 dark:border-slate-800 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[720px]">
+                <thead>
+                  <tr className="border-b-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                    <th className="text-left p-3 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Supplier</th>
+                    <th className="text-left p-3 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Description</th>
+                    <th className="text-right p-3 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Amount</th>
+                    <th className="text-left p-3 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Due</th>
+                    <th className="text-left p-3 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Status</th>
+                    <th className="text-left p-3 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">Created</th>
+                    <th className="text-right p-3 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider w-28">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredBills.map((bill, i) => {
+                    const daysUntilDue = getDaysUntilDue(bill.due_date);
+                    const isOverdue = bill.status === 'overdue' || daysUntilDue < 0;
+                    const isDueSoon = daysUntilDue <= 3 && daysUntilDue >= 0;
+                    return (
+                      <tr
+                        key={bill.id}
+                        className={`border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors ${
+                          i % 2 === 0 ? 'bg-white dark:bg-[#1c2e18]' : 'bg-slate-50/50 dark:bg-slate-900/20'
+                        } ${
+                          isOverdue ? 'border-l-2 border-l-red-500' : isDueSoon ? 'border-l-2 border-l-orange-500' : ''
+                        }`}
+                      >
+                        <td className="p-3">
+                          <div>
+                            <p className="font-medium text-slate-900 dark:text-white">{bill.supplier_name}</p>
+                            {bill.supplier_phone && (
+                              <p className="text-xs text-slate-500 dark:text-slate-400">📞 {bill.supplier_phone}</p>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-3 text-slate-600 dark:text-slate-400 max-w-[200px] truncate" title={bill.bill_description}>
+                          {bill.bill_description}
+                        </td>
+                        <td className="p-3 text-right font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                          {formatPrice(bill.amount)}
+                        </td>
+                        <td className="p-3">
+                          <span className={`font-medium ${
+                            isOverdue ? 'text-red-600 dark:text-red-400' : isDueSoon ? 'text-orange-600 dark:text-orange-400' : 'text-slate-700 dark:text-slate-300'
+                          }`}>
+                            {formatDate(bill.due_date)}
+                          </span>
+                        </td>
+                        <td className="p-3">{getStatusBadge(bill)}</td>
+                        <td className="p-3 text-slate-600 dark:text-slate-400">
+                          {formatDate(bill.created_at)}
+                          <span className="block text-xs text-slate-400 dark:text-slate-500">by {bill.creator_name}</span>
+                        </td>
+                        <td className="p-3 text-right">
+                          {bill.status !== 'paid' && (
+                            <Button
+                              onClick={() => handleMarkAsPaid(bill)}
+                              className="bg-green-600 hover:bg-green-700 text-white"
+                              size="sm"
+                            >
+                              <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                              Pay
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </>
       )}
 
       {/* Mark as Paid Dialog */}
