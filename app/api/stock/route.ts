@@ -79,15 +79,14 @@ export async function GET() {
            )
        ) current_batch ON i.id = current_batch.item_id
        LEFT JOIN (
-         SELECT 
-           sp1.item_id,
-           sp1.price
+         SELECT sp1.item_id, sp1.price
          FROM selling_prices sp1
-         WHERE sp1.effective_from = (
-           SELECT MIN(sp2.effective_from)
-           FROM selling_prices sp2
-           WHERE sp2.item_id = sp1.item_id
-         )
+         INNER JOIN (
+           SELECT item_id, MIN(effective_from) AS min_eff
+           FROM selling_prices
+           GROUP BY item_id
+         ) fp_sub ON sp1.item_id = fp_sub.item_id AND sp1.effective_from = fp_sub.min_eff
+         GROUP BY sp1.item_id
        ) first_price ON i.id = first_price.item_id
        WHERE i.business_id = ? 
          AND i.active = 1
@@ -152,14 +151,18 @@ export async function GET() {
       const initialValue = initialStock * initialBuyPrice;
       
       // Initial sales value uses initial sell price (or current as fallback)
-      const initialSellPrice = item.initial_sell_price ?? item.current_sell_price;
+      // Clamp to sane range to avoid garbage from bad DB data (e.g. timestamp in price column)
+      const rawInitialSellPrice = item.initial_sell_price ?? item.current_sell_price;
+      const sanePrice = (p: number) => (typeof p === 'number' && p >= 0 && p <= 1e8) ? p : 0;
+      const initialSellPrice = sanePrice(rawInitialSellPrice);
       const initialSalesValue = initialStock * initialSellPrice;
       
       // Stock value uses current buy price (current cost basis)
       const stockValue = currentStock * currentBuyPrice;
       
-      // Sales value uses current sell price (potential revenue)
-      const salesValue = currentStock * item.current_sell_price;
+      // Sales value uses current sell price (potential revenue); clamp to avoid bad data
+      const currentSellPrice = sanePrice(item.current_sell_price);
+      const salesValue = currentStock * currentSellPrice;
       
       // Value change compares sales value to stock value (profit potential)
       const valueChange = salesValue - stockValue;
