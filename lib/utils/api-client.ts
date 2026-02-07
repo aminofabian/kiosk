@@ -110,6 +110,17 @@ export async function apiPut<T = unknown>(
   });
 }
 
+export async function apiPatch<T = unknown>(
+  url: string,
+  body: unknown
+): Promise<ApiResponse<T>> {
+  return apiFetch<T>(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
 export async function apiDelete<T = unknown>(url: string): Promise<ApiResponse<T>> {
   return apiFetch<T>(url, { method: 'DELETE' });
 }

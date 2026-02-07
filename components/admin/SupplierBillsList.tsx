@@ -29,6 +29,8 @@ import {
   Clock,
   CheckCircle,
   CheckCircle2,
+  FileText,
+  Users,
 } from 'lucide-react';
 import { apiGet, apiPost } from '@/lib/utils/api-client';
 import type { SupplierBill } from '@/lib/db/types';
@@ -261,6 +263,24 @@ export function SupplierBillsList() {
     .filter((b) => b.status === 'pending' || b.status === 'overdue')
     .reduce((sum, b) => sum + b.amount, 0);
 
+  const totalAmount = filteredBills.reduce((sum, b) => sum + b.amount, 0);
+  const totalPaid = filteredBills
+    .filter((b) => b.status === 'paid')
+    .reduce((sum, b) => sum + b.amount, 0);
+
+  // Per-supplier summary: { supplierName: { total, count } }
+  const bySupplier = filteredBills.reduce<Record<string, { total: number; count: number }>>(
+    (acc, b) => {
+      const name = b.supplier_name || 'Unknown';
+      if (!acc[name]) acc[name] = { total: 0, count: 0 };
+      acc[name].total += b.amount;
+      acc[name].count += 1;
+      return acc;
+    },
+    {}
+  );
+  const supplierEntries = Object.entries(bySupplier).sort((a, b) => b[1].total - a[1].total);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-4">
@@ -307,6 +327,86 @@ export function SupplierBillsList() {
           </Select>
         </div>
       </div>
+
+      {/* Summary stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
+              <FileText className="w-4 h-4" />
+              <span className="text-xs font-medium uppercase tracking-wide">Total Bills</span>
+            </div>
+            <p className="text-xl font-bold text-slate-900 dark:text-white">
+              {filteredBills.length}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
+              <Receipt className="w-4 h-4" />
+              <span className="text-xs font-medium uppercase tracking-wide">Total Amount</span>
+            </div>
+            <p className="text-xl font-bold text-slate-900 dark:text-white">
+              {formatPrice(totalAmount)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-white dark:bg-[#1c2e18] border border-orange-200 dark:border-orange-900/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-orange-600 dark:text-orange-400 mb-1">
+              <Clock className="w-4 h-4" />
+              <span className="text-xs font-medium uppercase tracking-wide">Pending</span>
+            </div>
+            <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
+              {formatPrice(totalPending)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-white dark:bg-[#1c2e18] border border-green-200 dark:border-green-900/50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-green-600 dark:text-green-400 mb-1">
+              <CheckCircle className="w-4 h-4" />
+              <span className="text-xs font-medium uppercase tracking-wide">Paid</span>
+            </div>
+            <p className="text-xl font-bold text-green-600 dark:text-green-400">
+              {formatPrice(totalPaid)}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* By supplier breakdown */}
+      {supplierEntries.length > 0 && (
+        <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400 mb-3">
+              <Users className="w-4 h-4" />
+              <span className="text-sm font-semibold">By supplier</span>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {supplierEntries.map(([name, { total, count }]) => (
+                <div
+                  key={name}
+                  className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700"
+                >
+                  <div>
+                    <p className="font-medium text-slate-900 dark:text-white truncate max-w-[140px]" title={name}>
+                      {name}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {count} bill{count !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  <p className="font-bold text-slate-900 dark:text-white shrink-0 ml-2">
+                    {formatPrice(total)}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {filteredBills.length === 0 ? (
         <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
