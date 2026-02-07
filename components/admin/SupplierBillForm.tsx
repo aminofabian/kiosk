@@ -53,7 +53,7 @@ export function SupplierBillForm({ onSuccess, onCancel }: SupplierBillFormProps)
   const [lineItems, setLineItems] = useState<BillLineItem[]>([
     { id: '1', description: '', quantity: '1', amount: '' },
   ]);
-  const [dueDate, setDueDate] = useState('');
+  const [dueDateTime, setDueDateTime] = useState('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -248,8 +248,8 @@ export function SupplierBillForm({ onSuccess, onCancel }: SupplierBillFormProps)
       return;
     }
 
-    if (!dueDate) {
-      setError('Due date is required');
+    if (!dueDateTime) {
+      setError('Due date and time are required');
       return;
     }
 
@@ -264,7 +264,7 @@ export function SupplierBillForm({ onSuccess, onCancel }: SupplierBillFormProps)
         supplierPhone: supplierPhone.trim() || null,
         billDescription: billDescription,
         amount: totalAmount,
-        dueDate,
+        dueDate: dueDateTime,
         notes: notes.trim() || null,
       });
 
@@ -283,14 +283,17 @@ export function SupplierBillForm({ onSuccess, onCancel }: SupplierBillFormProps)
     }
   };
 
-  // Set default due date to 7 days from now
+  // Default due to today at end of day (23:59)
   useEffect(() => {
-    if (!dueDate) {
-      const defaultDate = new Date();
-      defaultDate.setDate(defaultDate.getDate() + 7);
-      setDueDate(defaultDate.toISOString().split('T')[0]);
+    if (!dueDateTime) {
+      const d = new Date();
+      d.setHours(23, 59, 0, 0);
+      const pad = (n: number) => String(n).padStart(2, '0');
+      setDueDateTime(
+        `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+      );
     }
-  }, [dueDate]);
+  }, [dueDateTime]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -495,10 +498,10 @@ export function SupplierBillForm({ onSuccess, onCancel }: SupplierBillFormProps)
 
       <div className="space-y-2">
         <Label className="text-slate-700 dark:text-slate-300 font-bold">
-          Due Date *
+          Due Date & Time *
         </Label>
         <div className="space-y-2">
-            {/* Quick Date Selection Buttons */}
+            {/* Quick date selection: sets date, keeps time (end of day for new dates) */}
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-xs text-slate-500 dark:text-slate-400 mr-1">Quick:</span>
               {[
@@ -512,15 +515,14 @@ export function SupplierBillForm({ onSuccess, onCancel }: SupplierBillFormProps)
               ].map(({ label, days }) => {
                 const isSelected = (() => {
                   if (days === null) {
-                    // For indefinite, check if date is far in the future (e.g., 10 years)
-                    if (!dueDate) return false;
-                    const selectedDate = new Date(dueDate);
+                    if (!dueDateTime) return false;
+                    const selectedDate = new Date(dueDateTime);
                     const farFuture = new Date();
                     farFuture.setFullYear(farFuture.getFullYear() + 10);
                     return selectedDate.getTime() >= farFuture.getTime();
                   }
-                  if (!dueDate) return false;
-                  const selectedDate = new Date(dueDate);
+                  if (!dueDateTime) return false;
+                  const selectedDate = new Date(dueDateTime);
                   const today = new Date();
                   today.setHours(0, 0, 0, 0);
                   selectedDate.setHours(0, 0, 0, 0);
@@ -536,15 +538,21 @@ export function SupplierBillForm({ onSuccess, onCancel }: SupplierBillFormProps)
                     variant={isSelected ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => {
+                      const pad = (n: number) => String(n).padStart(2, '0');
                       if (days === null) {
-                        // Set to 10 years in the future for indefinite
-                        const date = new Date();
-                        date.setFullYear(date.getFullYear() + 10);
-                        setDueDate(date.toISOString().split('T')[0]);
+                        const d = new Date();
+                        d.setFullYear(d.getFullYear() + 10);
+                        d.setHours(23, 59, 0, 0);
+                        setDueDateTime(
+                          `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+                        );
                       } else {
-                        const date = new Date();
-                        date.setDate(date.getDate() + days);
-                        setDueDate(date.toISOString().split('T')[0]);
+                        const d = new Date();
+                        d.setDate(d.getDate() + days);
+                        d.setHours(23, 59, 0, 0);
+                        setDueDateTime(
+                          `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+                        );
                       }
                     }}
                     className={`h-7 px-2.5 text-xs ${
@@ -559,9 +567,9 @@ export function SupplierBillForm({ onSuccess, onCancel }: SupplierBillFormProps)
               })}
             </div>
             <Input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
+              type="datetime-local"
+              value={dueDateTime}
+              onChange={(e) => setDueDateTime(e.target.value)}
               required
               className="h-12 border-2 border-slate-200 dark:border-slate-700"
             />

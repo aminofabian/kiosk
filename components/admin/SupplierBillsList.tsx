@@ -108,6 +108,20 @@ export function SupplierBillsList() {
     }
   }, []);
 
+  /** Human-readable date range for the current filter (e.g. "Dec 2 – Dec 8, 2025"). */
+  const dateRangeLabel = (() => {
+    const range = getDateRangeForFilter(dateFilter);
+    if (!range) return null;
+    const [start, end] = range;
+    const startDate = new Date(start * 1000);
+    const endDate = new Date(end * 1000);
+    const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+    const startStr = startDate.toLocaleDateString('en-US', opts);
+    const endStr = endDate.toLocaleDateString('en-US', opts);
+    if (startStr === endStr) return startStr;
+    return `${startStr} – ${endStr}`;
+  })();
+
   const fetchBills = useCallback(async () => {
     try {
       setLoading(true);
@@ -370,6 +384,11 @@ export function SupplierBillsList() {
                 • {formatPrice(totalPending)} pending
               </span>
             )}
+            {dateRangeLabel && (
+              <span className="ml-2 text-slate-500 dark:text-slate-400">
+                • {dateRangeLabel}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -460,6 +479,11 @@ export function SupplierBillsList() {
               <span className="text-sm font-semibold uppercase tracking-wide">
                 Bills vs sales in this period
               </span>
+              {dateRangeLabel && (
+                <span className="text-xs font-normal normal-case text-slate-500 dark:text-slate-400">
+                  ({dateRangeLabel})
+                </span>
+              )}
             </div>
             {salesLoading ? (
               <div className="flex items-center gap-3 py-4 text-slate-500">
