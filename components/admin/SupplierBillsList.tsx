@@ -357,6 +357,14 @@ export function SupplierBillsList() {
     .filter((b) => b.status === 'paid')
     .reduce((sum, b) => sum + b.amount, 0);
 
+  // Days in current date range (for daily average). Only defined when a range is selected.
+  const dateRange = getDateRangeForFilter(dateFilter);
+  const daysInRange = dateRange
+    ? Math.max(1, Math.floor((dateRange[1] - dateRange[0]) / 86400) + 1)
+    : 0;
+  const dailyAverageAmount = daysInRange > 0 ? totalAmount / daysInRange : 0;
+  const dailyAverageBills = daysInRange > 0 ? filteredBills.length / daysInRange : 0;
+
   // Per-supplier summary: { supplierName: { total, count } }
   const bySupplier = filteredBills.reduce<Record<string, { total: number; count: number }>>(
     (acc, b) => {
@@ -423,7 +431,7 @@ export function SupplierBillsList() {
       </div>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
@@ -465,6 +473,22 @@ export function SupplierBillsList() {
             </div>
             <p className="text-xl font-bold text-green-600 dark:text-green-400">
               {formatPrice(totalPaid)}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 mb-1">
+              <Calendar className="w-4 h-4" />
+              <span className="text-xs font-medium uppercase tracking-wide">Daily Average</span>
+            </div>
+            <p className="text-xl font-bold text-slate-900 dark:text-white">
+              {daysInRange > 0 ? formatPrice(dailyAverageAmount) : '—'}
+            </p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              {daysInRange > 0
+                ? `per day (${daysInRange} day${daysInRange !== 1 ? 's' : ''})`
+                : 'Select a date range'}
             </p>
           </CardContent>
         </Card>
