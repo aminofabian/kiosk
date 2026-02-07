@@ -1,3 +1,7 @@
+// Item types (grocery vs retail classification)
+export const ITEM_TYPES = ['grocery', 'retail'] as const;
+export type ItemType = (typeof ITEM_TYPES)[number];
+
 // Unit types
 export const UNIT_TYPES = ['kg', 'g', 'piece', 'bunch', 'tray', 'litre', 'ml'] as const;
 export type UnitType = (typeof UNIT_TYPES)[number];

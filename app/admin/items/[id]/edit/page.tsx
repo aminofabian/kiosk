@@ -96,6 +96,7 @@ export default function EditItemPage() {
             bundle_quantity: item.bundle_quantity,
             bundle_price: item.bundle_price,
             bundle_name: item.bundle_name,
+            item_type: item.item_type,
           }}
         />
       </div>

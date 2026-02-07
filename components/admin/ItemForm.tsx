@@ -10,7 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Package, Layers, ShoppingCart, DollarSign, Box, AlertCircle, Info, Sparkles, Grid3x3, QrCode, Search, CheckCircle2 } from 'lucide-react';
 import type { Category, Item } from '@/lib/db/types';
-import type { UnitType } from '@/lib/constants';
+import type { ItemType, UnitType } from '@/lib/constants';
 import { apiGet, apiPost, apiPut } from '@/lib/utils/api-client';
 import { getShopType, shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
 import { useBarcodeScanner } from '@/lib/hooks/use-barcode-scanner';
@@ -670,6 +670,7 @@ interface ItemFormProps {
     bundle_quantity?: number | null;
     bundle_price?: number | null;
     bundle_name?: string | null;
+    item_type?: ItemType;
   };
   parentItemId?: string; // If set, we're creating a variant for this parent
   defaultMode?: FormMode;
@@ -735,6 +736,7 @@ export function ItemForm({
     initialData?.bundle_price?.toString() || ''
   );
   const [bundleName, setBundleName] = useState<string>(initialData?.bundle_name || '');
+  const [itemType, setItemType] = useState<ItemType>(initialData?.item_type || 'retail');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1089,6 +1091,7 @@ export function ItemForm({
         bundleQuantity: mode === 'parent' ? null : bundleQty,
         bundlePrice: mode === 'parent' ? null : bundlePrc,
         bundleName: mode === 'parent' ? null : (bundleEnabled && bundleName.trim() ? bundleName.trim() : null),
+        itemType,
       };
 
       const result = itemId
@@ -1262,6 +1265,36 @@ export function ItemForm({
             </div>
           </div>
         )}
+
+        {/* Item type: Grocery vs Retail */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Package className="h-4 w-4 text-muted-foreground" />
+            <Label className="text-base font-semibold">Product type</Label>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={itemType === 'grocery' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setItemType('grocery')}
+              disabled={isSubmitting}
+              className={itemType === 'grocery' ? 'bg-[#259783] hover:bg-[#259783]/90' : ''}
+            >
+              🥬 Grocery
+            </Button>
+            <Button
+              type="button"
+              variant={itemType === 'retail' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setItemType('retail')}
+              disabled={isSubmitting}
+              className={itemType === 'retail' ? 'bg-[#259783] hover:bg-[#259783]/90' : ''}
+            >
+              🏪 Retail
+            </Button>
+          </div>
+        </div>
 
         {/* Variant-specific: Parent selection */}
         {mode === 'variant' && !parentItemId && (

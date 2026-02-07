@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,8 +31,8 @@ import {
   Calendar,
   X,
 } from 'lucide-react';
-import { apiGet } from '@/lib/utils/api-client';
-import { getCategoryShopType, type ShopType } from '@/lib/utils/shop-type';
+import { apiFetch, apiGet } from '@/lib/utils/api-client';
+import type { ShopType } from '@/lib/utils/shop-type';
 
 interface ItemSalesData {
   item_id: string;
@@ -41,6 +41,7 @@ interface ItemSalesData {
   category_name: string;
   parent_name: string | null;
   parent_item_id: string | null;
+  item_type: string;
   total_quantity_sold: number;
   total_revenue: number;
   total_cost: number;
@@ -109,9 +110,37 @@ export default function SalesAnalyticsPage() {
   const [parentItems, setParentItems] = useState<ParentItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
 
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      let url = `/api/sales/analytics?period=${period}`;
+      if (parentFilter !== 'all') {
+        url += `&parentId=${parentFilter}`;
+      }
+      if (categoryFilter !== 'all') {
+        url += `&categoryId=${categoryFilter}`;
+      }
+      if (shopTypeFilter !== 'all') {
+        url += `&itemType=${shopTypeFilter}`;
+      }
+      const result = await apiFetch<SalesAnalyticsData>(url, { cache: 'no-store' });
+      if (result.success && result.data) {
+        setData(result.data);
+      } else {
+        setError(result.message || 'Failed to load sales data');
+      }
+    } catch (err) {
+      setError('Failed to load sales data');
+      console.error('Error fetching sales analytics:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [period, parentFilter, categoryFilter, shopTypeFilter]);
+
   useEffect(() => {
     fetchData();
-  }, [period, parentFilter, categoryFilter]);
+  }, [fetchData]);
 
   useEffect(() => {
     fetchFilters();
@@ -135,30 +164,6 @@ export default function SalesAnalyticsPage() {
     }
   };
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      let url = `/api/sales/analytics?period=${period}`;
-      if (parentFilter !== 'all') {
-        url += `&parentId=${parentFilter}`;
-      }
-      if (categoryFilter !== 'all') {
-        url += `&categoryId=${categoryFilter}`;
-      }
-      const result = await apiGet<SalesAnalyticsData>(url);
-      if (result.success && result.data) {
-        setData(result.data);
-      } else {
-        setError(result.message || 'Failed to load sales data');
-      }
-    } catch (err) {
-      setError('Failed to load sales data');
-      console.error('Error fetching sales analytics:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const formatPrice = (price: number) => {
     return `KES ${price.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   };
@@ -177,63 +182,28 @@ export default function SalesAnalyticsPage() {
     return { label: 'In Stock', color: 'bg-green-500', textColor: 'text-green-600' };
   };
 
-  // Filter items by shop type
-  const shopTypeFilteredItems = data?.items.filter((item) => {
-    if (shopTypeFilter === 'all') return true;
-    
-    // Skip items without category names
-    if (!item.category_name || item.category_name.trim() === '') return false;
-    
-    const itemShopType = getCategoryShopType(item.category_name);
-    // Only include items whose category matches the selected shop type
-    // Strictly exclude items with null shop type (unclassified categories)
-    // This ensures we only show items that are definitively grocery or retail
-    if (itemShopType === null) return false;
-    return itemShopType === shopTypeFilter;
-  }) || [];
+  // Items are filtered server-side by itemType when shopTypeFilter !== 'all'
+  const shopTypeFilteredItems = data?.items ?? [];
 
-  // Calculate filtered summary stats
-  // When filter is 'all', use the original summary from API (more accurate, calculated at DB level)
-  // When filtering by shop type, recalculate from filtered items
-  const filteredSummary = shopTypeFilter === 'all' && data?.summary 
-    ? data.summary 
-    : (shopTypeFilteredItems.length > 0 ? {
-        // Note: We can't accurately count unique transactions from item-level data
-        // (summing transaction_count would count transactions multiple times)
-        // So we use the max transaction_count as a rough estimate, or keep original if available
-        totalTransactions: data?.summary?.totalTransactions || Math.max(...shopTypeFilteredItems.map(i => i.transaction_count), 0),
-        totalItemsSold: shopTypeFilteredItems.reduce((sum, item) => sum + item.total_quantity_sold, 0),
-        totalRevenue: shopTypeFilteredItems.reduce((sum, item) => sum + item.total_revenue, 0),
-        totalCost: shopTypeFilteredItems.reduce((sum, item) => sum + item.total_cost, 0),
-        totalProfit: shopTypeFilteredItems.reduce((sum, item) => sum + item.total_profit, 0),
-        profitMargin: (() => {
-          const revenue = shopTypeFilteredItems.reduce((sum, item) => sum + item.total_revenue, 0);
-          const profit = shopTypeFilteredItems.reduce((sum, item) => sum + item.total_profit, 0);
-          return revenue > 0 ? (profit / revenue) * 100 : 0;
-        })(),
-        uniqueProductsSold: shopTypeFilteredItems.filter((i) => i.total_quantity_sold > 0).length,
-        lowStockCount: shopTypeFilteredItems.filter(
-          (i) => i.min_stock_level !== null && i.current_stock > 0 && i.current_stock <= i.min_stock_level
-        ).length,
-        outOfStockCount: shopTypeFilteredItems.filter((i) => i.current_stock <= 0).length,
-      } : data?.summary || {
-        totalTransactions: 0,
-        totalItemsSold: 0,
-        totalRevenue: 0,
-        totalCost: 0,
-        totalProfit: 0,
-        profitMargin: 0,
-        uniqueProductsSold: 0,
-        lowStockCount: 0,
-        outOfStockCount: 0,
-      });
+  // Summary is computed server-side and filtered by period + itemType when provided
+  const filteredSummary = data?.summary ?? {
+    totalTransactions: 0,
+    totalItemsSold: 0,
+    totalRevenue: 0,
+    totalCost: 0,
+    totalProfit: 0,
+    profitMargin: 0,
+    uniqueProductsSold: 0,
+    lowStockCount: 0,
+    outOfStockCount: 0,
+  };
 
   // Filter items
   const filteredItems = shopTypeFilteredItems.filter((item) => {
     const matchesSearch =
       item.item_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.variant_name?.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      item.category_name.toLowerCase().includes(searchQuery.toLowerCase());
+      (item.category_name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
 
     const matchesStock =
       stockFilter === 'all' ||
@@ -561,7 +531,7 @@ export default function SalesAnalyticsPage() {
               .filter(item => 
                 item.item_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (item.variant_name?.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                item.category_name.toLowerCase().includes(searchQuery.toLowerCase())
+                (item.category_name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
               )
               .sort((a, b) => b.total_quantity_sold - a.total_quantity_sold);
             const maxSold = soldItems.length > 0 ? soldItems[0].total_quantity_sold : 1;
@@ -632,7 +602,7 @@ export default function SalesAnalyticsPage() {
               .filter(item => 
                 item.item_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (item.variant_name?.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                item.category_name.toLowerCase().includes(searchQuery.toLowerCase())
+                (item.category_name?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false)
               )
               .sort((a, b) => b.total_quantity_sold - a.total_quantity_sold)
               .slice(0, 5);

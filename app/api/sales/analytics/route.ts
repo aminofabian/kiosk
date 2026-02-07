@@ -14,6 +14,7 @@ interface ItemSalesData {
   category_name: string;
   parent_name: string | null;
   parent_item_id: string | null;
+  item_type: string; // 'grocery' or 'retail'
   total_quantity_sold: number;
   total_revenue: number;
   total_cost: number;
@@ -45,6 +46,7 @@ export async function GET(request: NextRequest) {
     const period = searchParams.get('period') || 'all';
     const categoryId = searchParams.get('categoryId');
     const parentId = searchParams.get('parentId');
+    const itemType = searchParams.get('itemType'); // 'grocery' or 'retail' or null for all
 
     // Calculate date range
     const now = Math.floor(Date.now() / 1000);
@@ -94,6 +96,7 @@ export async function GET(request: NextRequest) {
         c.name as category_name,
         parent.name as parent_name,
         i.parent_item_id,
+        i.item_type,
         COALESCE(SUM(si.quantity_sold), 0) as total_quantity_sold,
         COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
         COALESCE(SUM(si.quantity_sold * si.buy_price_per_unit), 0) as total_cost,
@@ -114,12 +117,13 @@ export async function GET(request: NextRequest) {
                SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1
              )))
         ${itemFilters}
-      GROUP BY i.id, i.name, i.variant_name, c.name, parent.name, i.parent_item_id, i.current_stock, i.min_stock_level, i.current_sell_price
+        ${itemType ? ' AND i.item_type = ?' : ''}
+      GROUP BY i.id, i.name, i.variant_name, c.name, parent.name, i.parent_item_id, i.item_type, i.current_stock, i.min_stock_level, i.current_sell_price
       ORDER BY total_quantity_sold DESC`,
-      itemParams
+      itemType ? [...itemParams, itemType] : itemParams
     );
 
-    // Get overall sales summary
+    // Get sales summary (filtered by itemType when provided)
     const summaryResult = await query<{
       total_transactions: number;
       total_items_sold: number;
@@ -127,16 +131,27 @@ export async function GET(request: NextRequest) {
       total_cost: number;
       total_profit: number;
     }>(
-      `SELECT 
-        COUNT(DISTINCT s.id) as total_transactions,
-        COALESCE(SUM(si.quantity_sold), 0) as total_items_sold,
-        COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
-        COALESCE(SUM(si.quantity_sold * si.buy_price_per_unit), 0) as total_cost,
-        COALESCE(SUM(si.profit), 0) as total_profit
-      FROM sales s
-      JOIN sale_items si ON s.id = si.sale_id
-      WHERE s.business_id = ? AND s.status = 'completed' AND s.sale_date >= ?`,
-      [auth.businessId, startDate]
+      itemType
+        ? `SELECT 
+            COUNT(DISTINCT s.id) as total_transactions,
+            COALESCE(SUM(si.quantity_sold), 0) as total_items_sold,
+            COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
+            COALESCE(SUM(si.quantity_sold * si.buy_price_per_unit), 0) as total_cost,
+            COALESCE(SUM(si.profit), 0) as total_profit
+          FROM sales s
+          JOIN sale_items si ON s.id = si.sale_id
+          WHERE s.business_id = ? AND s.status = 'completed' AND s.sale_date >= ?
+            AND COALESCE(si.item_type_snapshot, 'retail') = ?`
+        : `SELECT 
+            COUNT(DISTINCT s.id) as total_transactions,
+            COALESCE(SUM(si.quantity_sold), 0) as total_items_sold,
+            COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
+            COALESCE(SUM(si.quantity_sold * si.buy_price_per_unit), 0) as total_cost,
+            COALESCE(SUM(si.profit), 0) as total_profit
+          FROM sales s
+          JOIN sale_items si ON s.id = si.sale_id
+          WHERE s.business_id = ? AND s.status = 'completed' AND s.sale_date >= ?`,
+      itemType ? [auth.businessId, startDate, itemType] : [auth.businessId, startDate]
     );
 
     const summaryData = summaryResult[0] || {
@@ -168,21 +183,32 @@ export async function GET(request: NextRequest) {
       outOfStockCount,
     };
 
-    // Get sales by payment method
+    // Get sales by payment method (filtered by itemType when provided)
     const salesByPaymentMethod = await query<{
       payment_method: string;
       count: number;
       total: number;
     }>(
-      `SELECT 
-        payment_method,
-        COUNT(*) as count,
-        SUM(total_amount) as total
-      FROM sales
-      WHERE business_id = ? AND status = 'completed' AND sale_date >= ?
-      GROUP BY payment_method
-      ORDER BY total DESC`,
-      [auth.businessId, startDate]
+      itemType
+        ? `SELECT 
+            s.payment_method,
+            COUNT(DISTINCT s.id) as count,
+            COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total
+          FROM sales s
+          JOIN sale_items si ON s.id = si.sale_id
+          WHERE s.business_id = ? AND s.status = 'completed' AND s.sale_date >= ?
+            AND COALESCE(si.item_type_snapshot, 'retail') = ?
+          GROUP BY s.payment_method
+          ORDER BY total DESC`
+        : `SELECT 
+            payment_method,
+            COUNT(*) as count,
+            SUM(total_amount) as total
+          FROM sales
+          WHERE business_id = ? AND status = 'completed' AND sale_date >= ?
+          GROUP BY payment_method
+          ORDER BY total DESC`,
+      itemType ? [auth.businessId, startDate, itemType] : [auth.businessId, startDate]
     );
 
     // Get top sellers
@@ -195,6 +221,30 @@ export async function GET(request: NextRequest) {
       .filter((i) => i.total_quantity_sold === 0)
       .slice(0, 20);
 
+    // Get sales breakdown by item type (grocery vs retail)
+    const salesByItemType = await query<{
+      item_type: string;
+      transaction_count: number;
+      items_sold: number;
+      revenue: number;
+      cost: number;
+      profit: number;
+    }>(
+      `SELECT 
+        COALESCE(si.item_type_snapshot, 'retail') as item_type,
+        COUNT(DISTINCT s.id) as transaction_count,
+        COALESCE(SUM(si.quantity_sold), 0) as items_sold,
+        COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as revenue,
+        COALESCE(SUM(si.quantity_sold * si.buy_price_per_unit), 0) as cost,
+        COALESCE(SUM(si.profit), 0) as profit
+      FROM sale_items si
+      JOIN sales s ON si.sale_id = s.id
+      WHERE s.business_id = ? AND s.status = 'completed' AND s.sale_date >= ?
+      GROUP BY si.item_type_snapshot
+      ORDER BY revenue DESC`,
+      [auth.businessId, startDate]
+    );
+
     return jsonResponse({
       success: true,
       data: {
@@ -203,6 +253,7 @@ export async function GET(request: NextRequest) {
         topSellers,
         noSalesItems,
         salesByPaymentMethod,
+        salesByItemType,
         period,
       },
     });

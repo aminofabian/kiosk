@@ -114,6 +114,7 @@ export async function PUT(
       name, categoryId, unitType, buyPrice, sellPrice, minStockLevel, variantName, barcode, expiryDate,
       // Bundle pricing fields
       bundleQuantity, bundlePrice, bundleName,
+      itemType,
     } = body;
 
     // Ensure buyPrice is a number if provided
@@ -215,14 +216,24 @@ export async function PUT(
     console.log('Item type check:', { isParentItem, itemId, buyPriceNum });
 
     if (isParentItem) {
-      // Update parent item (only name and category)
-      const updateResult = await execute(
-        `UPDATE items 
-         SET name = ?,
-             category_id = ?
-         WHERE id = ? AND business_id = ?`,
-        [name.trim(), categoryId, itemId, auth.businessId]
-      );
+      // Update parent item (name, category, and optionally item_type)
+      const itemTypeVal = itemType && ['grocery', 'retail'].includes(itemType) ? itemType : null;
+      const updateResult = itemTypeVal
+        ? await execute(
+            `UPDATE items 
+             SET name = ?,
+                 category_id = ?,
+                 item_type = ?
+             WHERE id = ? AND business_id = ?`,
+            [name.trim(), categoryId, itemTypeVal, itemId, auth.businessId]
+          )
+        : await execute(
+            `UPDATE items 
+             SET name = ?,
+                 category_id = ?
+             WHERE id = ? AND business_id = ?`,
+            [name.trim(), categoryId, itemId, auth.businessId]
+          );
 
       if (updateResult.rowsAffected === 0) {
         return jsonResponse(
@@ -235,6 +246,7 @@ export async function PUT(
       // This allows setting buy prices for parent items that might have stock
     } else {
       // Update regular item or variant
+      const itemTypeVal = itemType && ['grocery', 'retail'].includes(itemType) ? itemType : 'retail';
       const updateResult = await execute(
         `UPDATE items 
          SET name = ?,
@@ -246,7 +258,8 @@ export async function PUT(
              expiry_date = ?,
              bundle_quantity = ?,
              bundle_price = ?,
-             bundle_name = ?
+             bundle_name = ?,
+             item_type = ?
          WHERE id = ? AND business_id = ?`,
         [
           name.trim(),
@@ -259,6 +272,7 @@ export async function PUT(
           bundleQuantity || null,
           bundlePrice || null,
           bundleName?.trim() || null,
+          itemTypeVal,
           itemId,
           auth.businessId,
         ]

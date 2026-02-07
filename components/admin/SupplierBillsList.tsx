@@ -22,6 +22,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+} from '@/components/ui/drawer';
+import {
   Receipt,
   Loader2,
   AlertTriangle,
@@ -32,8 +39,11 @@ import {
   FileText,
   Users,
   Scale,
+  Pencil,
+  X,
 } from 'lucide-react';
 import { apiGet, apiPost } from '@/lib/utils/api-client';
+import { SupplierBillEditForm } from '@/components/admin/SupplierBillEditForm';
 import type { SupplierBill } from '@/lib/db/types';
 
 interface SupplierBillWithDetails extends SupplierBill {
@@ -48,10 +58,12 @@ export function SupplierBillsList() {
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<string>('all');
+  const [supplierFilter, setSupplierFilter] = useState<string>('all');
   const [markAsPaidDialog, setMarkAsPaidDialog] = useState<{
     open: boolean;
     bill: SupplierBillWithDetails | null;
   }>({ open: false, bill: null });
+  const [editingBill, setEditingBill] = useState<SupplierBillWithDetails | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [isMarkingAsPaid, setIsMarkingAsPaid] = useState(false);
@@ -144,9 +156,6 @@ export function SupplierBillsList() {
 
   useEffect(() => {
     fetchBills();
-    // Auto-refresh every 30 seconds to update overdue status
-    const interval = setInterval(fetchBills, 30000);
-    return () => clearInterval(interval);
   }, [fetchBills]);
 
   useEffect(() => {
@@ -330,6 +339,12 @@ export function SupplierBillsList() {
 
   const filteredBills = bills
     .filter((bill) => {
+      // Supplier filter
+      if (supplierFilter !== 'all') {
+        const name = bill.supplier_name || 'Unknown';
+        if (name !== supplierFilter) return false;
+      }
+
       // Status filter
       if (statusFilter !== 'all') {
         if (statusFilter === 'pending') {
@@ -347,6 +362,9 @@ export function SupplierBillsList() {
       return isDateInRange(bill.created_at, dateFilter);
     })
     .sort((a, b) => b.created_at - a.created_at); // Sort by creation date, newest first
+
+  // Unique supplier names from all bills (for filter dropdown)
+  const uniqueSuppliers = [...new Set(bills.map((b) => b.supplier_name || 'Unknown'))].sort();
 
   const totalPending = filteredBills
     .filter((b) => b.status === 'pending' || b.status === 'overdue')
@@ -387,6 +405,11 @@ export function SupplierBillsList() {
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
             {filteredBills.length} bill{filteredBills.length !== 1 ? 's' : ''}
+            {supplierFilter !== 'all' && (
+              <span className="ml-2 text-slate-600 dark:text-slate-300">
+                • {supplierFilter}
+              </span>
+            )}
             {totalPending > 0 && (
               <span className="ml-2 font-semibold text-orange-600">
                 • {formatPrice(totalPending)} pending
@@ -399,7 +422,20 @@ export function SupplierBillsList() {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+            <SelectTrigger className="w-48 min-w-[12rem]">
+              <SelectValue placeholder="All suppliers" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All suppliers</SelectItem>
+              {uniqueSuppliers.map((name) => (
+                <SelectItem key={name} value={name}>
+                  {name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={dateFilter} onValueChange={setDateFilter}>
             <SelectTrigger className="w-48">
               <SelectValue placeholder="Filter by date" />
@@ -739,7 +775,16 @@ export function SupplierBillsList() {
                         )}
 
                         {bill.status !== 'paid' && (
-                          <div className="pt-2">
+                          <div className="pt-2 flex flex-wrap gap-2">
+                            <Button
+                              onClick={() => setEditingBill(bill)}
+                              variant="outline"
+                              size="sm"
+                              className="border-slate-300 dark:border-slate-600"
+                            >
+                              <Pencil className="w-4 h-4 mr-2" />
+                              Edit
+                            </Button>
                             <Button
                               onClick={() => handleMarkAsPaid(bill)}
                               className="bg-green-600 hover:bg-green-700 text-white"
@@ -815,14 +860,25 @@ export function SupplierBillsList() {
                         </td>
                         <td className="p-3 text-right">
                           {bill.status !== 'paid' && (
-                            <Button
-                              onClick={() => handleMarkAsPaid(bill)}
-                              className="bg-green-600 hover:bg-green-700 text-white"
-                              size="sm"
-                            >
-                              <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                              Pay
-                            </Button>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                onClick={() => setEditingBill(bill)}
+                                variant="outline"
+                                size="sm"
+                                className="border-slate-300 dark:border-slate-600"
+                              >
+                                <Pencil className="w-4 h-4 mr-1.5" />
+                                Edit
+                              </Button>
+                              <Button
+                                onClick={() => handleMarkAsPaid(bill)}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                                size="sm"
+                              >
+                                <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                                Pay
+                              </Button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -834,6 +890,49 @@ export function SupplierBillsList() {
           </Card>
         </>
       )}
+
+      {/* Edit Bill Drawer */}
+      <Drawer open={!!editingBill} onOpenChange={(open) => !open && setEditingBill(null)} direction="right">
+        <DrawerContent className="!w-full sm:!w-[500px] !max-w-none h-full max-h-screen">
+          <DrawerHeader className="border-b-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 relative pr-12">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setEditingBill(null)}
+              className="absolute right-4 top-4 h-10 w-10 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 border-2 border-slate-300 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-700 transition-all shadow-sm hover:shadow-md rounded-lg"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+            <DrawerTitle className="flex items-center gap-2 text-slate-900 dark:text-white pr-8">
+              <Pencil className="w-5 h-5 text-[#259783]" />
+              Edit supplier bill
+            </DrawerTitle>
+            <DrawerDescription className="text-slate-600 dark:text-slate-400">
+              {editingBill && (
+                <>Update details for bill from {editingBill.supplier_name}</>
+              )}
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="overflow-y-auto p-6 flex-1 bg-white dark:bg-[#0f1a0d]">
+            {editingBill && (
+              <SupplierBillEditForm
+                billId={editingBill.id}
+                initialSupplierName={editingBill.supplier_name}
+                initialSupplierPhone={editingBill.supplier_phone ?? ''}
+                initialBillDescription={editingBill.bill_description}
+                initialAmount={editingBill.amount}
+                initialDueDate={editingBill.due_date}
+                initialNotes={editingBill.notes ?? ''}
+                onSuccess={async () => {
+                  setEditingBill(null);
+                  await fetchBills();
+                }}
+                onCancel={() => setEditingBill(null)}
+              />
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       {/* Mark as Paid Dialog */}
       <Dialog

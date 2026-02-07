@@ -1,6 +1,7 @@
 import type {
   UserRole,
   UnitType,
+  ItemType,
   PaymentMethod,
   SaleStatus,
   PurchaseStatus,
@@ -74,6 +75,7 @@ export interface Item {
   name: string;
   variant_name: string | null; // e.g., "Big", "Small", "Red Kidney" (null for parent items)
   unit_type: UnitType;
+  item_type: ItemType; // 'grocery' or 'retail'
   current_stock: number; // REAL in SQLite
   min_stock_level: number | null;
   current_sell_price: number;
@@ -183,6 +185,7 @@ export interface SaleItem {
   sell_price_per_unit: number;
   buy_price_per_unit: number;
   profit: number;
+  item_type_snapshot: ItemType | null; // Item type at time of sale for historical accuracy
   created_at: number;
 }
 

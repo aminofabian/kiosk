@@ -26,9 +26,9 @@ import { Label } from '@/components/ui/label';
 import { ItemForm } from '@/components/admin/ItemForm';
 import { CategoryForm } from '@/components/admin/CategoryForm';
 import type { Item, Category } from '@/lib/db/types';
-import type { UnitType, AdjustmentReason } from '@/lib/constants';
+import type { UnitType, AdjustmentReason, ItemType } from '@/lib/constants';
 import { ADJUSTMENT_REASONS } from '@/lib/constants';
-import { getCategoryShopType } from '@/lib/utils/shop-type';
+import { getItemShopType } from '@/lib/utils/shop-type';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { toast } from 'sonner';
 
@@ -79,6 +79,7 @@ export function ItemsManager() {
   const [adjustmentError, setAdjustmentError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+  const [togglingTypeId, setTogglingTypeId] = useState<string | null>(null);
 
   const fetchItems = async (background = false) => {
     try {
@@ -201,29 +202,14 @@ export function ItemsManager() {
           return false;
         }
 
-        // Filter by shop type
+        // Filter by shop type (use item.item_type from database)
         if (shopTypeFilter !== 'all') {
-          // Helper function to check if an item matches the shop type filter
-          const itemMatchesShopType = (categoryName: string | undefined): boolean => {
-            if (!categoryName) return true; // Items without categories show in all filters
-            const categoryShopType = getCategoryShopType(categoryName);
-            if (categoryShopType === null) return true; // Categories not in predefined lists show in all filters
-            return categoryShopType === shopTypeFilter;
-          };
-
-          // Check if the main item matches
-          const mainItemMatches = itemMatchesShopType(item.category_name);
-          
+          const mainItemMatches = getItemShopType(item) === shopTypeFilter;
           if (!mainItemMatches) {
-            // If main item doesn't match, check variants for parent items
+            // For parent items, check if any variant matches
             if (item.variants && item.variants.length > 0) {
-              const hasMatchingVariant = item.variants.some(v => {
-                const variantCategory = categories.find(c => c.id === v.category_id);
-                return itemMatchesShopType(variantCategory?.name);
-              });
-              if (!hasMatchingVariant) {
-                return false;
-              }
+              const hasMatchingVariant = item.variants.some(v => getItemShopType(v) === shopTypeFilter);
+              if (!hasMatchingVariant) return false;
             } else {
               return false;
             }
@@ -429,6 +415,45 @@ export function ItemsManager() {
       alert('Failed to delete item. Please try again.');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleToggleItemType = async (item: ItemWithCategory, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const currentType = (item.item_type || 'retail') as ItemType;
+    const newType: ItemType = currentType === 'grocery' ? 'retail' : 'grocery';
+    setTogglingTypeId(item.id);
+    try {
+      const res = await fetch(`/api/items/${item.id}/type`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemType: newType }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setItems((prev) =>
+          prev.map((i) => {
+            if (i.id === item.id) return { ...i, item_type: newType } as ItemWithCategory;
+            if (i.variants) {
+              const variants = i.variants.map((v) =>
+                v.id === item.id ? ({ ...v, item_type: newType } as ItemWithCategory) : v
+              );
+              return { ...i, variants } as ItemWithCategory;
+            }
+            return i;
+          })
+        );
+        if (selectedItem?.id === item.id) setSelectedItem({ ...selectedItem, item_type: newType });
+        if (editingItem?.id === item.id) setEditingItem({ ...editingItem, item_type: newType });
+        toast.success(`Switched to ${newType === 'grocery' ? '🥬 Grocery' : '🏪 Retail'}`);
+      } else {
+        toast.error(result.message || 'Failed to update type');
+      }
+    } catch (err) {
+      console.error('Error toggling item type:', err);
+      toast.error('Failed to update type');
+    } finally {
+      setTogglingTypeId(null);
     }
   };
 
@@ -660,11 +685,11 @@ export function ItemsManager() {
                             <div key={item.id}>
                               {/* Parent or Standalone Item */}
                               <div
-                                className={`w-full p-3 rounded-xl transition-all ${
-                                  isSelected
-                                    ? 'bg-[#259783]/10 ring-2 ring-[#259783]'
-                                    : 'bg-slate-50 dark:bg-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-800/50'
-                                } ${isLow && !item.isParent ? 'border-l-4 border-l-orange-500' : ''}`}
+                                className={`w-full rounded-xl transition-all border-l-4 ${
+                                  item.isParent
+                                    ? `p-4 ${isSelected ? 'bg-purple-100/80 dark:bg-purple-900/30 ring-2 ring-purple-500' : 'bg-purple-50/80 dark:bg-purple-900/20 hover:bg-purple-100/80 dark:hover:bg-purple-900/30 border-l-purple-500'}`
+                                    : `p-3 ${isSelected ? 'bg-[#259783]/10 ring-2 ring-[#259783]' : 'bg-slate-50 dark:bg-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-800/50'} border-l-transparent`
+                                } ${isLow && !item.isParent ? '!border-l-orange-500' : ''}`}
                               >
                                 <div className="flex items-start justify-between gap-2">
                                   <button
@@ -679,19 +704,24 @@ export function ItemsManager() {
                                   >
                                     {item.isParent && (
                                       <ChevronDown 
-                                        className={`w-4 h-4 mt-0.5 text-purple-500 transition-transform ${
+                                        className={`w-5 h-5 mt-0.5 text-purple-600 dark:text-purple-400 shrink-0 transition-transform ${
                                           isExpanded ? '' : '-rotate-90'
                                         }`} 
                                       />
                                     )}
                                     <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2">
-                                        <p className="font-semibold text-sm truncate text-slate-900 dark:text-white">
+                                      {item.isParent && (
+                                        <span className="text-[10px] font-semibold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                                          Parent
+                                        </span>
+                                      )}
+                                      <div className={`flex items-center gap-2 ${item.isParent ? 'mt-0.5' : ''}`}>
+                                        <p className={`truncate ${item.isParent ? 'text-base font-bold text-purple-900 dark:text-purple-100' : 'font-semibold text-sm text-slate-900 dark:text-white'}`}>
                                           {item.name}
                                         </p>
                                         {item.isParent && (
-                                          <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 text-xs shrink-0">
-                                            <Layers className="w-3 h-3 mr-1" />
+                                          <Badge className="bg-purple-200 text-purple-800 dark:bg-purple-800/50 dark:text-purple-200 text-xs shrink-0 font-semibold">
+                                            <Layers className="w-3.5 h-3.5 mr-1" />
                                             {item.variantCount}
                                           </Badge>
                                         )}
@@ -708,7 +738,7 @@ export function ItemsManager() {
                                         </div>
                                       )}
                                       {item.category_name && (
-                                        <p className="text-xs text-slate-400 mt-1">
+                                        <p className={`text-xs text-slate-400 ${item.isParent ? 'mt-0.5' : 'mt-1'}`}>
                                           {item.category_name}
                                         </p>
                                       )}
@@ -724,19 +754,40 @@ export function ItemsManager() {
                                       <ChevronRight className="w-4 h-4 text-[#259783]" />
                                     )}
                                     {!isCashier && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => handleDeleteItemFromList(item, e)}
-                                        disabled={deletingItemId === item.id}
-                                        className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                        title="Delete item"
-                                      >
-                                        {deletingItemId === item.id ? (
-                                          <Loader2 className="h-4 w-4 animate-spin" />
-                                        ) : (
-                                          <Trash2 className="h-4 w-4" />
-                                        )}
-                                      </button>
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => handleToggleItemType(item, e)}
+                                          disabled={togglingTypeId === item.id}
+                                          className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                                            (item.item_type || 'retail') === 'grocery'
+                                              ? 'hover:bg-green-50 dark:hover:bg-green-950/30 text-green-600 dark:text-green-400'
+                                              : 'hover:bg-blue-50 dark:hover:bg-blue-950/30 text-blue-600 dark:text-blue-400'
+                                          }`}
+                                          title={(item.item_type || 'retail') === 'grocery' ? 'Click to switch to Retail' : 'Click to switch to Grocery'}
+                                        >
+                                          {togglingTypeId === item.id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                          ) : (item.item_type || 'retail') === 'grocery' ? (
+                                            <span className="text-sm">🥬</span>
+                                          ) : (
+                                            <span className="text-sm">🏪</span>
+                                          )}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => handleDeleteItemFromList(item, e)}
+                                          disabled={deletingItemId === item.id}
+                                          className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                          title="Delete item"
+                                        >
+                                          {deletingItemId === item.id ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                          ) : (
+                                            <Trash2 className="h-4 w-4" />
+                                          )}
+                                        </button>
+                                      </>
                                     )}
                                   </div>
                                 </div>
@@ -744,7 +795,7 @@ export function ItemsManager() {
 
                               {/* Variants (if expanded) */}
                               {item.isParent && isExpanded && item.variants && (
-                                <div className="ml-6 mt-1 space-y-1 border-l-2 border-purple-200 dark:border-purple-800 pl-3">
+                                <div className="ml-8 mt-2 space-y-1.5 border-l-2 border-blue-300 dark:border-blue-700 pl-4">
                                   {item.variants.map((variant) => {
                                     const variantIsLow = isLowStock(variant);
                                     const variantIsSelected = selectedItem?.id === variant.id;
@@ -752,11 +803,11 @@ export function ItemsManager() {
                                     return (
                                       <div
                                         key={variant.id}
-                                        className={`w-full p-2 rounded-lg transition-all ${
+                                        className={`w-full py-2 px-3 rounded-lg transition-all border-l-2 border-blue-200 dark:border-blue-800/50 ${
                                           variantIsSelected
-                                            ? 'bg-[#259783]/10 ring-2 ring-[#259783]'
-                                            : 'bg-slate-50/50 dark:bg-slate-800/20 hover:bg-slate-100 dark:hover:bg-slate-800/40'
-                                        } ${variantIsLow ? 'border-l-4 border-l-orange-500' : ''}`}
+                                            ? 'bg-blue-100/80 dark:bg-blue-900/30 ring-2 ring-blue-500'
+                                            : 'bg-blue-50/50 dark:bg-slate-800/25 hover:bg-blue-100/50 dark:hover:bg-blue-900/20'
+                                        } ${variantIsLow ? '!border-l-orange-500' : ''}`}
                                       >
                                         <div className="flex items-center justify-between gap-2">
                                           <button
@@ -764,10 +815,13 @@ export function ItemsManager() {
                                             onClick={() => handleItemClick(variant)}
                                             className="flex-1 min-w-0 text-left"
                                           >
-                                            <p className="font-medium text-sm truncate text-slate-700 dark:text-slate-300">
+                                            <span className="text-[10px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                                              Variant
+                                            </span>
+                                            <p className="font-normal text-sm truncate text-slate-600 dark:text-slate-400 mt-0.5">
                                               {variant.variant_name || variant.name}
                                             </p>
-                                            <div className="flex items-center gap-2 mt-0.5">
+                                            <div className="flex items-center gap-2 mt-1 flex-wrap">
                                               <span className="text-xs font-medium text-[#259783]">
                                                 {formatPrice(variant.current_sell_price)}
                                               </span>
@@ -776,7 +830,7 @@ export function ItemsManager() {
                                                 {formatStock(variant.current_stock, variant.unit_type)}
                                               </span>
                                               <span className="text-xs text-slate-400">•</span>
-                                              <span className="text-xs text-slate-400">{variant.unit_type}</span>
+                                              <span className="text-xs text-slate-400 lowercase">{variant.unit_type}</span>
                                             </div>
                                           </button>
                                           <div className="flex items-center gap-2 shrink-0">
@@ -786,19 +840,40 @@ export function ItemsManager() {
                                               </Badge>
                                             )}
                                             {!isCashier && (
-                                              <button
-                                                type="button"
-                                                onClick={(e) => handleDeleteItemFromList(variant, e)}
-                                                disabled={variantIsDeleting}
-                                                className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                title="Delete variant"
-                                              >
-                                                {variantIsDeleting ? (
-                                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                                ) : (
-                                                  <Trash2 className="h-4 w-4" />
-                                                )}
-                                              </button>
+                                              <>
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => handleToggleItemType(variant, e)}
+                                                  disabled={togglingTypeId === variant.id}
+                                                  className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                                                    (variant.item_type || 'retail') === 'grocery'
+                                                      ? 'hover:bg-green-50 dark:hover:bg-green-950/30 text-green-600 dark:text-green-400'
+                                                      : 'hover:bg-blue-50 dark:hover:bg-blue-950/30 text-blue-600 dark:text-blue-400'
+                                                  }`}
+                                                  title={(variant.item_type || 'retail') === 'grocery' ? 'Switch to Retail' : 'Switch to Grocery'}
+                                                >
+                                                  {togglingTypeId === variant.id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                  ) : (variant.item_type || 'retail') === 'grocery' ? (
+                                                    <span className="text-sm">🥬</span>
+                                                  ) : (
+                                                    <span className="text-sm">🏪</span>
+                                                  )}
+                                                </button>
+                                                <button
+                                                  type="button"
+                                                  onClick={(e) => handleDeleteItemFromList(variant, e)}
+                                                  disabled={variantIsDeleting}
+                                                  className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                  title="Delete variant"
+                                                >
+                                                  {variantIsDeleting ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                  ) : (
+                                                    <Trash2 className="h-4 w-4" />
+                                                  )}
+                                                </button>
+                                              </>
                                             )}
                                           </div>
                                         </div>
@@ -814,11 +889,11 @@ export function ItemsManager() {
                                         setEditingItem(null);
                                         setDrawerOpen(true);
                                       }}
-                                      className="w-full text-left p-2 rounded-lg border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-[#259783] hover:bg-[#259783]/5 transition-all"
+                                      className="w-full text-left py-2.5 px-3 rounded-lg border-2 border-dashed border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all ml-0"
                                     >
-                                      <div className="flex items-center gap-2 text-slate-500 hover:text-[#259783]">
+                                      <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 text-sm">
                                         <Plus className="w-4 h-4" />
-                                        <span className="text-sm">Add variant</span>
+                                        <span>Add variant</span>
                                       </div>
                                     </button>
                                   )}
@@ -839,34 +914,56 @@ export function ItemsManager() {
                   <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
                     <CardContent className="p-0">
                       {/* Detail Header */}
-                      <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800">
+                      <div className={`flex items-center justify-between p-5 border-b ${
+                        selectedItem.isParent
+                          ? 'border-l-4 border-l-purple-500 bg-purple-50/50 dark:bg-purple-900/10 border-slate-100 dark:border-slate-800'
+                          : selectedItem.variant_name
+                            ? 'border-l-4 border-l-blue-500 bg-blue-50/30 dark:bg-blue-900/10 border-slate-100 dark:border-slate-800'
+                            : 'border-slate-100 dark:border-slate-800'
+                      }`}>
                         <div className="flex items-center gap-3">
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${
                             selectedItem.isParent 
-                              ? 'bg-purple-50 dark:bg-purple-900/20' 
-                              : 'bg-emerald-50 dark:bg-emerald-900/20'
+                              ? 'bg-purple-100 dark:bg-purple-900/40' 
+                              : selectedItem.variant_name
+                                ? 'bg-blue-100 dark:bg-blue-900/40'
+                                : 'bg-emerald-50 dark:bg-emerald-900/20'
                           }`}>
                             {selectedItem.isParent ? (
-                              <Layers className="w-6 h-6 text-purple-500" />
+                              <Layers className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                            ) : selectedItem.variant_name ? (
+                              <Package className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                             ) : (
                               <Package className="w-6 h-6 text-emerald-500" />
                             )}
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h2 className="text-xl font-bold text-slate-900 dark:text-white">{selectedItem.name}</h2>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
                               {selectedItem.isParent && (
-                                <Badge className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-                                  Parent
-                                </Badge>
+                                <span className="text-[10px] font-semibold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                                  Parent item
+                                </span>
                               )}
-                              {selectedItem.variant_name && (
-                                <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                                  Variant
-                                </Badge>
-                              )}
+                              {selectedItem.variant_name && (() => {
+                                const parentItem = items.find(i => i.id === selectedItem.parent_item_id);
+                                return (
+                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                                    Variant
+                                    {parentItem && (
+                                      <span className="normal-case font-normal text-slate-500 dark:text-slate-400 ml-1">
+                                        of {parentItem.name}
+                                      </span>
+                                    )}
+                                  </span>
+                                );
+                              })()}
                             </div>
-                            <p className="text-sm text-slate-500">{selectedItem.category_name || 'Uncategorized'}</p>
+                            <h2 className={`font-bold text-slate-900 dark:text-white truncate ${
+                              selectedItem.isParent ? 'text-2xl mt-0.5' : selectedItem.variant_name ? 'text-xl mt-0.5' : 'text-xl'
+                            }`}>
+                              {selectedItem.variant_name ? (selectedItem.variant_name || selectedItem.name) : selectedItem.name}
+                            </h2>
+                            <p className="text-sm text-slate-500 mt-0.5">{selectedItem.category_name || 'Uncategorized'}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -894,15 +991,16 @@ export function ItemsManager() {
 
                             {selectedItem.variants && selectedItem.variants.length > 0 && (
                               <div className="space-y-3">
-                                <h3 className="font-semibold text-slate-900 dark:text-white">Variants</h3>
+                                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Variants</h3>
                                 <div className="space-y-2">
                                   {selectedItem.variants.map((variant) => (
                                     <div 
                                       key={variant.id}
-                                      className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/30 rounded-lg"
+                                      className="flex items-center justify-between py-3 px-4 rounded-lg border-l-2 border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10 hover:bg-blue-100/50 dark:hover:bg-blue-900/20 transition-colors"
                                     >
                                       <div>
-                                        <p className="font-medium text-slate-900 dark:text-white">
+                                        <span className="text-[10px] font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">Variant</span>
+                                        <p className="font-medium text-slate-700 dark:text-slate-300 mt-0.5">
                                           {variant.variant_name}
                                         </p>
                                         <p className="text-sm text-slate-500">
@@ -913,6 +1011,7 @@ export function ItemsManager() {
                                         size="sm"
                                         variant="ghost"
                                         onClick={() => handleItemClick(variant)}
+                                        className="text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30"
                                       >
                                         <ChevronRight className="h-4 w-4" />
                                       </Button>
@@ -1116,6 +1215,7 @@ export function ItemsManager() {
               <ItemForm
                 itemId={editingItem?.id}
                 parentItemId={addingVariantToParent || undefined}
+                defaultMode={editingItem?.isParent ? 'parent' : 'standalone'}
                 initialData={editingItem ? {
                   name: editingItem.name,
                   category_id: editingItem.category_id,
@@ -1131,6 +1231,7 @@ export function ItemsManager() {
                   bundle_quantity: editingItem.bundle_quantity,
                   bundle_price: editingItem.bundle_price,
                   bundle_name: editingItem.bundle_name,
+                  item_type: editingItem.item_type,
                 } : undefined}
                 onSuccess={async (updatedItem) => {
                   setDrawerOpen(false);

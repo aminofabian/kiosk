@@ -393,6 +393,7 @@ export default function AdminDashboardPage() {
     totalProfit: number;
     profitMargin: number;
   } | null>(null);
+  const [salesByItemType, setSalesByItemType] = useState<{ item_type: string; revenue: number; profit: number }[]>([]);
   const [statsLoading, setStatsLoading] = useState(true);
   const [shopType, setShopType] = useState<ShopType>(() => getShopType());
 
@@ -434,10 +435,14 @@ export default function AdminDashboardPage() {
     try {
       const startTimestamp = 1;
       const endTimestamp = Math.floor(Date.now() / 1000);
-      const profitResponse = await fetch(`/api/profit?start=${startTimestamp}&end=${endTimestamp}`);
+      const [profitResponse, itemsResponse, analyticsResponse] = await Promise.all([
+        fetch(`/api/profit?start=${startTimestamp}&end=${endTimestamp}`),
+        fetch('/api/items?all=true'),
+        fetch('/api/sales/analytics?period=all'),
+      ]);
       const profitResult = await profitResponse.json();
-      const itemsResponse = await fetch('/api/items?all=true');
       const itemsResult = await itemsResponse.json();
+      const analyticsResult = await analyticsResponse.json();
       const totalProducts = itemsResult.success ? itemsResult.data?.length || 0 : 0;
       if (profitResult.success && profitResult.data) {
         const data = profitResult.data;
@@ -449,6 +454,9 @@ export default function AdminDashboardPage() {
           totalProfit: data.totalProfit || 0,
           profitMargin: data.profitMargin || 0,
         });
+      }
+      if (analyticsResult.success && analyticsResult.data?.salesByItemType) {
+        setSalesByItemType(analyticsResult.data.salesByItemType);
       }
     } catch (error) {
       console.error('Failed to fetch stats:', error);
@@ -785,6 +793,42 @@ export default function AdminDashboardPage() {
               </div>
             </div>
           ) : null}
+
+          {/* Grocery vs Retail Sales Split */}
+          {!statsLoading && salesByItemType.length > 0 && (
+            <Link href="/admin/sales" className="block mt-3 sm:mt-4">
+              <div className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18] rounded-lg sm:rounded-xl p-4 sm:p-5 hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-[#259783]" />
+                    Sales by Type
+                  </h3>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">View details</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {salesByItemType.map((row) => {
+                    const typeLabel = row.item_type === 'grocery' ? '🥬 Grocery' : '🏪 Retail';
+                    const totalRev = salesByItemType.reduce((s, r) => s + r.revenue, 0);
+                    const pct = totalRev > 0 ? (row.revenue / totalRev) * 100 : 0;
+                    return (
+                      <div
+                        key={row.item_type}
+                        className="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3 border border-slate-100 dark:border-slate-700"
+                      >
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{typeLabel}</p>
+                        <p className="text-sm font-bold text-[#259783]">
+                          KES {Math.round(row.revenue).toLocaleString()}
+                        </p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                          {pct.toFixed(0)}% of revenue · KES {Math.round(row.profit).toLocaleString()} profit
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </Link>
+          )}
         </div>
       </div>
 

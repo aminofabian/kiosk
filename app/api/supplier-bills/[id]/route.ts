@@ -60,6 +60,104 @@ export async function GET(
   }
 }
 
+// PATCH - Update pending/overdue bill
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await requireAuth();
+    if (isAuthResponse(auth)) return auth;
+
+    const { id } = await params;
+    const body = await request.json();
+    const {
+      supplierName,
+      supplierPhone,
+      billDescription,
+      amount,
+      dueDate,
+      notes,
+    } = body;
+
+    const bill = await queryOne<{ id: string; business_id: string; status: string }>(
+      `SELECT id, business_id, status FROM supplier_bills WHERE id = ? AND business_id = ?`,
+      [id, auth.businessId]
+    );
+
+    if (!bill) {
+      return jsonResponse(
+        { success: false, message: 'Bill not found' },
+        404
+      );
+    }
+
+    if (bill.status !== 'pending' && bill.status !== 'overdue') {
+      return jsonResponse(
+        { success: false, message: 'Only pending or overdue bills can be edited' },
+        400
+      );
+    }
+
+    if (!supplierName?.trim() || billDescription == null || amount == null || !dueDate) {
+      return jsonResponse(
+        { success: false, message: 'Missing required fields: supplierName, billDescription, amount, dueDate' },
+        400
+      );
+    }
+
+    if (amount <= 0) {
+      return jsonResponse(
+        { success: false, message: 'Amount must be greater than 0' },
+        400
+      );
+    }
+
+    const dueDateTimestamp = Math.floor(new Date(dueDate).getTime() / 1000);
+    const now = Math.floor(Date.now() / 1000);
+    const status = dueDateTimestamp < now ? 'overdue' : 'pending';
+
+    await execute(
+      `UPDATE supplier_bills SET
+        supplier_name = ?,
+        supplier_phone = ?,
+        bill_description = ?,
+        amount = ?,
+        due_date = ?,
+        status = ?,
+        notes = ?
+      WHERE id = ? AND business_id = ?`,
+      [
+        String(supplierName).trim(),
+        supplierPhone != null ? String(supplierPhone).trim() || null : null,
+        String(billDescription).trim(),
+        amount,
+        dueDateTimestamp,
+        status,
+        notes != null ? String(notes).trim() || null : null,
+        id,
+        auth.businessId,
+      ]
+    );
+
+    return jsonResponse({
+      success: true,
+      message: 'Bill updated successfully',
+      data: { status },
+    });
+  } catch (error) {
+    console.error('Error updating supplier bill:', error);
+    return jsonResponse(
+      {
+        success: false,
+        message: 'Failed to update supplier bill',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+}
+
 // DELETE - Cancel/delete bill (admin/owner only)
 export async function DELETE(
   request: NextRequest,

@@ -1,6 +1,13 @@
+import type { ItemType } from '@/lib/constants';
+
 export type ShopType = 'grocery' | 'retail';
 
 const SHOP_TYPE_STORAGE_KEY = 'pos-shop-type';
+
+/** Get item type from item record (preferred over category inference) */
+export function getItemShopType(item: { item_type?: ItemType | null }): ShopType {
+  return item?.item_type === 'grocery' ? 'grocery' : 'retail';
+}
 
 export function getShopType(): ShopType {
   if (typeof window === 'undefined') return 'grocery';

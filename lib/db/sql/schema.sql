@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS items (
   name TEXT NOT NULL,
   variant_name TEXT, -- e.g., "Big", "Small", "Red Kidney" (null for parent items)
   unit_type TEXT NOT NULL CHECK (unit_type IN ('kg', 'g', 'piece', 'bunch', 'tray', 'litre', 'ml')),
+  item_type TEXT NOT NULL DEFAULT 'retail' CHECK (item_type IN ('grocery', 'retail')),
   current_stock REAL NOT NULL DEFAULT 0, -- denormalized for speed
   min_stock_level REAL, -- nullable
   current_sell_price REAL NOT NULL DEFAULT 0, -- denormalized for speed
@@ -110,6 +111,7 @@ CREATE INDEX IF NOT EXISTS idx_items_business_id ON items(business_id);
 CREATE INDEX IF NOT EXISTS idx_items_category_id ON items(category_id);
 CREATE INDEX IF NOT EXISTS idx_items_active ON items(business_id, active);
 CREATE INDEX IF NOT EXISTS idx_items_parent ON items(parent_item_id);
+CREATE INDEX IF NOT EXISTS idx_items_item_type ON items(business_id, item_type);
 
 -- ============================================
 -- 5. selling_prices (Price History)
@@ -278,6 +280,7 @@ CREATE TABLE IF NOT EXISTS sale_items (
   sell_price_per_unit REAL NOT NULL, -- COPIED at sale time
   buy_price_per_unit REAL NOT NULL, -- COPIED from batch at sale time
   profit REAL NOT NULL, -- CALCULATED and STORED
+  item_type_snapshot TEXT CHECK (item_type_snapshot IN ('grocery', 'retail')), -- Type at time of sale
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
   FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE RESTRICT,
@@ -287,6 +290,7 @@ CREATE TABLE IF NOT EXISTS sale_items (
 CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id);
 CREATE INDEX IF NOT EXISTS idx_sale_items_item_id ON sale_items(item_id);
 CREATE INDEX IF NOT EXISTS idx_sale_items_batch_id ON sale_items(inventory_batch_id);
+CREATE INDEX IF NOT EXISTS idx_sale_items_type ON sale_items(item_type_snapshot);
 
 -- ============================================
 -- 12.5. sale_payments (Split Payment Support)

@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
           400
         );
       }
-      
+
       // Check that each credit payment has a customer name
       for (const payment of splitPayments as SplitPaymentInput[]) {
         if (payment.method === 'credit' && (!payment.customerName || payment.customerName.trim().length === 0)) {
@@ -205,6 +205,13 @@ export async function POST(request: NextRequest) {
 
     // Process each item with FIFO
     for (const item of items) {
+      // Fetch item's current type for snapshot
+      const itemData = await queryOne<{ item_type: string }>(
+        'SELECT item_type FROM items WHERE id = ?',
+        [item.itemId]
+      );
+      const itemTypeSnapshot = itemData?.item_type || 'retail';
+
       const batches = await getBatchesForSale(item.itemId, item.quantity);
       let remainingQuantity = item.quantity;
 
@@ -218,12 +225,12 @@ export async function POST(request: NextRequest) {
             batch.quantity
           );
 
-          // Create sale_item record
+          // Create sale_item record with item_type_snapshot
           await execute(
             `INSERT INTO sale_items (
               id, sale_id, item_id, inventory_batch_id, quantity_sold,
-              sell_price_per_unit, buy_price_per_unit, profit, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              sell_price_per_unit, buy_price_per_unit, profit, item_type_snapshot, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               saleItemId,
               saleId,
@@ -233,6 +240,7 @@ export async function POST(request: NextRequest) {
               item.price,
               batch.buyPrice,
               profit,
+              itemTypeSnapshot,
               now,
             ]
           );
@@ -280,12 +288,12 @@ export async function POST(request: NextRequest) {
 
         const saleItemId = generateUUID();
         const profit = buyPrice > 0 ? calculateProfit(item.price, buyPrice, remainingQuantity) : 0;
-        
+
         await execute(
           `INSERT INTO sale_items (
             id, sale_id, item_id, quantity_sold, sell_price_per_unit,
-            buy_price_per_unit, profit, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            buy_price_per_unit, profit, item_type_snapshot, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             saleItemId,
             saleId,
@@ -294,6 +302,7 @@ export async function POST(request: NextRequest) {
             item.price,
             buyPrice,
             profit,
+            itemTypeSnapshot,
             now,
           ]
         );

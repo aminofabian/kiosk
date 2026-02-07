@@ -25,6 +25,9 @@ export async function GET(request: NextRequest) {
     const parentsOnly = searchParams.get('parentsOnly') === 'true';
     const parentId = searchParams.get('parentId'); // Get variants of a specific parent
     const sellableOnly = searchParams.get('sellableOnly') === 'true'; // Only items that can be sold (not parent containers)
+    const itemType = searchParams.get('itemType'); // 'grocery' | 'retail' - filter by item type
+
+    const itemTypeFilter = itemType === 'grocery' || itemType === 'retail' ? ` AND item_type = '${itemType}'` : '';
 
     let items: Item[];
 
@@ -32,17 +35,17 @@ export async function GET(request: NextRequest) {
       // Get variants of a specific parent item
       items = await query<Item>(
         `SELECT * FROM items 
-         WHERE business_id = ? AND parent_item_id = ? AND active = 1 
+         WHERE business_id = ? AND parent_item_id = ? AND active = 1 ${itemTypeFilter}
          ORDER BY variant_name ASC, unit_type ASC`,
         [auth.businessId, parentId]
       );
     } else if (search) {
       const searchLower = search.toLowerCase().trim();
       const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50;
-      
+
       // Check if search looks like a barcode (numeric and 8+ digits)
       const isBarcodeLike = /^\d{8,}$/.test(search.trim());
-      
+
       if (isBarcodeLike) {
         // First try exact barcode match
         const barcodeItems = await query<Item>(
@@ -51,7 +54,7 @@ export async function GET(request: NextRequest) {
            LIMIT 1`,
           [auth.businessId, search.trim()]
         );
-        
+
         if (barcodeItems.length > 0) {
           items = barcodeItems;
         } else {
@@ -77,7 +80,7 @@ export async function GET(request: NextRequest) {
                name ASC
              LIMIT ?`,
             [
-              auth.businessId, 
+              auth.businessId,
               searchContains,
               searchContains,
               searchContains,
@@ -92,7 +95,7 @@ export async function GET(request: NextRequest) {
       } else {
         // Split search into words for multi-word matching
         const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
-        
+
         if (searchWords.length === 1) {
           // Single word search - simple LIKE query
           const searchContains = `%${searchLower}%`;
@@ -114,7 +117,7 @@ export async function GET(request: NextRequest) {
                name ASC
              LIMIT ?`,
             [
-              auth.businessId, 
+              auth.businessId,
               searchContains,
               searchContains,
               searchStarts,
@@ -126,19 +129,19 @@ export async function GET(request: NextRequest) {
         } else {
           // Multi-word search - match items containing ALL words (in any order)
           // Build dynamic WHERE clause for each word
-          const wordConditions = searchWords.map(() => 
+          const wordConditions = searchWords.map(() =>
             `(LOWER(name) LIKE ? OR LOWER(variant_name) LIKE ?)`
           ).join(' AND ');
-          
+
           const wordParams: string[] = [];
           searchWords.forEach(word => {
             wordParams.push(`%${word}%`, `%${word}%`);
           });
-          
+
           // For ordering, prioritize exact phrase match, then first word starts
           const exactPhrase = `%${searchLower}%`;
           const firstWordStarts = `${searchWords[0]}%`;
-          
+
           items = await query<Item>(
             `SELECT * FROM items 
              WHERE business_id = ? AND active = 1 
@@ -168,7 +171,7 @@ export async function GET(request: NextRequest) {
         // Only parent items (no parent_item_id) - for admin management
         items = await query<Item>(
           `SELECT * FROM items 
-           WHERE business_id = ? AND active = 1 AND parent_item_id IS NULL
+           WHERE business_id = ? AND active = 1 AND parent_item_id IS NULL${itemTypeFilter}
            ORDER BY name ASC`,
           [auth.businessId]
         );
@@ -176,7 +179,7 @@ export async function GET(request: NextRequest) {
         // Only sellable items (variants OR standalone items without variants)
         items = await query<Item>(
           `SELECT i.* FROM items i
-           WHERE i.business_id = ? AND i.active = 1 
+           WHERE i.business_id = ? AND i.active = 1${itemTypeFilter.replace(' AND ', ' AND i.')}
            AND (
              i.parent_item_id IS NOT NULL  -- variants are sellable
              OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1)  -- standalone items without variants
@@ -187,7 +190,7 @@ export async function GET(request: NextRequest) {
       } else {
         items = await query<Item>(
           `SELECT * FROM items 
-           WHERE business_id = ? AND active = 1 
+           WHERE business_id = ? AND active = 1${itemTypeFilter}
            ORDER BY name ASC`,
           [auth.businessId]
         );
@@ -208,7 +211,7 @@ export async function GET(request: NextRequest) {
         items = await query<Item>(
           `SELECT * FROM items 
            WHERE business_id = ? AND category_id = ? AND active = 1 
-           AND parent_item_id IS NULL
+           AND parent_item_id IS NULL${itemTypeFilter}
            ORDER BY name ASC`,
           [auth.businessId, categoryId]
         );
@@ -216,7 +219,7 @@ export async function GET(request: NextRequest) {
         // Sellable items in category
         items = await query<Item>(
           `SELECT i.* FROM items i
-           WHERE i.business_id = ? AND i.category_id = ? AND i.active = 1 
+           WHERE i.business_id = ? AND i.category_id = ? AND i.active = 1${itemTypeFilter.replace(' AND ', ' AND i.')}
            AND (
              i.parent_item_id IS NOT NULL  
              OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1)
@@ -227,7 +230,7 @@ export async function GET(request: NextRequest) {
       } else {
         items = await query<Item>(
           `SELECT * FROM items 
-           WHERE business_id = ? AND category_id = ? AND active = 1 
+           WHERE business_id = ? AND category_id = ? AND active = 1${itemTypeFilter}
            ORDER BY name ASC`,
           [auth.businessId, categoryId]
         );
@@ -270,6 +273,7 @@ export async function POST(request: NextRequest) {
       variantName,   // e.g., "Big", "Small", "Red Kidney"
       barcode,       // optional barcode
       expiryDate,    // optional expiry date (Unix timestamp)
+      itemType,      // 'grocery' or 'retail' (defaults to 'retail')
       // Bundle pricing fields
       bundleQuantity, // number of units in a bundle (e.g., 3)
       bundlePrice,    // price for the bundle (e.g., 20)
@@ -402,9 +406,9 @@ export async function POST(request: NextRequest) {
     await execute(
       `INSERT INTO items (
         id, business_id, category_id, parent_item_id, name, variant_name, unit_type,
-        current_stock, current_sell_price, min_stock_level, barcode, expiry_date,
+        item_type, current_stock, current_sell_price, min_stock_level, barcode, expiry_date,
         bundle_quantity, bundle_price, bundle_name, active, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         itemId,
         auth.businessId,
@@ -413,6 +417,7 @@ export async function POST(request: NextRequest) {
         name.trim(),
         variantName?.trim() || null,
         isParent ? 'piece' : unitType, // Parent items need a default unit_type
+        itemType || 'retail', // Default to 'retail' if not specified
         isParent ? 0 : stock,
         price,
         isParent ? null : (minStockLevel || null),
