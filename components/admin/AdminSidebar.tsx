@@ -16,13 +16,22 @@ import {
   Clock,
   FileText,
   ChevronRight,
+  ChevronDown,
   Users,
   FolderTree,
   Receipt,
   UserCheck,
   Scale,
   BarChart3,
+  Leaf,
+  Store,
 } from 'lucide-react';
+
+interface SubItem {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+}
 
 interface MenuItem {
   href: string;
@@ -31,11 +40,21 @@ interface MenuItem {
   description: string;
   matchPath?: string;
   roles?: UserRole[];
+  subItems?: SubItem[];
 }
 
 const MENU_ITEMS: MenuItem[] = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview & stats' },
-  { href: '/admin/sales', label: 'Sales', icon: BarChart3, description: 'Sales analytics' },
+  {
+    href: '/admin/sales',
+    label: 'Sales',
+    icon: BarChart3,
+    description: 'Sales analytics',
+    subItems: [
+      { href: '/admin/sales/grocery', label: 'Grocery Sales', icon: Leaf },
+      { href: '/admin/sales/retail', label: 'Retail Sales', icon: Store },
+    ],
+  },
   { href: '/admin/purchases', label: 'Purchase List', icon: ShoppingBag, description: 'Buy inventory' },
   { href: '/admin/categories', label: 'Categories', icon: FolderTree, description: 'Product categories' },
   { href: '/admin/items', label: 'Items', icon: Package, description: 'Product catalog' },
@@ -108,61 +127,113 @@ export function AdminSidebar() {
     return true;
   });
 
+  const isSalesExpanded = pathname.startsWith('/admin/sales');
+
   return (
     <div className="py-4 px-3 space-y-1">
       {visibleItems.map((item) => {
         const Icon = item.icon;
         const active = isActive(item.href, item.matchPath);
+        const hasSubItems = item.subItems && item.subItems.length > 0;
+        const isExpanded = hasSubItems && isSalesExpanded && item.href === '/admin/sales';
+
         return (
-          <Link key={item.href} href={item.href}>
-            <div
-              className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
-                active
-                  ? 'bg-[#259783] shadow-md shadow-[#259783]/20 text-white'
-                  : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'
-              }`}
-            >
+          <div key={item.href}>
+            <Link href={item.href}>
               <div
-                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-all ${
+                className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
                   active
-                    ? 'bg-[#101b0d]/10'
-                    : 'bg-slate-100 dark:bg-slate-800 group-hover:bg-slate-200 dark:group-hover:bg-slate-700'
+                    ? 'bg-[#259783] shadow-md shadow-[#259783]/20 text-white'
+                    : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'
                 }`}
               >
-                <Icon
-                  className={`w-[18px] h-[18px] transition-colors ${
+                <div
+                  className={`flex items-center justify-center w-9 h-9 rounded-lg transition-all ${
                     active
-                      ? 'text-white'
-                      : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300'
-                  }`}
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p
-                  className={`text-sm font-semibold truncate ${
-                    active ? 'text-white' : 'text-slate-700 dark:text-slate-300'
+                      ? 'bg-[#101b0d]/10'
+                      : 'bg-slate-100 dark:bg-slate-800 group-hover:bg-slate-200 dark:group-hover:bg-slate-700'
                   }`}
                 >
-                  {item.label}
-                </p>
-                <p
-                  className={`text-[10px] truncate ${
-                    active ? 'text-white/80' : 'text-slate-400 dark:text-slate-500'
-                  }`}
-                >
-                  {item.description}
-                </p>
+                  <Icon
+                    className={`w-[18px] h-[18px] transition-colors ${
+                      active
+                        ? 'text-white'
+                        : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300'
+                    }`}
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p
+                    className={`text-sm font-semibold truncate ${
+                      active ? 'text-white' : 'text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    {item.label}
+                  </p>
+                  <p
+                    className={`text-[10px] truncate ${
+                      active ? 'text-white/80' : 'text-slate-400 dark:text-slate-500'
+                    }`}
+                  >
+                    {item.description}
+                  </p>
+                </div>
+                {item.href === '/admin/supplier-bills' && billNotificationCount > 0 && (
+                  <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                    {billNotificationCount > 99 ? '99+' : billNotificationCount}
+                  </span>
+                )}
+                {hasSubItems ? (
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${
+                    isExpanded ? 'rotate-180' : ''
+                  } ${active ? 'text-white/70' : 'text-slate-400'}`} />
+                ) : active ? (
+                  <ChevronRight className="w-4 h-4 text-white/70" />
+                ) : null}
               </div>
-              {item.href === '/admin/supplier-bills' && billNotificationCount > 0 && (
-                <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold">
-                  {billNotificationCount > 99 ? '99+' : billNotificationCount}
-                </span>
-              )}
-              {active && (
-                <ChevronRight className="w-4 h-4 text-white/70" />
-              )}
-            </div>
-          </Link>
+            </Link>
+
+            {/* Sub Items */}
+            {hasSubItems && isExpanded && (
+              <div className="ml-6 mt-1 space-y-0.5 border-l-2 border-slate-200 dark:border-slate-700 pl-3">
+                {item.subItems!.map((sub) => {
+                  const SubIcon = sub.icon;
+                  const subActive = pathname === sub.href || pathname.startsWith(sub.href + '/');
+                  return (
+                    <Link key={sub.href} href={sub.href}>
+                      <div
+                        className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-200 ${
+                          subActive
+                            ? 'bg-[#259783]/10 text-[#259783]'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'
+                        }`}
+                      >
+                        <SubIcon
+                          className={`w-4 h-4 ${
+                            subActive
+                              ? 'text-[#259783]'
+                              : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-400'
+                          }`}
+                        />
+                        <span
+                          className={`text-xs font-semibold ${
+                            subActive
+                              ? 'text-[#259783]'
+                              : 'text-slate-600 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300'
+                          }`}
+                        >
+                          {sub.label}
+                        </span>
+                        {subActive && (
+                          <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#259783]" />
+                        )}
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         );
       })}
     </div>

@@ -87,7 +87,12 @@ export async function GET(request: NextRequest) {
       itemParams.push(parentId);
     }
 
-    // Get item-level sales data
+    // Get item-level sales data (filter by period + item_type_snapshot when itemType provided)
+    const siJoin =
+      itemType !== null && itemType !== undefined && itemType !== ''
+        ? `LEFT JOIN sale_items si ON i.id = si.item_id AND COALESCE(si.item_type_snapshot, 'retail') = ?`
+        : `LEFT JOIN sale_items si ON i.id = si.item_id`;
+    const siParams = itemType ? [itemType] : [];
     const itemSales = await query<ItemSalesData>(
       `SELECT 
         i.id as item_id,
@@ -97,18 +102,18 @@ export async function GET(request: NextRequest) {
         parent.name as parent_name,
         i.parent_item_id,
         i.item_type,
-        COALESCE(SUM(si.quantity_sold), 0) as total_quantity_sold,
-        COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
-        COALESCE(SUM(si.quantity_sold * si.buy_price_per_unit), 0) as total_cost,
-        COALESCE(SUM(si.profit), 0) as total_profit,
+        COALESCE(SUM(CASE WHEN s.id IS NOT NULL THEN si.quantity_sold ELSE 0 END), 0) as total_quantity_sold,
+        COALESCE(SUM(CASE WHEN s.id IS NOT NULL THEN si.quantity_sold * si.sell_price_per_unit ELSE 0 END), 0) as total_revenue,
+        COALESCE(SUM(CASE WHEN s.id IS NOT NULL THEN si.quantity_sold * si.buy_price_per_unit ELSE 0 END), 0) as total_cost,
+        COALESCE(SUM(CASE WHEN s.id IS NOT NULL THEN si.profit ELSE 0 END), 0) as total_profit,
         i.current_stock,
         i.min_stock_level,
-        COUNT(DISTINCT si.sale_id) as transaction_count,
-        COALESCE(AVG(si.sell_price_per_unit), i.current_sell_price) as avg_sell_price
+        COUNT(DISTINCT CASE WHEN s.id IS NOT NULL THEN si.sale_id END) as transaction_count,
+        COALESCE(AVG(CASE WHEN s.id IS NOT NULL THEN si.sell_price_per_unit END), i.current_sell_price) as avg_sell_price
       FROM items i
       LEFT JOIN categories c ON i.category_id = c.id
       LEFT JOIN items parent ON i.parent_item_id = parent.id
-      LEFT JOIN sale_items si ON i.id = si.item_id
+      ${siJoin}
       LEFT JOIN sales s ON si.sale_id = s.id AND s.status = 'completed' AND s.sale_date >= ?
       WHERE i.business_id = ? 
         AND i.active = 1
@@ -120,7 +125,7 @@ export async function GET(request: NextRequest) {
         ${itemType ? ' AND i.item_type = ?' : ''}
       GROUP BY i.id, i.name, i.variant_name, c.name, parent.name, i.parent_item_id, i.item_type, i.current_stock, i.min_stock_level, i.current_sell_price
       ORDER BY total_quantity_sold DESC`,
-      itemType ? [...itemParams, itemType] : itemParams
+      itemType ? [...siParams, ...itemParams, itemType] : itemParams
     );
 
     // Get sales summary (filtered by itemType when provided)
