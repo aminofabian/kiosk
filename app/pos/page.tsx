@@ -362,6 +362,27 @@ export default function POSPage() {
     fetchCategories();
   }, [fetchCategories]);
 
+  // Load POS insights (popular + low stock) for the home empty state
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPosInsights() {
+      try {
+        const result = await apiGet<{ topItems: Item[]; lowStockItems: Item[] }>('/api/pos/insights?days=7');
+        if (!result.success || !result.data || cancelled) return;
+        setFeaturedItems(result.data.topItems || []);
+        setLowStockHomeItems(result.data.lowStockItems || []);
+      } catch (err) {
+        console.error('Error fetching POS insights:', err);
+      }
+    }
+
+    loadPosInsights();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Load recent searches on mount
   useEffect(() => {
     const searches = getRecentSearches();
@@ -1360,6 +1381,9 @@ export default function POSPage() {
   const [groupedCategoryItems, setGroupedCategoryItems] = useState<GroupedItem[]>([]);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
+  // POS home insights for empty state
+  const [featuredItems, setFeaturedItems] = useState<Item[]>([]);
+  const [lowStockHomeItems, setLowStockHomeItems] = useState<Item[]>([]);
 
   useEffect(() => {
     if (!selectedCategoryId) {
@@ -1818,6 +1842,8 @@ export default function POSPage() {
                       onQuickAdd={handleQuickAdd}
                       shopType={shopType}
                       categories={categories}
+                      featuredItems={featuredItems}
+                      lowStockItems={lowStockHomeItems}
                     />
                   ) : null}
                 </div>
@@ -2318,15 +2344,19 @@ export default function POSPage() {
                   </div>
                 </div>
               ) : (
-                <ItemGrid
-                  categoryId={debouncedSearchQuery ? null : selectedCategoryId}
-                  searchQuery={debouncedSearchQuery || undefined}
-                  onSelectItem={handleSelectItem}
-                  onSelectParent={handleSelectParent}
-                  onQuickAdd={handleQuickAdd}
-                  shopType={shopType}
-                  categories={categories}
-                />
+                <div className="min-h-full flex items-center justify-center px-4 sm:px-8">
+                  <ItemGrid
+                    categoryId={debouncedSearchQuery ? null : selectedCategoryId}
+                    searchQuery={debouncedSearchQuery || undefined}
+                    onSelectItem={handleSelectItem}
+                    onSelectParent={handleSelectParent}
+                    onQuickAdd={handleQuickAdd}
+                    shopType={shopType}
+                    categories={categories}
+                    featuredItems={featuredItems}
+                    lowStockItems={lowStockHomeItems}
+                  />
+                </div>
               )}
             </div>
           </div>

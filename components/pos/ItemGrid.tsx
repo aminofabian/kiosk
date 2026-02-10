@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback, memo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Zap, Tag, Package, ShoppingBag } from 'lucide-react';
+import { Zap, Tag, Package, ShoppingBag, Flame, AlertTriangle, ArrowRight } from 'lucide-react';
 import type { Item } from '@/lib/db/types';
 import type { Category } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
@@ -31,6 +31,8 @@ interface ItemGridProps {
   onQuickAdd?: (item: Item, quantity: number) => void;
   shopType?: ShopType;
   categories?: Category[]; // Pass categories from parent to avoid redundant fetch
+  featuredItems?: Item[];
+  lowStockItems?: Item[];
 }
 
 // Stock status helpers
@@ -50,6 +52,14 @@ function getQuickAddQuantity(item: Item): number {
   return 1;
 }
 
+// Rank badge colors for top sellers
+const RANK_STYLES = [
+  'bg-gradient-to-br from-amber-400 to-yellow-500 text-white shadow-amber-400/30',
+  'bg-gradient-to-br from-slate-300 to-slate-400 text-white shadow-slate-300/30',
+  'bg-gradient-to-br from-amber-600 to-orange-700 text-white shadow-amber-600/30',
+  'bg-[#259783]/15 text-[#259783] dark:bg-[#259783]/20 dark:text-[#3bd522]',
+];
+
 // Memoized item card component for better performance
 const ItemCard = memo(function ItemCard({
   item,
@@ -67,31 +77,36 @@ const ItemCard = memo(function ItemCard({
 
   return (
     <Card
-      className={`group cursor-pointer transition-all duration-200 ease-out touch-target relative overflow-hidden rounded-xl ${
-        isOutOfStock
-          ? 'bg-gray-50/80 dark:bg-slate-800/40 border-gray-200/60 dark:border-gray-700/30 opacity-75 hover:opacity-100'
-          : 'bg-white dark:bg-slate-800/80 border-gray-200/80 dark:border-gray-700/40 hover:border-[#259783]/40 dark:hover:border-[#259783]/30 shadow-sm hover:shadow-md'
-      } hover:-translate-y-0.5`}
+      role="button"
+      tabIndex={0}
+      className={`group cursor-pointer transition-all duration-200 ease-out touch-target relative overflow-hidden rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${isOutOfStock
+        ? 'bg-gray-50/80 dark:bg-slate-800/40 border-gray-200/60 dark:border-gray-700/30 opacity-75 hover:opacity-100'
+        : 'bg-white dark:bg-slate-800/80 border-gray-200/80 dark:border-gray-700/40 hover:border-[#259783]/40 dark:hover:border-[#259783]/30 shadow-sm hover:shadow-md'
+        } hover:-translate-y-0.5`}
       onClick={() => onSelect(item)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect(item);
+        }
+      }}
     >
       {/* Left accent bar */}
-      <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl transition-all duration-200 ${
-        isOutOfStock
-          ? 'bg-gray-300 dark:bg-gray-600'
-          : stockStatus === 'low'
-            ? 'bg-amber-400'
-            : 'bg-gradient-to-b from-[#259783] to-[#3bd522] opacity-0 group-hover:opacity-100'
-      }`} />
+      <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl transition-all duration-200 ${isOutOfStock
+        ? 'bg-gray-300 dark:bg-gray-600'
+        : stockStatus === 'low'
+          ? 'bg-amber-400'
+          : 'bg-gradient-to-b from-[#259783] to-[#3bd522] opacity-0 group-hover:opacity-100'
+        }`} />
 
       <CardContent className="p-3.5 sm:p-4 flex flex-col h-full">
         {/* Top row: Name + Quick Add */}
         <div className="flex items-start justify-between gap-2 mb-auto">
           <div className="flex-1 min-w-0">
-            <h3 className={`font-semibold text-[13px] sm:text-sm leading-snug line-clamp-2 transition-colors ${
-              isOutOfStock
-                ? 'text-gray-400 dark:text-gray-500'
-                : 'text-gray-800 dark:text-gray-100 group-hover:text-[#259783] dark:group-hover:text-[#3bd522]'
-            }`}>
+            <h3 className={`font-semibold text-[13px] sm:text-sm leading-snug line-clamp-2 transition-colors ${isOutOfStock
+              ? 'text-gray-400 dark:text-gray-500'
+              : 'text-gray-800 dark:text-gray-100 group-hover:text-[#259783] dark:group-hover:text-[#3bd522]'
+              }`}>
               {item.name}
             </h3>
             {item.variant_name && (
@@ -104,8 +119,8 @@ const ItemCard = memo(function ItemCard({
           {onQuickAdd && !isOutOfStock && (
             <Button
               size="sm"
-              variant="ghost"
-              className="h-7 w-7 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-all duration-150 hover:bg-[#259783]/10 text-gray-400 hover:text-[#259783] hover:scale-110 active:scale-90 rounded-lg -mt-0.5 -mr-1"
+              variant="default"
+              className="h-8 px-3 flex items-center justify-center gap-1.5 flex-shrink-0 transition-all duration-150 rounded-lg bg-[#259783] hover:bg-[#1e8572] text-white text-xs font-semibold border border-[#1e8572] shadow-sm shadow-[#259783]/30 hover:shadow-md active:scale-95 -mt-0.5 -mr-1 focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
               onClick={(e) => {
                 e.stopPropagation();
                 onQuickAdd(item, quickQty);
@@ -113,6 +128,7 @@ const ItemCard = memo(function ItemCard({
               title={`Quick add ${quickQty} ${item.unit_type}`}
             >
               <Zap className="w-3.5 h-3.5" />
+              <span>+{quickQty}</span>
             </Button>
           )}
         </div>
@@ -123,11 +139,10 @@ const ItemCard = memo(function ItemCard({
         {/* Price section */}
         <div className="mt-2">
           <div className="flex items-baseline gap-1.5">
-            <span className={`text-base sm:text-lg font-bold tracking-tight ${
-              isOutOfStock
-                ? 'text-gray-400 dark:text-gray-500'
-                : 'text-[#259783]'
-            }`}>
+            <span className={`text-base sm:text-lg font-bold tracking-tight ${isOutOfStock
+              ? 'text-gray-400 dark:text-gray-500'
+              : 'text-[#259783]'
+              }`}>
               {formatPrice(item.current_sell_price)}
             </span>
             <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
@@ -208,7 +223,7 @@ function groupItemsForDisplay(items: Item[]): GroupedItem[] {
       grouped.push({
         type: 'parent',
         parent,
-        children: children.sort((a, b) => 
+        children: children.sort((a, b) =>
           (a.variant_name || a.name).localeCompare(b.variant_name || b.name)
         ),
       });
@@ -246,6 +261,8 @@ export function ItemGrid({
   onQuickAdd,
   shopType = 'grocery',
   categories: propCategories,
+  featuredItems,
+  lowStockItems,
 }: ItemGridProps) {
   const [items, setItems] = useState<ItemWithVariants[]>([]);
   const [groupedItems, setGroupedItems] = useState<GroupedItem[]>([]);
@@ -253,10 +270,10 @@ export function ItemGrid({
   const [error, setError] = useState<string | null>(null);
   const [localCategories, setLocalCategories] = useState<Category[]>([]);
   const [showingOtherShopType, setShowingOtherShopType] = useState(false);
-  
+
   // Use prop categories if available, otherwise use local state
   const categories = propCategories || localCategories;
-  
+
   // Track last search to prevent duplicate requests
   const lastSearchRef = useRef<string>('');
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -264,7 +281,7 @@ export function ItemGrid({
   // Only fetch categories if not provided via props
   useEffect(() => {
     if (propCategories && propCategories.length > 0) return;
-    
+
     async function fetchCategories() {
       try {
         const response = await fetch('/api/categories');
@@ -303,7 +320,7 @@ export function ItemGrid({
       // Skip if same search
       if (lastSearchRef.current === searchQuery) return;
       lastSearchRef.current = searchQuery;
-      
+
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
@@ -311,13 +328,13 @@ export function ItemGrid({
         try {
           setLoading(true);
           setError(null);
-          
+
           // Request limited results with sellableOnly for faster response
           const response = await fetch(
             `/api/items?search=${encodeURIComponent(searchQuery || '')}&sellableOnly=true&limit=50`,
             { signal: controller.signal }
           );
-          
+
           if (controller.signal.aborted) return;
 
           const result = await response.json();
@@ -335,7 +352,7 @@ export function ItemGrid({
             // If no results in current shop type, show from other shop type
             let filteredItems = filteredByShopType;
             let isShowingOtherShopType = false;
-            
+
             if (filteredByShopType.length === 0 && allItems.length > 0) {
               const otherShopType: ShopType = shopType === 'grocery' ? 'retail' : 'grocery';
               filteredItems = allItems.filter(item => {
@@ -347,7 +364,7 @@ export function ItemGrid({
             }
 
             setShowingOtherShopType(isShowingOtherShopType);
-            
+
             // Use optimized grouping function
             const grouped = groupItemsForDisplay(filteredItems);
             setGroupedItems(grouped);
@@ -398,19 +415,19 @@ export function ItemGrid({
       try {
         setLoading(true);
         setError(null);
-        
+
         const response = await fetch(
           `/api/items?categoryId=${categoryId}`,
           { signal: controller.signal }
         );
-        
+
         if (controller.signal.aborted) return;
-        
+
         const result = await response.json();
 
         if (result.success) {
           const allItems: Item[] = result.data;
-          
+
           // Use optimized grouping function
           const grouped = groupItemsForDisplay(allItems);
           setGroupedItems(grouped);
@@ -441,116 +458,300 @@ export function ItemGrid({
     }
 
     fetchItems();
-    
+
     return () => {
       controller.abort();
     };
   }, [categoryId, searchQuery, shopType, categoryMap]);
 
   if (!categoryId && !searchQuery) {
-    return (
-      <div className="p-4 flex items-center justify-center h-full">
-        <div className="text-center space-y-4 max-w-md">
-          <div className="w-20 h-20 mx-auto bg-[#259783]/10 rounded-2xl flex items-center justify-center shadow-lg">
-            <p className="text-4xl">👆</p>
-          </div>
-          <p className="text-lg font-semibold text-gray-600">
-            Select a category to view items
-          </p>
-          <p className="text-sm text-gray-400">
-            Choose from the categories above to browse products, or use search to
-            find items quickly
-          </p>
-        </div>
-      </div>
-    );
-  }
+    const hasFeatured = featuredItems && featuredItems.length > 0;
+    const hasLowStock = lowStockItems && lowStockItems.length > 0;
+    const hasContent = hasFeatured || hasLowStock;
+    const formatPrice = (price: number) => `KES ${price.toFixed(0)}`;
 
-  if (loading) {
-    return (
-      <div className="p-4 sm:p-6">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="rounded-xl border border-gray-200/50 dark:border-gray-700/30 bg-white dark:bg-slate-800/50 overflow-hidden animate-pulse">
-              <div className="p-3.5 sm:p-4 flex flex-col gap-3">
-                <div className="space-y-1.5">
-                  <div className="h-3.5 bg-gray-100 dark:bg-gray-700 rounded-md w-[85%]" />
-                  <div className="h-3 bg-gray-50 dark:bg-gray-700/50 rounded-md w-[55%]" />
-                </div>
-                <div className="mt-1">
-                  <div className="h-5 bg-gray-100 dark:bg-gray-700 rounded-md w-[45%]" />
-                </div>
-                <div className="pt-2 border-t border-gray-100 dark:border-gray-700/30">
-                  <div className="h-2.5 bg-gray-50 dark:bg-gray-700/40 rounded-md w-[35%]" />
-                </div>
-              </div>
+    if (!hasContent) {
+      return (
+        <div className="p-4 sm:p-6 flex items-center justify-center h-full">
+          <div className="text-center space-y-4 max-w-md animate-in fade-in duration-500">
+            <div className="w-20 h-20 mx-auto bg-gradient-to-br from-[#259783]/15 to-[#3bd522]/10 rounded-2xl flex items-center justify-center shadow-lg">
+              <ShoppingBag className="w-9 h-9 text-[#259783]" />
             </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-4 flex items-center justify-center h-full">
-        <div className="text-center space-y-3">
-          <div className="w-16 h-16 mx-auto bg-red-100 rounded-full flex items-center justify-center">
-            <span className="text-2xl">⚠️</span>
-          </div>
-          <p className="text-destructive font-semibold">Error: {error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (items.length === 0 && !loading) {
-    return (
-      <div className="p-6 flex items-center justify-center h-full min-h-[300px]">
-        <div className="text-center space-y-5 max-w-sm">
-          <div className="relative mx-auto w-20 h-20">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#259783]/10 to-[#3bd522]/10 rounded-2xl rotate-6" />
-            <div className="relative w-20 h-20 bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50 rounded-2xl flex items-center justify-center border border-gray-200/60 dark:border-gray-700/40 shadow-sm">
-              <svg className="w-9 h-9 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <p className="text-base font-semibold text-gray-700 dark:text-gray-300">
-              {searchQuery
-                ? 'No products found'
-                : 'No items in this category'}
+            <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">
+              Ready to sell
             </p>
-            {searchQuery && (
-              <>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  We couldn&apos;t find anything matching &quot;<span className="font-medium text-gray-700 dark:text-gray-300">{searchQuery}</span>&quot;
-                </p>
-                <div className="pt-3 flex flex-col gap-1.5 items-start mx-auto max-w-[200px]">
-                  <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
-                    <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
-                    <span>Check for spelling errors</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
-                    <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
-                    <span>Try different keywords</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
-                    <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
-                    <span>Browse by category instead</span>
-                  </div>
-                </div>
-              </>
-            )}
+            <p className="text-sm text-gray-400 dark:text-gray-500 leading-relaxed">
+              Pick a category above or search for products to get started
+            </p>
           </div>
         </div>
+      );
+    }
+
+    return (
+      <div className="p-3 sm:p-5 space-y-5 animate-in fade-in duration-300">
+
+        {/* ── 🔥 Quick Sell – Top Sellers ── */}
+        {hasFeatured && (
+          <section>
+            {/* Section header */}
+            <div className="flex items-center gap-2 mb-3 px-0.5">
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm shadow-[#259783]/25">
+                <Flame className="w-3.5 h-3.5 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 tracking-tight leading-none">
+                  Quick Sell
+                </h2>
+                <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
+                  Tap <span className="text-[#259783] font-semibold">⚡</span> to add · Tap name to adjust qty
+                </p>
+              </div>
+              <span className="text-[10px] font-semibold text-[#259783] dark:text-[#3bd522] bg-[#259783]/8 dark:bg-[#259783]/15 px-2 py-0.5 rounded-full">
+                {featuredItems!.length} popular
+              </span>
+            </div>
+
+            {/* Products grid – compact cards for speed */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-2.5">
+              {featuredItems!.map((item, index) => {
+                const stock = getStockStatus(item.current_stock);
+                const isOut = stock === 'out';
+                const quickQty = getQuickAddQuantity(item);
+
+                return (
+                  <div
+                    key={item.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onSelectItem(item)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onSelectItem(item);
+                      }
+                    }}
+                    className={`group relative rounded-xl border overflow-hidden transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${isOut
+                      ? 'bg-gray-50/60 dark:bg-slate-800/30 border-gray-200/40 dark:border-gray-700/25 opacity-60'
+                      : 'bg-white dark:bg-slate-800/80 border-gray-200/70 dark:border-gray-700/40 hover:border-[#259783]/30 dark:hover:border-[#259783]/25 shadow-sm hover:shadow-md'
+                      }`}
+                  >
+                    {/* Rank badge for top 3 */}
+                    {index < 3 && (
+                      <div className={`absolute top-1.5 left-1.5 z-10 w-5 h-5 rounded-md flex items-center justify-center text-[9px] font-black shadow ${RANK_STYLES[index]}`}>
+                        {index + 1}
+                      </div>
+                    )}
+
+                    {/* Bundle deal badge */}
+                    {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
+                      <div className="absolute top-1.5 right-1.5 z-10">
+                        <span className="inline-flex items-center gap-0.5 bg-amber-400/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-md shadow-sm">
+                          <Tag className="w-2 h-2" />
+                          Deal
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Product name area */}
+                    <div className="w-full text-left p-2.5 sm:p-3 pb-1.5 sm:pb-2">
+                      <h3 className={`font-semibold text-[12px] sm:text-[13px] leading-snug line-clamp-2 transition-colors ${index < 3 ? 'pl-6' : ''
+                        } ${isOut
+                          ? 'text-gray-400 dark:text-gray-500'
+                          : 'text-gray-800 dark:text-gray-100 group-hover:text-[#259783] dark:group-hover:text-[#3bd522]'
+                        }`}>
+                        {item.name}
+                      </h3>
+                      {item.variant_name && (
+                        <p className={`text-[10px] text-gray-400 dark:text-gray-500 truncate mt-0.5 ${index < 3 ? 'pl-6' : ''}`}>
+                          {item.variant_name}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Bottom bar: price + quick add */}
+                    <div className="px-2.5 sm:px-3 pb-2.5 sm:pb-3 flex items-end justify-between gap-1">
+                      <div>
+                        <span className={`text-sm sm:text-base font-bold tracking-tight ${isOut ? 'text-gray-400' : 'text-[#259783]'}`}>
+                          {formatPrice(item.current_sell_price)}
+                        </span>
+                        <span className="text-[9px] text-gray-400 font-medium ml-0.5">/{item.unit_type}</span>
+
+                        {/* Stock indicator inline */}
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <span className={`w-1 h-1 rounded-full flex-shrink-0 ${isOut ? 'bg-gray-300 dark:bg-gray-600'
+                            : stock === 'low' ? 'bg-amber-400 animate-pulse'
+                              : 'bg-emerald-400'
+                            }`} />
+                          <span className={`text-[9px] font-medium ${isOut ? 'text-gray-400'
+                            : stock === 'low' ? 'text-amber-600 dark:text-amber-400'
+                              : 'text-gray-400'
+                            }`}>
+                            {isOut ? 'Out' : formatStock(item.current_stock, item.unit_type)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Quick-add button – instantly adds to cart */}
+                      {onQuickAdd && !isOut && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onQuickAdd(item, quickQty);
+                          }}
+                          className="flex items-center justify-center gap-1 h-8 px-3 rounded-full bg-[#259783] hover:bg-[#1e8572] text-white text-[11px] font-bold shadow-sm shadow-[#259783]/30 hover:shadow-md hover:shadow-[#259783]/40 transition-all duration-150 active:scale-95 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+                          title={`Quick add ${quickQty} ${item.unit_type}`}
+                        >
+                          <Zap className="w-3 h-3" />
+                          <span>+{quickQty}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* ── ⚠️ Low Stock Strip ── */}
+        {hasLowStock && (
+          <section>
+            <div className="flex items-center gap-2 mb-2 px-0.5">
+              <div className="w-6 h-6 rounded-md bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm shadow-amber-400/20">
+                <AlertTriangle className="w-3 h-3 text-white" />
+              </div>
+              <h2 className="text-xs font-bold text-gray-700 dark:text-gray-200 tracking-tight">
+                Low Stock
+              </h2>
+              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
+                {lowStockItems!.length} item{lowStockItems!.length !== 1 ? 's' : ''}
+              </span>
+              <div className="flex-1 h-px bg-gradient-to-r from-amber-200/50 dark:from-amber-800/30 to-transparent" />
+            </div>
+
+            {/* Horizontal scrollable strip */}
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
+              {lowStockItems!.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => onSelectItem(item)}
+                  className="group flex-shrink-0 flex items-center gap-2.5 pl-2.5 pr-3.5 py-2.5 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/70 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all duration-150 active:scale-[0.98] min-w-[180px] max-w-[240px] cursor-pointer shadow-[0_1px_0_rgba(0,0,0,0.02)] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-amber-50 dark:focus-visible:ring-offset-slate-900"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                    <Package className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="text-[12px] font-semibold text-gray-800 dark:text-gray-200 truncate group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors">
+                      {item.name}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className={`text-[10px] font-bold tabular-nums ${item.current_stock <= 0 ? 'text-red-500' : 'text-amber-600 dark:text-amber-400'
+                        }`}>
+                        {item.current_stock <= 0 ? 'OUT' : `${item.current_stock} left`}
+                      </span>
+                      <span className="text-[9px] text-gray-400">·</span>
+                      <span className="text-[10px] text-gray-400 font-medium">
+                        {formatPrice(item.current_sell_price)}
+                      </span>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-3 h-3 text-gray-300 dark:text-gray-600 group-hover:text-amber-500 transition-colors flex-shrink-0" />
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     );
   }
 
+if (loading) {
   return (
     <div className="p-4 sm:p-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="rounded-xl border border-gray-200/50 dark:border-gray-700/30 bg-white dark:bg-slate-800/50 overflow-hidden animate-pulse">
+            <div className="p-3.5 sm:p-4 flex flex-col gap-3">
+              <div className="space-y-1.5">
+                <div className="h-3.5 bg-gray-100 dark:bg-gray-700 rounded-md w-[85%]" />
+                <div className="h-3 bg-gray-50 dark:bg-gray-700/50 rounded-md w-[55%]" />
+              </div>
+              <div className="mt-1">
+                <div className="h-5 bg-gray-100 dark:bg-gray-700 rounded-md w-[45%]" />
+              </div>
+              <div className="pt-2 border-t border-gray-100 dark:border-gray-700/30">
+                <div className="h-2.5 bg-gray-50 dark:bg-gray-700/40 rounded-md w-[35%]" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+if (error) {
+  return (
+    <div className="p-4 flex items-center justify-center h-full">
+      <div className="text-center space-y-3">
+        <div className="w-16 h-16 mx-auto bg-red-100 rounded-full flex items-center justify-center">
+          <span className="text-2xl">⚠️</span>
+        </div>
+        <p className="text-destructive font-semibold">Error: {error}</p>
+      </div>
+    </div>
+  );
+}
+
+if (items.length === 0 && !loading) {
+  return (
+    <div className="p-6 flex items-center justify-center h-full min-h-[300px]">
+      <div className="text-center space-y-5 max-w-sm">
+        <div className="relative mx-auto w-20 h-20">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#259783]/10 to-[#3bd522]/10 rounded-2xl rotate-6" />
+          <div className="relative w-20 h-20 bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50 rounded-2xl flex items-center justify-center border border-gray-200/60 dark:border-gray-700/40 shadow-sm">
+            <svg className="w-9 h-9 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <p className="text-base font-semibold text-gray-700 dark:text-gray-300">
+            {searchQuery
+              ? 'No products found'
+              : 'No items in this category'}
+          </p>
+          {searchQuery && (
+            <>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                We couldn&apos;t find anything matching &quot;<span className="font-medium text-gray-700 dark:text-gray-300">{searchQuery}</span>&quot;
+              </p>
+              <div className="pt-3 flex flex-col gap-1.5 items-start mx-auto max-w-[200px]">
+                <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+                  <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+                  <span>Check for spelling errors</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+                  <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+                  <span>Try different keywords</span>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+                  <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+                  <span>Browse by category instead</span>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+return (
+  <div className="p-4 sm:p-6 flex items-center justify-center min-h-full">
+    <div className="w-full max-w-6xl">
       {searchQuery && items.length > 0 && (
         <div className="mb-6 space-y-2.5">
           <div className="flex items-center justify-between">
@@ -648,6 +849,7 @@ export function ItemGrid({
         )}
       </div>
     </div>
-  );
+  </div>
+);
 }
 
