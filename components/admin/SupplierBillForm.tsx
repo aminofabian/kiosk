@@ -22,6 +22,7 @@ import {
   Warehouse,
   Tag,
   X,
+  Calendar,
 } from 'lucide-react';
 import { apiGet, apiPost, apiPatch } from '@/lib/utils/api-client';
 import { Badge } from '@/components/ui/badge';
@@ -919,86 +920,101 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
 
       {/* ═══════════════ STEP 3: DUE DATE ═══════════════ */}
       {(supplierId || useManualSupplier) && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
               <Receipt className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
             </div>
-            <Label className="text-slate-800 dark:text-slate-200 font-bold text-sm">
-              Due Date & Time
-            </Label>
+            <div className="flex flex-col">
+              <Label className="text-slate-800 dark:text-slate-200 font-bold text-sm">
+                Due Date & Time
+              </Label>
+              <span className="text-[11px] text-slate-400">
+                Choose a quick option or pick an exact date and time.
+              </span>
+            </div>
           </div>
-          <div className="space-y-2">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {[
-                { label: 'Today', days: 0 },
-                { label: '2 Days', days: 2 },
-                { label: '3 Days', days: 3 },
-                { label: '1 Week', days: 7 },
-                { label: '2 Weeks', days: 14 },
-                { label: '1 Month', days: 30 },
-                { label: 'Indefinite', days: null },
-              ].map(({ label, days }) => {
-                const isSelected = (() => {
-                  if (days === null) {
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/40 px-3 py-2.5 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[
+                  { label: 'Today', days: 0 },
+                  { label: '2 Days', days: 2 },
+                  { label: '3 Days', days: 3 },
+                  { label: '1 Week', days: 7 },
+                  { label: '2 Weeks', days: 14 },
+                  { label: '1 Month', days: 30 },
+                  { label: 'Indefinite', days: null },
+                ].map(({ label, days }) => {
+                  const isSelected = (() => {
+                    if (days === null) {
+                      if (!dueDateTime) return false;
+                      const selectedDate = new Date(dueDateTime);
+                      const farFuture = new Date();
+                      farFuture.setFullYear(farFuture.getFullYear() + 10);
+                      return selectedDate.getTime() >= farFuture.getTime();
+                    }
                     if (!dueDateTime) return false;
                     const selectedDate = new Date(dueDateTime);
-                    const farFuture = new Date();
-                    farFuture.setFullYear(farFuture.getFullYear() + 10);
-                    return selectedDate.getTime() >= farFuture.getTime();
-                  }
-                  if (!dueDateTime) return false;
-                  const selectedDate = new Date(dueDateTime);
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  selectedDate.setHours(0, 0, 0, 0);
-                  const diffTime = selectedDate.getTime() - today.getTime();
-                  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-                  return diffDays === days;
-                })();
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    selectedDate.setHours(0, 0, 0, 0);
+                    const diffTime = selectedDate.getTime() - today.getTime();
+                    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+                    return diffDays === days;
+                  })();
 
-                return (
-                  <Button
-                    key={label}
-                    type="button"
-                    variant={isSelected ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => {
-                      const pad = (n: number) => String(n).padStart(2, '0');
-                      if (days === null) {
-                        const d = new Date();
-                        d.setFullYear(d.getFullYear() + 10);
-                        d.setHours(23, 59, 0, 0);
-                        setDueDateTime(
-                          `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-                        );
-                      } else {
-                        const d = new Date();
-                        d.setDate(d.getDate() + days);
-                        d.setHours(23, 59, 0, 0);
-                        setDueDateTime(
-                          `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-                        );
-                      }
-                    }}
-                    className={`h-7 px-2.5 text-xs rounded-lg ${
-                      isSelected
-                        ? 'bg-[#259783] hover:bg-[#1e7a6a] text-white'
-                        : 'border-slate-300 dark:border-slate-700'
-                    }`}
-                  >
-                    {label}
-                  </Button>
-                );
-              })}
+                  return (
+                    <Button
+                      key={label}
+                      type="button"
+                      variant={isSelected ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        const pad = (n: number) => String(n).padStart(2, '0');
+                        if (days === null) {
+                          const d = new Date();
+                          d.setFullYear(d.getFullYear() + 10);
+                          d.setHours(23, 59, 0, 0);
+                          setDueDateTime(
+                            `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+                          );
+                        } else {
+                          const d = new Date();
+                          d.setDate(d.getDate() + days);
+                          d.setHours(23, 59, 0, 0);
+                          setDueDateTime(
+                            `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+                          );
+                        }
+                      }}
+                      className={`h-7 px-2.5 text-xs rounded-lg ${
+                        isSelected
+                          ? 'bg-[#259783] hover:bg-[#1e7a6a] text-white shadow-sm'
+                          : 'border-slate-300 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 hover:bg-white dark:hover:bg-slate-900/60'
+                      }`}
+                    >
+                      {label}
+                    </Button>
+                  );
+                })}
+              </div>
+              {dueDateTime && (
+                <span className="hidden md:inline text-[11px] font-medium text-slate-400 whitespace-nowrap">
+                  Custom date selected
+                </span>
+              )}
             </div>
-            <Input
-              type="datetime-local"
-              value={dueDateTime}
-              onChange={(e) => setDueDateTime(e.target.value)}
-              required
-              className="h-10 border-2 border-slate-200 dark:border-slate-700 rounded-xl"
-            />
+            <div className="relative">
+              <Calendar className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                type="datetime-local"
+                value={dueDateTime}
+                onChange={(e) => setDueDateTime(e.target.value)}
+                required
+                className="h-10 w-full rounded-lg border-0 bg-transparent pl-9 pr-3 text-sm text-slate-800 dark:text-slate-50 focus-visible:ring-0 focus-visible:outline-none"
+              />
+            </div>
           </div>
         </div>
       )}
