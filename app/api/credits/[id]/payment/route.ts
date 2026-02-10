@@ -69,18 +69,30 @@ export async function POST(
     );
 
     // Update shift expected_closing_cash if payment is cash
+    // We REQUIRE an open shift for the recording user so that:
+    // - The cash goes into a specific drawer/shift
+    // - Shift summary and expected_closing_cash stay in sync
     if (paymentMethod === 'cash') {
       const shift = await queryOne<{ id: string }>(
         `SELECT id FROM shifts WHERE business_id = ? AND user_id = ? AND status = 'open' LIMIT 1`,
         [auth.businessId, auth.userId]
       );
-      
-      if (shift) {
-        await execute(
-          `UPDATE shifts SET expected_closing_cash = expected_closing_cash + ? WHERE id = ?`,
-          [amount, shift.id]
+
+      if (!shift) {
+        return jsonResponse(
+          {
+            success: false,
+            message:
+              'Cannot record cash payment without an open shift. Please open a shift first.',
+          },
+          400
         );
       }
+
+      await execute(
+        `UPDATE shifts SET expected_closing_cash = expected_closing_cash + ? WHERE id = ?`,
+        [amount, shift.id]
+      );
     }
 
     // Update credit account balance

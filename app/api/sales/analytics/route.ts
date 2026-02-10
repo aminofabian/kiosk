@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { query } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
-import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
+import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -39,7 +39,8 @@ interface SalesSummary {
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAuth();
+    // Only users with profit/report permissions (typically admin/owner) can view analytics
+    const auth = await requirePermission('view_profit');
     if (isAuthResponse(auth)) return auth;
 
     const { searchParams } = new URL(request.url);

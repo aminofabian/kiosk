@@ -20,6 +20,7 @@ import {
   TrendingDown,
   DollarSign,
 } from 'lucide-react';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import type { BalanceApprovalRequest } from '@/lib/db/types';
 
 interface BalanceApprovalRequestWithDetails extends BalanceApprovalRequest {
@@ -45,6 +46,18 @@ interface ShiftSummary {
   }>;
 }
 
+interface DrawerInfo {
+  shiftId: string;
+  userId: string;
+  cashierName: string;
+  openedAt: number;
+  endedAt: number | null;
+  status: 'open' | 'closed';
+  openingCash: number;
+  expectedCash: number;
+  actualClosingCash: number | null;
+}
+
 const DENOMINATIONS = [
   { value: 1000, label: '1000' },
   { value: 500, label: '500' },
@@ -58,7 +71,10 @@ const DENOMINATIONS = [
 ];
 
 export function BalanceApprovals() {
+  const { user, isLoading: userLoading } = useCurrentUser();
   const [requests, setRequests] = useState<BalanceApprovalRequestWithDetails[]>([]);
+  const [drawers, setDrawers] = useState<DrawerInfo[]>([]);
+  const [closedDrawers, setClosedDrawers] = useState<DrawerInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -68,20 +84,25 @@ export function BalanceApprovals() {
   const [shiftSummaries, setShiftSummaries] = useState<Record<string, ShiftSummary>>({});
 
   useEffect(() => {
+    // Cashiers should not see balance approval summaries
+    if (!user || user.role === 'cashier') return;
     fetchRequests();
-  }, []);
+  }, [user]);
 
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/balance/approvals?status=pending');
-      const result = await response.json();
+      const [approvalsRes, drawersRes] = await Promise.all([
+        fetch('/api/balance/approvals?status=pending'),
+        fetch('/api/shifts/drawers'),
+      ]);
+      const approvalsResult = await approvalsRes.json();
+      const drawersResult = await drawersRes.json();
 
-      if (result.success) {
-        const fetchedRequests = result.data || [];
+      if (approvalsResult.success) {
+        const fetchedRequests = approvalsResult.data || [];
         setRequests(fetchedRequests);
-        
-        // Fetch shift summaries for closing requests
+
         const summaries: Record<string, ShiftSummary> = {};
         for (const request of fetchedRequests) {
           if (request.balance_type === 'closing' && request.shift_id) {
@@ -98,7 +119,15 @@ export function BalanceApprovals() {
         }
         setShiftSummaries(summaries);
       } else {
-        setError(result.message || 'Failed to load approval requests');
+        setError(approvalsResult.message || 'Failed to load approval requests');
+      }
+
+      if (drawersResult.success && drawersResult.data) {
+        setDrawers(drawersResult.data.drawers ?? []);
+        setClosedDrawers(drawersResult.data.closed ?? []);
+      } else {
+        setDrawers([]);
+        setClosedDrawers([]);
       }
     } catch (err) {
       setError('Failed to load approval requests');
@@ -183,12 +212,25 @@ export function BalanceApprovals() {
     return breakdown;
   };
 
-  if (loading) {
+  if (userLoading || loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#259783]" />
           <p className="text-slate-500">Loading approval requests...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (user && user.role === 'cashier') {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center space-y-3">
+          <AlertCircle className="h-8 w-8 mx-auto text-amber-500" />
+          <p className="text-slate-700 dark:text-slate-200 font-semibold">
+            Balance approvals and drawer summaries are only visible to admins and owners.
+          </p>
         </div>
       </div>
     );
@@ -205,31 +247,134 @@ export function BalanceApprovals() {
     );
   }
 
-  if (requests.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center space-y-3">
-          <CheckCircle className="h-12 w-12 mx-auto text-green-500" />
-          <p className="text-slate-600 font-semibold">No pending approvals</p>
-          <p className="text-sm text-slate-400">All balance requests have been processed</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
+      {/* Cash in drawers - open and recently closed shifts */}
+      {(drawers.length > 0 || closedDrawers.length > 0) && (
+        <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center">
+                <Banknote className="w-5 h-5 text-[#259783]" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                Cash in drawers
+              </h3>
+            </div>
+
+            {drawers.length > 0 && (
+              <>
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Open drawers ({drawers.length})
+                </p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                  Expected cash in each open drawer (before expenses deducted at close).
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 mb-6">
+                  {drawers.map((drawer) => (
+                    <div
+                      key={drawer.shiftId}
+                      className="p-4 rounded-xl border-2 border-[#259783]/30 dark:border-[#259783]/50 bg-slate-50 dark:bg-slate-800/50 space-y-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-slate-500" />
+                        <span className="font-semibold text-slate-900 dark:text-white">
+                          {drawer.cashierName}
+                        </span>
+                        <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-300 dark:bg-green-900/30 dark:border-green-700">
+                          Open
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                        <Clock className="w-3 h-3" />
+                        Opened {formatDate(drawer.openedAt)}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                        <div>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide">Opening</p>
+                          <p className="font-bold text-slate-900 dark:text-white">{formatPrice(drawer.openingCash)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide">Expected</p>
+                          <p className="font-bold text-[#259783]">{formatPrice(drawer.expectedCash)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {closedDrawers.length > 0 && (
+              <>
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Closed recently ({closedDrawers.length})
+                </p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                  Actual closing cash for shifts closed in the last 7 days.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {closedDrawers.map((drawer) => (
+                    <div
+                      key={drawer.shiftId}
+                      className="p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 space-y-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <User className="w-4 h-4 text-slate-500" />
+                        <span className="font-semibold text-slate-900 dark:text-white">
+                          {drawer.cashierName}
+                        </span>
+                        <Badge variant="secondary" className="text-[10px]">
+                          Closed
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+                        <Clock className="w-3 h-3" />
+                        {drawer.endedAt ? `Closed ${formatDate(drawer.endedAt)}` : `Opened ${formatDate(drawer.openedAt)}`}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                        <div>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide">Opening</p>
+                          <p className="font-bold text-slate-900 dark:text-white">{formatPrice(drawer.openingCash)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide">Actual closed</p>
+                          <p className="font-bold text-[#259783]">
+                            {drawer.actualClosingCash != null ? formatPrice(drawer.actualClosingCash) : '—'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white">
             Pending Balance Approvals
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            {requests.length} request{requests.length !== 1 ? 's' : ''} waiting for approval
+            {requests.length === 0
+              ? 'No requests waiting for approval'
+              : `${requests.length} request${requests.length !== 1 ? 's' : ''} waiting for approval`}
           </p>
         </div>
       </div>
 
+      {requests.length === 0 ? (
+        <div className="flex items-center justify-center py-12 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/30">
+          <div className="text-center space-y-3">
+            <CheckCircle className="h-12 w-12 mx-auto text-green-500" />
+            <p className="text-slate-600 dark:text-slate-300 font-semibold">No pending approvals</p>
+            <p className="text-sm text-slate-400">All balance requests have been processed</p>
+          </div>
+        </div>
+      ) : (
       <div className="grid gap-4">
         {requests.map((request) => {
           const isProcessing = processingId === request.id;
@@ -237,13 +382,10 @@ export function BalanceApprovals() {
           const isExpanded = expandedId === request.id;
           const isOpening = request.balance_type === 'opening';
           const denomBreakdown = getDenominationBreakdown(request);
-          // For closing: difference = actual cash - opening cash
-          // For opening: difference = amount - expected (if any)
-          const difference = !isOpening && request.shift_opening_cash !== null && request.shift_opening_cash !== undefined
-            ? request.amount - request.shift_opening_cash
-            : request.expected_amount 
-              ? request.amount - request.expected_amount 
-              : null;
+          // For both opening and closing, show difference as:
+          // Actual (submitted amount) - Expected (if we have it)
+          const hasExpected = request.expected_amount !== null && request.expected_amount !== undefined;
+          const difference = hasExpected ? request.amount - (request.expected_amount || 0) : null;
 
           return (
             <Card key={request.id} className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
@@ -399,7 +541,7 @@ export function BalanceApprovals() {
                               </div>
                               <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
                                 <p className="text-slate-500 dark:text-slate-400 mb-1">
-                                  Difference (Actual - Opening)
+                                  Difference (Actual - Expected)
                                 </p>
                                 <p className={`font-semibold flex items-center gap-1 text-lg ${
                                   difference === 0 
@@ -599,6 +741,7 @@ export function BalanceApprovals() {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

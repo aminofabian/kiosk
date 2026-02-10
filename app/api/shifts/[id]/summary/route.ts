@@ -50,6 +50,9 @@ export async function GET(
     );
 
     // Get credit payments collected during this shift (cash payments only)
+    // IMPORTANT: we scope by both business AND cashier (recorded_by) so that:
+    // - Only payments recorded by this shift's user are counted for this drawer
+    // - This stays consistent with how we update shift.expected_closing_cash
     const creditPayments = await queryOne<{
       count: number;
       total: number;
@@ -60,11 +63,12 @@ export async function GET(
        FROM credit_transactions ct
        JOIN credit_accounts ca ON ct.credit_account_id = ca.id
        WHERE ca.business_id = ?
+         AND ct.recorded_by = ?
          AND ct.type = 'payment'
          AND ct.payment_method = 'cash'
          AND ct.created_at >= ?
          AND ct.created_at <= ?`,
-      [auth.businessId, shiftInfo.started_at, endTime]
+      [auth.businessId, shiftInfo.user_id, shiftInfo.started_at, endTime]
     );
 
     // Get cash expenses during this shift

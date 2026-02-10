@@ -129,6 +129,24 @@ export async function POST(request: NextRequest) {
 
     const shiftId = shift?.id || null;
 
+    // Require an open shift for any cash payment so every shilling is tied to a drawer
+    const cashAmountForValidation =
+      paymentMethod === 'cash'
+        ? totalAmount
+        : paymentMethod === 'split' && splitPayments
+          ? (splitPayments as SplitPaymentInput[]).find((p) => p.method === 'cash')?.amount ?? 0
+          : 0;
+    if (cashAmountForValidation > 0 && !shiftId) {
+      return jsonResponse(
+        {
+          success: false,
+          message:
+            'You must have an open shift to record cash payments. Please open a shift first.',
+        },
+        400
+      );
+    }
+
     // For split payments, we'll store customer info from credit portion if any
     let saleCustomerName = null;
     let saleCustomerPhone = null;

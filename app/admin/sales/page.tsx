@@ -21,6 +21,7 @@ import {
   Store,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/utils/api-client';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import Link from 'next/link';
 
 interface TypeBreakdown {
@@ -71,6 +72,7 @@ const formatNumber = (num: number) =>
   num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 1 });
 
 export default function SalesHubPage() {
+  const { user, isLoading: userLoading } = useCurrentUser();
   const [data, setData] = useState<SalesOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -92,9 +94,29 @@ export default function SalesHubPage() {
     }
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => {
+    // Do not fetch analytics for cashiers – summaries are admin/owner only
+    if (!user || user.role === 'cashier') return;
+    fetchData();
+  }, [fetchData, user]);
 
-  if (loading) {
+  // If user is a cashier, hide summaries entirely
+  if (user && user.role === 'cashier') {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center space-y-3">
+            <AlertTriangle className="h-10 w-10 text-amber-500 mx-auto" />
+            <p className="text-slate-700 dark:text-slate-200 font-semibold">
+              Sales summaries are only available to admins and owners.
+            </p>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (loading || userLoading) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-screen">
