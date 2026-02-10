@@ -621,7 +621,16 @@ export default function POSPage() {
     if (!showSkeleton && !showResults && !showNoResults) return null;
 
     return (
-      <div className={`absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-[#1a2c17] rounded-2xl border border-gray-200/80 dark:border-gray-700/60 shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 ${isDesktop ? 'max-h-[420px]' : 'max-h-[60vh]'}`}>
+      <div className={`absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-[#1a2c17] rounded-2xl border border-gray-200/80 dark:border-gray-700/60 shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 ${isDesktop ? 'max-h-[420px]' : 'max-h-[60vh]'} relative`}>
+        {/* Close suggestions button */}
+        <button
+          type="button"
+          onClick={() => setShowSuggestions(false)}
+          className="absolute top-1.5 right-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white/80 dark:bg-black/40 border border-gray-200/70 dark:border-gray-700/60 text-gray-400 hover:text-gray-700 dark:hover:text-gray-100 hover:bg-white shadow-sm transition-all active:scale-90"
+          aria-label="Close suggestions"
+        >
+          <X className="w-3 h-3" />
+        </button>
         {/* Skeleton loading */}
         {showSkeleton && (
           <div className="p-2">
