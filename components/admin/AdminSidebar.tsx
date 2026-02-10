@@ -50,7 +50,7 @@ const SECTIONS: MenuSection[] = [
   {
     label: null,
     items: [
-      { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/pos', label: 'Dashboard', icon: LayoutDashboard },
     ],
   },
   {

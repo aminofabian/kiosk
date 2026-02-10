@@ -12,7 +12,7 @@ import { getItemImage } from '@/lib/utils/item-images';
 import { Badge } from '@/components/ui/badge';
 
 type PurchaseMode = 'regular' | 'bundle';
-type PortionSize = 'full' | 'half' | 'quarter' | 'eighth' | 'tenth' | 'custom';
+type PortionSize = 'full' | 'half' | 'quarter' | 'eighth' | 'tenth' | 'twentieth' | 'custom';
 
 interface AddToCartDialogProps {
   item: Item | null;
@@ -432,8 +432,23 @@ export function AddToCartDialog({
                     <button
                       type="button"
                       onClick={() => {
+                        const target = 0.05;
+                        setQuantity(target);
+                        setPortion('twentieth');
+                      }}
+                      className={`w-12 px-0 py-1.5 rounded-full text-[10px] font-semibold flex items-center justify-center transition-all border ${
+                        portion === 'twentieth'
+                          ? 'bg-[#259783] text-white border-[#259783] shadow-md'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      1/20
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
                         const target = 0.125;
-                        setQuantity(Number(target.toFixed(2)));
+                        setQuantity(target);
                         setPortion('eighth');
                       }}
                       className={`w-12 px-0 py-1.5 rounded-full text-sm font-semibold flex items-center justify-center transition-all border ${
@@ -448,10 +463,10 @@ export function AddToCartDialog({
                       type="button"
                       onClick={() => {
                         const target = 0.1;
-                        setQuantity(Number(target.toFixed(2)));
+                        setQuantity(target);
                         setPortion('tenth');
                       }}
-                      className={`w-12 px-0 py-1.5 rounded-full text-xs font-semibold flex items-center justify-center transition-all border ${
+                      className={`w-12 px-0 py-1.5 rounded-full text-[10px] font-semibold flex items-center justify-center transition-all border ${
                         portion === 'tenth'
                           ? 'bg-[#259783] text-white border-[#259783] shadow-md'
                           : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
@@ -463,7 +478,7 @@ export function AddToCartDialog({
                       type="button"
                       onClick={() => {
                         const target = 0.25;
-                        setQuantity(Number(target.toFixed(2)));
+                        setQuantity(target);
                         setPortion('quarter');
                       }}
                       className={`w-12 px-0 py-1.5 rounded-full text-sm font-semibold flex items-center justify-center transition-all border ${
@@ -478,7 +493,7 @@ export function AddToCartDialog({
                       type="button"
                       onClick={() => {
                         const target = 0.5;
-                        setQuantity(Number(target.toFixed(2)));
+                        setQuantity(target);
                         setPortion('half');
                       }}
                       className={`w-12 px-0 py-1.5 rounded-full text-sm font-semibold flex items-center justify-center transition-all border ${
@@ -493,7 +508,7 @@ export function AddToCartDialog({
                       type="button"
                       onClick={() => {
                         const target = 1;
-                        setQuantity(Number(target.toFixed(2)));
+                        setQuantity(target);
                         setPortion('full');
                       }}
                       className={`w-12 px-0 py-1.5 rounded-full text-sm font-semibold flex items-center justify-center transition-all border ${
