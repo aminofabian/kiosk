@@ -187,12 +187,13 @@ export default function POSPage() {
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const printedReceiptIdRef = useRef<string | null>(null);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [searchSuggestions, setSearchSuggestions] = useState<{ id: string; name: string; variant_name?: string | null; current_sell_price: number }[]>([]);
+  const [searchSuggestions, setSearchSuggestions] = useState<{ id: string; name: string; variant_name?: string | null; current_sell_price: number; unit_type?: string; category_name?: string | null }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const suggestionsAbortRef = useRef<AbortController | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
+  const desktopSearchContainerRef = useRef<HTMLDivElement>(null);
   const { clearCart, carts, activeCartId, switchCart } = useCartStore();
   const { user } = useCurrentUser();
   
@@ -429,11 +430,13 @@ export default function POSPage() {
         const result = await response.json();
 
         if (result.success && result.data) {
-          const suggestions = result.data.map((item: { id: string; name: string; variant_name?: string | null; current_sell_price: number }) => ({
+          const suggestions = result.data.map((item: { id: string; name: string; variant_name?: string | null; current_sell_price: number; unit_type?: string; category_name?: string | null }) => ({
             id: item.id,
             name: item.name,
             variant_name: item.variant_name,
             current_sell_price: item.current_sell_price,
+            unit_type: item.unit_type,
+            category_name: item.category_name,
           }));
           // Cache the result
           suggestCacheRef.current.set(cacheKey, { data: suggestions, ts: Date.now() });
@@ -467,7 +470,10 @@ export default function POSPage() {
   // Close suggestions when clicking outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const insideMobile = searchContainerRef.current?.contains(target);
+      const insideDesktop = desktopSearchContainerRef.current?.contains(target);
+      if (!insideMobile && !insideDesktop) {
         setShowSuggestions(false);
       }
     };
@@ -580,6 +586,179 @@ export default function POSPage() {
     setSearchSuggestions([]);
     setShowSuggestions(false);
   }, []);
+
+  // Highlight matching text segments in search results
+  const highlightMatch = useCallback((text: string, query: string) => {
+    if (!query || query.length < 1) return <>{text}</>;
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    const parts = text.split(regex);
+    return (
+      <>
+        {parts.map((part, i) =>
+          regex.test(part) ? (
+            <mark key={i} className="bg-[#259783]/15 text-[#259783] dark:text-[#3bd522] font-bold rounded-[2px] px-[1px] mx-[-1px]" style={{ textDecoration: 'none' }}>{part}</mark>
+          ) : (
+            <span key={i}>{part}</span>
+          )
+        )}
+      </>
+    );
+  }, []);
+
+  // Shared search suggestions dropdown renderer
+  const renderSuggestionsDropdown = useCallback((isDesktop = false) => {
+    const showSkeleton = loadingSuggestions && searchQuery && !showSuggestions;
+    const showResults = showSuggestions && searchSuggestions.length > 0;
+    const showNoResults = !loadingSuggestions && searchQuery.length >= 2 && searchSuggestions.length === 0 && !showSuggestions && !isSearchPending;
+
+    if (!showSkeleton && !showResults && !showNoResults) return null;
+
+    return (
+      <div className={`absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-[#1a2c17] rounded-2xl border border-gray-200/80 dark:border-gray-700/60 shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 ${isDesktop ? 'max-h-[420px]' : 'max-h-[60vh]'}`}>
+        {/* Skeleton loading */}
+        {showSkeleton && (
+          <div className="p-2">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="flex items-center gap-3 px-3 py-3 animate-pulse">
+                <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex-shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3.5 bg-gray-100 dark:bg-gray-800 rounded-lg w-3/5" />
+                  <div className="h-2.5 bg-gray-50 dark:bg-gray-800/60 rounded-lg w-2/5" />
+                </div>
+                <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded-lg w-14" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Results list */}
+        {showResults && (
+          <>
+            <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: isDesktop ? '360px' : '50vh' }}>
+              <div className="px-3 pt-2.5 pb-1">
+                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                  {searchSuggestions.length} result{searchSuggestions.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="px-1.5 pb-1.5">
+                {searchSuggestions.map((suggestion, index) => (
+                  <button
+                    key={suggestion.id}
+                    type="button"
+                    onClick={() => handleSelectSuggestion(suggestion)}
+                    onMouseEnter={() => setSelectedSuggestionIndex(index)}
+                    className={`w-full px-2.5 py-2.5 flex items-center gap-3 transition-all duration-100 text-left rounded-xl group ${
+                      index === selectedSuggestionIndex
+                        ? 'bg-[#259783]/[0.08] dark:bg-[#259783]/15'
+                        : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
+                    }`}
+                  >
+                    {/* Product icon with category color accent */}
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-150 ${
+                      index === selectedSuggestionIndex
+                        ? 'bg-[#259783] shadow-md shadow-[#259783]/25 scale-105'
+                        : 'bg-gray-100 dark:bg-gray-800/80'
+                    }`}>
+                      <Package className={`w-4.5 h-4.5 ${
+                        index === selectedSuggestionIndex
+                          ? 'text-white'
+                          : 'text-gray-400 dark:text-gray-500'
+                      }`} />
+                    </div>
+
+                    {/* Product info */}
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-[13px] font-semibold truncate leading-tight transition-colors ${
+                        index === selectedSuggestionIndex
+                          ? 'text-[#259783] dark:text-[#3bd522]'
+                          : 'text-gray-800 dark:text-gray-200'
+                      }`}>
+                        {highlightMatch(suggestion.name, searchQuery)}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {suggestion.variant_name && (
+                          <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate">
+                            {highlightMatch(suggestion.variant_name, searchQuery)}
+                          </span>
+                        )}
+                        {suggestion.variant_name && suggestion.category_name && (
+                          <span className="text-gray-300 dark:text-gray-600 text-[8px]">{'·'}</span>
+                        )}
+                        {suggestion.category_name && (
+                          <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md flex-shrink-0">
+                            {suggestion.category_name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Price + unit */}
+                    <div className="flex flex-col items-end flex-shrink-0 ml-1">
+                      <span className={`text-xs font-bold tabular-nums transition-colors ${
+                        index === selectedSuggestionIndex
+                          ? 'text-[#259783] dark:text-[#3bd522]'
+                          : 'text-gray-700 dark:text-gray-300'
+                      }`}>
+                        KES {suggestion.current_sell_price.toFixed(0)}
+                      </span>
+                      {suggestion.unit_type && (
+                        <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                          /{suggestion.unit_type}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer with keyboard hints */}
+            <div className="px-3 py-2 bg-gray-50/80 dark:bg-black/20 border-t border-gray-100 dark:border-gray-800">
+              <div className="flex items-center justify-between text-[10px] text-gray-400 dark:text-gray-500">
+                <div className="hidden md:flex items-center gap-3">
+                  <span className="flex items-center gap-1">
+                    <kbd className="px-1 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-[9px] font-mono shadow-sm">↑</kbd>
+                    <kbd className="px-1 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-[9px] font-mono shadow-sm">↓</kbd>
+                    <span className="ml-0.5">navigate</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-[9px] font-mono shadow-sm">↵</kbd>
+                    <span className="ml-0.5">select</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-[9px] font-mono shadow-sm">esc</kbd>
+                    <span className="ml-0.5">close</span>
+                  </span>
+                </div>
+                <div className="md:hidden flex items-center gap-1">
+                  <span>Tap to select</span>
+                </div>
+                <span className="font-medium text-[#259783] dark:text-[#3bd522]">
+                  {searchSuggestions.length} found
+                </span>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* No results state */}
+        {showNoResults && (
+          <div className="px-4 py-8 text-center">
+            <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center">
+              <Search className="w-5 h-5 text-gray-300 dark:text-gray-600" />
+            </div>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+              No products found
+            </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              Try a different search term
+            </p>
+          </div>
+        )}
+      </div>
+    );
+  }, [loadingSuggestions, searchQuery, showSuggestions, searchSuggestions, isSearchPending, selectedSuggestionIndex, handleSelectSuggestion, highlightMatch]);
 
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const cartTotal = cartItems.reduce(
@@ -1396,136 +1575,78 @@ export default function POSPage() {
             </header>
 
             {showSearch && (
-              <div className="px-3 pb-3 bg-[#f6f8f6] dark:bg-[#132210] sticky top-[48px] z-20 border-b border-black/5 dark:border-white/5 animate-in slide-in-from-top-2 duration-200">
+              <div className="px-3 pb-3 bg-gradient-to-b from-[#f6f8f6] to-[#f0f4f0] dark:from-[#132210] dark:to-[#0f1c0d] sticky top-[48px] z-20 border-b border-black/5 dark:border-white/5 animate-in slide-in-from-top-2 duration-200">
                 <div ref={searchContainerRef} className="relative">
                   <form onSubmit={handleSearchSubmit}>
-                    <div className="relative">
-                      {isSearchPending || barcodeScanStatus.scanning || loadingSuggestions ? (
-                        <Loader2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#259783] animate-spin" />
-                      ) : (
-                        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      )}
-                      <Input
-                        ref={mobileSearchInputRef}
-                        type="text"
-                        placeholder="Search products, scan barcode..."
-                        value={searchQuery}
-                        onChange={(e) => handleSearchChange(e.target.value)}
-                        onFocus={() => searchSuggestions.length > 0 && setShowSuggestions(true)}
-                        onKeyDown={handleSearchKeyDown}
-                        className="pl-10 pr-16 h-11 bg-white dark:bg-[#1c2e18] rounded-xl border border-gray-200 dark:border-gray-700 focus:border-[#259783] focus:ring-2 focus:ring-[#259783]/20 text-sm font-medium placeholder:text-gray-400 shadow-sm"
-                        autoComplete="off"
-                        autoCorrect="off"
-                        spellCheck={false}
-                        data-barcode-enabled="true"
-                      />
-                      <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                        {searchQuery ? (
-                          <button
-                            type="button"
-                            onClick={clearSearch}
-                            className="h-7 w-7 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                          >
-                            <X className="w-3.5 h-3.5" />
-                          </button>
+                    <div className="relative group/input">
+                      {/* Animated focus ring */}
+                      <div className="absolute -inset-[1px] bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-[13px] opacity-0 group-focus-within/input:opacity-100 transition-opacity duration-300 blur-[0.5px]" />
+                      <div className="relative">
+                        {isSearchPending || barcodeScanStatus.scanning || loadingSuggestions ? (
+                          <Loader2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#259783] animate-spin z-10" />
                         ) : (
-                          <span className="hidden md:flex items-center gap-0.5 text-[10px] text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-1 rounded">
-                            <Command className="w-3 h-3" />K
-                          </span>
+                          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within/input:text-[#259783] transition-colors z-10" />
                         )}
+                        <Input
+                          ref={mobileSearchInputRef}
+                          type="text"
+                          placeholder="Search products, scan barcode..."
+                          value={searchQuery}
+                          onChange={(e) => handleSearchChange(e.target.value)}
+                          onFocus={() => searchSuggestions.length > 0 && setShowSuggestions(true)}
+                          onKeyDown={handleSearchKeyDown}
+                          className="pl-10 pr-16 h-12 bg-white dark:bg-[#1c2e18] rounded-xl border border-gray-200/80 dark:border-gray-700/60 focus:border-transparent focus:ring-0 text-[15px] font-medium placeholder:text-gray-400 shadow-sm"
+                          autoComplete="off"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          data-barcode-enabled="true"
+                        />
+                        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 z-10">
+                          {searchQuery ? (
+                            <button
+                              type="button"
+                              onClick={clearSearch}
+                              className="h-7 w-7 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700/80 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all active:scale-90"
+                            >
+                              <X className="w-3.5 h-3.5 text-gray-500" />
+                            </button>
+                          ) : (
+                            <span className="hidden md:flex items-center gap-0.5 text-[10px] text-gray-400 bg-gray-100/80 dark:bg-gray-700/60 px-1.5 py-1 rounded-md border border-gray-200/50 dark:border-gray-600/30">
+                              <Command className="w-3 h-3" />K
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </form>
 
                   {/* Search Suggestions Dropdown */}
-                  {showSuggestions && searchSuggestions.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-[#1c2e18] rounded-xl border border-gray-200 dark:border-gray-700 shadow-lg z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
-                      <div className="py-1">
-                        <div className="px-3 py-1 text-[11px] font-medium text-gray-400 uppercase tracking-wider">
-                          Suggestions
-                        </div>
-                        {searchSuggestions.map((suggestion, index) => (
-                          <button
-                            key={suggestion.id}
-                            type="button"
-                            onClick={() => handleSelectSuggestion(suggestion)}
-                            onMouseEnter={() => setSelectedSuggestionIndex(index)}
-                            className={`w-full px-3 py-2.5 flex items-center justify-between transition-colors text-left group ${
-                              index === selectedSuggestionIndex 
-                                ? 'bg-[#259783]/10 dark:bg-[#259783]/20' 
-                                : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div className={`w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0 ${
-                                index === selectedSuggestionIndex
-                                  ? 'bg-[#259783] text-white'
-                                  : 'bg-gray-100 dark:bg-gray-800 text-gray-400'
-                              }`}>
-                                <Package className="w-3.5 h-3.5" />
-                              </div>
-                              <div className="min-w-0">
-                                <div className={`text-sm font-medium truncate transition-colors ${
-                                  index === selectedSuggestionIndex 
-                                    ? 'text-[#259783]' 
-                                    : 'text-gray-700 dark:text-gray-200'
-                                }`}>
-                                  {suggestion.name}
-                                </div>
-                                {suggestion.variant_name && (
-                                  <div className="text-[11px] text-gray-400 truncate">
-                                    {suggestion.variant_name}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            <div className="text-xs font-semibold text-[#259783] flex-shrink-0 ml-2">
-                              KES {suggestion.current_sell_price.toFixed(0)}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                      <div className="px-3 py-1.5 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700">
-                        <div className="text-[11px] text-gray-400 flex items-center justify-between">
-                          <div className="flex items-center gap-2.5">
-                            <span className="flex items-center gap-0.5">
-                              <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-[9px] font-mono">↑↓</kbd>
-                            </span>
-                            <span className="flex items-center gap-0.5">
-                              <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-[9px] font-mono">↵</kbd>
-                            </span>
-                            <span className="flex items-center gap-0.5">
-                              <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded text-[9px] font-mono">esc</kbd>
-                            </span>
-                          </div>
-                          <span className="text-[#259783] font-medium">{searchSuggestions.length} found</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  {renderSuggestionsDropdown(false)}
                 </div>
                 
                 {/* Search status bar - only show when dropdown is not visible */}
-                {searchQuery && !showSuggestions && (
-                  <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-                    <span>
+                {searchQuery && !showSuggestions && !loadingSuggestions && (
+                  <div className="mt-2.5 flex items-center justify-between">
+                    <span className="text-xs text-gray-500">
                       {isSearchPending ? (
                         <span className="flex items-center gap-1.5">
-                          <span className="inline-block w-1.5 h-1.5 bg-[#259783] rounded-full animate-pulse"></span>
-                          Searching...
+                          <span className="inline-block w-1.5 h-1.5 bg-[#259783] rounded-full animate-pulse" />
+                          <span className="text-gray-500 font-medium">Searching...</span>
                         </span>
                       ) : isValidBarcode(searchQuery) ? (
-                        <span className="flex items-center gap-1.5">
+                        <span className="flex items-center gap-1.5 bg-[#259783]/[0.06] dark:bg-[#259783]/10 px-2.5 py-1 rounded-lg">
                           <QrCode className="w-3.5 h-3.5 text-[#259783]" />
-                          Press Enter to scan barcode
+                          <span className="text-[#259783] font-medium text-[11px]">Press Enter to scan barcode</span>
                         </span>
-                      ) : (
-                        `Showing results for "${debouncedSearchQuery}"`
-                      )}
+                      ) : debouncedSearchQuery ? (
+                        <span className="text-gray-400">
+                          Results for <span className="font-semibold text-gray-600 dark:text-gray-300">&quot;{debouncedSearchQuery}&quot;</span>
+                        </span>
+                      ) : null}
                     </span>
                     <button
                       onClick={clearSearch}
-                      className="text-[#259783] font-medium hover:underline"
+                      className="text-xs text-[#259783] font-semibold hover:underline active:scale-95 transition-transform"
                     >
                       Clear
                     </button>
@@ -1534,42 +1655,44 @@ export default function POSPage() {
                 
                 {/* Recent searches - show when no query */}
                 {!searchQuery && recentSearches.length > 0 && (
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-1.5 text-xs text-gray-500">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>Recent searches</span>
+                  <div className="mt-3.5">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                        <Clock className="w-3 h-3" />
+                        <span>Recent</span>
                       </div>
                       <button
                         onClick={() => {
                           clearRecentSearches();
                           setRecentSearches([]);
                         }}
-                        className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                        className="text-[11px] text-gray-400 hover:text-red-400 dark:hover:text-red-400 font-medium transition-colors"
                       >
                         Clear all
                       </button>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                       {recentSearches.slice(0, 6).map((query, index) => (
                         <button
                           key={index}
                           onClick={() => {
                             setSearchQuery(query);
                           }}
-                          className="group flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-[#1c2e18] rounded-full border border-gray-200 dark:border-gray-700 hover:border-[#259783] text-sm text-gray-700 dark:text-gray-300 hover:text-[#259783] transition-colors"
+                          className="group/recent flex items-center gap-1.5 pl-2.5 pr-2 py-1.5 bg-white dark:bg-[#1c2e18] rounded-lg border border-gray-200/80 dark:border-gray-700/50 hover:border-[#259783]/40 hover:bg-[#259783]/[0.04] dark:hover:bg-[#259783]/10 text-[12px] text-gray-600 dark:text-gray-400 hover:text-[#259783] transition-all active:scale-[0.97] shadow-sm"
                         >
-                          <span className="capitalize">{query}</span>
-                          <button
+                          <Clock className="w-3 h-3 text-gray-300 dark:text-gray-600 group-hover/recent:text-[#259783]/50 flex-shrink-0" />
+                          <span className="capitalize truncate max-w-[100px]">{query}</span>
+                          <span
+                            role="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               removeRecentSearch(query);
                               setRecentSearches(prev => prev.filter(s => s !== query));
                             }}
-                            className="opacity-0 group-hover:opacity-100 -mr-1 p-0.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+                            className="opacity-0 group-hover/recent:opacity-100 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex-shrink-0"
                           >
-                            <X className="w-3 h-3" />
-                          </button>
+                            <X className="w-2.5 h-2.5" />
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -1578,8 +1701,11 @@ export default function POSPage() {
                 
                 {/* Quick tips when empty */}
                 {!searchQuery && recentSearches.length === 0 && (
-                  <div className="mt-3 text-xs text-gray-400 flex items-center gap-2">
-                    <span>Tip: Type to search products or scan a barcode</span>
+                  <div className="mt-3.5 flex items-center gap-2.5 text-gray-400 dark:text-gray-500">
+                    <div className="w-6 h-6 rounded-lg bg-[#259783]/10 flex items-center justify-center flex-shrink-0">
+                      <Sparkles className="w-3 h-3 text-[#259783]" />
+                    </div>
+                    <span className="text-xs">Type to search products or scan a barcode</span>
                   </div>
                 )}
               </div>
@@ -1644,12 +1770,20 @@ export default function POSPage() {
               {searchQuery && (
                 <div className="flex-1 overflow-auto">
                   {isSearchPending ? (
-                    <div className="flex flex-col items-center justify-center py-16 gap-4">
-                      <div className="relative">
-                        <div className="w-16 h-16 border-4 border-[#259783]/20 rounded-full"></div>
-                        <div className="w-16 h-16 border-4 border-[#259783] border-t-transparent rounded-full animate-spin absolute inset-0"></div>
+                    <div className="px-1 py-4 space-y-3">
+                      {/* Skeleton loading grid for search results */}
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {[1, 2, 3, 4, 5, 6].map(i => (
+                          <div key={i} className="bg-white dark:bg-[#1c2e18] rounded-xl border border-gray-200/50 dark:border-gray-700/30 overflow-hidden animate-pulse">
+                            <div className="aspect-square bg-gray-100 dark:bg-gray-800" />
+                            <div className="p-3 space-y-2.5">
+                              <div className="h-3.5 bg-gray-100 dark:bg-gray-800 rounded-lg w-4/5" />
+                              <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded-lg w-3/5" />
+                              <div className="h-7 bg-gray-100 dark:bg-gray-800 rounded-lg w-2/5" />
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <p className="text-gray-500 font-medium">Searching products...</p>
                     </div>
                   ) : debouncedSearchQuery ? (
                     <ItemGrid
@@ -1967,16 +2101,18 @@ export default function POSPage() {
 
                   {/* Search Section */}
                   {showSearch ? (
-                    <div className="flex-1 max-w-xl relative animate-in fade-in duration-200">
+                    <div ref={desktopSearchContainerRef} className="flex-1 max-w-xl relative animate-in fade-in duration-200">
                       <form onSubmit={handleSearchSubmit}>
-                        <div className="relative flex items-center">
+                        <div className="relative flex items-center group/dinput">
+                          {/* Gradient focus ring */}
+                          <div className="absolute -inset-[1px] bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-[9px] opacity-0 group-focus-within/dinput:opacity-100 transition-opacity duration-300 blur-[0.5px]" />
                           <div className="absolute left-3 z-10">
-                            {isSearchPending || barcodeScanStatus.scanning ? (
+                            {isSearchPending || barcodeScanStatus.scanning || loadingSuggestions ? (
                               <Loader2 className="w-4 h-4 text-[#259783] animate-spin" />
                             ) : isValidBarcode(searchQuery) ? (
                               <QrCode className="w-4 h-4 text-[#259783]" />
                             ) : (
-                              <Search className="w-4 h-4 text-gray-400" />
+                              <Search className="w-4 h-4 text-gray-400 group-focus-within/dinput:text-[#259783] transition-colors" />
                             )}
                           </div>
                           <Input
@@ -1985,13 +2121,15 @@ export default function POSPage() {
                             placeholder="Search products or scan barcode..."
                             value={searchQuery}
                             onChange={(e) => handleSearchChange(e.target.value)}
-                            className="pl-9 pr-16 h-9 border border-gray-200/80 dark:border-gray-700/60 focus:border-[#259783] focus:ring-2 focus:ring-[#259783]/15 rounded-lg text-sm bg-white dark:bg-slate-800 transition-all"
+                            onFocus={() => searchSuggestions.length > 0 && setShowSuggestions(true)}
+                            onKeyDown={handleSearchKeyDown}
+                            className="relative pl-9 pr-20 h-9 border border-gray-200/80 dark:border-gray-700/60 focus:border-transparent focus:ring-0 rounded-lg text-sm bg-white dark:bg-slate-800 transition-all"
                             autoComplete="off"
                             autoCorrect="off"
                             spellCheck={false}
                             data-barcode-enabled="true"
                           />
-                          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 z-10">
                             {searchQuery && (
                               <Button
                                 type="button"
@@ -2008,33 +2146,31 @@ export default function POSPage() {
                             </kbd>
                           </div>
                         </div>
-                        {searchQuery && (
-                          <div className="absolute top-full left-0 right-0 mt-1 text-xs text-gray-500 flex items-center gap-1.5 pl-3">
-                            {isSearchPending ? (
-                              <>
-                                <span className="inline-block w-1.5 h-1.5 bg-[#259783] rounded-full animate-pulse" />
-                                <span>Searching...</span>
-                              </>
-                            ) : isValidBarcode(searchQuery) ? (
-                              <>
-                                <QrCode className="w-3 h-3 text-[#259783]" />
-                                <span className="text-[#259783] font-medium">Press Enter to scan barcode</span>
-                              </>
-                            ) : null}
-                          </div>
-                        )}
                       </form>
+
+                      {/* Desktop Search Suggestions Dropdown */}
+                      {renderSuggestionsDropdown(true)}
+
+                      {/* Barcode status hint */}
+                      {searchQuery && !showSuggestions && !loadingSuggestions && isValidBarcode(searchQuery) && (
+                        <div className="absolute top-full left-0 right-0 mt-1.5 text-xs flex items-center gap-1.5 pl-3">
+                          <span className="flex items-center gap-1.5 bg-[#259783]/[0.06] dark:bg-[#259783]/10 px-2.5 py-1 rounded-lg">
+                            <QrCode className="w-3 h-3 text-[#259783]" />
+                            <span className="text-[#259783] font-medium text-[11px]">Press Enter to scan barcode</span>
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setShowSearch(true)}
-                      className="hidden sm:flex items-center gap-1.5 border-gray-200/80 dark:border-gray-700/60 hover:border-[#259783] hover:bg-[#259783]/5 h-9 px-3 rounded-lg transition-colors group"
+                      className="hidden sm:flex items-center gap-2 border-gray-200/80 dark:border-gray-700/60 hover:border-[#259783]/50 hover:bg-[#259783]/[0.04] h-9 px-3.5 rounded-lg transition-all group"
                     >
-                      <Search className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#259783]" />
-                      <span className="hidden md:inline text-gray-400 dark:text-gray-500 text-sm">Search</span>
-                      <kbd className="hidden lg:flex pointer-events-none h-5 items-center rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-1 font-mono text-[10px] text-gray-400 ml-0.5">
+                      <Search className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#259783] transition-colors" />
+                      <span className="hidden md:inline text-gray-400 dark:text-gray-500 text-sm group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors">Search products...</span>
+                      <kbd className="hidden lg:flex pointer-events-none h-5 items-center rounded border border-gray-200/80 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-1.5 font-mono text-[10px] text-gray-400 ml-1">
                         <span className="text-xs">⌘</span>K
                       </kbd>
                     </Button>
@@ -2142,12 +2278,20 @@ export default function POSPage() {
             )}
             <div className="flex-1 overflow-auto bg-gradient-to-b from-transparent to-gray-50/50">
               {searchQuery && isSearchPending ? (
-                <div className="flex flex-col items-center justify-center h-64 gap-4">
-                  <div className="relative">
-                    <div className="w-12 h-12 border-4 border-[#259783]/20 rounded-full"></div>
-                    <div className="w-12 h-12 border-4 border-[#259783] border-t-transparent rounded-full animate-spin absolute inset-0"></div>
+                <div className="p-6">
+                  {/* Skeleton loading grid for desktop search */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 animate-pulse">
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
+                      <div key={i} className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200/50 dark:border-gray-700/30 overflow-hidden">
+                        <div className="p-4 sm:p-5 space-y-3">
+                          <div className="h-4 bg-gray-100 dark:bg-gray-700 rounded w-4/5" />
+                          <div className="h-3 bg-gray-50 dark:bg-gray-700/60 rounded w-3/5" />
+                          <div className="h-6 bg-gray-100 dark:bg-gray-700 rounded w-2/5 mt-2" />
+                          <div className="h-3 bg-gray-50 dark:bg-gray-700/60 rounded w-1/3" />
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <p className="text-gray-500 font-medium">Searching products...</p>
                 </div>
               ) : (
                 <ItemGrid

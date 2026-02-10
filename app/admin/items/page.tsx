@@ -1231,6 +1231,8 @@ export function ItemsManager() {
                   bundle_quantity: editingItem.bundle_quantity,
                   bundle_price: editingItem.bundle_price,
                   bundle_name: editingItem.bundle_name,
+                  packaging_unit_name: editingItem.packaging_unit_name,
+                  packaging_unit_qty: editingItem.packaging_unit_qty,
                   item_type: editingItem.item_type,
                 } : undefined}
                 onSuccess={async (updatedItem) => {

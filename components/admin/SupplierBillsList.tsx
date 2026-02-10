@@ -90,7 +90,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<string>('this_week');
+  const [dateFilter, setDateFilter] = useState<string>('today');
   const [supplierFilter, setSupplierFilter] = useState<string>('all');
   const [dayOfWeekFilter, setDayOfWeekFilter] = useState<string>('all');
   const [markAsPaidDialog, setMarkAsPaidDialog] = useState<{

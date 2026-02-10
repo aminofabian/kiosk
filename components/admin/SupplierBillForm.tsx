@@ -7,6 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Loader2,
   Receipt,
   AlertCircle,
@@ -40,6 +47,8 @@ interface Supplier {
   name: string;
   contact_phone: string | null;
   contact_email: string | null;
+  location?: string | null;
+  notes?: string | null;
 }
 
 interface BillLineItem {
@@ -48,12 +57,13 @@ interface BillLineItem {
   quantity: string;
   amount: string; // unit price (per individual item)
   packages: string; // number of packaging units ordered (e.g., 10 cartons)
+  packagingUnitName: string; // e.g., "Carton", "Sack" - editable inline
+  packagingUnitQty: string; // items per package as string for input (e.g., "18")
   itemId?: string; // linked product item ID (for stock updates)
   currentStock?: number; // current stock level (display only)
   unitType?: string; // e.g. kg, piece (display only)
   sellPrice?: number; // current sell price (display only)
-  packagingUnitName?: string; // e.g., "Carton", "Sack"
-  packagingUnitQty?: number; // items per package (e.g., 18)
+  showPackaging?: boolean; // UI: whether packaging row is expanded
 }
 
 interface SupplierBillFormProps {
@@ -76,6 +86,7 @@ interface LinkedProduct {
 }
 
 export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }: SupplierBillFormProps) {
+  const PACKAGING_PRESETS = ['Carton', 'Sack', 'Net', 'Crate', 'Box', 'Bag', 'Bale', 'Bundle', 'Tray'];
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [supplierId, setSupplierId] = useState<string>('');
@@ -83,7 +94,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
   const [supplierPhone, setSupplierPhone] = useState('');
   const [supplierSearch, setSupplierSearch] = useState('');
   const [lineItems, setLineItems] = useState<BillLineItem[]>([
-    { id: '1', description: '', quantity: '', amount: '', packages: '' },
+    { id: '1', description: '', quantity: '', amount: '', packages: '', packagingUnitName: '', packagingUnitQty: '' },
   ]);
   const [dueDateTime, setDueDateTime] = useState('');
   const [notes, setNotes] = useState('');
@@ -99,6 +110,14 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
   const [supplierError, setSupplierError] = useState<string | null>(null);
   const [loadingLinkedProducts, setLoadingLinkedProducts] = useState(false);
   const [useManualSupplier, setUseManualSupplier] = useState(false);
+  const [editSupplierDialogOpen, setEditSupplierDialogOpen] = useState(false);
+  const [editSupplierName, setEditSupplierName] = useState('');
+  const [editSupplierPhone, setEditSupplierPhone] = useState('');
+  const [editSupplierEmail, setEditSupplierEmail] = useState('');
+  const [editSupplierLocation, setEditSupplierLocation] = useState('');
+  const [editSupplierNotes, setEditSupplierNotes] = useState('');
+  const [isUpdatingSupplier, setIsUpdatingSupplier] = useState(false);
+  const [editSupplierError, setEditSupplierError] = useState<string | null>(null);
 
   // Filtered suppliers based on search, sorted alphabetically by name
   const filteredSuppliers = useMemo(() => {
@@ -167,12 +186,12 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
               quantity: '',
               amount: buyPrice != null ? String(buyPrice) : '',
               packages: '',
+              packagingUnitName: product.packaging_unit_name || '',
+              packagingUnitQty: product.packaging_unit_qty ? String(product.packaging_unit_qty) : '',
               itemId: product.item_id,
               currentStock: product.current_stock,
               unitType: product.unit_type,
               sellPrice: product.current_sell_price,
-              packagingUnitName: product.packaging_unit_name || undefined,
-              packagingUnitQty: product.packaging_unit_qty || undefined,
             };
           });
           setLineItems(newLineItems);
@@ -199,9 +218,65 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
     setSupplierId('');
     setSupplierName('');
     setSupplierPhone('');
-    setLineItems([{ id: '1', description: '', quantity: '', amount: '', packages: '' }]);
+    setLineItems([{ id: '1', description: '', quantity: '', amount: '', packages: '', packagingUnitName: '', packagingUnitQty: '' }]);
     setUseManualSupplier(false);
     setSupplierSearch('');
+  };
+
+  const openEditSupplierDialog = () => {
+    if (!supplierId) return;
+    const existing = suppliers.find((s) => s.id === supplierId);
+    if (!existing) return;
+    setEditSupplierName(existing.name || '');
+    setEditSupplierPhone(existing.contact_phone || '');
+    setEditSupplierEmail(existing.contact_email || '');
+    setEditSupplierLocation(existing.location || '');
+    setEditSupplierNotes(existing.notes || '');
+    setEditSupplierError(null);
+    setEditSupplierDialogOpen(true);
+  };
+
+  const handleUpdateSupplier = async () => {
+    if (!supplierId) return;
+    setEditSupplierError(null);
+
+    if (!editSupplierName.trim()) {
+      setEditSupplierError('Supplier name is required');
+      return;
+    }
+
+    setIsUpdatingSupplier(true);
+
+    try {
+      const result = await apiPatch(`/api/suppliers/${supplierId}`, {
+        name: editSupplierName.trim(),
+        contactPhone: editSupplierPhone.trim() || null,
+        contactEmail: editSupplierEmail.trim() || null,
+        location: editSupplierLocation.trim() || null,
+        notes: editSupplierNotes.trim() || null,
+      });
+
+      if (result.success) {
+        const suppliersResult = await apiGet<Supplier[]>('/api/suppliers');
+        if (suppliersResult.success && suppliersResult.data) {
+          setSuppliers(suppliersResult.data);
+          const updated = suppliersResult.data.find((s) => s.id === supplierId);
+          if (updated) {
+            setSupplierName(updated.name);
+            setSupplierPhone(updated.contact_phone || '');
+          }
+        }
+
+        setEditSupplierDialogOpen(false);
+      } else {
+        setEditSupplierError(result.message || 'Failed to update supplier');
+      }
+    } catch (err) {
+      console.error('Error updating supplier:', err);
+      setEditSupplierError('An error occurred. Please try again.');
+    } finally {
+      setIsUpdatingSupplier(false);
+    }
   };
 
   const handleUseManual = () => {
@@ -209,7 +284,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
     setSupplierName('');
     setSupplierPhone('');
     setUseManualSupplier(true);
-    setLineItems([{ id: '1', description: '', quantity: '', amount: '', packages: '' }]);
+    setLineItems([{ id: '1', description: '', quantity: '', amount: '', packages: '', packagingUnitName: '', packagingUnitQty: '' }]);
   };
 
   const handleCreateSupplier = async () => {
@@ -291,7 +366,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
       const unitPrice = parseFloat(item.amount || '0');
       const total = qty * unitPrice;
       const pkgs = item.packages ? parseFloat(item.packages) : 0;
-      const hasPkgInfo = item.packagingUnitName && item.packagingUnitQty && pkgs > 0;
+      const hasPkgInfo = item.packagingUnitName.trim() && parseFloat(item.packagingUnitQty) > 0 && pkgs > 0;
       const pkgNote = hasPkgInfo ? ` (${pkgs} ${item.packagingUnitName}${pkgs !== 1 ? 's' : ''})` : '';
       return { qty, unitPrice, total, pkgNote };
     };
@@ -313,7 +388,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
   const addLineItem = () => {
     setLineItems([
       ...lineItems,
-      { id: Date.now().toString(), description: '', quantity: '', amount: '', packages: '' },
+      { id: Date.now().toString(), description: '', quantity: '', amount: '', packages: '', packagingUnitName: '', packagingUnitQty: '' },
     ]);
   };
 
@@ -323,18 +398,32 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
     }
   };
 
-  const updateLineItem = (id: string, field: 'description' | 'quantity' | 'amount' | 'packages', value: string) => {
+  const updateLineItem = (id: string, field: 'description' | 'quantity' | 'amount' | 'packages' | 'packagingUnitName' | 'packagingUnitQty', value: string) => {
     setLineItems(
       lineItems.map((item) => {
         if (item.id !== id) return item;
         const updated = { ...item, [field]: value };
-        // Auto-calculate quantity when packages change (if packaging unit is defined)
-        if (field === 'packages' && item.packagingUnitQty) {
-          const pkgs = parseFloat(value) || 0;
-          updated.quantity = pkgs > 0 ? String(pkgs * item.packagingUnitQty) : '';
+        // Auto-calculate quantity when packages or packagingUnitQty change
+        const pkgQty = field === 'packagingUnitQty' ? (parseFloat(value) || 0) : (parseFloat(item.packagingUnitQty) || 0);
+        const pkgs = field === 'packages' ? (parseFloat(value) || 0) : (parseFloat(item.packages) || 0);
+        if ((field === 'packages' || field === 'packagingUnitQty') && pkgQty > 0 && pkgs > 0) {
+          updated.quantity = String(pkgs * pkgQty);
+        } else if ((field === 'packages' || field === 'packagingUnitQty') && (pkgQty === 0 || pkgs === 0)) {
+          // Clear quantity if either packaging field is cleared
+          if (item.packages || item.packagingUnitQty) {
+            updated.quantity = '';
+          }
         }
         return updated;
       })
+    );
+  };
+
+  const toggleLinePackaging = (id: string) => {
+    setLineItems((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, showPackaging: !item.showPackaging } : item
+      )
     );
   };
 
@@ -531,9 +620,20 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
                 {getInitials(selected.name)}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-sm" style={{ color: colors.text }}>
-                  {selected.name}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-sm" style={{ color: colors.text }}>
+                    {selected.name}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={openEditSupplierDialog}
+                    className="h-6 px-2 text-[10px] border-slate-300 text-slate-600 hover:bg-white/60 bg-white/80 rounded-full"
+                  >
+                    Edit
+                  </Button>
+                </div>
                 {selected.contact_phone && (
                   <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                     <Phone className="w-3 h-3" /> {selected.contact_phone}
@@ -701,23 +801,13 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
           </div>
 
           {/* Table-style header (visible on larger screens) */}
-          {(() => {
-            const hasAnyPackaging = lineItems.some((i) => i.packagingUnitName && i.packagingUnitQty);
-            return (
-              <div className={`hidden sm:grid gap-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 ${
-                hasAnyPackaging
-                  ? 'sm:grid-cols-[1fr_80px_80px_100px_90px_28px]'
-                  : 'sm:grid-cols-[1fr_80px_100px_90px_28px]'
-              }`}>
-                <span>Product</span>
-                {hasAnyPackaging && <span className="text-center">Pkgs</span>}
-                <span className="text-center">Qty</span>
-                <span className="text-center">Buy Price</span>
-                <span className="text-right">Total</span>
-                <span></span>
-              </div>
-            );
-          })()}
+          <div className="hidden sm:grid sm:grid-cols-[1fr_80px_100px_90px_28px] gap-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+            <span>Product</span>
+            <span className="text-center">Qty</span>
+            <span className="text-center">Buy Price</span>
+            <span className="text-right">Total</span>
+            <span></span>
+          </div>
 
           {/* Items */}
           <div className="space-y-2">
@@ -727,8 +817,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
               const itemTotal = qty * buyPrice;
               const hasTotal = !isNaN(itemTotal) && itemTotal > 0;
               const margin = item.sellPrice && buyPrice > 0 ? item.sellPrice - buyPrice : null;
-              const hasAnyPackaging = lineItems.some((i) => i.packagingUnitName && i.packagingUnitQty);
-              const hasPkg = !!(item.packagingUnitName && item.packagingUnitQty);
+              const hasPkg = !!(item.packagingUnitName.trim() && item.packagingUnitQty && parseFloat(item.packagingUnitQty) > 0);
 
               return (
                 <div
@@ -739,138 +828,180 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
                       : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40'
                   }`}
                 >
-                  {/* ── Desktop: single-row layout ── */}
-                  <div className={`hidden sm:grid gap-2 items-center px-3 py-2.5 ${
-                    hasAnyPackaging
-                      ? 'sm:grid-cols-[1fr_80px_80px_100px_90px_28px]'
-                      : 'sm:grid-cols-[1fr_80px_100px_90px_28px]'
-                  }`}>
-                    {/* Product name + meta */}
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-bold text-slate-400 shrink-0">{index + 1}.</span>
-                        {item.itemId ? (
-                          <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
-                            {item.description}
-                          </span>
-                        ) : (
-                          <Input
-                            value={item.description}
-                            onChange={(e) => updateLineItem(item.id, 'description', e.target.value)}
-                            placeholder="Item description"
-                            required
-                            className="h-8 text-sm border border-slate-200 dark:border-slate-700 rounded-lg"
-                          />
+                  {/* ── Desktop layout ── */}
+                  <div className="hidden sm:block">
+                    {/* Main row */}
+                    <div className="grid sm:grid-cols-[1fr_80px_100px_90px_28px] gap-2 items-center px-3 py-2.5">
+                      {/* Product name + meta */}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold text-slate-400 shrink-0">{index + 1}.</span>
+                          {item.itemId ? (
+                            <span className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                              {item.description}
+                            </span>
+                          ) : (
+                            <Input
+                              value={item.description}
+                              onChange={(e) => updateLineItem(item.id, 'description', e.target.value)}
+                              placeholder="Item description"
+                              required
+                              className="h-8 text-sm border border-slate-200 dark:border-slate-700 rounded-lg"
+                            />
+                          )}
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleLinePackaging(item.id)}
+                            className="ml-2 h-6 px-2 text-[10px] text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-full"
+                          >
+                            <Package className="w-3 h-3 mr-1" />
+                            {item.showPackaging ? 'Hide packages' : 'Add packages'}
+                          </Button>
+                        </div>
+                        {/* Meta row for linked items */}
+                        {item.itemId && (
+                          <div className="flex items-center gap-3 mt-0.5 ml-4">
+                            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                              <Warehouse className="w-2.5 h-2.5 inline mr-0.5 -mt-px" />
+                              {item.currentStock != null ? `${item.currentStock} ${item.unitType || ''}` : '—'} in stock
+                            </span>
+                            {item.sellPrice != null && item.sellPrice > 0 && (
+                              <span className="text-[10px] text-slate-400">
+                                Sells @ {formatPrice(item.sellPrice)}
+                              </span>
+                            )}
+                            {margin !== null && (
+                              <span className={`text-[10px] font-semibold ${
+                                margin > 0
+                                  ? 'text-emerald-600 dark:text-emerald-400'
+                                  : 'text-red-600 dark:text-red-400'
+                              }`}>
+                                <TrendingUp className="w-2.5 h-2.5 inline mr-0.5 -mt-px" />
+                                {margin > 0 ? '+' : ''}{formatPrice(margin)} margin
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
-                      {/* Meta row for linked items */}
-                      {item.itemId && (
-                        <div className="flex items-center gap-3 mt-0.5 ml-4">
-                          <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
-                            <Warehouse className="w-2.5 h-2.5 inline mr-0.5 -mt-px" />
-                            {item.currentStock != null ? `${item.currentStock} ${item.unitType || ''}` : '—'} in stock
+
+                      {/* Qty: auto-computed if packaging set, otherwise manual */}
+                      {hasPkg ? (
+                        <div className="h-8 flex items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800">
+                          <span className={`text-xs font-bold ${qty > 0 ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-300'}`}>
+                            {qty > 0 ? qty : '—'}
                           </span>
-                          {item.sellPrice != null && item.sellPrice > 0 && (
-                            <span className="text-[10px] text-slate-400">
-                              Sells @ {formatPrice(item.sellPrice)}
-                            </span>
-                          )}
-                          {margin !== null && (
-                            <span className={`text-[10px] font-semibold ${
-                              margin > 0
-                                ? 'text-emerald-600 dark:text-emerald-400'
-                                : 'text-red-600 dark:text-red-400'
-                            }`}>
-                              <TrendingUp className="w-2.5 h-2.5 inline mr-0.5 -mt-px" />
-                              {margin > 0 ? '+' : ''}{formatPrice(margin)} margin
-                            </span>
-                          )}
-                          {hasPkg && (
-                            <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
-                              <Package className="w-2.5 h-2.5 inline mr-0.5 -mt-px" />
-                              1 {item.packagingUnitName} = {item.packagingUnitQty} {item.unitType || 'items'}
-                            </span>
-                          )}
                         </div>
+                      ) : (
+                        <Input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => updateLineItem(item.id, 'quantity', e.target.value)}
+                          placeholder="0"
+                          min="0"
+                          step="0.01"
+                          className="h-8 text-sm text-center border border-slate-200 dark:border-slate-700 rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                      )}
+
+                      {/* Buy price input */}
+                      <Input
+                        type="number"
+                        value={item.amount}
+                        onChange={(e) => updateLineItem(item.id, 'amount', e.target.value)}
+                        placeholder="0.00"
+                        required
+                        min="0"
+                        step="0.01"
+                        className={`h-8 text-sm text-center border rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                          item.amount
+                            ? 'border-[#259783]/40 bg-[#259783]/5 font-semibold'
+                            : 'border-amber-400 bg-amber-50/50 dark:bg-amber-950/20'
+                        }`}
+                      />
+
+                      {/* Row total */}
+                      <div className="text-right">
+                        <span className={`text-xs font-bold ${hasTotal ? 'text-slate-900 dark:text-white' : 'text-slate-300 dark:text-slate-600'}`}>
+                          {hasTotal ? formatPrice(itemTotal) : '—'}
+                        </span>
+                      </div>
+
+                      {/* Delete */}
+                      {lineItems.length > 1 ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeLineItem(item.id)}
+                          className="h-6 w-6 p-0 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      ) : (
+                        <div className="w-6" />
                       )}
                     </div>
 
-                    {/* Packages input (only when any item has packaging) */}
-                    {hasAnyPackaging && (
-                      hasPkg ? (
-                        <div className="relative">
-                          <Input
-                            type="number"
-                            value={item.packages}
-                            onChange={(e) => updateLineItem(item.id, 'packages', e.target.value)}
-                            onFocus={(e) => { if (item.packages === '0') e.target.select(); }}
-                            placeholder="0"
-                            min="0"
-                            step="1"
-                            className="h-8 text-sm text-center border border-indigo-300 dark:border-indigo-700 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                          />
-                        </div>
-                      ) : (
-                        <div />
-                      )
-                    )}
-
-                    {/* Qty input */}
-                    {hasPkg ? (
-                      <div className="h-8 flex items-center justify-center rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700">
-                        <span className={`text-xs font-bold ${qty > 0 ? 'text-slate-900 dark:text-white' : 'text-slate-300'}`}>
-                          {qty > 0 ? qty : '0'}
-                        </span>
+                    {/* Bulk packaging row (desktop) - revealed via toggle */}
+                    {item.showPackaging && (
+                      <div className="px-3 pb-2.5 pt-0">
+                        <div className="flex items-center gap-2 ml-4">
+                          <Package className="w-3 h-3 text-indigo-500 shrink-0" />
+                          <div className="flex items-center gap-1.5">
+                            <Select
+                              value={PACKAGING_PRESETS.includes(item.packagingUnitName) ? item.packagingUnitName : ''}
+                              onValueChange={(val) => updateLineItem(item.id, 'packagingUnitName', val)}
+                            >
+                              <SelectTrigger className="h-7 w-28 text-[11px] border border-indigo-200 dark:border-indigo-800 rounded-md bg-white dark:bg-slate-900">
+                                <SelectValue placeholder="Pick type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {PACKAGING_PRESETS.map((opt) => (
+                                  <SelectItem key={opt} value={opt} className="text-xs">
+                                    {opt}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Input
+                              type="text"
+                              value={item.packagingUnitName}
+                              onChange={(e) => updateLineItem(item.id, 'packagingUnitName', e.target.value)}
+                              placeholder="Or type custom (e.g. Sack)"
+                              className="h-7 w-40 text-xs border border-indigo-200 dark:border-indigo-800 rounded-md bg-indigo-50/30 dark:bg-indigo-950/20 placeholder:text-indigo-300 dark:placeholder:text-indigo-700"
+                            />
+                          </div>
+                        <span className="text-[10px] text-slate-400">=</span>
+                        <Input
+                          type="number"
+                          value={item.packagingUnitQty}
+                          onChange={(e) => updateLineItem(item.id, 'packagingUnitQty', e.target.value)}
+                          placeholder="qty"
+                          min="1"
+                          step="1"
+                          className="h-7 w-16 text-xs text-center border border-indigo-200 dark:border-indigo-800 rounded-md bg-indigo-50/30 dark:bg-indigo-950/20 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none placeholder:text-indigo-300 dark:placeholder:text-indigo-700"
+                        />
+                        <span className="text-[10px] text-slate-400">{item.unitType || 'items'} ×</span>
+                        <Input
+                          type="number"
+                          value={item.packages}
+                          onChange={(e) => updateLineItem(item.id, 'packages', e.target.value)}
+                          placeholder="0"
+                          min="0"
+                          step="1"
+                          disabled={!hasPkg}
+                          className="h-7 w-16 text-xs text-center border border-indigo-300 dark:border-indigo-700 rounded-md bg-indigo-50/50 dark:bg-indigo-950/30 font-semibold disabled:opacity-40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <span className="text-[10px] text-slate-400">{item.packagingUnitName.trim() || 'pkgs'}</span>
+                        {hasPkg && qty > 0 && (
+                          <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 ml-1">
+                            = {qty} {item.unitType || 'items'}
+                          </span>
+                        )}
                       </div>
-                    ) : (
-                      <Input
-                        type="number"
-                        value={item.quantity}
-                        onChange={(e) => updateLineItem(item.id, 'quantity', e.target.value)}
-                        onFocus={(e) => { if (item.quantity === '0') e.target.select(); }}
-                        placeholder="0"
-                        min="0"
-                        step="0.01"
-                        className="h-8 text-sm text-center border border-slate-200 dark:border-slate-700 rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                      />
-                    )}
-
-                    {/* Buy price input */}
-                    <Input
-                      type="number"
-                      value={item.amount}
-                      onChange={(e) => updateLineItem(item.id, 'amount', e.target.value)}
-                      placeholder="0.00"
-                      required
-                      min="0"
-                      step="0.01"
-                      className={`h-8 text-sm text-center border rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
-                        item.amount
-                          ? 'border-[#259783]/40 bg-[#259783]/5 font-semibold'
-                          : 'border-amber-400 bg-amber-50/50 dark:bg-amber-950/20'
-                      }`}
-                    />
-
-                    {/* Row total */}
-                    <div className="text-right">
-                      <span className={`text-xs font-bold ${hasTotal ? 'text-slate-900 dark:text-white' : 'text-slate-300 dark:text-slate-600'}`}>
-                        {hasTotal ? formatPrice(itemTotal) : '—'}
-                      </span>
-                    </div>
-
-                    {/* Delete */}
-                    {lineItems.length > 1 ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeLineItem(item.id)}
-                        className="h-6 w-6 p-0 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    ) : (
-                      <div className="w-6" />
+                      </div>
                     )}
                   </div>
 
@@ -893,17 +1024,29 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
                           />
                         )}
                       </div>
-                      {lineItems.length > 1 && (
+                      <div className="flex items-center gap-1 ml-2">
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => removeLineItem(item.id)}
-                          className="h-6 w-6 p-0 text-slate-300 hover:text-red-500 shrink-0 ml-1"
+                          onClick={() => toggleLinePackaging(item.id)}
+                          className="h-6 px-2 text-[10px] text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 rounded-full"
                         >
-                          <Trash2 className="w-3 h-3" />
+                          <Package className="w-3 h-3 mr-1" />
+                          {item.showPackaging ? 'Pkgs' : 'Pkgs'}
                         </Button>
-                      )}
+                        {lineItems.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeLineItem(item.id)}
+                            className="h-6 w-6 p-0 text-slate-300 hover:text-red-500 shrink-0"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Mobile meta */}
@@ -921,46 +1064,90 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
                             {margin > 0 ? '+' : ''}{formatPrice(margin)}
                           </span>
                         )}
-                        {hasPkg && (
-                          <span className="text-indigo-600 dark:text-indigo-400 font-medium">
-                            <Package className="w-2.5 h-2.5 inline mr-0.5 -mt-px" />
-                            1 {item.packagingUnitName} = {item.packagingUnitQty} {item.unitType || 'items'}
-                          </span>
+                      </div>
+                    )}
+
+                    {/* Bulk packaging row (mobile) - revealed via toggle */}
+                    {item.showPackaging && (
+                      <div className="p-2 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/50 dark:border-indigo-800/30 space-y-1.5">
+                        <div className="flex items-center justify-between gap-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <Package className="w-3 h-3 text-indigo-500 shrink-0" />
+                            <span className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                              Bulk Packaging
+                            </span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleLinePackaging(item.id)}
+                            className="h-6 px-2 text-[10px] text-indigo-500 hover:text-indigo-700 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded-full"
+                          >
+                            {item.showPackaging ? 'Hide' : 'Edit'}
+                          </Button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <div>
+                            <label className="text-[9px] font-medium text-indigo-500 mb-0.5 block">Package</label>
+                            <div className="flex items-center gap-1">
+                              <Select
+                                value={PACKAGING_PRESETS.includes(item.packagingUnitName) ? item.packagingUnitName : ''}
+                                onValueChange={(val) => updateLineItem(item.id, 'packagingUnitName', val)}
+                              >
+                                <SelectTrigger className="h-7 w-20 text-[11px] border border-indigo-200 dark:border-indigo-800 rounded-md bg-white dark:bg-slate-900">
+                                  <SelectValue placeholder="Type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {PACKAGING_PRESETS.map((opt) => (
+                                    <SelectItem key={opt} value={opt} className="text-xs">
+                                      {opt}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Input
+                                type="text"
+                                value={item.packagingUnitName}
+                                onChange={(e) => updateLineItem(item.id, 'packagingUnitName', e.target.value)}
+                                placeholder="Custom"
+                                className="h-7 text-[11px] border border-indigo-200 dark:border-indigo-800 rounded-md bg-white dark:bg-slate-900 flex-1"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-medium text-indigo-500 mb-0.5 block">Per Pkg</label>
+                            <Input
+                              type="number"
+                              value={item.packagingUnitQty}
+                              onChange={(e) => updateLineItem(item.id, 'packagingUnitQty', e.target.value)}
+                              placeholder="18"
+                              min="1"
+                              className="h-7 text-xs text-center border border-indigo-200 dark:border-indigo-800 rounded-md bg-white dark:bg-slate-900 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-medium text-indigo-500 mb-0.5 block"># {item.packagingUnitName.trim() || 'Pkgs'}</label>
+                            <Input
+                              type="number"
+                              value={item.packages}
+                              onChange={(e) => updateLineItem(item.id, 'packages', e.target.value)}
+                              placeholder="0"
+                              min="0"
+                              disabled={!hasPkg}
+                              className="h-7 text-xs text-center border border-indigo-300 dark:border-indigo-700 rounded-md bg-white dark:bg-slate-900 font-semibold disabled:opacity-40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                          </div>
+                        </div>
+                        {hasPkg && qty > 0 && (
+                          <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                            {item.packages} {item.packagingUnitName}{parseFloat(item.packages) !== 1 ? 's' : ''} × {item.packagingUnitQty} = <span className="text-sm">{qty}</span> {item.unitType || 'items'}
+                          </p>
                         )}
                       </div>
                     )}
 
-                    {/* Packaging input row (mobile) */}
-                    {hasPkg && (
-                      <div className="grid grid-cols-2 gap-2">
-                        <div>
-                          <label className="text-[10px] font-medium text-indigo-500 mb-0.5 block">
-                            {item.packagingUnitName}s
-                          </label>
-                          <Input
-                            type="number"
-                            value={item.packages}
-                            onChange={(e) => updateLineItem(item.id, 'packages', e.target.value)}
-                            onFocus={(e) => { if (item.packages === '0') e.target.select(); }}
-                            placeholder="0"
-                            min="0"
-                            step="1"
-                            className="h-8 text-sm border border-indigo-300 dark:border-indigo-700 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-lg"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[10px] font-medium text-slate-400 mb-0.5 block">
-                            = Total {item.unitType || 'items'}
-                          </label>
-                          <div className="h-8 flex items-center justify-center rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700">
-                            <span className={`text-sm font-bold ${qty > 0 ? 'text-slate-900 dark:text-white' : 'text-slate-300'}`}>
-                              {qty > 0 ? qty : '0'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
+                    {/* Price row */}
                     <div className={`grid gap-2 ${hasPkg ? 'grid-cols-2' : 'grid-cols-3'}`}>
                       {!hasPkg && (
                         <div>
@@ -971,7 +1158,6 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
                             type="number"
                             value={item.quantity}
                             onChange={(e) => updateLineItem(item.id, 'quantity', e.target.value)}
-                            onFocus={(e) => { if (item.quantity === '0') e.target.select(); }}
                             placeholder="0"
                             min="0"
                             step="0.01"
@@ -1187,7 +1373,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
 
       {/* ═══════════════ NEW SUPPLIER DIALOG ═══════════════ */}
       <Dialog open={newSupplierDialogOpen} onOpenChange={setNewSupplierDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md z-[60]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Building2 className="w-5 h-5 text-[#259783]" />
@@ -1309,6 +1495,132 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
                 <>
                   <Plus className="w-4 h-4 mr-2" />
                   Create Supplier
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ═══════════════ EDIT SUPPLIER DIALOG ═══════════════ */}
+      <Dialog open={editSupplierDialogOpen} onOpenChange={setEditSupplierDialogOpen}>
+        <DialogContent className="sm:max-w-md z-[60]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-[#259783]" />
+              Edit Supplier
+            </DialogTitle>
+            <DialogDescription>
+              Update this supplier&apos;s contact and profile information
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {editSupplierError && (
+              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-red-600 dark:text-red-400">
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-sm">{editSupplierError}</span>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-supplier-name" className="text-slate-700 dark:text-slate-300 font-bold">
+                Supplier Name *
+              </Label>
+              <Input
+                id="edit-supplier-name"
+                value={editSupplierName}
+                onChange={(e) => setEditSupplierName(e.target.value)}
+                placeholder="Enter supplier name"
+                required
+                className="h-12 border-2 border-slate-200 dark:border-slate-700"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-supplier-phone" className="text-slate-700 dark:text-slate-300 font-bold">
+                  Phone
+                </Label>
+                <Input
+                  id="edit-supplier-phone"
+                  type="tel"
+                  value={editSupplierPhone}
+                  onChange={(e) => setEditSupplierPhone(e.target.value)}
+                  placeholder="Phone number"
+                  className="h-12 border-2 border-slate-200 dark:border-slate-700"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-supplier-email" className="text-slate-700 dark:text-slate-300 font-bold">
+                  Email
+                </Label>
+                <Input
+                  id="edit-supplier-email"
+                  type="email"
+                  value={editSupplierEmail}
+                  onChange={(e) => setEditSupplierEmail(e.target.value)}
+                  placeholder="Email address"
+                  className="h-12 border-2 border-slate-200 dark:border-slate-700"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-supplier-location" className="text-slate-700 dark:text-slate-300 font-bold">
+                Location
+              </Label>
+              <Input
+                id="edit-supplier-location"
+                value={editSupplierLocation}
+                onChange={(e) => setEditSupplierLocation(e.target.value)}
+                placeholder="Supplier location"
+                className="h-12 border-2 border-slate-200 dark:border-slate-700"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="edit-supplier-notes" className="text-slate-700 dark:text-slate-300 font-bold">
+                Notes
+              </Label>
+              <Textarea
+                id="edit-supplier-notes"
+                value={editSupplierNotes}
+                onChange={(e) => setEditSupplierNotes(e.target.value)}
+                placeholder="Additional notes about this supplier"
+                rows={3}
+                className="border-2 border-slate-200 dark:border-slate-700"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setEditSupplierDialogOpen(false);
+                setEditSupplierError(null);
+              }}
+              disabled={isUpdatingSupplier}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleUpdateSupplier}
+              disabled={isUpdatingSupplier}
+              className="bg-[#259783] hover:bg-[#1e7a6a] text-white"
+            >
+              {isUpdatingSupplier ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  Save Changes
                 </>
               )}
             </Button>

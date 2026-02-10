@@ -17,6 +17,7 @@ interface SuggestItem {
   current_sell_price: number;
   unit_type: string;
   parent_item_id: string | null;
+  category_name: string | null;
 }
 
 export async function OPTIONS() {
@@ -49,29 +50,30 @@ export async function GET(request: NextRequest) {
       const starts = `${searchLower}%`;
 
       items = await query<SuggestItem>(
-        `SELECT id, name, variant_name, current_sell_price, unit_type, parent_item_id
-         FROM items
-         WHERE business_id = ? AND active = 1
+        `SELECT i.id, i.name, i.variant_name, i.current_sell_price, i.unit_type, i.parent_item_id, c.name as category_name
+         FROM items i
+         LEFT JOIN categories c ON i.category_id = c.id
+         WHERE i.business_id = ? AND i.active = 1
            AND (
-             parent_item_id IS NOT NULL
-             OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = items.id AND v.active = 1)
+             i.parent_item_id IS NOT NULL
+             OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1)
            )
-           AND (LOWER(name) LIKE ? OR LOWER(variant_name) LIKE ?)
+           AND (LOWER(i.name) LIKE ? OR LOWER(i.variant_name) LIKE ?)
          ORDER BY
            CASE
-             WHEN LOWER(name) LIKE ? THEN 1
-             WHEN LOWER(variant_name) LIKE ? THEN 2
-             WHEN LOWER(name) LIKE ? THEN 3
+             WHEN LOWER(i.name) LIKE ? THEN 1
+             WHEN LOWER(i.variant_name) LIKE ? THEN 2
+             WHEN LOWER(i.name) LIKE ? THEN 3
              ELSE 4
            END,
-           name ASC
+           i.name ASC
          LIMIT ?`,
         [auth.businessId, contains, contains, starts, starts, contains, limit]
       );
     } else {
       // Multi-word - match ALL words in any order
       const wordConditions = searchWords
-        .map(() => `(LOWER(name) LIKE ? OR LOWER(variant_name) LIKE ?)`)
+        .map(() => `(LOWER(i.name) LIKE ? OR LOWER(i.variant_name) LIKE ?)`)
         .join(' AND ');
 
       const wordParams: string[] = [];
@@ -83,22 +85,23 @@ export async function GET(request: NextRequest) {
       const firstWordStarts = `${searchWords[0]}%`;
 
       items = await query<SuggestItem>(
-        `SELECT id, name, variant_name, current_sell_price, unit_type, parent_item_id
-         FROM items
-         WHERE business_id = ? AND active = 1
+        `SELECT i.id, i.name, i.variant_name, i.current_sell_price, i.unit_type, i.parent_item_id, c.name as category_name
+         FROM items i
+         LEFT JOIN categories c ON i.category_id = c.id
+         WHERE i.business_id = ? AND i.active = 1
            AND (
-             parent_item_id IS NOT NULL
-             OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = items.id AND v.active = 1)
+             i.parent_item_id IS NOT NULL
+             OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1)
            )
            AND (${wordConditions})
          ORDER BY
            CASE
-             WHEN LOWER(name) LIKE ? THEN 1
-             WHEN LOWER(name) LIKE ? THEN 2
-             WHEN LOWER(variant_name) LIKE ? THEN 3
+             WHEN LOWER(i.name) LIKE ? THEN 1
+             WHEN LOWER(i.name) LIKE ? THEN 2
+             WHEN LOWER(i.variant_name) LIKE ? THEN 3
              ELSE 4
            END,
-           name ASC
+           i.name ASC
          LIMIT ?`,
         [auth.businessId, ...wordParams, exactPhrase, firstWordStarts, exactPhrase, limit]
       );
