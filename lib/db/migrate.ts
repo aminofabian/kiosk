@@ -329,6 +329,13 @@ export async function runMigrations() {
       console.error('⚠ expenses created_by migration skipped:', error);
     }
 
+    try {
+      const { migrateSupplierProducts } = await import('./migrate-supplier-products');
+      await migrateSupplierProducts();
+    } catch (error) {
+      console.error('⚠ supplier_products migration skipped:', error);
+    }
+
     console.log('✅ Migration completed successfully!');
     return true;
   } catch (error) {

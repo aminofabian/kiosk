@@ -15,7 +15,6 @@ import {
   CreditCard,
   Clock,
   FileText,
-  ChevronRight,
   ChevronDown,
   Users,
   FolderTree,
@@ -37,37 +36,73 @@ interface MenuItem {
   href: string;
   label: string;
   icon: typeof LayoutDashboard;
-  description: string;
   matchPath?: string;
   roles?: UserRole[];
   subItems?: SubItem[];
 }
 
-const MENU_ITEMS: MenuItem[] = [
-  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, description: 'Overview & stats' },
+interface MenuSection {
+  label: string | null;
+  items: MenuItem[];
+}
+
+const SECTIONS: MenuSection[] = [
   {
-    href: '/admin/sales',
-    label: 'Sales',
-    icon: BarChart3,
-    description: 'Sales analytics',
-    subItems: [
-      { href: '/admin/sales/grocery', label: 'Grocery Sales', icon: Leaf },
-      { href: '/admin/sales/retail', label: 'Retail Sales', icon: Store },
+    label: null,
+    items: [
+      { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
     ],
   },
-  { href: '/admin/purchases', label: 'Purchase List', icon: ShoppingBag, description: 'Buy inventory' },
-  { href: '/admin/categories', label: 'Categories', icon: FolderTree, description: 'Product categories' },
-  { href: '/admin/items', label: 'Items', icon: Package, description: 'Product catalog' },
-  { href: '/admin/stock', label: 'Stock', icon: PackageCheck, description: 'Inventory levels' },
-  { href: '/admin/stock/approvals', label: 'Stock Approvals', icon: Scale, description: 'Pending approvals', roles: ['admin', 'owner'] },
-  { href: '/admin/profit', label: 'Profit', icon: TrendingUp, description: 'Analytics' },
-  { href: '/admin/customers', label: 'Customers', icon: UserCheck, description: 'Traffic & behavior' },
-  { href: '/admin/expenses', label: 'Expenses', icon: Receipt, description: 'Operating costs' },
-  { href: '/admin/supplier-bills', label: 'Supplier Bills', icon: Receipt, description: 'Pending payments' },
-  { href: '/admin/credits', label: 'Credits', icon: CreditCard, description: 'Outstanding debts' },
-  { href: '/admin/shifts', label: 'Shifts', icon: Clock, description: 'Work sessions' },
-  { href: '/admin/reports/sales', label: 'Reports', icon: FileText, matchPath: '/admin/reports', description: 'Sales reports' },
-  { href: '/admin/users', label: 'Users', icon: Users, description: 'Team management', roles: ['owner'] },
+  {
+    label: 'Analytics',
+    items: [
+      {
+        href: '/admin/sales',
+        label: 'Sales',
+        icon: BarChart3,
+        subItems: [
+          { href: '/admin/sales/grocery', label: 'Grocery', icon: Leaf },
+          { href: '/admin/sales/retail', label: 'Retail', icon: Store },
+        ],
+      },
+      {
+        href: '/admin/profit',
+        label: 'Profit',
+        icon: TrendingUp,
+        subItems: [
+          { href: '/admin/profit/grocery', label: 'Grocery', icon: Leaf },
+          { href: '/admin/profit/retail', label: 'Retail', icon: Store },
+        ],
+      },
+      { href: '/admin/customers', label: 'Customers', icon: UserCheck },
+    ],
+  },
+  {
+    label: 'Inventory',
+    items: [
+      { href: '/admin/purchases', label: 'Purchases', icon: ShoppingBag },
+      { href: '/admin/categories', label: 'Categories', icon: FolderTree },
+      { href: '/admin/items', label: 'Items', icon: Package },
+      { href: '/admin/stock', label: 'Stock', icon: PackageCheck },
+      { href: '/admin/stock/approvals', label: 'Approvals', icon: Scale, roles: ['admin', 'owner'] },
+    ],
+  },
+  {
+    label: 'Finance',
+    items: [
+      { href: '/admin/expenses', label: 'Expenses', icon: Receipt },
+      { href: '/admin/supplier-bills', label: 'Supplier Bills', icon: Receipt },
+      { href: '/admin/credits', label: 'Credits', icon: CreditCard },
+    ],
+  },
+  {
+    label: 'System',
+    items: [
+      { href: '/admin/shifts', label: 'Shifts', icon: Clock },
+      { href: '/admin/reports/sales', label: 'Reports', icon: FileText, matchPath: '/admin/reports' },
+      { href: '/admin/users', label: 'Users', icon: Users, roles: ['owner'] },
+    ],
+  },
 ];
 
 export function AdminSidebar() {
@@ -89,153 +124,195 @@ export function AdminSidebar() {
             setBillNotificationCount(count);
           }
         })
-        .catch(() => {
-          // Silently fail
-        });
+        .catch(() => {});
     }
   }, [user]);
 
   const isActive = (href: string, matchPath?: string) => {
     const pathToMatch = matchPath || href;
-    if (pathToMatch === '/admin') {
-      return pathname === '/admin';
-    }
+    if (pathToMatch === '/admin') return pathname === '/admin';
     return pathname.startsWith(pathToMatch);
   };
 
-  const visibleItems = MENU_ITEMS.filter((item) => {
-    // If item has specific roles, check if user role is included
-    if (item.roles) {
-      return user && item.roles.includes(user.role);
-    }
-    
-    // For cashiers, only show allowed menu items
-    if (user?.role === 'cashier') {
-      const allowedCashierItems = [
-        '/admin', // Dashboard
-        '/admin/categories', // View Categories
-        '/admin/items', // View Items
-        '/admin/credits', // View Credits
-        '/admin/expenses', // Record Expenses
-        '/admin/supplier-bills', // Record Supplier Bills
-      ];
-      return allowedCashierItems.includes(item.href) || 
-             (item.matchPath && allowedCashierItems.some(allowed => item.href.startsWith(allowed)));
-    }
-    
-    // For other roles, show all items without role restrictions
-    return true;
-  });
+  const isSubActive = (href: string) =>
+    pathname === href || pathname.startsWith(href + '/');
 
-  const isSalesExpanded = pathname.startsWith('/admin/sales');
+  const isExpanded = (href: string) => pathname.startsWith(href);
+
+  // Filter sections by user role
+  const visibleSections = SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter((item) => {
+      if (item.roles) return user && item.roles.includes(user.role);
+      if (user?.role === 'cashier') {
+        const allowed = [
+          '/admin',
+          '/admin/categories',
+          '/admin/items',
+          '/admin/credits',
+          '/admin/expenses',
+          '/admin/supplier-bills',
+        ];
+        return (
+          allowed.includes(item.href) ||
+          (item.matchPath && allowed.some((a) => item.href.startsWith(a)))
+        );
+      }
+      return true;
+    }),
+  })).filter((s) => s.items.length > 0);
 
   return (
-    <div className="py-4 px-3 space-y-1">
-      {visibleItems.map((item) => {
-        const Icon = item.icon;
-        const active = isActive(item.href, item.matchPath);
-        const hasSubItems = item.subItems && item.subItems.length > 0;
-        const isExpanded = hasSubItems && isSalesExpanded && item.href === '/admin/sales';
+    <nav className="py-3 px-2 select-none">
+      {visibleSections.map((section, sIdx) => (
+        <div key={sIdx} className={sIdx > 0 ? 'mt-5' : ''}>
+          {/* Section label */}
+          {section.label && (
+            <div className="flex items-center gap-2 px-3 mb-2">
+              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400/70 dark:text-slate-600">
+                {section.label}
+              </span>
+              <div className="flex-1 h-px bg-slate-200/60 dark:bg-slate-700/40" />
+            </div>
+          )}
 
-        return (
-          <div key={item.href}>
-            <Link href={item.href}>
-              <div
-                className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
-                  active
-                    ? 'bg-[#259783] shadow-md shadow-[#259783]/20 text-white'
-                    : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'
-                }`}
-              >
-                <div
-                  className={`flex items-center justify-center w-9 h-9 rounded-lg transition-all ${
-                    active
-                      ? 'bg-[#101b0d]/10'
-                      : 'bg-slate-100 dark:bg-slate-800 group-hover:bg-slate-200 dark:group-hover:bg-slate-700'
-                  }`}
-                >
-                  <Icon
-                    className={`w-[18px] h-[18px] transition-colors ${
-                      active
-                        ? 'text-white'
-                        : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300'
-                    }`}
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p
-                    className={`text-sm font-semibold truncate ${
-                      active ? 'text-white' : 'text-slate-700 dark:text-slate-300'
-                    }`}
-                  >
-                    {item.label}
-                  </p>
-                  <p
-                    className={`text-[10px] truncate ${
-                      active ? 'text-white/80' : 'text-slate-400 dark:text-slate-500'
-                    }`}
-                  >
-                    {item.description}
-                  </p>
-                </div>
-                {item.href === '/admin/supplier-bills' && billNotificationCount > 0 && (
-                  <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold">
-                    {billNotificationCount > 99 ? '99+' : billNotificationCount}
-                  </span>
-                )}
-                {hasSubItems ? (
-                  <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${
-                    isExpanded ? 'rotate-180' : ''
-                  } ${active ? 'text-white/70' : 'text-slate-400'}`} />
-                ) : active ? (
-                  <ChevronRight className="w-4 h-4 text-white/70" />
-                ) : null}
-              </div>
-            </Link>
+          {/* Menu items */}
+          <div className="space-y-[2px]">
+            {section.items.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.href, item.matchPath);
+              const hasSubItems = item.subItems && item.subItems.length > 0;
+              const expanded = hasSubItems && isExpanded(item.href);
+              const showBadge =
+                item.href === '/admin/supplier-bills' && billNotificationCount > 0;
 
-            {/* Sub Items */}
-            {hasSubItems && isExpanded && (
-              <div className="ml-6 mt-1 space-y-0.5 border-l-2 border-slate-200 dark:border-slate-700 pl-3">
-                {item.subItems!.map((sub) => {
-                  const SubIcon = sub.icon;
-                  const subActive = pathname === sub.href || pathname.startsWith(sub.href + '/');
-                  return (
-                    <Link key={sub.href} href={sub.href}>
+              return (
+                <div key={item.href}>
+                  {/* Main item row */}
+                  <Link href={item.href}>
+                    <div className="relative group flex items-center">
+                      {/* Active glow bar */}
+                      {active && (
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-gradient-to-b from-[#259783] to-[#2ec4a0] shadow-[0_0_8px_rgba(37,151,131,0.4)]" />
+                      )}
+
                       <div
-                        className={`group flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-200 ${
-                          subActive
-                            ? 'bg-[#259783]/10 text-[#259783]'
-                            : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'
+                        className={`flex items-center gap-2.5 w-full px-3 py-[7px] rounded-lg transition-all duration-150 ${
+                          active
+                            ? 'bg-[#259783]/[0.07] dark:bg-[#259783]/[0.12]'
+                            : 'hover:bg-slate-100/80 dark:hover:bg-white/[0.04] active:scale-[0.98]'
                         }`}
                       >
-                        <SubIcon
-                          className={`w-4 h-4 ${
-                            subActive
-                              ? 'text-[#259783]'
-                              : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-400'
-                          }`}
-                        />
-                        <span
-                          className={`text-xs font-semibold ${
-                            subActive
-                              ? 'text-[#259783]'
-                              : 'text-slate-600 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300'
+                        <div
+                          className={`flex items-center justify-center w-7 h-7 rounded-md transition-all duration-150 ${
+                            active
+                              ? 'bg-[#259783]/[0.12] dark:bg-[#259783]/[0.18]'
+                              : 'bg-transparent group-hover:bg-slate-200/60 dark:group-hover:bg-white/[0.06]'
                           }`}
                         >
-                          {sub.label}
+                          <Icon
+                            className={`w-[16px] h-[16px] transition-colors duration-150 ${
+                              active
+                                ? 'text-[#259783] dark:text-[#3bd5a0]'
+                                : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-500 dark:group-hover:text-slate-400'
+                            }`}
+                          />
+                        </div>
+
+                        <span
+                          className={`text-[13px] flex-1 truncate transition-colors duration-150 ${
+                            active
+                              ? 'font-semibold text-[#259783] dark:text-[#3bd5a0]'
+                              : 'font-medium text-slate-600 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-300'
+                          }`}
+                        >
+                          {item.label}
                         </span>
-                        {subActive && (
-                          <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#259783]" />
+
+                        {showBadge && (
+                          <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold leading-none animate-pulse">
+                            {billNotificationCount > 99 ? '99+' : billNotificationCount}
+                          </span>
+                        )}
+
+                        {hasSubItems && (
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                              expanded ? 'rotate-0' : '-rotate-90'
+                            } ${
+                              active
+                                ? 'text-[#259783]/50 dark:text-[#3bd5a0]/50'
+                                : 'text-slate-300 dark:text-slate-600'
+                            }`}
+                          />
                         )}
                       </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
+                    </div>
+                  </Link>
+
+                  {/* Sub-items with smooth expand */}
+                  {hasSubItems && (
+                    <div
+                      className={`grid transition-all duration-200 ease-out ${
+                        expanded
+                          ? 'grid-rows-[1fr] opacity-100'
+                          : 'grid-rows-[0fr] opacity-0'
+                      }`}
+                    >
+                      <div className="overflow-hidden">
+                        <div className="ml-[22px] pl-3 mt-0.5 mb-1 space-y-[1px] border-l-[1.5px] border-slate-200/80 dark:border-slate-700/40">
+                          {item.subItems!.map((sub) => {
+                            const SubIcon = sub.icon;
+                            const subActive = isSubActive(sub.href);
+
+                            return (
+                              <Link key={sub.href} href={sub.href}>
+                                <div
+                                  className={`group/sub relative flex items-center gap-2 px-2.5 py-[5px] rounded-md transition-all duration-150 ${
+                                    subActive
+                                      ? 'bg-[#259783]/[0.07] dark:bg-[#259783]/[0.12]'
+                                      : 'hover:bg-slate-100/60 dark:hover:bg-white/[0.03]'
+                                  }`}
+                                >
+                                  {/* Connector dot */}
+                                  <div
+                                    className={`absolute -left-[calc(0.75rem+1px)] top-1/2 -translate-y-1/2 w-[6px] h-[6px] rounded-full border-[1.5px] transition-colors ${
+                                      subActive
+                                        ? 'bg-[#259783] border-[#259783]'
+                                        : 'bg-white dark:bg-[#1c2e18] border-slate-300 dark:border-slate-600 group-hover/sub:border-slate-400'
+                                    }`}
+                                  />
+
+                                  <SubIcon
+                                    className={`w-3.5 h-3.5 ${
+                                      subActive
+                                        ? 'text-[#259783] dark:text-[#3bd5a0]'
+                                        : 'text-slate-400 dark:text-slate-600 group-hover/sub:text-slate-500'
+                                    }`}
+                                  />
+                                  <span
+                                    className={`text-[12px] ${
+                                      subActive
+                                        ? 'font-semibold text-[#259783] dark:text-[#3bd5a0]'
+                                        : 'font-medium text-slate-500 dark:text-slate-500 group-hover/sub:text-slate-700 dark:group-hover/sub:text-slate-400'
+                                    }`}
+                                  >
+                                    {sub.label}
+                                  </span>
+                                </div>
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-        );
-      })}
-    </div>
+        </div>
+      ))}
+    </nav>
   );
 }

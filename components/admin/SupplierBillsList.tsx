@@ -72,7 +72,18 @@ const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 // ── Component ──────────────────────────────────────────
 
-export function SupplierBillsList() {
+interface SupplierBillsListProps {
+  onSupplierClick?: (supplier: {
+    id: string;
+    name: string;
+    contact_phone: string | null;
+    contact_email: string | null;
+    location: string | null;
+    notes: string | null;
+  }) => void;
+}
+
+export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
   // ── State ────────────────────────────────────────────
   const [bills, setBills] = useState<SupplierBillWithDetails[]>([]);
   const [suppliersFromTable, setSuppliersFromTable] = useState<SupplierFromTable[]>([]);
@@ -892,12 +903,21 @@ export function SupplierBillsList() {
                               opacity: 0.7,
                             }}
                           />
-                          <span
-                            className="font-medium text-slate-900 dark:text-white truncate max-w-[130px]"
-                            title={s.name}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const supplier = suppliersFromTable.find(
+                                (sup) => sup.name === s.name
+                              );
+                              if (supplier && onSupplierClick) {
+                                onSupplierClick(supplier);
+                              }
+                            }}
+                            className="font-medium text-slate-900 dark:text-white truncate max-w-[130px] hover:text-[#259783] dark:hover:text-[#3bd522] hover:underline underline-offset-2 transition-colors text-left"
+                            title={`${s.name} — Click to manage products`}
                           >
                             {s.name}
-                          </span>
+                          </button>
                         </div>
                       </td>
                       <td className="text-center px-3 py-2.5 text-slate-600 dark:text-slate-400">
@@ -1198,9 +1218,20 @@ export function SupplierBillsList() {
                           <Receipt className="w-5 h-5 text-[#259783]" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-slate-900 dark:text-white truncate">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const supplier = suppliersFromTable.find(
+                                (sup) => sup.name === bill.supplier_name
+                              );
+                              if (supplier && onSupplierClick) {
+                                onSupplierClick(supplier);
+                              }
+                            }}
+                            className="font-bold text-slate-900 dark:text-white truncate block max-w-full hover:text-[#259783] dark:hover:text-[#3bd522] hover:underline underline-offset-2 transition-colors text-left"
+                          >
                             {bill.supplier_name}
-                          </h3>
+                          </button>
                           <p className="text-sm text-slate-600 dark:text-slate-400 truncate">
                             {bill.bill_description}
                           </p>
@@ -1366,9 +1397,20 @@ export function SupplierBillsList() {
                       >
                         <td className="p-3">
                           <div>
-                            <p className="font-medium text-slate-900 dark:text-white">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const supplier = suppliersFromTable.find(
+                                  (sup) => sup.name === bill.supplier_name
+                                );
+                                if (supplier && onSupplierClick) {
+                                  onSupplierClick(supplier);
+                                }
+                              }}
+                              className="font-medium text-slate-900 dark:text-white hover:text-[#259783] dark:hover:text-[#3bd522] hover:underline underline-offset-2 transition-colors text-left"
+                            >
                               {bill.supplier_name}
-                            </p>
+                            </button>
                             {bill.supplier_phone && (
                               <p className="text-xs text-slate-500 dark:text-slate-400">
                                 {bill.supplier_phone}

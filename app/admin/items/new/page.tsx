@@ -8,32 +8,7 @@ import Link from 'next/link';
 
 export default function NewItemPage() {
   return (
-    <AdminLayout
-      sidebar={
-        <div className="p-4 space-y-2">
-          <Link href="/admin">
-            <Button variant="ghost" className="w-full justify-start">
-              Dashboard
-            </Button>
-          </Link>
-          <Link href="/admin/purchases">
-            <Button variant="ghost" className="w-full justify-start">
-              Purchases
-            </Button>
-          </Link>
-          <Link href="/admin/items">
-            <Button variant="default" className="w-full justify-start">
-              Items
-            </Button>
-          </Link>
-          <Link href="/admin/stock">
-            <Button variant="ghost" className="w-full justify-start">
-              Stock
-            </Button>
-          </Link>
-        </div>
-      }
-    >
+    <AdminLayout>
       <div className="p-6">
         <div className="flex items-center gap-4 mb-6">
           <Link href="/admin/items">
@@ -49,4 +24,3 @@ export default function NewItemPage() {
     </AdminLayout>
   );
 }
-

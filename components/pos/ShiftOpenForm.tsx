@@ -205,53 +205,6 @@ export function ShiftOpenForm() {
     );
   }
 
-  // Show pending approval status
-  if (pendingApproval && pendingApproval.balance_type === 'opening') {
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-6">
-        <div className="text-center space-y-4 max-w-md">
-          <div className="w-20 h-20 mx-auto bg-amber-100 dark:bg-amber-900/30 rounded-2xl flex items-center justify-center">
-            <Clock className="w-10 h-10 text-amber-600 dark:text-amber-400" />
-          </div>
-          <h2 className="text-2xl font-bold">Opening Balance Submitted</h2>
-          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-left space-y-2">
-            <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
-              Amount: {formatPrice(pendingApproval.amount)}
-            </p>
-            <p className="text-xs text-amber-700 dark:text-amber-300">
-              Your opening balance has been submitted for admin review. The shift will be opened automatically once an admin approves your request.
-            </p>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            You will be notified once the admin reviews your submission.
-          </p>
-          <div className="pt-4 space-y-2">
-            <Button 
-              onClick={() => {
-                setPendingApproval(null);
-                // Refresh to check status
-                window.location.reload();
-              }} 
-              variant="outline" 
-              size="touch" 
-              className="w-full"
-            >
-              Refresh Status
-            </Button>
-            <Button 
-              onClick={() => router.push('/pos')} 
-              variant="ghost" 
-              size="sm"
-              className="text-muted-foreground w-full"
-            >
-              Back to Dashboard
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="flex items-center justify-center min-h-full p-4 pb-24">
       <Card className="w-full max-w-lg">
@@ -265,6 +218,14 @@ export function ShiftOpenForm() {
           </p>
         </CardHeader>
         <CardContent>
+          {pendingApproval && pendingApproval.balance_type === 'opening' && (
+            <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-start gap-2">
+              <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-800 dark:text-amber-200">
+                You have a pending opening request ({formatPrice(pendingApproval.amount)}). You can open a new shift below; submitting will replace the pending request.
+              </p>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Total Display */}
             <div className="p-4 bg-[#259783]/10 rounded-xl border-2 border-[#259783]/20">

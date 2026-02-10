@@ -56,6 +56,17 @@ import {
   BarChart3,
 } from 'lucide-react';
 
+type ButtonTheme = 'brand' | 'blue' | 'amber' | 'rose' | 'violet' | 'slate';
+
+const THEME_STYLES: Record<ButtonTheme, { iconBg: string; iconText: string }> = {
+  brand: { iconBg: 'bg-[#259783]/10 dark:bg-[#259783]/20', iconText: 'text-[#259783] dark:text-[#3bd5a0]' },
+  blue: { iconBg: 'bg-blue-50 dark:bg-blue-900/30', iconText: 'text-blue-600 dark:text-blue-400' },
+  amber: { iconBg: 'bg-amber-50 dark:bg-amber-900/30', iconText: 'text-amber-600 dark:text-amber-400' },
+  rose: { iconBg: 'bg-rose-50 dark:bg-rose-900/30', iconText: 'text-rose-500 dark:text-rose-400' },
+  violet: { iconBg: 'bg-violet-50 dark:bg-violet-900/30', iconText: 'text-violet-600 dark:text-violet-400' },
+  slate: { iconBg: 'bg-slate-100 dark:bg-slate-800/60', iconText: 'text-slate-500 dark:text-slate-400' },
+};
+
 interface ActionButton {
   href?: string;
   label: string;
@@ -63,6 +74,8 @@ interface ActionButton {
   icon: typeof Plus;
   roles?: string[];
   onClick?: () => void;
+  theme: ButtonTheme;
+  group: 'action' | 'navigate';
 }
 
 const ACTION_BUTTONS: ActionButton[] = [
@@ -71,98 +84,132 @@ const ACTION_BUTTONS: ActionButton[] = [
     label: 'Open POS',
     description: 'Start selling',
     icon: ShoppingCart,
+    theme: 'brand',
+    group: 'action',
   },
   {
     label: 'Open Shift',
     description: 'Record opening balance',
     icon: Banknote,
     roles: ['cashier', 'admin', 'owner'],
+    theme: 'brand',
+    group: 'action',
   },
   {
     label: 'Close Shift',
     description: 'Record closing balance',
     icon: Receipt,
     roles: ['cashier', 'admin', 'owner'],
+    theme: 'brand',
+    group: 'action',
   },
   {
     label: 'Create Category',
     description: 'Add new product category',
     icon: FolderTree,
+    theme: 'blue',
+    group: 'action',
   },
   {
     label: 'Add Item',
     description: 'Create new product',
     icon: Package,
+    theme: 'blue',
+    group: 'action',
   },
   {
     label: 'Add Stock',
     description: 'Adjust inventory levels',
     icon: Scale,
+    theme: 'amber',
+    group: 'action',
   },
   {
     label: 'Stock Take',
     description: 'Physical inventory count',
     icon: ClipboardList,
+    theme: 'amber',
+    group: 'action',
   },
   {
     href: '/admin/items',
     label: 'View Items',
     description: 'Browse product catalog',
     icon: Package,
+    theme: 'blue',
+    group: 'navigate',
   },
   {
     href: '/admin/stock',
     label: 'View Stock',
     description: 'Check inventory levels',
     icon: PackageCheck,
+    theme: 'amber',
+    group: 'navigate',
   },
   {
     href: '/admin/purchases',
     label: 'View Purchases',
     description: 'Purchase history',
     icon: ShoppingBag,
+    theme: 'amber',
+    group: 'navigate',
   },
   {
     href: '/admin/categories',
     label: 'View Categories',
     description: 'Manage categories',
     icon: FolderTree,
+    theme: 'blue',
+    group: 'navigate',
   },
   {
     href: '/admin/sales',
     label: 'Sales Analytics',
     description: 'Product sales & stock',
     icon: BarChart3,
+    theme: 'violet',
+    group: 'navigate',
   },
   {
     href: '/admin/profit',
     label: 'View Profit',
     description: 'Profit analytics',
     icon: TrendingUp,
+    theme: 'violet',
+    group: 'navigate',
   },
   {
     href: '/admin/credits',
     label: 'View Credits',
     description: 'Outstanding debts',
     icon: CreditCard,
+    theme: 'rose',
+    group: 'navigate',
   },
   {
     href: '/admin/expenses',
     label: 'Record Expenses',
     description: 'Daily operating costs',
     icon: Receipt,
+    theme: 'rose',
+    group: 'action',
   },
   {
     label: 'Record Withdrawal',
     description: 'Cash taken from drawer',
     icon: Wallet,
     roles: ['cashier', 'admin', 'owner'],
+    theme: 'rose',
+    group: 'action',
   },
   {
     href: '/admin/supplier-bills/new',
     label: 'Record Supplier Bill',
     description: 'Pending payments',
     icon: Receipt,
+    theme: 'rose',
+    group: 'action',
   },
   {
     href: '/admin/stock/approvals',
@@ -170,18 +217,24 @@ const ACTION_BUTTONS: ActionButton[] = [
     description: 'Pending approvals',
     icon: Scale,
     roles: ['admin', 'owner'],
+    theme: 'amber',
+    group: 'navigate',
   },
   {
     label: 'Balance Approvals',
     description: 'Cash balance requests',
     icon: DollarSign,
     roles: ['admin', 'owner'],
+    theme: 'slate',
+    group: 'action',
   },
   {
     href: '/admin/reports/sales',
     label: 'View Reports',
     description: 'Sales reports',
     icon: FileText,
+    theme: 'violet',
+    group: 'navigate',
   },
   {
     href: '/admin/users',
@@ -189,6 +242,8 @@ const ACTION_BUTTONS: ActionButton[] = [
     description: 'Team management',
     icon: Users,
     roles: ['owner'],
+    theme: 'slate',
+    group: 'navigate',
   },
   {
     href: '/admin/banners',
@@ -196,6 +251,8 @@ const ACTION_BUTTONS: ActionButton[] = [
     description: 'Storefront banners',
     icon: Image,
     roles: ['owner'],
+    theme: 'slate',
+    group: 'navigate',
   },
 ];
 
@@ -619,6 +676,54 @@ export default function AdminDashboardPage() {
     return button;
   });
 
+  const quickActions = visibleButtons.filter((b) => b.group === 'action' && b.label !== 'Open POS');
+  const browseLinks = visibleButtons.filter((b) => b.group === 'navigate');
+
+  const renderButtonCard = (button: (typeof visibleButtons)[number], index: number) => {
+    const Icon = button.icon;
+    const style = THEME_STYLES[button.theme];
+    const isNav = button.group === 'navigate';
+
+    const Card = (
+      <button
+        onClick={button.onClick}
+        className="group relative w-full bg-white dark:bg-[#1c2e18] rounded-2xl border border-slate-200/50 dark:border-slate-700/30 p-3 sm:p-3.5 text-left transition-all duration-300 ease-out hover:shadow-xl hover:shadow-slate-900/[0.04] dark:hover:shadow-black/20 hover:-translate-y-1 hover:border-slate-300/80 dark:hover:border-slate-600/60 active:translate-y-0 active:shadow-md cursor-pointer overflow-hidden"
+      >
+        {/* Subtle hover glow */}
+        <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl ${style.iconBg}`} style={{ opacity: 0 }} />
+        <div className={`absolute inset-0 opacity-0 group-hover:opacity-[0.03] transition-opacity duration-300 rounded-2xl bg-gradient-to-br from-current via-transparent to-transparent ${style.iconText}`} />
+
+        <div className="relative flex items-center gap-3">
+          <div
+            className={`w-10 h-10 sm:w-11 sm:h-11 rounded-xl ${style.iconBg} flex items-center justify-center flex-shrink-0 transition-all duration-300 group-hover:scale-105 group-hover:shadow-sm ring-1 ring-black/[0.02] dark:ring-white/[0.04]`}
+          >
+            <Icon className={`w-[18px] h-[18px] sm:w-5 sm:h-5 ${style.iconText} transition-transform duration-300 group-hover:scale-110`} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] sm:text-sm font-semibold text-slate-800 dark:text-slate-100 truncate leading-tight">
+              {button.label}
+            </p>
+            <p className="text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500 truncate leading-tight mt-0.5">
+              {button.description}
+            </p>
+          </div>
+          {isNav && (
+            <ArrowRight className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600 flex-shrink-0 transition-all duration-300 group-hover:text-slate-400 dark:group-hover:text-slate-500 group-hover:translate-x-0.5" />
+          )}
+        </div>
+      </button>
+    );
+
+    if (button.href && !button.onClick) {
+      return (
+        <Link key={button.href} href={button.href}>
+          {Card}
+        </Link>
+      );
+    }
+    return <div key={button.label + index}>{Card}</div>;
+  };
+
   return (
     <AdminLayout>
       <div className="min-h-screen bg-slate-50 dark:bg-[#0f1a0d] flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 pt-2 sm:pt-4 pb-20 sm:pb-4">
@@ -634,23 +739,24 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <Link href="/pos">
-            <div className="group relative w-full bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-lg sm:rounded-xl px-3 py-2 sm:px-6 sm:py-6 text-center transition-all duration-200 hover:shadow-lg hover:shadow-[#259783]/30 active:scale-98 cursor-pointer text-white" style={{ backgroundColor: '#259783' }}>
-              <div className="flex flex-row items-center justify-center gap-2 sm:gap-4">
-                <div className="w-8 h-8 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
-                  <ShoppingCart className="w-4 h-4 sm:w-7 sm:h-7 text-white" style={{ color: '#ffffff' }} />
+            <div className="group relative w-full overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-r from-[#259783] to-[#1fa87a] px-4 py-3 sm:px-6 sm:py-5 transition-all duration-200 hover:shadow-xl hover:shadow-[#259783]/25 active:scale-[0.99] cursor-pointer">
+              {/* Subtle decorative circles */}
+              <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-white/[0.06]" />
+              <div className="absolute -right-2 -bottom-8 w-20 h-20 rounded-full bg-white/[0.04]" />
+              <div className="relative flex items-center gap-3 sm:gap-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/15 backdrop-blur-sm flex items-center justify-center ring-1 ring-white/20">
+                  <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
-                <div className="text-center sm:text-left flex-1">
-                  <h3 className="text-sm sm:text-xl font-bold text-white" style={{ color: '#ffffff' }}>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm sm:text-lg font-bold text-white leading-tight">
                     Open POS
                   </h3>
-                  <p className="hidden sm:block text-sm text-white/90 mt-1" style={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                  <p className="text-[11px] sm:text-sm text-white/70 mt-0.5 leading-tight">
                     Start selling and processing transactions
                   </p>
                 </div>
-                <div className="hidden sm:block ml-auto">
-                  <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors">
-                    <ShoppingCart className="w-5 h-5 text-white" style={{ color: '#ffffff' }} />
-                  </div>
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-white/10 flex items-center justify-center group-hover:bg-white/20 transition-colors flex-shrink-0">
+                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-white/80 group-hover:translate-x-0.5 transition-transform" />
                 </div>
               </div>
             </div>
@@ -680,48 +786,35 @@ export default function AdminDashboardPage() {
           </button>
         </div>
 
-        {/* Action Buttons Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1.5 sm:gap-3 max-w-5xl w-full">
-          {visibleButtons.map((button, index) => {
-            const Icon = button.icon;
-            const isPOS = button.href === '/pos';
-            
-            // Skip POS button in grid since it's shown prominently above
-            if (isPOS) return null;
-            
-            const ButtonContent = (
-              <button
-                onClick={button.onClick}
-                className="group relative w-full bg-[#259783] rounded-lg px-2 py-2 sm:px-4 sm:py-5 text-center transition-all duration-200 hover:bg-[#3bd522] hover:shadow-md active:scale-95 text-white"
-                style={{ backgroundColor: '#259783' }}
-              >
-                <div className="flex flex-col items-center gap-0.5 sm:gap-2">
-                  <div className="w-5 h-5 sm:w-8 sm:h-8 rounded-md sm:rounded-lg bg-white/20 flex items-center justify-center">
-                    <Icon className="w-3 h-3 sm:w-4 sm:h-4 text-white" style={{ color: '#ffffff' }} />
-                  </div>
-                  <div>
-                    <h3 className="text-[11px] sm:text-sm font-semibold text-white leading-tight" style={{ color: '#ffffff' }}>
-                      {button.label}
-                    </h3>
-                    <p className="text-[9px] sm:text-xs text-white/80 leading-tight" style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
-                      {button.description}
-                    </p>
-                  </div>
-                </div>
-              </button>
-            );
+        {/* Quick Actions */}
+        {quickActions.length > 0 && (
+          <div className="max-w-5xl w-full">
+            <div className="flex items-center gap-2 mb-2 sm:mb-3 px-1">
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.12em] text-slate-400/80 dark:text-slate-600">
+                Quick Actions
+              </span>
+              <div className="flex-1 h-px bg-slate-200/60 dark:bg-slate-700/40" />
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-2.5">
+              {quickActions.map(renderButtonCard)}
+            </div>
+          </div>
+        )}
 
-            if (button.href) {
-              return (
-                <Link key={button.href || index} href={button.href}>
-                  {ButtonContent}
-                </Link>
-              );
-            }
-
-            return <div key={index}>{ButtonContent}</div>;
-          })}
-        </div>
+        {/* Browse & Reports */}
+        {browseLinks.length > 0 && (
+          <div className="max-w-5xl w-full mt-4 sm:mt-5">
+            <div className="flex items-center gap-2 mb-2 sm:mb-3 px-1">
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.12em] text-slate-400/80 dark:text-slate-600">
+                Browse & Reports
+              </span>
+              <div className="flex-1 h-px bg-slate-200/60 dark:bg-slate-700/40" />
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-2.5">
+              {browseLinks.map(renderButtonCard)}
+            </div>
+          </div>
+        )}
 
         {/* Stats Section */}
         <div className="w-full max-w-5xl mt-4 sm:mt-6">
@@ -834,18 +927,22 @@ export default function AdminDashboardPage() {
 
       <Drawer open={categoryDrawerOpen && !isMobile} onOpenChange={setCategoryDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[500px] md:!w-[600px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-blue-50 to-[#259783]/10 dark:from-blue-950/20 dark:to-[#259783]/20 px-6 py-5">
-            <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-[#259783] flex items-center justify-center shadow-sm">
-                <FolderTree className="w-5 h-5 text-white" />
+          <DrawerHeader className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                <FolderTree className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               </div>
-              Add New Category
-            </DrawerTitle>
-            <DrawerDescription className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-              Create a new category to organize your products
-            </DrawerDescription>
+              <div>
+                <DrawerTitle className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
+                  Add New Category
+                </DrawerTitle>
+                <DrawerDescription className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                  Organize your products into groups
+                </DrawerDescription>
+              </div>
+            </div>
           </DrawerHeader>
-          <div className="overflow-y-auto px-6 py-6 flex-1 bg-slate-50 dark:bg-slate-900/50">
+          <div className="overflow-y-auto px-5 py-5 flex-1 bg-slate-50/50 dark:bg-slate-950/30">
             <div className="max-w-2xl mx-auto">
               <CategoryForm
                 category={null}
@@ -860,18 +957,22 @@ export default function AdminDashboardPage() {
 
       <Drawer open={itemDrawerOpen && !isMobile} onOpenChange={setItemDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-6 py-5">
-            <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm">
-                <Package className="w-5 h-5 text-white" />
+          <DrawerHeader className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center flex-shrink-0">
+                <Package className="w-5 h-5 text-[#259783] dark:text-[#3bd5a0]" />
               </div>
-              Add New Item
-            </DrawerTitle>
-            <DrawerDescription className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-              Create a new product item for your inventory
-            </DrawerDescription>
+              <div>
+                <DrawerTitle className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
+                  Add New Item
+                </DrawerTitle>
+                <DrawerDescription className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                  Create a new product for your inventory
+                </DrawerDescription>
+              </div>
+            </div>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 sm:px-6 py-6 flex-1 bg-slate-50 dark:bg-slate-900/50">
+          <div className="overflow-y-auto px-4 sm:px-5 py-5 flex-1 bg-slate-50/50 dark:bg-slate-950/30">
             <ItemForm
               onSuccess={() => setItemDrawerOpen(false)}
               onCancel={() => setItemDrawerOpen(false)}
@@ -881,35 +982,24 @@ export default function AdminDashboardPage() {
       </Drawer>
 
       <Drawer open={stockAdjustDrawerOpen && !isMobile} onOpenChange={setStockAdjustDrawerOpen} direction="right">
-        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl">
-          {/* Header */}
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-800 bg-gradient-to-br from-slate-50 via-white to-slate-50/50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800/50 px-6 py-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#259783] to-[#45d827] flex items-center justify-center shadow-lg shadow-[#259783]/25 ring-2 ring-[#259783]/10">
-                  <Scale className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <DrawerTitle className="text-xl font-bold text-slate-900 dark:text-white leading-tight">
-                    Add Stock
-                  </DrawerTitle>
-                  <DrawerDescription className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                    Adjust inventory levels
-                  </DrawerDescription>
-                </div>
+        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
+          <DrawerHeader className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                <Scale className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
-              <button
-                onClick={() => setStockAdjustDrawerOpen(false)}
-                className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <div>
+                <DrawerTitle className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
+                  Add Stock
+                </DrawerTitle>
+                <DrawerDescription className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                  Adjust inventory levels
+                </DrawerDescription>
+              </div>
             </div>
           </DrawerHeader>
-          
-          {/* Content */}
-          <div className="overflow-y-auto flex-1 bg-gradient-to-b from-white via-slate-50/30 to-white dark:from-slate-900 dark:via-slate-900/50 dark:to-slate-900">
-            <div className="px-4 sm:px-6 py-6 max-w-none">
+          <div className="overflow-y-auto flex-1 bg-slate-50/50 dark:bg-slate-950/30">
+            <div className="px-4 sm:px-5 py-5">
               <StockAdjustForm
                 onCancel={() => setStockAdjustDrawerOpen(false)}
                 onSuccess={() => fetchStats()}
@@ -921,18 +1011,22 @@ export default function AdminDashboardPage() {
 
       <Drawer open={stockTakeDrawerOpen && !isMobile} onOpenChange={setStockTakeDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[800px] md:!w-[900px] lg:!w-[1000px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-indigo-50 dark:from-[#259783]/20 dark:to-indigo-950/20 px-6 py-5">
-            <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-indigo-500 flex items-center justify-center shadow-sm">
-                <ClipboardList className="w-5 h-5 text-white" />
+          <DrawerHeader className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                <ClipboardList className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
-              Stock Take
-            </DrawerTitle>
-            <DrawerDescription className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-              Count physical inventory and record actual stock levels
-            </DrawerDescription>
+              <div>
+                <DrawerTitle className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
+                  Stock Take
+                </DrawerTitle>
+                <DrawerDescription className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                  Count physical inventory and record actual stock levels
+                </DrawerDescription>
+              </div>
+            </div>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 sm:px-6 py-6 flex-1 bg-slate-50 dark:bg-slate-900/50">
+          <div className="overflow-y-auto px-4 sm:px-5 py-5 flex-1 bg-slate-50/50 dark:bg-slate-950/30">
             <StockTakeForm
               onCancel={() => setStockTakeDrawerOpen(false)}
             />
@@ -943,18 +1037,22 @@ export default function AdminDashboardPage() {
       {/* Open Shift Drawer */}
       <Drawer open={openShiftDrawerOpen && !isMobile} onOpenChange={setOpenShiftDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[480px] md:!w-[520px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-emerald-50 dark:from-[#259783]/20 dark:to-emerald-950/20 px-6 py-5">
-            <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-emerald-500 flex items-center justify-center shadow-sm">
-                <Banknote className="w-5 h-5 text-white" />
+          <DrawerHeader className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center flex-shrink-0">
+                <Banknote className="w-5 h-5 text-[#259783] dark:text-[#3bd5a0]" />
               </div>
-              Open Shift
-            </DrawerTitle>
-            <DrawerDescription className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-              Cashier records the opening cash balance for the drawer
-            </DrawerDescription>
+              <div>
+                <DrawerTitle className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
+                  Open Shift
+                </DrawerTitle>
+                <DrawerDescription className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                  Record the opening cash balance
+                </DrawerDescription>
+              </div>
+            </div>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 sm:px-6 py-4 flex-1 bg-slate-50 dark:bg-slate-900/50">
+          <div className="overflow-y-auto px-4 sm:px-5 py-4 flex-1 bg-slate-50/50 dark:bg-slate-950/30">
             <div className="max-w-md mx-auto">
               <ShiftOpenForm />
             </div>
@@ -965,18 +1063,22 @@ export default function AdminDashboardPage() {
       {/* Close Shift Drawer */}
       <Drawer open={closeShiftDrawerOpen && !isMobile} onOpenChange={setCloseShiftDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[520px] md:!w-[560px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-amber-50 to-[#259783]/10 dark:from-amber-950/20 dark:to-[#259783]/20 px-6 py-5">
-            <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-[#259783] flex items-center justify-center shadow-sm">
-                <Receipt className="w-5 h-5 text-white" />
+          <DrawerHeader className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                <Receipt className="w-5 h-5 text-amber-600 dark:text-amber-400" />
               </div>
-              Close Shift
-            </DrawerTitle>
-            <DrawerDescription className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-              Cashier records the closing cash balance and differences
-            </DrawerDescription>
+              <div>
+                <DrawerTitle className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
+                  Close Shift
+                </DrawerTitle>
+                <DrawerDescription className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                  Record the closing cash balance
+                </DrawerDescription>
+              </div>
+            </div>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 sm:px-6 py-4 flex-1 bg-slate-50 dark:bg-slate-900/50">
+          <div className="overflow-y-auto px-4 sm:px-5 py-4 flex-1 bg-slate-50/50 dark:bg-slate-950/30">
             <div className="max-w-2xl mx-auto">
               <CloseShiftDrawerContent />
             </div>
@@ -987,18 +1089,22 @@ export default function AdminDashboardPage() {
       {/* Balance Approvals Drawer */}
       <Drawer open={balanceApprovalsDrawerOpen && !isMobile} onOpenChange={setBalanceApprovalsDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[720px] md:!w-[840px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-6 py-5">
-            <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-blue-500 flex items-center justify-center shadow-sm">
-                <DollarSign className="w-5 h-5 text-white" />
+          <DrawerHeader className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
+                <DollarSign className="w-5 h-5 text-slate-600 dark:text-slate-400" />
               </div>
-              Balance Approvals
-            </DrawerTitle>
-            <DrawerDescription className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-              Review and approve opening/closing cash balance requests from cashiers
-            </DrawerDescription>
+              <div>
+                <DrawerTitle className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
+                  Balance Approvals
+                </DrawerTitle>
+                <DrawerDescription className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                  Review cash balance requests from cashiers
+                </DrawerDescription>
+              </div>
+            </div>
           </DrawerHeader>
-          <div className="overflow-y-auto flex-1 bg-slate-50 dark:bg-slate-900/50 px-4 sm:px-6 py-4">
+          <div className="overflow-y-auto flex-1 bg-slate-50/50 dark:bg-slate-950/30 px-4 sm:px-5 py-4">
             <div className="max-w-4xl mx-auto">
               <BalanceApprovalsDrawerContent />
             </div>
@@ -1009,18 +1115,22 @@ export default function AdminDashboardPage() {
       {/* Record Withdrawal Drawer */}
       <Drawer open={withdrawalDrawerOpen && !isMobile} onOpenChange={setWithdrawalDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[420px] md:!w-[460px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-red-50 to-[#259783]/10 dark:from-red-950/20 dark:to-[#259783]/20 px-6 py-5">
-            <DrawerTitle className="flex items-center gap-3 text-xl font-bold text-slate-900 dark:text-white">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-red-500 to-[#259783] flex items-center justify-center shadow-sm">
-                <Wallet className="w-5 h-5 text-white" />
+          <DrawerHeader className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center flex-shrink-0">
+                <Wallet className="w-5 h-5 text-rose-500 dark:text-rose-400" />
               </div>
-              Record Cash Withdrawal
-            </DrawerTitle>
-            <DrawerDescription className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-              Log cash taken out of the drawer so it is reflected in your expected cash calculations.
-            </DrawerDescription>
+              <div>
+                <DrawerTitle className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
+                  Record Withdrawal
+                </DrawerTitle>
+                <DrawerDescription className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                  Log cash taken from the drawer
+                </DrawerDescription>
+              </div>
+            </div>
           </DrawerHeader>
-          <div className="overflow-y-auto flex-1 bg-slate-50 dark:bg-slate-900/50 px-4 sm:px-6 py-4">
+          <div className="overflow-y-auto flex-1 bg-slate-50/50 dark:bg-slate-950/30 px-4 sm:px-5 py-4">
             <div className="max-w-md mx-auto">
               <WithdrawalForm onSuccess={() => setWithdrawalDrawerOpen(false)} />
             </div>
@@ -1031,18 +1141,22 @@ export default function AdminDashboardPage() {
       {/* Items Drawer */}
       <Drawer open={itemsDrawerOpen && !isMobile} onOpenChange={setItemsDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[900px] md:!w-[1100px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-purple-500/10 via-[#259783]/10 to-blue-50 dark:from-purple-500/20 dark:via-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
-            <DrawerTitle className="flex items-center gap-3 text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-[#259783] flex items-center justify-center shadow-sm">
-                <Package className="w-5 h-5 text-white" />
+          <DrawerHeader className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 px-4 sm:px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-900/30 flex items-center justify-center flex-shrink-0">
+                <Package className="w-5 h-5 text-violet-600 dark:text-violet-400" />
               </div>
-              Items
-            </DrawerTitle>
-            <DrawerDescription className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-              Manage your product catalog without leaving the dashboard
-            </DrawerDescription>
+              <div>
+                <DrawerTitle className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
+                  Items
+                </DrawerTitle>
+                <DrawerDescription className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                  Manage your product catalog
+                </DrawerDescription>
+              </div>
+            </div>
           </DrawerHeader>
-          <div className="overflow-y-auto flex-1 bg-slate-50 dark:bg-slate-900/50">
+          <div className="overflow-y-auto flex-1 bg-slate-50/50 dark:bg-slate-950/30">
             <ItemsManager />
           </div>
         </DrawerContent>

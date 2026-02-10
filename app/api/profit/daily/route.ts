@@ -10,8 +10,11 @@ export async function OPTIONS() {
 interface DailyProfit {
   date: string;
   profit: number;
+  grossProfit: number;
   revenue: number;
   cost: number;
+  stockLoss: number;
+  expenses: number;
   transactions: number;
 }
 
@@ -22,6 +25,7 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const months = parseInt(searchParams.get('months') || '12');
+    const itemType = searchParams.get('itemType'); // 'grocery' or 'retail' or null for all
     // Get timezone offset in minutes from client (e.g., -180 for UTC+3)
     const tzOffset = parseInt(searchParams.get('tz') || '0');
     // Convert to seconds for SQL calculation
@@ -36,9 +40,34 @@ export async function GET(request: NextRequest) {
     const startTimestamp = Math.floor(startDate.getTime() / 1000);
     const endTimestamp = Math.floor(endDate.getTime() / 1000);
 
+    // Build itemType filter
+    const itemTypeFilter = itemType ? ` AND COALESCE(si.item_type_snapshot, 'retail') = ?` : '';
+    const itemTypeParams = itemType ? [itemType] : [];
+
+    // Buy price fallback expression used in multiple places.
+    // Falls back through: sale_item → inventory_batch → purchase_breakdown → 0
+    const buyPriceFallback = `
+      COALESCE(
+        NULLIF(si.buy_price_per_unit, 0),
+        (SELECT ib.buy_price_per_unit 
+         FROM inventory_batches ib 
+         WHERE ib.item_id = si.item_id 
+         ORDER BY ib.received_at DESC 
+         LIMIT 1),
+        (SELECT pb.buy_price_per_unit 
+         FROM purchase_breakdowns pb
+         JOIN purchase_items pi ON pb.purchase_item_id = pi.id
+         JOIN purchases p ON pi.purchase_id = p.id
+         WHERE pb.item_id = si.item_id AND p.business_id = ?
+         ORDER BY pb.confirmed_at DESC 
+         LIMIT 1),
+        0
+      )`;
+
     // Get daily aggregated profit data
-    // Adjust for client's timezone by subtracting offset from Unix timestamp before DATE conversion
-    // (negative offset means ahead of UTC, so we subtract to get local time)
+    // Items without a known buy price are excluded from profit/revenue/cost
+    // to avoid inflating profits (same approach as the main /api/profit endpoint).
+    // Adjust for client's timezone by subtracting offset from Unix timestamp before DATE conversion.
     const dailyData = await query<{
       sale_day: string;
       total_profit: number;
@@ -49,45 +78,22 @@ export async function GET(request: NextRequest) {
       `SELECT 
         DATE(s.sale_date - ?, 'unixepoch') as sale_day,
         COALESCE(SUM(
-          si.quantity_sold * (
-            si.sell_price_per_unit - 
-            COALESCE(
-              NULLIF(si.buy_price_per_unit, 0),
-              (SELECT ib.buy_price_per_unit 
-               FROM inventory_batches ib 
-               WHERE ib.item_id = si.item_id 
-               ORDER BY ib.received_at DESC 
-               LIMIT 1),
-              (SELECT pb.buy_price_per_unit 
-               FROM purchase_breakdowns pb
-               JOIN purchase_items pi ON pb.purchase_item_id = pi.id
-               JOIN purchases p ON pi.purchase_id = p.id
-               WHERE pb.item_id = si.item_id AND p.business_id = ?
-               ORDER BY pb.confirmed_at DESC 
-               LIMIT 1),
-              0
-            )
-          )
+          CASE WHEN ${buyPriceFallback} > 0
+            THEN si.quantity_sold * (si.sell_price_per_unit - ${buyPriceFallback})
+            ELSE 0
+          END
         ), 0) as total_profit,
-        COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
         COALESCE(SUM(
-          si.quantity_sold * 
-          COALESCE(
-            NULLIF(si.buy_price_per_unit, 0),
-            (SELECT ib.buy_price_per_unit 
-             FROM inventory_batches ib 
-             WHERE ib.item_id = si.item_id 
-             ORDER BY ib.received_at DESC 
-             LIMIT 1),
-            (SELECT pb.buy_price_per_unit 
-             FROM purchase_breakdowns pb
-             JOIN purchase_items pi ON pb.purchase_item_id = pi.id
-             JOIN purchases p ON pi.purchase_id = p.id
-             WHERE pb.item_id = si.item_id AND p.business_id = ?
-             ORDER BY pb.confirmed_at DESC 
-             LIMIT 1),
-            0
-          )
+          CASE WHEN ${buyPriceFallback} > 0
+            THEN si.quantity_sold * si.sell_price_per_unit
+            ELSE 0
+          END
+        ), 0) as total_revenue,
+        COALESCE(SUM(
+          CASE WHEN ${buyPriceFallback} > 0
+            THEN si.quantity_sold * ${buyPriceFallback}
+            ELSE 0
+          END
         ), 0) as total_cost,
         COUNT(DISTINCT s.id) as transaction_count
        FROM sale_items si
@@ -96,9 +102,18 @@ export async function GET(request: NextRequest) {
          AND s.status = 'completed'
          AND s.sale_date >= ? 
          AND s.sale_date <= ?
+         ${itemTypeFilter}
        GROUP BY sale_day
        ORDER BY sale_day ASC`,
-      [tzOffsetSeconds, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp]
+      [
+        tzOffsetSeconds,
+        // buyPriceFallback ?s: profit check, profit calc, revenue check, cost check, cost calc
+        auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId,
+        // WHERE clause
+        auth.businessId,
+        startTimestamp, endTimestamp,
+        ...itemTypeParams
+      ]
     );
 
     // Get daily stock losses (spoilage, theft, damage, other)
@@ -144,7 +159,7 @@ export async function GET(request: NextRequest) {
       [tzOffsetSeconds, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp]
     );
 
-    // Get daily operating cost from expenses
+    // Get daily operating cost from expenses (must match /api/expenses/daily-cost logic)
     const expenses = await query<{ amount: number; frequency: string }>(
       `SELECT amount, frequency FROM expenses 
        WHERE business_id = ? AND active = 1`,
@@ -156,21 +171,24 @@ export async function GET(request: NextRequest) {
       weekly: 7,
       monthly: 30,
       yearly: 365,
+      'one-time': Infinity, // one-time expenses do not contribute to daily cost
     };
 
     let dailyOperatingCost = 0;
     for (const expense of expenses) {
-      const dailyCost = expense.amount / (FREQUENCY_DIVISORS[expense.frequency] || 1);
-      dailyOperatingCost += dailyCost;
+      if (expense.frequency === 'one-time') continue;
+      const divisor = FREQUENCY_DIVISORS[expense.frequency] ?? 30;
+      dailyOperatingCost += expense.amount / divisor;
     }
 
-    // Create a map of daily losses
+    // When filtering by department (itemType), show gross profit only (revenue - COGS).
+    // Stock losses and operating expenses are business-wide and only make sense on the combined view.
+    const isFiltered = !!itemType;
+
+    // Stock losses ignored for now
     const lossByDate: Record<string, number> = {};
-    for (const row of dailyLosses) {
-      lossByDate[row.loss_day] = row.total_loss;
-    }
 
-    // Transform to a map for easy lookup, subtracting losses and expenses from profit
+    // Transform to a map for easy lookup
     const profitByDate: Record<string, DailyProfit> = {};
     let maxProfit = 0;
     let minProfit = 0;
@@ -180,51 +198,48 @@ export async function GET(request: NextRequest) {
 
     // Process sales data
     for (const row of dailyData) {
-      const stockLoss = lossByDate[row.sale_day] || 0;
-      // Net profit = gross profit - stock losses - daily expenses
-      const netProfit = row.total_profit - stockLoss - dailyOperatingCost;
-      
+      let dayProfit: number;
+      let dayCost: number;
+
+      let dayStockLoss = 0;
+      let dayExpenses = 0;
+
+      if (isFiltered) {
+        // Department view: gross profit only (revenue - COGS)
+        dayProfit = row.total_profit;
+        dayCost = row.total_cost;
+      } else {
+        // Combined view: net profit (gross profit - daily expenses)
+        dayExpenses = dailyOperatingCost;
+        dayProfit = row.total_profit - dayExpenses;
+        dayCost = row.total_cost;
+      }
+
       profitByDate[row.sale_day] = {
         date: row.sale_day,
-        profit: netProfit,
+        profit: dayProfit,
+        grossProfit: row.total_profit,
         revenue: row.total_revenue,
-        cost: row.total_cost + stockLoss + dailyOperatingCost,
+        cost: dayCost,
+        stockLoss: dayStockLoss,
+        expenses: dayExpenses,
         transactions: row.transaction_count,
       };
       
-      // Remove from losses map since we've processed it
-      delete lossByDate[row.sale_day];
-      
-      if (netProfit > maxProfit) maxProfit = netProfit;
-      if (netProfit < minProfit) minProfit = netProfit;
+      if (dayProfit > maxProfit) maxProfit = dayProfit;
+      if (dayProfit < minProfit) minProfit = dayProfit;
       totalDaysWithActivity++;
-      if (netProfit > 0) profitableDays++;
-      if (netProfit < 0) lossDays++;
+      if (dayProfit > 0) profitableDays++;
+      if (dayProfit < 0) lossDays++;
     }
 
-    // Add days that only have losses (no sales) - still need to deduct daily expenses
-    for (const [lossDay, lossAmount] of Object.entries(lossByDate)) {
-      // Net profit = -stock losses - daily expenses
-      const netProfit = -lossAmount - dailyOperatingCost;
-      
-      profitByDate[lossDay] = {
-        date: lossDay,
-        profit: netProfit,
-        revenue: 0,
-        cost: lossAmount + dailyOperatingCost,
-        transactions: 0,
-      };
-      
-      if (netProfit < minProfit) minProfit = netProfit;
-      totalDaysWithActivity++;
-      if (netProfit < 0) lossDays++;
-      // If net profit is exactly 0, it's a break-even day (counted in neutralDays)
-    }
+    // Stock losses ignored for now — no loss-only days to add
 
     return jsonResponse({
       success: true,
       data: {
         dailyProfits: profitByDate,
+        mode: isFiltered ? 'gross' : 'net',
         stats: {
           maxProfit,
           minProfit,

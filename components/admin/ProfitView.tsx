@@ -75,7 +75,11 @@ interface ExpenseSummary {
 
 type DatePreset = 'today' | 'week' | 'month' | 'custom';
 
-export function ProfitView() {
+interface ProfitViewProps {
+  itemType?: 'grocery' | 'retail';
+}
+
+export function ProfitView({ itemType }: ProfitViewProps = {}) {
   const [profitData, setProfitData] = useState<ProfitData | null>(null);
   const [expenseData, setExpenseData] = useState<ExpenseSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -152,7 +156,8 @@ export function ProfitView() {
       const startTimestamp = Math.floor(startDate.getTime() / 1000);
       const endTimestamp = Math.floor(endDate.getTime() / 1000);
 
-      const response = await fetch(`/api/profit?start=${startTimestamp}&end=${endTimestamp}`);
+      const itemTypeParam = itemType ? `&itemType=${itemType}` : '';
+      const response = await fetch(`/api/profit?start=${startTimestamp}&end=${endTimestamp}${itemTypeParam}`);
       const result = await response.json();
 
       if (result.success) {

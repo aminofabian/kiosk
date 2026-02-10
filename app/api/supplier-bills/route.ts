@@ -101,7 +101,21 @@ export async function POST(request: NextRequest) {
       amount,
       dueDate,
       notes,
-    } = body;
+      stockItems,
+    } = body as {
+      supplierId?: string;
+      supplierName: string;
+      supplierPhone?: string;
+      billDescription: string;
+      amount: number;
+      dueDate: string;
+      notes?: string;
+      stockItems?: Array<{
+        itemId: string;
+        quantity: number;
+        costPricePerUnit: number;
+      }>;
+    };
 
     if (!supplierName || !billDescription || !amount || !dueDate) {
       return jsonResponse(
@@ -145,12 +159,60 @@ export async function POST(request: NextRequest) {
       ]
     );
 
+    // Update stock for linked product items
+    let stockUpdated = 0;
+    if (stockItems && Array.isArray(stockItems) && stockItems.length > 0) {
+      for (const stockItem of stockItems) {
+        if (!stockItem.itemId || !stockItem.quantity || stockItem.quantity <= 0) continue;
+
+        // Verify item belongs to this business
+        const item = await query<{ id: string; current_stock: number }>(
+          `SELECT id, current_stock FROM items WHERE id = ? AND business_id = ?`,
+          [stockItem.itemId, auth.businessId]
+        );
+        if (item.length === 0) continue;
+
+        const batchId = generateUUID();
+
+        // Create inventory batch for FIFO cost tracking
+        await execute(
+          `INSERT INTO inventory_batches (
+            id, business_id, item_id, source_breakdown_id, initial_quantity,
+            quantity_remaining, buy_price_per_unit, received_at, created_at
+          ) VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?)`,
+          [
+            batchId,
+            auth.businessId,
+            stockItem.itemId,
+            stockItem.quantity,
+            stockItem.quantity,
+            stockItem.costPricePerUnit,
+            now,
+            now,
+          ]
+        );
+
+        // Update item stock
+        await execute(
+          `UPDATE items 
+           SET current_stock = current_stock + ? 
+           WHERE id = ? AND business_id = ?`,
+          [stockItem.quantity, stockItem.itemId, auth.businessId]
+        );
+
+        stockUpdated++;
+      }
+    }
+
     return jsonResponse({
       success: true,
-      message: 'Supplier bill created successfully',
+      message: stockUpdated > 0
+        ? `Supplier bill created and stock updated for ${stockUpdated} item(s)`
+        : 'Supplier bill created successfully',
       data: {
         billId,
         status,
+        stockUpdated,
         requiresApproval: auth.role === 'cashier',
       },
     });

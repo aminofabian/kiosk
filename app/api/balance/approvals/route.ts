@@ -162,9 +162,20 @@ export async function POST(request: NextRequest) {
     );
 
     if (existingRequest) {
-      return jsonResponse(
-        { success: false, message: 'You already have a pending balance request' },
-        400
+      // For closing: block duplicate pending closing requests
+      if (balanceType === 'closing') {
+        return jsonResponse(
+          { success: false, message: 'You already have a pending balance request' },
+          400
+        );
+      }
+      // For opening: allow opening a new shift by superseding the previous pending request
+      const now = Math.floor(Date.now() / 1000);
+      await execute(
+        `UPDATE balance_approval_requests 
+         SET status = 'rejected', approved_by = NULL, approved_at = ?, rejection_reason = ?
+         WHERE id = ?`,
+        [now, 'Superseded by new opening request', existingRequest.id]
       );
     }
 

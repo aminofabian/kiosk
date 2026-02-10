@@ -1,18 +1,22 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { Loader2, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Loader2, TrendingUp, TrendingDown, Minus, Calendar } from 'lucide-react';
 
 interface DailyProfit {
   date: string;
   profit: number;
+  grossProfit: number;
   revenue: number;
   cost: number;
+  stockLoss: number;
+  expenses: number;
   transactions: number;
 }
 
 interface CalendarData {
   dailyProfits: Record<string, DailyProfit>;
+  mode: 'gross' | 'net';
   stats: {
     maxProfit: number;
     minProfit: number;
@@ -29,58 +33,45 @@ interface CalendarData {
 
 interface ProfitCalendarProps {
   compact?: boolean;
+  itemType?: 'grocery' | 'retail';
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAYS = ['Mon', '', 'Wed', '', 'Fri', '', ''];
 
-// Format date as YYYY-MM-DD in local timezone
-function formatDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+function fmtDate(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
-function isSameDay(date1: Date, date2: Date): boolean {
-  return date1.getFullYear() === date2.getFullYear() &&
-    date1.getMonth() === date2.getMonth() &&
-    date1.getDate() === date2.getDate();
+function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
 function isAfterToday(date: Date): boolean {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const compareDate = new Date(date);
-  compareDate.setHours(0, 0, 0, 0);
-  return compareDate > today;
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const c = new Date(date); c.setHours(0, 0, 0, 0);
+  return c > t;
 }
 
-export function ProfitCalendar({ compact = false }: ProfitCalendarProps) {
+const formatPrice = (n: number) => `KES ${n.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+export function ProfitCalendar({ compact = false, itemType }: ProfitCalendarProps) {
   const [data, setData] = useState<CalendarData | null>(null);
   const [loading, setLoading] = useState(true);
   const [hoveredDay, setHoveredDay] = useState<DailyProfit | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   async function fetchData() {
     try {
       setLoading(true);
       const months = compact ? 6 : 12;
-      // Send timezone offset to API (negative means ahead of UTC)
       const tzOffset = new Date().getTimezoneOffset();
-      const response = await fetch(`/api/profit/daily?months=${months}&tz=${tzOffset}`);
-      const result = await response.json();
-      if (result.success) {
-        // Debug: log available dates from API
-        console.log('📅 Profit Calendar - Timezone offset:', tzOffset, 'minutes');
-        console.log('📅 Profit Calendar - API returned dates:', Object.keys(result.data?.dailyProfits || {}));
-        console.log('📅 Profit Calendar - Stats:', result.data?.stats);
-        setData(result.data);
-      }
+      const itemTypeParam = itemType ? `&itemType=${itemType}` : '';
+      const res = await fetch(`/api/profit/daily?months=${months}&tz=${tzOffset}${itemTypeParam}`);
+      const result = await res.json();
+      if (result.success) setData(result.data);
     } catch (err) {
       console.error('Error fetching calendar data:', err);
     } finally {
@@ -88,124 +79,102 @@ export function ProfitCalendar({ compact = false }: ProfitCalendarProps) {
     }
   }
 
+  // ─── Build calendar grid ──────────────────────────────────────────
+
   const calendarWeeks = useMemo(() => {
     if (!data) return [];
-
     const weeks: Array<Array<{ date: Date; data: DailyProfit | null; dateStr: string }>> = [];
     const today = new Date();
-    
-    // Use local dates to match user's perception of "today"
-    const startDate = new Date(
-      today.getFullYear(),
-      today.getMonth() - (compact ? 6 : 12),
-      today.getDate()
-    );
-    
-    // Adjust to start from Monday (getDay: 0=Sun, 1=Mon, ..., 6=Sat)
-    const dayOfWeek = startDate.getDay();
-    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    startDate.setDate(startDate.getDate() - daysToMonday);
+    const startDate = new Date(today.getFullYear(), today.getMonth() - (compact ? 6 : 12), today.getDate());
+    const dow = startDate.getDay();
+    startDate.setDate(startDate.getDate() - (dow === 0 ? 6 : dow - 1));
 
-    let currentWeek: Array<{ date: Date; data: DailyProfit | null; dateStr: string }> = [];
-    const currentDate = new Date(startDate);
-    
-    // Set today to end of day for proper comparison
-    const todayEnd = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
-      23, 59, 59, 999
-    );
+    let week: typeof weeks[0] = [];
+    const cur = new Date(startDate);
+    const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
 
-    while (currentDate <= todayEnd) {
-      const dateStr = formatDate(currentDate);
-      const dayData = data.dailyProfits[dateStr] || null;
-
-      currentWeek.push({
-        date: new Date(currentDate),
-        data: dayData,
-        dateStr,
-      });
-
-      if (currentWeek.length === 7) {
-        weeks.push(currentWeek);
-        currentWeek = [];
-      }
-
-      currentDate.setDate(currentDate.getDate() + 1);
+    while (cur <= todayEnd) {
+      const ds = fmtDate(cur);
+      week.push({ date: new Date(cur), data: data.dailyProfits[ds] || null, dateStr: ds });
+      if (week.length === 7) { weeks.push(week); week = []; }
+      cur.setDate(cur.getDate() + 1);
     }
-
-    // Add remaining days
-    if (currentWeek.length > 0) {
-      weeks.push(currentWeek);
-    }
-
+    if (week.length > 0) weeks.push(week);
     return weeks;
   }, [data, compact]);
 
   const monthLabels = useMemo(() => {
     if (calendarWeeks.length === 0) return [];
-
     const labels: Array<{ month: string; weekIndex: number }> = [];
-    let lastMonth = -1;
-
-    calendarWeeks.forEach((week, weekIndex) => {
-      const firstDayOfWeek = week[0]?.date;
-      if (firstDayOfWeek) {
-        const month = firstDayOfWeek.getMonth();
-        if (month !== lastMonth) {
-          labels.push({ month: MONTHS[month], weekIndex });
-          lastMonth = month;
-        }
-      }
+    let last = -1;
+    calendarWeeks.forEach((w, i) => {
+      const m = w[0]?.date.getMonth() ?? -1;
+      if (m !== last) { labels.push({ month: MONTHS[m], weekIndex: i }); last = m; }
     });
-
     return labels;
   }, [calendarWeeks]);
 
+  // ─── Computed stats ───────────────────────────────────────────────
+
+  const bestDay = useMemo(() => {
+    if (!data) return null;
+    let best: DailyProfit | null = null;
+    for (const d of Object.values(data.dailyProfits)) {
+      if (!best || d.profit > best.profit) best = d;
+    }
+    return best;
+  }, [data]);
+
+  const worstDay = useMemo(() => {
+    if (!data) return null;
+    let worst: DailyProfit | null = null;
+    for (const d of Object.values(data.dailyProfits)) {
+      if (!worst || d.profit < worst.profit) worst = d;
+    }
+    return worst;
+  }, [data]);
+
+  const avgProfit = useMemo(() => {
+    if (!data || data.stats.totalDaysWithActivity === 0) return 0;
+    const total = Object.values(data.dailyProfits).reduce((s, d) => s + d.profit, 0);
+    return total / data.stats.totalDaysWithActivity;
+  }, [data]);
+
+  // ─── Color ────────────────────────────────────────────────────────
+
   const getProfitColor = (profit: number | null): string => {
-    if (profit === null) return 'bg-slate-100 dark:bg-slate-800';
+    if (profit === null) return 'bg-slate-100 dark:bg-slate-800/50';
     if (profit === 0) return 'bg-slate-200 dark:bg-slate-700';
-    
-    if (!data) return 'bg-slate-100 dark:bg-slate-800';
-    
+    if (!data) return 'bg-slate-100 dark:bg-slate-800/50';
     const { maxProfit, minProfit } = data.stats;
-    
     if (profit > 0) {
-      // Green scale for profit
-      const intensity = maxProfit > 0 ? profit / maxProfit : 0;
-      if (intensity > 0.75) return 'bg-green-600 dark:bg-green-500';
-      if (intensity > 0.5) return 'bg-green-500 dark:bg-green-600';
-      if (intensity > 0.25) return 'bg-green-400 dark:bg-green-700';
-      return 'bg-green-300 dark:bg-green-800';
+      const i = maxProfit > 0 ? profit / maxProfit : 0;
+      if (i > 0.75) return 'bg-emerald-600 dark:bg-emerald-500';
+      if (i > 0.5) return 'bg-emerald-500 dark:bg-emerald-600';
+      if (i > 0.25) return 'bg-emerald-400 dark:bg-emerald-700';
+      return 'bg-emerald-300 dark:bg-emerald-800';
     } else {
-      // Red scale for loss
-      const intensity = minProfit < 0 ? profit / minProfit : 0;
-      if (intensity > 0.75) return 'bg-red-600 dark:bg-red-500';
-      if (intensity > 0.5) return 'bg-red-500 dark:bg-red-600';
-      if (intensity > 0.25) return 'bg-red-400 dark:bg-red-700';
+      const i = minProfit < 0 ? profit / minProfit : 0;
+      if (i > 0.75) return 'bg-red-600 dark:bg-red-500';
+      if (i > 0.5) return 'bg-red-500 dark:bg-red-600';
+      if (i > 0.25) return 'bg-red-400 dark:bg-red-700';
       return 'bg-red-300 dark:bg-red-800';
     }
-  };
-
-  const formatPrice = (price: number) => {
-    return `KES ${price.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   };
 
   const handleMouseEnter = (day: DailyProfit | null, e: React.MouseEvent) => {
     if (day) {
       setHoveredDay(day);
       const rect = e.currentTarget.getBoundingClientRect();
-      setTooltipPos({
-        x: rect.left + rect.width / 2,
-        y: rect.top - 8,
-      });
+      setTooltipPos({ x: rect.left + rect.width / 2, y: rect.top - 8 });
     }
   };
 
+  // ─── Render ───────────────────────────────────────────────────────
+
   if (loading) {
     return (
-      <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6">
+      <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg p-6">
         <div className="flex items-center justify-center h-32">
           <Loader2 className="h-6 w-6 text-[#259783] animate-spin" />
         </div>
@@ -215,156 +184,201 @@ export function ProfitCalendar({ compact = false }: ProfitCalendarProps) {
 
   if (!data) return null;
 
+  const isNet = data.mode === 'net';
+  const cellSize = compact ? 'w-[9px] h-[9px]' : 'w-[11px] h-[11px]';
+  const cellGap = compact ? 'gap-[2px]' : 'gap-[3px]';
+  const legendSize = compact ? 'w-2 h-2' : 'w-2.5 h-2.5';
+
   return (
-    <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-      {/* Header */}
-      <div className={`${compact ? 'p-3' : 'p-4'} border-b-2 border-slate-200 dark:border-slate-700`}>
+    <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg overflow-hidden">
+      {/* ─── Header ─────────────────────────────────────────────── */}
+      <div className={`${compact ? 'p-3' : 'px-5 py-4'} border-b border-slate-100 dark:border-slate-700/50`}>
         <div className={`flex items-center ${compact ? 'flex-col gap-2' : 'justify-between'}`}>
-          <h3 className={`font-black ${compact ? 'text-xs' : 'text-sm'} text-slate-900 dark:text-white`}>
-            Daily Net Profit Calendar
-          </h3>
-          <div className={`flex items-center ${compact ? 'gap-3' : 'gap-4'} text-xs`}>
-            <div className="flex items-center gap-1">
-              <TrendingUp className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-green-500`} />
-              <span className="font-bold text-green-600 dark:text-green-400">{data.stats.profitableDays}</span>
-              {!compact && <span className="text-slate-500">profitable</span>}
+          <div className="flex items-center gap-2">
+            <Calendar className={`${compact ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-[#259783]`} />
+            <h3 className={`font-black ${compact ? 'text-xs' : 'text-sm'} text-slate-900 dark:text-white`}>
+              {isNet ? 'Daily Net Profit' : 'Daily Gross Profit'}
+            </h3>
+          </div>
+          <div className={`flex items-center ${compact ? 'gap-3' : 'gap-5'} text-xs`}>
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">{data.stats.profitableDays}</span>
+              {!compact && <span className="text-slate-400">profit</span>}
             </div>
-            <div className="flex items-center gap-1">
-              <Minus className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-slate-400`} />
-              <span className="font-bold text-slate-600 dark:text-slate-400">{data.stats.neutralDays}</span>
-              {!compact && <span className="text-slate-500">break-even</span>}
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600" />
+              <span className="font-bold text-slate-500 dark:text-slate-400">{data.stats.neutralDays}</span>
+              {!compact && <span className="text-slate-400">even</span>}
             </div>
-            <div className="flex items-center gap-1">
-              <TrendingDown className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'} text-red-500`} />
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-red-500" />
               <span className="font-bold text-red-600 dark:text-red-400">{data.stats.lossDays}</span>
-              {!compact && <span className="text-slate-500">loss</span>}
+              {!compact && <span className="text-slate-400">loss</span>}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Calendar Grid */}
-      <div className={`${compact ? 'p-3' : 'p-4'} overflow-x-auto`}>
+      {/* ─── Stats Row ──────────────────────────────────────────── */}
+      {!compact && bestDay && worstDay && (
+        <div className="px-5 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700/50 flex items-center gap-6 text-[10px]">
+          <div>
+            <span className="text-slate-400 uppercase font-bold">Best Day</span>
+            <span className="ml-2 font-black text-emerald-600 dark:text-emerald-400">{formatPrice(bestDay.profit)}</span>
+            <span className="ml-1 text-slate-400">
+              ({new Date(bestDay.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})
+            </span>
+          </div>
+          <div className="w-px h-4 bg-slate-200 dark:bg-slate-700" />
+          <div>
+            <span className="text-slate-400 uppercase font-bold">Worst Day</span>
+            <span className="ml-2 font-black text-red-600 dark:text-red-400">{formatPrice(worstDay.profit)}</span>
+            <span className="ml-1 text-slate-400">
+              ({new Date(worstDay.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})
+            </span>
+          </div>
+          <div className="w-px h-4 bg-slate-200 dark:bg-slate-700" />
+          <div>
+            <span className="text-slate-400 uppercase font-bold">Avg/Day</span>
+            <span className={`ml-2 font-black ${avgProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>{formatPrice(avgProfit)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Calendar Grid ──────────────────────────────────────── */}
+      <div className={`${compact ? 'p-3' : 'px-5 py-4'} overflow-x-auto`}>
         <div className={compact ? 'min-w-[400px]' : 'min-w-[800px]'}>
-          <div className="relative mt-4">
-            {/* Month Labels Row */}
-            <div className={`flex ${compact ? 'ml-6' : 'ml-8'} mb-1 relative h-4`}>
-              {monthLabels.map((label, i) => (
-                <span
-                  key={i}
-                  className={`${compact ? 'text-[8px]' : 'text-[10px]'} font-bold text-slate-500 dark:text-slate-400 absolute`}
-                  style={{ left: `${label.weekIndex * (compact ? 11 : 14)}px` }}
-                >
-                  {label.month}
-                </span>
-              ))}
-            </div>
+          {/* Month labels */}
+          <div className={`flex ${compact ? 'ml-6' : 'ml-8'} mb-1.5 relative h-4`}>
+            {monthLabels.map((label, i) => (
+              <span
+                key={i}
+                className={`${compact ? 'text-[8px]' : 'text-[10px]'} font-bold text-slate-400 dark:text-slate-500 absolute`}
+                style={{ left: `${label.weekIndex * (compact ? 11 : 14)}px` }}
+              >
+                {label.month}
+              </span>
+            ))}
+          </div>
 
-            <div className="flex">
-              {/* Day Labels */}
-              {!compact && (
-                <div className="flex flex-col gap-[3px] mr-2 pt-0">
-                  {DAYS.map((day, i) => (
-                    <div
-                      key={i}
-                      className="h-[11px] text-[9px] font-bold text-slate-500 dark:text-slate-400 flex items-center"
-                    >
-                      {day}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Weeks Grid */}
-              <div className={`flex ${compact ? 'gap-[2px]' : 'gap-[3px]'}`}>
-                {calendarWeeks.map((week, weekIndex) => (
-                  <div key={weekIndex} className={`flex flex-col ${compact ? 'gap-[2px]' : 'gap-[3px]'}`}>
-                    {week.map((day, dayIndex) => {
-                      const today = new Date();
-                      const isDayToday = isSameDay(day.date, today);
-                      const isFuture = isAfterToday(day.date);
-                      const size = compact ? 'w-[9px] h-[9px]' : 'w-[11px] h-[11px]';
-                      
-                      return (
-                        <div
-                          key={dayIndex}
-                          className={`${size} rounded-sm transition-all cursor-pointer
-                            ${isFuture ? 'bg-transparent' : getProfitColor(day.data?.profit ?? null)}
-                            ${isDayToday ? 'ring-2 ring-[#259783] ring-offset-1' : ''}
-                            ${!isFuture && 'hover:ring-2 hover:ring-slate-400 hover:ring-offset-1'}
-                          `}
-                          onMouseEnter={(e) => handleMouseEnter(day.data, e)}
-                          onMouseLeave={() => setHoveredDay(null)}
-                          title={`${day.dateStr} - ${day.date.toLocaleDateString()}`}
-                        />
-                      );
-                    })}
+          <div className="flex">
+            {/* Day labels */}
+            {!compact && (
+              <div className="flex flex-col gap-[3px] mr-2">
+                {DAYS.map((day, i) => (
+                  <div key={i} className="h-[11px] text-[9px] font-bold text-slate-400 dark:text-slate-500 flex items-center">
+                    {day}
                   </div>
                 ))}
               </div>
+            )}
+
+            {/* Weeks */}
+            <div className={`flex ${cellGap}`}>
+              {calendarWeeks.map((week, wi) => (
+                <div key={wi} className={`flex flex-col ${cellGap}`}>
+                  {week.map((day, di) => {
+                    const today = new Date();
+                    const isToday = isSameDay(day.date, today);
+                    const isFuture = isAfterToday(day.date);
+                    return (
+                      <div
+                        key={di}
+                        className={`${cellSize} rounded-sm transition-all cursor-pointer
+                          ${isFuture ? 'bg-transparent' : getProfitColor(day.data?.profit ?? null)}
+                          ${isToday ? 'ring-2 ring-[#259783] ring-offset-1 dark:ring-offset-slate-800' : ''}
+                          ${!isFuture && !isToday ? 'hover:ring-1 hover:ring-slate-400 hover:ring-offset-1 dark:hover:ring-offset-slate-800' : ''}
+                        `}
+                        onMouseEnter={(e) => handleMouseEnter(day.data, e)}
+                        onMouseLeave={() => setHoveredDay(null)}
+                      />
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Legend */}
-      <div className={`${compact ? 'px-3 pb-3' : 'px-4 pb-4'} flex items-center justify-between`}>
+      {/* ─── Legend ──────────────────────────────────────────────── */}
+      <div className={`${compact ? 'px-3 pb-3' : 'px-5 pb-4'} flex items-center justify-between`}>
         {!compact && (
-          <span className="text-[10px] text-slate-500 dark:text-slate-400">
-            Net profit after expenses, stock losses, and COGS
+          <span className="text-[10px] text-slate-400 dark:text-slate-500">
+            {isNet ? 'Revenue \u2212 COGS \u2212 Losses \u2212 Expenses' : 'Revenue \u2212 COGS'}
           </span>
         )}
         <div className={`flex items-center gap-1.5 ${compact ? 'mx-auto' : ''}`}>
-          <span className={`${compact ? 'text-[8px]' : 'text-[10px]'} text-slate-500 dark:text-slate-400`}>Less</span>
+          <span className={`${compact ? 'text-[8px]' : 'text-[10px]'} text-slate-400`}>Loss</span>
           <div className="flex gap-[2px]">
-            <div className={`${compact ? 'w-[8px] h-[8px]' : 'w-[10px] h-[10px]'} rounded-sm bg-red-500`} />
-            <div className={`${compact ? 'w-[8px] h-[8px]' : 'w-[10px] h-[10px]'} rounded-sm bg-red-300 dark:bg-red-700`} />
-            <div className={`${compact ? 'w-[8px] h-[8px]' : 'w-[10px] h-[10px]'} rounded-sm bg-slate-200 dark:bg-slate-700`} />
-            <div className={`${compact ? 'w-[8px] h-[8px]' : 'w-[10px] h-[10px]'} rounded-sm bg-green-300 dark:bg-green-800`} />
-            <div className={`${compact ? 'w-[8px] h-[8px]' : 'w-[10px] h-[10px]'} rounded-sm bg-green-400 dark:bg-green-700`} />
-            <div className={`${compact ? 'w-[8px] h-[8px]' : 'w-[10px] h-[10px]'} rounded-sm bg-green-500 dark:bg-green-600`} />
-            <div className={`${compact ? 'w-[8px] h-[8px]' : 'w-[10px] h-[10px]'} rounded-sm bg-green-600 dark:bg-green-500`} />
+            <div className={`${legendSize} rounded-sm bg-red-500`} />
+            <div className={`${legendSize} rounded-sm bg-red-300 dark:bg-red-700`} />
+            <div className={`${legendSize} rounded-sm bg-slate-200 dark:bg-slate-700`} />
+            <div className={`${legendSize} rounded-sm bg-emerald-300 dark:bg-emerald-800`} />
+            <div className={`${legendSize} rounded-sm bg-emerald-400 dark:bg-emerald-700`} />
+            <div className={`${legendSize} rounded-sm bg-emerald-500 dark:bg-emerald-600`} />
+            <div className={`${legendSize} rounded-sm bg-emerald-600 dark:bg-emerald-500`} />
           </div>
-          <span className={`${compact ? 'text-[8px]' : 'text-[10px]'} text-slate-500 dark:text-slate-400`}>More</span>
+          <span className={`${compact ? 'text-[8px]' : 'text-[10px]'} text-slate-400`}>Profit</span>
         </div>
       </div>
 
-      {/* Tooltip */}
+      {/* ─── Tooltip ────────────────────────────────────────────── */}
       {hoveredDay && (
         <div
-          className="fixed z-50 bg-slate-900 text-white text-xs rounded-lg shadow-xl p-3 pointer-events-none transform -translate-x-1/2 -translate-y-full"
+          className="fixed z-50 pointer-events-none transform -translate-x-1/2 -translate-y-full"
           style={{ left: tooltipPos.x, top: tooltipPos.y }}
         >
-          <div className="font-bold mb-1.5">
-            {new Date(hoveredDay.date).toLocaleDateString('en-US', {
-              weekday: 'short',
-              month: 'short',
-              day: 'numeric',
-              year: 'numeric',
-            })}
+          <div className="bg-slate-900 text-white text-[11px] rounded-xl shadow-2xl shadow-black/30 overflow-hidden min-w-[200px]">
+            {/* Tooltip header */}
+            <div className="px-3.5 py-2 bg-slate-800 border-b border-slate-700/50">
+              <p className="font-bold text-xs">
+                {new Date(hoveredDay.date + 'T12:00:00').toLocaleDateString('en-US', {
+                  weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+                })}
+              </p>
+            </div>
+
+            {/* Tooltip body */}
+            <div className="px-3.5 py-2.5 space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Revenue</span>
+                <span className="font-semibold">{formatPrice(hoveredDay.revenue)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Cost of goods</span>
+                <span className="font-semibold text-slate-300">&minus; {formatPrice(hoveredDay.cost)}</span>
+              </div>
+              {isNet && hoveredDay.grossProfit !== undefined && (
+                <div className="flex justify-between border-t border-slate-700/50 pt-1.5">
+                  <span className="text-slate-300 font-bold">Gross profit</span>
+                  <span className="font-bold text-slate-200">{formatPrice(hoveredDay.grossProfit)}</span>
+                </div>
+              )}
+              {isNet && hoveredDay.expenses > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Daily expenses</span>
+                  <span className="font-semibold text-slate-300">&minus; {formatPrice(hoveredDay.expenses)}</span>
+                </div>
+              )}
+
+              {/* Net / Gross result */}
+              <div className={`flex justify-between border-t border-slate-700/50 pt-1.5`}>
+                <span className="font-black text-white">{isNet ? 'Net profit' : 'Profit'}</span>
+                <span className={`font-black ${hoveredDay.profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {hoveredDay.profit >= 0 ? '+' : ''}{formatPrice(hoveredDay.profit)}
+                </span>
+              </div>
+              <div className="flex justify-between text-[10px]">
+                <span className="text-slate-500">Transactions</span>
+                <span className="text-slate-400">{hoveredDay.transactions}</span>
+              </div>
+            </div>
           </div>
-          <div className="space-y-1">
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-400">Net Profit:</span>
-              <span className={hoveredDay.profit >= 0 ? 'text-green-400 font-bold' : 'text-red-400 font-bold'}>
-                {hoveredDay.profit >= 0 ? '+' : ''}{formatPrice(hoveredDay.profit)}
-              </span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-400">Revenue:</span>
-              <span>{formatPrice(hoveredDay.revenue)}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-400">Cost (COGS + Losses + Expenses):</span>
-              <span>{formatPrice(hoveredDay.cost)}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-400">Transactions:</span>
-              <span>{hoveredDay.transactions}</span>
-            </div>
-          </div>
-          <div className="absolute left-1/2 bottom-0 transform -translate-x-1/2 translate-y-full">
-            <div className="border-8 border-transparent border-t-slate-900" />
+          {/* Arrow */}
+          <div className="flex justify-center">
+            <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-slate-900" />
           </div>
         </div>
       )}

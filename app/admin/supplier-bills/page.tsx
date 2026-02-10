@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { SupplierBillsList } from '@/components/admin/SupplierBillsList';
 import { SupplierBillForm } from '@/components/admin/SupplierBillForm';
+import { SupplierProductsDrawer } from '@/components/admin/SupplierProductsDrawer';
 import {
   Drawer,
   DrawerContent,
@@ -15,11 +16,26 @@ import {
 import { Button } from '@/components/ui/button';
 import { Receipt, Plus, X, Loader2 } from 'lucide-react';
 
+interface SupplierForDrawer {
+  id: string;
+  name: string;
+  contact_phone: string | null;
+  contact_email: string | null;
+  location: string | null;
+  notes: string | null;
+}
+
 function SupplierBillsPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  // Pre-selected supplier for the new bill form
+  const [preSelectedSupplierId, setPreSelectedSupplierId] = useState<string | undefined>();
+  const [preSelectedSupplierName, setPreSelectedSupplierName] = useState<string | undefined>();
+  // Supplier products drawer
+  const [supplierDrawerOpen, setSupplierDrawerOpen] = useState(false);
+  const [selectedSupplier, setSelectedSupplier] = useState<SupplierForDrawer | null>(null);
 
   // Check if we should open the drawer from URL query parameter
   useEffect(() => {
@@ -33,7 +49,34 @@ function SupplierBillsPageContent() {
 
   const handleSuccess = () => {
     setDrawerOpen(false);
+    setPreSelectedSupplierId(undefined);
+    setPreSelectedSupplierName(undefined);
     // Trigger refresh of the list by changing the key
+    setRefreshKey((prev) => prev + 1);
+  };
+
+  const handleOpenNewBill = () => {
+    setPreSelectedSupplierId(undefined);
+    setPreSelectedSupplierName(undefined);
+    setDrawerOpen(true);
+  };
+
+  const handleSupplierClick = (supplier: SupplierForDrawer) => {
+    setSelectedSupplier(supplier);
+    setSupplierDrawerOpen(true);
+  };
+
+  const handleCreateBillFromSupplier = (supplierId: string, supplierName: string) => {
+    // Close supplier drawer, open bill drawer with pre-selected supplier
+    setSupplierDrawerOpen(false);
+    setPreSelectedSupplierId(supplierId);
+    setPreSelectedSupplierName(supplierName);
+    setDrawerOpen(true);
+  };
+
+  const handleSupplierDeleted = () => {
+    setSelectedSupplier(null);
+    setSupplierDrawerOpen(false);
     setRefreshKey((prev) => prev + 1);
   };
 
@@ -56,7 +99,7 @@ function SupplierBillsPageContent() {
               </div>
             </div>
             <Button
-              onClick={() => setDrawerOpen(true)}
+              onClick={handleOpenNewBill}
               className="bg-[#259783] hover:bg-[#1e7a6a] text-white"
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -64,11 +107,23 @@ function SupplierBillsPageContent() {
             </Button>
           </div>
 
-          <SupplierBillsList key={refreshKey} />
+          <SupplierBillsList
+            key={refreshKey}
+            onSupplierClick={handleSupplierClick}
+          />
+
+          {/* Supplier Products Drawer */}
+          <SupplierProductsDrawer
+            open={supplierDrawerOpen}
+            onOpenChange={setSupplierDrawerOpen}
+            supplier={selectedSupplier}
+            onCreateBill={handleCreateBillFromSupplier}
+            onSupplierDeleted={handleSupplierDeleted}
+          />
 
           {/* New Supplier Bill Drawer */}
           <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
-            <DrawerContent className="!w-full sm:!w-[500px] !max-w-none h-full max-h-screen">
+            <DrawerContent className="!w-full sm:!w-[900px] !max-w-none h-full max-h-screen z-[51]">
               <DrawerHeader className="border-b-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 relative pr-12">
                 <Button
                   variant="ghost"
@@ -81,15 +136,22 @@ function SupplierBillsPageContent() {
                 <DrawerTitle className="flex items-center gap-2 text-slate-900 dark:text-white pr-8">
                   <Receipt className="w-5 h-5 text-[#259783]" />
                   New Supplier Bill
+                  {preSelectedSupplierName && (
+                    <span className="text-sm font-normal text-slate-500">
+                      — {preSelectedSupplierName}
+                    </span>
+                  )}
                 </DrawerTitle>
                 <DrawerDescription className="text-slate-600 dark:text-slate-400">
                   Record a pending payment to a supplier
                 </DrawerDescription>
               </DrawerHeader>
-              <div className="overflow-y-auto p-6 flex-1 bg-white dark:bg-[#0f1a0d]">
+              <div className="flex-1 min-h-0 overflow-y-auto p-6">
                 <SupplierBillForm
+                  key={preSelectedSupplierId || 'default'}
                   onSuccess={handleSuccess}
                   onCancel={() => setDrawerOpen(false)}
+                  preSelectedSupplierId={preSelectedSupplierId}
                 />
               </div>
             </DrawerContent>

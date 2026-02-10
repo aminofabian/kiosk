@@ -43,7 +43,11 @@ interface LowStockItem {
 
 type DatePreset = 'today' | 'week' | 'month';
 
-export function ProfitViewMobile() {
+interface ProfitViewMobileProps {
+  itemType?: 'grocery' | 'retail';
+}
+
+export function ProfitViewMobile({ itemType }: ProfitViewMobileProps = {}) {
   const router = useRouter();
   const [profitData, setProfitData] = useState<ProfitData | null>(null);
   const [expenseData, setExpenseData] = useState<ExpenseSummary | null>(null);
@@ -109,7 +113,8 @@ export function ProfitViewMobile() {
       const startTs = Math.floor(startDate.getTime() / 1000);
       const endTs = Math.floor(endDate.getTime() / 1000);
       
-      const response = await fetch(`/api/profit?start=${startTs}&end=${endTs}`);
+      const itemTypeParam = itemType ? `&itemType=${itemType}` : '';
+      const response = await fetch(`/api/profit?start=${startTs}&end=${endTs}${itemTypeParam}`);
       const result = await response.json();
       if (result.success) setProfitData(result.data);
       else setError(result.message || 'Failed to load');

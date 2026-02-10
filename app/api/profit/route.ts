@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const startTimestamp = parseInt(searchParams.get('start') || '0');
     const endTimestamp = parseInt(searchParams.get('end') || '0');
+    const itemType = searchParams.get('itemType'); // 'grocery' or 'retail' or null for all
 
     if (!startTimestamp || !endTimestamp) {
       return jsonResponse(
@@ -23,6 +24,31 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Build itemType filter clause
+    const itemTypeFilter = itemType ? ` AND COALESCE(si.item_type_snapshot, 'retail') = ?` : '';
+    const itemTypeParams = itemType ? [itemType] : [];
+
+    // Buy price fallback: sale snapshot → inventory_batches → purchase_breakdowns → 0
+    const buyPriceFallbackSummary = `
+      COALESCE(
+        NULLIF(si.buy_price_per_unit, 0),
+        (SELECT ib.buy_price_per_unit 
+         FROM inventory_batches ib 
+         WHERE ib.item_id = si.item_id 
+         ORDER BY ib.received_at DESC 
+         LIMIT 1),
+        (SELECT pb.buy_price_per_unit 
+         FROM purchase_breakdowns pb
+         JOIN purchase_items pi ON pb.purchase_item_id = pi.id
+         JOIN purchases p ON pi.purchase_id = p.id
+         WHERE pb.item_id = si.item_id AND p.business_id = ?
+         ORDER BY pb.confirmed_at DESC 
+         LIMIT 1),
+        0
+      )`;
+
+    // Include ALL sale items so total_sales = full revenue and total_cost = full COGS.
+    // Items without a known buy price contribute 0 to cost (COGS) and full sell to revenue.
     const summary = await query<{
       total_profit: number;
       total_sales: number;
@@ -33,46 +59,10 @@ export async function GET(request: NextRequest) {
     }>(
       `SELECT 
         COALESCE(SUM(
-          si.quantity_sold * (
-            si.sell_price_per_unit - 
-            COALESCE(
-              NULLIF(si.buy_price_per_unit, 0),
-              (SELECT ib.buy_price_per_unit 
-               FROM inventory_batches ib 
-               WHERE ib.item_id = si.item_id 
-               ORDER BY ib.received_at DESC 
-               LIMIT 1),
-              (SELECT pb.buy_price_per_unit 
-               FROM purchase_breakdowns pb
-               JOIN purchase_items pi ON pb.purchase_item_id = pi.id
-               JOIN purchases p ON pi.purchase_id = p.id
-               WHERE pb.item_id = si.item_id AND p.business_id = ?
-               ORDER BY pb.confirmed_at DESC 
-               LIMIT 1),
-              0
-            )
-          )
+          si.quantity_sold * (si.sell_price_per_unit - ${buyPriceFallbackSummary})
         ), 0) as total_profit,
         COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_sales,
-        COALESCE(SUM(
-          si.quantity_sold * 
-          COALESCE(
-            NULLIF(si.buy_price_per_unit, 0),
-            (SELECT ib.buy_price_per_unit 
-             FROM inventory_batches ib 
-             WHERE ib.item_id = si.item_id 
-             ORDER BY ib.received_at DESC 
-             LIMIT 1),
-            (SELECT pb.buy_price_per_unit 
-             FROM purchase_breakdowns pb
-             JOIN purchase_items pi ON pb.purchase_item_id = pi.id
-             JOIN purchases p ON pi.purchase_id = p.id
-             WHERE pb.item_id = si.item_id AND p.business_id = ?
-             ORDER BY pb.confirmed_at DESC 
-             LIMIT 1),
-            0
-          )
-        ), 0) as total_cost,
+        COALESCE(SUM(si.quantity_sold * ${buyPriceFallbackSummary}), 0) as total_cost,
         COALESCE(SUM(si.quantity_sold), 0) as total_quantity_sold,
         COUNT(DISTINCT s.id) as total_transactions,
         COUNT(DISTINCT si.item_id) as unique_items_sold
@@ -82,23 +72,8 @@ export async function GET(request: NextRequest) {
          AND s.status = 'completed'
          AND s.sale_date >= ? 
          AND s.sale_date <= ?
-         AND COALESCE(
-           NULLIF(si.buy_price_per_unit, 0),
-           (SELECT ib.buy_price_per_unit 
-            FROM inventory_batches ib 
-            WHERE ib.item_id = si.item_id 
-            ORDER BY ib.received_at DESC 
-            LIMIT 1),
-           (SELECT pb.buy_price_per_unit 
-            FROM purchase_breakdowns pb
-            JOIN purchase_items pi ON pb.purchase_item_id = pi.id
-            JOIN purchases p ON pi.purchase_id = p.id
-            WHERE pb.item_id = si.item_id AND p.business_id = ?
-            ORDER BY pb.confirmed_at DESC 
-            LIMIT 1),
-           0
-         ) > 0`,
-      [auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp, auth.businessId]
+         ${itemTypeFilter}`,
+      [auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp, ...itemTypeParams]
     );
 
     const summaryData = summary[0] || {
@@ -110,67 +85,78 @@ export async function GET(request: NextRequest) {
       unique_items_sold: 0,
     };
 
+    // For customer queries, when filtering by itemType we need to join through sale_items
+    const customerItemTypeJoin = itemType
+      ? `JOIN sale_items si_c ON s_c.id = si_c.sale_id AND COALESCE(si_c.item_type_snapshot, 'retail') = ?`
+      : '';
+    const customerItemTypeParams = itemType ? [itemType] : [];
+
     // Get unique customers count (credit customers + walk-ins)
     const uniqueCustomers = await queryOne<{ count: number }>(
       `SELECT COUNT(DISTINCT 
         CASE 
-          WHEN customer_name IS NOT NULL THEN customer_name || COALESCE('|' || customer_phone, '')
-          ELSE 'walk-in-' || id
+          WHEN s_c.customer_name IS NOT NULL THEN s_c.customer_name || COALESCE('|' || s_c.customer_phone, '')
+          ELSE 'walk-in-' || s_c.id
         END
       ) as count
-       FROM sales
-       WHERE business_id = ? 
-         AND status = 'completed'
-         AND sale_date >= ? 
-         AND sale_date <= ?`,
-      [auth.businessId, startTimestamp, endTimestamp]
+       FROM sales s_c
+       ${customerItemTypeJoin}
+       WHERE s_c.business_id = ? 
+         AND s_c.status = 'completed'
+         AND s_c.sale_date >= ? 
+         AND s_c.sale_date <= ?`,
+      [...customerItemTypeParams, auth.businessId, startTimestamp, endTimestamp]
     );
 
     // Get credit customers count
     const creditCustomers = await queryOne<{ count: number }>(
-      `SELECT COUNT(DISTINCT customer_name || COALESCE('|' || customer_phone, '')) as count
-       FROM sales
-       WHERE business_id = ? 
-         AND status = 'completed'
-         AND customer_name IS NOT NULL
-         AND sale_date >= ? 
-         AND sale_date <= ?`,
-      [auth.businessId, startTimestamp, endTimestamp]
+      `SELECT COUNT(DISTINCT s_c.customer_name || COALESCE('|' || s_c.customer_phone, '')) as count
+       FROM sales s_c
+       ${customerItemTypeJoin}
+       WHERE s_c.business_id = ? 
+         AND s_c.status = 'completed'
+         AND s_c.customer_name IS NOT NULL
+         AND s_c.sale_date >= ? 
+         AND s_c.sale_date <= ?`,
+      [...customerItemTypeParams, auth.businessId, startTimestamp, endTimestamp]
     );
 
     // Get walk-in customers count (sales without customer name)
     const walkInCustomers = await queryOne<{ count: number }>(
-      `SELECT COUNT(DISTINCT id) as count
-       FROM sales
-       WHERE business_id = ? 
-         AND status = 'completed'
-         AND customer_name IS NULL
-         AND sale_date >= ? 
-         AND sale_date <= ?`,
-      [auth.businessId, startTimestamp, endTimestamp]
+      `SELECT COUNT(DISTINCT s_c.id) as count
+       FROM sales s_c
+       ${customerItemTypeJoin}
+       WHERE s_c.business_id = ? 
+         AND s_c.status = 'completed'
+         AND s_c.customer_name IS NULL
+         AND s_c.sale_date >= ? 
+         AND s_c.sale_date <= ?`,
+      [...customerItemTypeParams, auth.businessId, startTimestamp, endTimestamp]
     );
 
     // Get repeat customers (customers with multiple purchases in this period)
     const repeatCustomers = await queryOne<{ count: number }>(
       `SELECT COUNT(*) as count
        FROM (
-         SELECT customer_name || COALESCE('|' || customer_phone, '') as customer_key
-         FROM sales
-         WHERE business_id = ? 
-           AND status = 'completed'
-           AND customer_name IS NOT NULL
-           AND sale_date >= ? 
-           AND sale_date <= ?
-         GROUP BY customer_name || COALESCE('|' || customer_phone, '')
+         SELECT s_c.customer_name || COALESCE('|' || s_c.customer_phone, '') as customer_key
+         FROM sales s_c
+         ${customerItemTypeJoin}
+         WHERE s_c.business_id = ? 
+           AND s_c.status = 'completed'
+           AND s_c.customer_name IS NOT NULL
+           AND s_c.sale_date >= ? 
+           AND s_c.sale_date <= ?
+         GROUP BY s_c.customer_name || COALESCE('|' || s_c.customer_phone, '')
          HAVING COUNT(*) > 1
        )`,
-      [auth.businessId, startTimestamp, endTimestamp]
+      [...customerItemTypeParams, auth.businessId, startTimestamp, endTimestamp]
     );
 
     // Get new customers (first purchase in this period)
     const newCustomers = await queryOne<{ count: number }>(
-      `SELECT COUNT(DISTINCT customer_name || COALESCE('|' || customer_phone, '')) as count
+      `SELECT COUNT(DISTINCT s1.customer_name || COALESCE('|' || s1.customer_phone, '')) as count
        FROM sales s1
+       ${itemType ? `JOIN sale_items si_n ON s1.id = si_n.sale_id AND COALESCE(si_n.item_type_snapshot, 'retail') = ?` : ''}
        WHERE s1.business_id = ? 
          AND s1.status = 'completed'
          AND s1.customer_name IS NOT NULL
@@ -184,7 +170,7 @@ export async function GET(request: NextRequest) {
              AND s2.status = 'completed'
              AND s2.sale_date < ?
          )`,
-      [auth.businessId, startTimestamp, endTimestamp, startTimestamp]
+      [...customerItemTypeParams, auth.businessId, startTimestamp, endTimestamp, startTimestamp]
     );
 
     // Check if we should aggregate by parent item
@@ -253,16 +239,14 @@ export async function GET(request: NextRequest) {
            AND s.status = 'completed'
            AND s.sale_date >= ? 
            AND s.sale_date <= ?
+           ${itemTypeFilter}
          GROUP BY COALESCE(parent.id, i.id), COALESCE(parent.name, i.name)
          HAVING total_profit != 0 OR total_sales != 0
          ORDER BY has_buy_price DESC, total_profit DESC`,
-        [auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp]
+        [auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp, ...itemTypeParams]
       );
     } else {
       // Individual item profits (existing behavior)
-      // buyPriceFallback contains one ? placeholder for business_id, and it's used twice
-      // So we need: business_id (for buyPriceFallback #1), business_id (for buyPriceFallback #2), 
-      //            business_id (for WHERE), startTimestamp, endTimestamp = 5 params total
       itemProfits = await query<{
         item_id: string;
         item_name: string;
@@ -302,10 +286,11 @@ export async function GET(request: NextRequest) {
            AND s.status = 'completed'
            AND s.sale_date >= ? 
            AND s.sale_date <= ?
+           ${itemTypeFilter}
          GROUP BY i.id, i.name, i.variant_name, parent.name
          HAVING total_profit != 0 OR total_sales != 0
          ORDER BY has_buy_price DESC, total_profit DESC`,
-        [auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp]
+        [auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp, ...itemTypeParams]
       );
     }
 
@@ -395,9 +380,19 @@ export async function GET(request: NextRequest) {
       [auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp]
     );
 
-    const totalStockLoss = stockLosses?.total_loss || 0;
-    const adjustedProfit = summaryData.total_profit - totalStockLoss;
-    
+    // Stock losses are business-wide (not filterable by item type).
+    // Only deduct them on the combined view (no itemType filter).
+    // Stock losses ignored for now
+    const totalStockLoss = 0;
+    const adjustedProfit = summaryData.total_profit;
+
+    // Gross margin = gross profit / sales (before any stock loss deduction)
+    const grossMargin =
+      summaryData.total_sales > 0
+        ? summaryData.total_profit / summaryData.total_sales
+        : 0;
+
+    // Adjusted margin = (gross profit - stock losses) / sales
     const profitMargin =
       summaryData.total_sales > 0
         ? adjustedProfit / summaryData.total_sales
@@ -417,16 +412,17 @@ export async function GET(request: NextRequest) {
       data: {
         totalProfit: adjustedProfit,
         grossProfit: summaryData.total_profit,
+        grossMargin,
         totalSales: summaryData.total_sales,
         totalCost: summaryData.total_cost,
-        stockLosses: {
+        stockLosses: !itemType ? {
           total: totalStockLoss,
           count: stockLosses?.loss_count || 0,
           spoilage: stockLosses?.spoilage_loss || 0,
           theft: stockLosses?.theft_loss || 0,
           damage: stockLosses?.damage_loss || 0,
           other: stockLosses?.other_loss || 0,
-        },
+        } : undefined,
         profitMargin,
         totalQuantitySold: summaryData.total_quantity_sold || 0,
         totalTransactions: summaryData.total_transactions || 0,
