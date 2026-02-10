@@ -44,6 +44,7 @@ export function ShiftOpenForm() {
   const [hasOpenShift, setHasOpenShift] = useState<boolean | null>(null);
   const [pendingApproval, setPendingApproval] = useState<BalanceApprovalRequest | null>(null);
   const [requiresApproval, setRequiresApproval] = useState(false);
+  const [submittedForApproval, setSubmittedForApproval] = useState(false);
 
   // Cashiers MUST submit for approval, admin/owner can open directly or submit for approval
   const isCashier = user?.role === 'cashier';
@@ -137,6 +138,7 @@ export function ShiftOpenForm() {
             amount: totalCash,
             status: 'pending',
           } as BalanceApprovalRequest);
+          setSubmittedForApproval(true);
         } else {
           setError(result.message || 'Failed to submit for approval');
         }
@@ -199,6 +201,25 @@ export function ShiftOpenForm() {
           </p>
           <Button onClick={() => router.push('/pos')} size="touch">
             Go to POS
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (submittedForApproval) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-full p-6">
+        <div className="text-center space-y-4 max-w-md">
+          <div className="w-20 h-20 mx-auto bg-[#259783]/10 rounded-2xl flex items-center justify-center">
+            <CheckCircle2 className="w-12 h-12 text-[#259783]" />
+          </div>
+          <h2 className="text-2xl font-bold">Shift Submitted Successfully</h2>
+          <p className="text-muted-foreground">
+            Your opening balance has been submitted for admin approval. An admin will review and approve it before your shift can start. You can check back on this page to see when it&apos;s approved.
+          </p>
+          <Button onClick={() => router.push('/pos')} size="touch" className="bg-[#259783] hover:bg-[#1a7a69]">
+            Back to POS
           </Button>
         </div>
       </div>
