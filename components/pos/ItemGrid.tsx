@@ -599,7 +599,7 @@ export function ItemGrid({
                             e.stopPropagation();
                             onQuickAdd(item, quickQty);
                           }}
-                          className="flex items-center justify-center gap-1 h-8 px-3 rounded-full bg-[#259783] hover:bg-[#1e8572] text-white text-[11px] font-bold shadow-sm shadow-[#259783]/30 hover:shadow-md hover:shadow-[#259783]/40 transition-all duration-150 active:scale-95 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+                          className="flex items-center justify-center gap-1 h-9 px-3.5 rounded-full bg-[#259783] hover:bg-[#1e8572] text-white text-xs font-bold border border-[#1e8572] shadow-sm shadow-[#259783]/30 hover:shadow-md hover:shadow-[#259783]/40 transition-all duration-150 active:scale-95 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
                           title={`Quick add ${quickQty} ${item.unit_type}`}
                         >
                           <Zap className="w-3 h-3" />
