@@ -231,7 +231,7 @@ export default async function HomePage() {
             <div className="flex items-center gap-3">
               {user ? (
                 <>
-                  <Link href="/admin">
+                  <Link href="/pos">
                     <Button variant="outline" size="sm" className="gap-2 border-emerald-600 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700">
                       <BarChart3 className="w-4 h-4" />
                       Dashboard
