@@ -336,6 +336,13 @@ export async function runMigrations() {
       console.error('⚠ supplier_products migration skipped:', error);
     }
 
+    try {
+      const { migratePackagingUnits } = await import('./migrate-packaging-units');
+      await migratePackagingUnits();
+    } catch (error) {
+      console.error('⚠ packaging_units migration skipped:', error);
+    }
+
     console.log('✅ Migration completed successfully!');
     return true;
   } catch (error) {

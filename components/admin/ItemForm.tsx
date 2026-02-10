@@ -670,6 +670,9 @@ interface ItemFormProps {
     bundle_quantity?: number | null;
     bundle_price?: number | null;
     bundle_name?: string | null;
+    // Packaging units
+    packaging_unit_name?: string | null;
+    packaging_unit_qty?: number | null;
     item_type?: ItemType;
   };
   parentItemId?: string; // If set, we're creating a variant for this parent
@@ -736,6 +739,16 @@ export function ItemForm({
     initialData?.bundle_price?.toString() || ''
   );
   const [bundleName, setBundleName] = useState<string>(initialData?.bundle_name || '');
+  // Packaging unit state (bulk ordering)
+  const [packagingEnabled, setPackagingEnabled] = useState<boolean>(
+    !!(initialData?.packaging_unit_name && initialData?.packaging_unit_qty)
+  );
+  const [packagingUnitName, setPackagingUnitName] = useState<string>(
+    initialData?.packaging_unit_name || ''
+  );
+  const [packagingUnitQty, setPackagingUnitQty] = useState<string>(
+    initialData?.packaging_unit_qty?.toString() || ''
+  );
   const [itemType, setItemType] = useState<ItemType>(initialData?.item_type || 'retail');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1091,6 +1104,9 @@ export function ItemForm({
         bundleQuantity: mode === 'parent' ? null : bundleQty,
         bundlePrice: mode === 'parent' ? null : bundlePrc,
         bundleName: mode === 'parent' ? null : (bundleEnabled && bundleName.trim() ? bundleName.trim() : null),
+        // Packaging units (for bulk ordering)
+        packagingUnitName: packagingEnabled && packagingUnitName.trim() ? packagingUnitName.trim() : null,
+        packagingUnitQty: packagingEnabled && packagingUnitQty ? parseFloat(packagingUnitQty) : null,
         itemType,
       };
 
@@ -2242,6 +2258,97 @@ export function ItemForm({
             </div>
           </>
         )}
+
+        {/* Packaging Unit Section - available for all modes */}
+        <Separator />
+        <div className="p-4 rounded-lg bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-900/10 dark:to-indigo-900/10 border border-blue-200/50 dark:border-blue-800/30 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Box className="h-4 w-4 text-blue-600" />
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Packaging Unit</p>
+              <Badge variant="outline" className="text-[10px] bg-blue-100/50 border-blue-300/50 text-blue-700">
+                Bulk Ordering
+              </Badge>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={packagingEnabled}
+                onChange={(e) => {
+                  setPackagingEnabled(e.target.checked);
+                  if (!e.target.checked) {
+                    setPackagingUnitName('');
+                    setPackagingUnitQty('');
+                  }
+                }}
+                disabled={isSubmitting}
+                className="w-4 h-4 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm font-medium text-blue-800 dark:text-blue-200">Enable</span>
+            </label>
+          </div>
+
+          {packagingEnabled && (
+            <div className="space-y-4 animate-in slide-in-from-top-2 duration-200">
+              <p className="text-xs text-blue-700 dark:text-blue-300">
+                Define how this product is ordered in bulk from suppliers. The system will auto-calculate individual item quantities.
+              </p>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="packagingUnitName" className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Package Name
+                  </Label>
+                  <Input
+                    id="packagingUnitName"
+                    type="text"
+                    value={packagingUnitName}
+                    onChange={(e) => setPackagingUnitName(e.target.value)}
+                    placeholder="e.g., Carton, Sack, Crate"
+                    disabled={isSubmitting}
+                    className="h-12 text-base focus-visible:ring-blue-500 bg-white dark:bg-gray-900"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="packagingUnitQty" className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Items per Package
+                  </Label>
+                  <Input
+                    id="packagingUnitQty"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={packagingUnitQty}
+                    onChange={(e) => setPackagingUnitQty(e.target.value)}
+                    placeholder="e.g., 18"
+                    disabled={isSubmitting}
+                    className="h-12 text-base focus-visible:ring-blue-500 bg-white dark:bg-gray-900"
+                  />
+                </div>
+              </div>
+
+              {/* Preview */}
+              {packagingUnitName && packagingUnitQty && parseFloat(packagingUnitQty) > 0 && (
+                <div className="p-3 bg-blue-100/50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm font-medium text-blue-800 dark:text-blue-200 flex items-center gap-2">
+                    <span className="text-lg">📦</span>
+                    Preview: <span className="font-bold">1 {packagingUnitName} = {packagingUnitQty} items</span>
+                  </p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                    Ordering 10 {packagingUnitName.toLowerCase()}s → {10 * parseFloat(packagingUnitQty)} individual items added to stock
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!packagingEnabled && (
+            <p className="text-xs text-blue-600/70 dark:text-blue-400/70">
+              Enable packaging units to define how products are ordered in bulk (e.g., 1 Carton = 18 packets, 1 Sack = 100 pieces)
+            </p>
+          )}
+        </div>
 
         {/* Parent mode info */}
         {mode === 'parent' && (

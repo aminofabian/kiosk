@@ -100,6 +100,8 @@ CREATE TABLE IF NOT EXISTS items (
   min_stock_level REAL, -- nullable
   current_sell_price REAL NOT NULL DEFAULT 0, -- denormalized for speed
   image_url TEXT,
+  packaging_unit_name TEXT, -- e.g., "Carton", "Sack", "Crate" (bulk packaging unit name)
+  packaging_unit_qty REAL, -- items per packaging unit (e.g., 18 packets per carton)
   active INTEGER NOT NULL DEFAULT 1,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,

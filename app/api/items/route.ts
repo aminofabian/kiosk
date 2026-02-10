@@ -278,6 +278,9 @@ export async function POST(request: NextRequest) {
       bundleQuantity, // number of units in a bundle (e.g., 3)
       bundlePrice,    // price for the bundle (e.g., 20)
       bundleName,     // optional friendly name (e.g., "3 for 20")
+      // Packaging unit fields (bulk ordering)
+      packagingUnitName, // e.g., "Carton", "Sack", "Crate"
+      packagingUnitQty,  // items per packaging unit (e.g., 18)
     } = body;
 
     // Parent items don't need price/stock/unit - they're just containers
@@ -407,8 +410,10 @@ export async function POST(request: NextRequest) {
       `INSERT INTO items (
         id, business_id, category_id, parent_item_id, name, variant_name, unit_type,
         item_type, current_stock, current_sell_price, min_stock_level, barcode, expiry_date,
-        bundle_quantity, bundle_price, bundle_name, active, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        bundle_quantity, bundle_price, bundle_name,
+        packaging_unit_name, packaging_unit_qty,
+        active, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         itemId,
         auth.businessId,
@@ -427,6 +432,9 @@ export async function POST(request: NextRequest) {
         isParent ? null : (bundleQuantity || null),
         isParent ? null : (bundlePrice || null),
         isParent ? null : (bundleName?.trim() || null),
+        // Packaging units (for bulk ordering)
+        packagingUnitName?.trim() || null,
+        packagingUnitQty || null,
         1,
         now,
       ]

@@ -46,11 +46,14 @@ interface BillLineItem {
   id: string;
   description: string;
   quantity: string;
-  amount: string; // unit price
+  amount: string; // unit price (per individual item)
+  packages: string; // number of packaging units ordered (e.g., 10 cartons)
   itemId?: string; // linked product item ID (for stock updates)
   currentStock?: number; // current stock level (display only)
   unitType?: string; // e.g. kg, piece (display only)
   sellPrice?: number; // current sell price (display only)
+  packagingUnitName?: string; // e.g., "Carton", "Sack"
+  packagingUnitQty?: number; // items per package (e.g., 18)
 }
 
 interface SupplierBillFormProps {
@@ -68,6 +71,8 @@ interface LinkedProduct {
   current_sell_price: number;
   default_cost_price: number | null;
   last_buy_price: number | null;
+  packaging_unit_name: string | null;
+  packaging_unit_qty: number | null;
 }
 
 export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }: SupplierBillFormProps) {
@@ -78,7 +83,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
   const [supplierPhone, setSupplierPhone] = useState('');
   const [supplierSearch, setSupplierSearch] = useState('');
   const [lineItems, setLineItems] = useState<BillLineItem[]>([
-    { id: '1', description: '', quantity: '0', amount: '' },
+    { id: '1', description: '', quantity: '', amount: '', packages: '' },
   ]);
   const [dueDateTime, setDueDateTime] = useState('');
   const [notes, setNotes] = useState('');
@@ -159,12 +164,15 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
             return {
               id: `linked-${index}-${Date.now()}`,
               description: displayName,
-              quantity: '0',
+              quantity: '',
               amount: buyPrice != null ? String(buyPrice) : '',
+              packages: '',
               itemId: product.item_id,
               currentStock: product.current_stock,
               unitType: product.unit_type,
               sellPrice: product.current_sell_price,
+              packagingUnitName: product.packaging_unit_name || undefined,
+              packagingUnitQty: product.packaging_unit_qty || undefined,
             };
           });
           setLineItems(newLineItems);
@@ -191,7 +199,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
     setSupplierId('');
     setSupplierName('');
     setSupplierPhone('');
-    setLineItems([{ id: '1', description: '', quantity: '0', amount: '' }]);
+    setLineItems([{ id: '1', description: '', quantity: '', amount: '', packages: '' }]);
     setUseManualSupplier(false);
     setSupplierSearch('');
   };
@@ -201,7 +209,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
     setSupplierName('');
     setSupplierPhone('');
     setUseManualSupplier(true);
-    setLineItems([{ id: '1', description: '', quantity: '0', amount: '' }]);
+    setLineItems([{ id: '1', description: '', quantity: '', amount: '', packages: '' }]);
   };
 
   const handleCreateSupplier = async () => {
@@ -257,36 +265,47 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
     }
   };
 
-  // Calculate total from line items (quantity x unit price)
+  // Calculate total from line items (quantity x unit price).
+  // If quantity is empty or invalid, the line is ignored (not counted).
   const totalAmount = lineItems.reduce((sum, item) => {
     const quantity = parseFloat(item.quantity || '0');
     const unitPrice = parseFloat(item.amount || '0');
+    if (isNaN(quantity) || quantity <= 0 || isNaN(unitPrice) || unitPrice <= 0) {
+      return sum;
+    }
     const itemTotal = quantity * unitPrice;
-    return sum + (isNaN(itemTotal) ? 0 : itemTotal);
+    return sum + itemTotal;
   }, 0);
 
   const linkedCount = lineItems.filter((i) => i.itemId).length;
 
   const formatBillDescription = () => {
+    // Only include items that have a quantity and amount; lines without quantity are ignored.
     const validItems = lineItems.filter(
       (item) => item.description.trim() && item.quantity && item.amount
     );
     if (validItems.length === 0) return '';
 
-    if (validItems.length === 1) {
-      const item = validItems[0];
-      const qty = parseFloat(item.quantity || '1');
+    const formatItemLine = (item: BillLineItem) => {
+      const qty = parseFloat(item.quantity || '0');
       const unitPrice = parseFloat(item.amount || '0');
       const total = qty * unitPrice;
-      return `${item.description.trim()} (${qty} × KES ${unitPrice.toFixed(2)} = KES ${total.toFixed(2)})`;
+      const pkgs = item.packages ? parseFloat(item.packages) : 0;
+      const hasPkgInfo = item.packagingUnitName && item.packagingUnitQty && pkgs > 0;
+      const pkgNote = hasPkgInfo ? ` (${pkgs} ${item.packagingUnitName}${pkgs !== 1 ? 's' : ''})` : '';
+      return { qty, unitPrice, total, pkgNote };
+    };
+
+    if (validItems.length === 1) {
+      const item = validItems[0];
+      const { qty, unitPrice, total, pkgNote } = formatItemLine(item);
+      return `${item.description.trim()}${pkgNote} (${qty} × KES ${unitPrice.toFixed(2)} = KES ${total.toFixed(2)})`;
     }
 
     return validItems
       .map((item, index) => {
-        const qty = parseFloat(item.quantity || '1');
-        const unitPrice = parseFloat(item.amount || '0');
-        const total = qty * unitPrice;
-        return `${index + 1}. ${item.description.trim()} - ${qty} × KES ${unitPrice.toFixed(2)} = KES ${total.toFixed(2)}`;
+        const { qty, unitPrice, total, pkgNote } = formatItemLine(item);
+        return `${index + 1}. ${item.description.trim()}${pkgNote} - ${qty} × KES ${unitPrice.toFixed(2)} = KES ${total.toFixed(2)}`;
       })
       .join('\n');
   };
@@ -294,7 +313,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
   const addLineItem = () => {
     setLineItems([
       ...lineItems,
-      { id: Date.now().toString(), description: '', quantity: '0', amount: '' },
+      { id: Date.now().toString(), description: '', quantity: '', amount: '', packages: '' },
     ]);
   };
 
@@ -304,11 +323,18 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
     }
   };
 
-  const updateLineItem = (id: string, field: 'description' | 'quantity' | 'amount', value: string) => {
+  const updateLineItem = (id: string, field: 'description' | 'quantity' | 'amount' | 'packages', value: string) => {
     setLineItems(
-      lineItems.map((item) =>
-        item.id === id ? { ...item, [field]: value } : item
-      )
+      lineItems.map((item) => {
+        if (item.id !== id) return item;
+        const updated = { ...item, [field]: value };
+        // Auto-calculate quantity when packages change (if packaging unit is defined)
+        if (field === 'packages' && item.packagingUnitQty) {
+          const pkgs = parseFloat(value) || 0;
+          updated.quantity = pkgs > 0 ? String(pkgs * item.packagingUnitQty) : '';
+        }
+        return updated;
+      })
     );
   };
 
@@ -331,7 +357,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
     }
 
     for (const item of validItems) {
-      const quantity = parseFloat(item.quantity);
+      const quantity = parseFloat(item.quantity || '0');
       const unitPrice = parseFloat(item.amount);
 
       if (isNaN(quantity) || quantity <= 0) {
@@ -360,10 +386,11 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
     try {
       const billDescription = formatBillDescription();
 
-      const allValid = lineItems.filter(
+      // Lines that will actually update stock (must have quantity)
+      const stockSourceItems = lineItems.filter(
         (item) => item.description.trim() && item.quantity && item.amount
       );
-      const stockItems = allValid
+      const stockItems = stockSourceItems
         .filter((item) => item.itemId)
         .map((item) => ({
           itemId: item.itemId!,
@@ -385,7 +412,9 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
       if (result.success) {
         // Update default cost price for linked products when user changed the buy price
         if (supplierId) {
-          const linkedWithPrice = allValid.filter(
+          // Any linked product with a non-zero amount should update its default cost,
+          // even if quantity was left empty (e.g. adjusting price only).
+          const linkedWithPrice = lineItems.filter(
             (item) => item.itemId && item.amount && parseFloat(item.amount) > 0
           );
           await Promise.allSettled(
@@ -672,13 +701,23 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
           </div>
 
           {/* Table-style header (visible on larger screens) */}
-          <div className="hidden sm:grid sm:grid-cols-[1fr_80px_100px_90px_28px] gap-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-            <span>Product</span>
-            <span className="text-center">Qty</span>
-            <span className="text-center">Buy Price</span>
-            <span className="text-right">Total</span>
-            <span></span>
-          </div>
+          {(() => {
+            const hasAnyPackaging = lineItems.some((i) => i.packagingUnitName && i.packagingUnitQty);
+            return (
+              <div className={`hidden sm:grid gap-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 ${
+                hasAnyPackaging
+                  ? 'sm:grid-cols-[1fr_80px_80px_100px_90px_28px]'
+                  : 'sm:grid-cols-[1fr_80px_100px_90px_28px]'
+              }`}>
+                <span>Product</span>
+                {hasAnyPackaging && <span className="text-center">Pkgs</span>}
+                <span className="text-center">Qty</span>
+                <span className="text-center">Buy Price</span>
+                <span className="text-right">Total</span>
+                <span></span>
+              </div>
+            );
+          })()}
 
           {/* Items */}
           <div className="space-y-2">
@@ -688,6 +727,8 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
               const itemTotal = qty * buyPrice;
               const hasTotal = !isNaN(itemTotal) && itemTotal > 0;
               const margin = item.sellPrice && buyPrice > 0 ? item.sellPrice - buyPrice : null;
+              const hasAnyPackaging = lineItems.some((i) => i.packagingUnitName && i.packagingUnitQty);
+              const hasPkg = !!(item.packagingUnitName && item.packagingUnitQty);
 
               return (
                 <div
@@ -699,7 +740,11 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
                   }`}
                 >
                   {/* ── Desktop: single-row layout ── */}
-                  <div className="hidden sm:grid sm:grid-cols-[1fr_80px_100px_90px_28px] gap-2 items-center px-3 py-2.5">
+                  <div className={`hidden sm:grid gap-2 items-center px-3 py-2.5 ${
+                    hasAnyPackaging
+                      ? 'sm:grid-cols-[1fr_80px_80px_100px_90px_28px]'
+                      : 'sm:grid-cols-[1fr_80px_100px_90px_28px]'
+                  }`}>
                     {/* Product name + meta */}
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
@@ -740,22 +785,55 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
                               {margin > 0 ? '+' : ''}{formatPrice(margin)} margin
                             </span>
                           )}
+                          {hasPkg && (
+                            <span className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
+                              <Package className="w-2.5 h-2.5 inline mr-0.5 -mt-px" />
+                              1 {item.packagingUnitName} = {item.packagingUnitQty} {item.unitType || 'items'}
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
 
+                    {/* Packages input (only when any item has packaging) */}
+                    {hasAnyPackaging && (
+                      hasPkg ? (
+                        <div className="relative">
+                          <Input
+                            type="number"
+                            value={item.packages}
+                            onChange={(e) => updateLineItem(item.id, 'packages', e.target.value)}
+                            onFocus={(e) => { if (item.packages === '0') e.target.select(); }}
+                            placeholder="0"
+                            min="0"
+                            step="1"
+                            className="h-8 text-sm text-center border border-indigo-300 dark:border-indigo-700 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                          />
+                        </div>
+                      ) : (
+                        <div />
+                      )
+                    )}
+
                     {/* Qty input */}
-                    <Input
-                      type="number"
-                      value={item.quantity}
-                      onChange={(e) => updateLineItem(item.id, 'quantity', e.target.value)}
-                      onFocus={(e) => { if (item.quantity === '0') e.target.select(); }}
-                      placeholder="0"
-                      required
-                      min="0"
-                      step="0.01"
-                      className="h-8 text-sm text-center border border-slate-200 dark:border-slate-700 rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
+                    {hasPkg ? (
+                      <div className="h-8 flex items-center justify-center rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700">
+                        <span className={`text-xs font-bold ${qty > 0 ? 'text-slate-900 dark:text-white' : 'text-slate-300'}`}>
+                          {qty > 0 ? qty : '0'}
+                        </span>
+                      </div>
+                    ) : (
+                      <Input
+                        type="number"
+                        value={item.quantity}
+                        onChange={(e) => updateLineItem(item.id, 'quantity', e.target.value)}
+                        onFocus={(e) => { if (item.quantity === '0') e.target.select(); }}
+                        placeholder="0"
+                        min="0"
+                        step="0.01"
+                        className="h-8 text-sm text-center border border-slate-200 dark:border-slate-700 rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                    )}
 
                     {/* Buy price input */}
                     <Input
@@ -843,26 +921,64 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
                             {margin > 0 ? '+' : ''}{formatPrice(margin)}
                           </span>
                         )}
+                        {hasPkg && (
+                          <span className="text-indigo-600 dark:text-indigo-400 font-medium">
+                            <Package className="w-2.5 h-2.5 inline mr-0.5 -mt-px" />
+                            1 {item.packagingUnitName} = {item.packagingUnitQty} {item.unitType || 'items'}
+                          </span>
+                        )}
                       </div>
                     )}
 
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <label className="text-[10px] font-medium text-slate-400 mb-0.5 block">
-                          Qty{item.unitType ? ` (${item.unitType})` : ''}
-                        </label>
-                        <Input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => updateLineItem(item.id, 'quantity', e.target.value)}
-                          onFocus={(e) => { if (item.quantity === '0') e.target.select(); }}
-                          placeholder="0"
-                          required
-                          min="0"
-                          step="0.01"
-                          className="h-8 text-sm border border-slate-200 dark:border-slate-700 rounded-lg"
-                        />
+                    {/* Packaging input row (mobile) */}
+                    {hasPkg && (
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-[10px] font-medium text-indigo-500 mb-0.5 block">
+                            {item.packagingUnitName}s
+                          </label>
+                          <Input
+                            type="number"
+                            value={item.packages}
+                            onChange={(e) => updateLineItem(item.id, 'packages', e.target.value)}
+                            onFocus={(e) => { if (item.packages === '0') e.target.select(); }}
+                            placeholder="0"
+                            min="0"
+                            step="1"
+                            className="h-8 text-sm border border-indigo-300 dark:border-indigo-700 bg-indigo-50/50 dark:bg-indigo-950/20 rounded-lg"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-medium text-slate-400 mb-0.5 block">
+                            = Total {item.unitType || 'items'}
+                          </label>
+                          <div className="h-8 flex items-center justify-center rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700">
+                            <span className={`text-sm font-bold ${qty > 0 ? 'text-slate-900 dark:text-white' : 'text-slate-300'}`}>
+                              {qty > 0 ? qty : '0'}
+                            </span>
+                          </div>
+                        </div>
                       </div>
+                    )}
+
+                    <div className={`grid gap-2 ${hasPkg ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                      {!hasPkg && (
+                        <div>
+                          <label className="text-[10px] font-medium text-slate-400 mb-0.5 block">
+                            Qty{item.unitType ? ` (${item.unitType})` : ''}
+                          </label>
+                          <Input
+                            type="number"
+                            value={item.quantity}
+                            onChange={(e) => updateLineItem(item.id, 'quantity', e.target.value)}
+                            onFocus={(e) => { if (item.quantity === '0') e.target.select(); }}
+                            placeholder="0"
+                            min="0"
+                            step="0.01"
+                            className="h-8 text-sm border border-slate-200 dark:border-slate-700 rounded-lg"
+                          />
+                        </div>
+                      )}
                       <div>
                         <label className="text-[10px] font-medium text-slate-400 mb-0.5 block">
                           Buy Price

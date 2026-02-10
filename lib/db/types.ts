@@ -86,6 +86,9 @@ export interface Item {
   bundle_quantity: number | null; // Number of units in a bundle (e.g., 3)
   bundle_price: number | null; // Price for the bundle (e.g., 20)
   bundle_name: string | null; // Optional friendly name (e.g., "3 for 20", "Half Dozen")
+  // Packaging units: bulk ordering (e.g., "Carton" = 18 packets)
+  packaging_unit_name: string | null; // e.g., "Carton", "Sack", "Crate"
+  packaging_unit_qty: number | null; // items per packaging unit (e.g., 18)
   active: number; // 1 = true, 0 = false
   created_at: number;
 }

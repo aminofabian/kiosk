@@ -45,6 +45,8 @@ export async function GET(
       current_sell_price: number;
       default_cost_price: number | null;
       last_buy_price: number | null;
+      packaging_unit_name: string | null;
+      packaging_unit_qty: number | null;
     }>(
       `SELECT 
         sp.id as supplier_product_id,
@@ -61,10 +63,13 @@ export async function GET(
          FROM inventory_batches ib 
          WHERE ib.item_id = i.id 
          ORDER BY ib.created_at DESC 
-         LIMIT 1) as last_buy_price
+         LIMIT 1) as last_buy_price,
+        COALESCE(i.packaging_unit_name, p.packaging_unit_name) as packaging_unit_name,
+        COALESCE(i.packaging_unit_qty, p.packaging_unit_qty) as packaging_unit_qty
       FROM supplier_products sp
       JOIN items i ON sp.item_id = i.id
       JOIN categories c ON i.category_id = c.id
+      LEFT JOIN items p ON i.parent_item_id = p.id
       WHERE sp.supplier_id = ? AND i.active = 1
       ORDER BY c.name ASC, i.name ASC`,
       [supplierId]

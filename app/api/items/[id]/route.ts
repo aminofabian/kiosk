@@ -114,6 +114,8 @@ export async function PUT(
       name, categoryId, unitType, buyPrice, sellPrice, minStockLevel, variantName, barcode, expiryDate,
       // Bundle pricing fields
       bundleQuantity, bundlePrice, bundleName,
+      // Packaging unit fields (bulk ordering)
+      packagingUnitName, packagingUnitQty,
       itemType,
     } = body;
 
@@ -216,23 +218,27 @@ export async function PUT(
     console.log('Item type check:', { isParentItem, itemId, buyPriceNum });
 
     if (isParentItem) {
-      // Update parent item (name, category, and optionally item_type)
+      // Update parent item (name, category, packaging units, and optionally item_type)
       const itemTypeVal = itemType && ['grocery', 'retail'].includes(itemType) ? itemType : null;
       const updateResult = itemTypeVal
         ? await execute(
             `UPDATE items 
              SET name = ?,
                  category_id = ?,
-                 item_type = ?
+                 item_type = ?,
+                 packaging_unit_name = ?,
+                 packaging_unit_qty = ?
              WHERE id = ? AND business_id = ?`,
-            [name.trim(), categoryId, itemTypeVal, itemId, auth.businessId]
+            [name.trim(), categoryId, itemTypeVal, packagingUnitName?.trim() || null, packagingUnitQty || null, itemId, auth.businessId]
           )
         : await execute(
             `UPDATE items 
              SET name = ?,
-                 category_id = ?
+                 category_id = ?,
+                 packaging_unit_name = ?,
+                 packaging_unit_qty = ?
              WHERE id = ? AND business_id = ?`,
-            [name.trim(), categoryId, itemId, auth.businessId]
+            [name.trim(), categoryId, packagingUnitName?.trim() || null, packagingUnitQty || null, itemId, auth.businessId]
           );
 
       if (updateResult.rowsAffected === 0) {
@@ -259,6 +265,8 @@ export async function PUT(
              bundle_quantity = ?,
              bundle_price = ?,
              bundle_name = ?,
+             packaging_unit_name = ?,
+             packaging_unit_qty = ?,
              item_type = ?
          WHERE id = ? AND business_id = ?`,
         [
@@ -272,6 +280,8 @@ export async function PUT(
           bundleQuantity || null,
           bundlePrice || null,
           bundleName?.trim() || null,
+          packagingUnitName?.trim() || null,
+          packagingUnitQty || null,
           itemTypeVal,
           itemId,
           auth.businessId,
