@@ -418,6 +418,8 @@ export default function POSPage() {
     suggestionsAbortRef.current = controller;
 
     async function fetchSuggestions() {
+      // Guard: if already aborted (timer fired after cleanup), bail out
+      if (controller.signal.aborted) return;
       try {
         setLoadingSuggestions(true);
         const response = await fetch(
@@ -453,7 +455,9 @@ export default function POSPage() {
         if (err instanceof Error && err.name === 'AbortError') return;
         console.error('Error fetching suggestions:', err);
       } finally {
-        if (!controller.signal.aborted) {
+        // Only reset loading if THIS controller is still the active one
+        // (prevents superseded fetches from resetting loading for the latest fetch)
+        if (suggestionsAbortRef.current === controller) {
           setLoadingSuggestions(false);
         }
       }
@@ -608,9 +612,11 @@ export default function POSPage() {
 
   // Shared search suggestions dropdown renderer
   const renderSuggestionsDropdown = useCallback((isDesktop = false) => {
-    const showSkeleton = loadingSuggestions && searchQuery && !showSuggestions;
+    // Only show skeleton when we're truly waiting for the first results
+    // Don't show if we already have suggestions or if the debounced ItemGrid results are loading/loaded
+    const showSkeleton = loadingSuggestions && searchQuery && searchSuggestions.length === 0 && !showSuggestions && !debouncedSearchQuery;
     const showResults = showSuggestions && searchSuggestions.length > 0;
-    const showNoResults = !loadingSuggestions && searchQuery.length >= 2 && searchSuggestions.length === 0 && !showSuggestions && !isSearchPending;
+    const showNoResults = !loadingSuggestions && searchQuery.length >= 2 && searchSuggestions.length === 0 && !showSuggestions && !isSearchPending && !debouncedSearchQuery;
 
     if (!showSkeleton && !showResults && !showNoResults) return null;
 
@@ -758,7 +764,7 @@ export default function POSPage() {
         )}
       </div>
     );
-  }, [loadingSuggestions, searchQuery, showSuggestions, searchSuggestions, isSearchPending, selectedSuggestionIndex, handleSelectSuggestion, highlightMatch]);
+  }, [loadingSuggestions, searchQuery, debouncedSearchQuery, showSuggestions, searchSuggestions, isSearchPending, selectedSuggestionIndex, handleSelectSuggestion, highlightMatch]);
 
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const cartTotal = cartItems.reduce(
