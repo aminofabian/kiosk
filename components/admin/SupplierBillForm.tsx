@@ -41,6 +41,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 
 interface Supplier {
   id: string;
@@ -118,6 +119,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
   const [editSupplierNotes, setEditSupplierNotes] = useState('');
   const [isUpdatingSupplier, setIsUpdatingSupplier] = useState(false);
   const [editSupplierError, setEditSupplierError] = useState<string | null>(null);
+  const [isResettingStock, setIsResettingStock] = useState(false);
 
   // Filtered suppliers based on search, sorted alphabetically by name
   const filteredSuppliers = useMemo(() => {
@@ -425,6 +427,87 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
         item.id === id ? { ...item, showPackaging: !item.showPackaging } : item
       )
     );
+  };
+
+  const handleResetStockToZero = async () => {
+    if (isResettingStock) return;
+
+    const itemsToReset = lineItems.filter(
+      (item) =>
+        item.itemId &&
+        item.currentStock != null &&
+        item.currentStock !== 0
+    );
+
+    if (itemsToReset.length === 0) {
+      toast.info('No linked products with stock to reset.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `This will reset current stock to 0 for ${itemsToReset.length} linked product${
+        itemsToReset.length !== 1 ? 's' : ''
+      } (including negatives). This cannot be undone.\n\nContinue?`
+    );
+    if (!confirmed) return;
+
+    setIsResettingStock(true);
+    try {
+      const results = await Promise.allSettled(
+        itemsToReset.map((item) => {
+          const current = item.currentStock!;
+          const adjustmentType = current > 0 ? 'decrease' : 'increase';
+          const quantity = Math.abs(current);
+
+          return apiPost('/api/stock/adjust', {
+            itemId: item.itemId!,
+            adjustmentType,
+            quantity,
+            reason: 'counting_error',
+            notes: 'Reset from Supplier Bill',
+          });
+        })
+      );
+
+      const succeededItemIds = new Set(
+        itemsToReset
+          .map((item, index) => {
+            const res = results[index];
+            if (
+              res.status === 'fulfilled' &&
+              (res.value as { success?: boolean })?.success
+            ) {
+              return item.itemId!;
+            }
+            return null;
+          })
+          .filter((id): id is string => Boolean(id))
+      );
+
+      if (succeededItemIds.size === 0) {
+        toast.error('Failed to reset stock. Please try again.');
+        return;
+      }
+
+      setLineItems((prev) =>
+        prev.map((item) =>
+          item.itemId && succeededItemIds.has(item.itemId)
+            ? { ...item, currentStock: 0 }
+            : item
+        )
+      );
+
+      toast.success(
+        `Stock reset to zero for ${succeededItemIds.size} product${
+          succeededItemIds.size !== 1 ? 's' : ''
+        }.`
+      );
+    } catch (err) {
+      console.error('Error resetting stock:', err);
+      toast.error('Failed to reset stock. Please try again.');
+    } finally {
+      setIsResettingStock(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -788,16 +871,40 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
                 </div>
               )}
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addLineItem}
-              className="h-7 text-xs border-slate-300 dark:border-slate-600"
-            >
-              <Plus className="w-3 h-3 mr-1" />
-              Add Item
-            </Button>
+            <div className="flex items-center gap-2">
+              {linkedCount > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleResetStockToZero}
+                  disabled={isResettingStock}
+                  className="h-7 text-xs border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
+                >
+                  {isResettingStock ? (
+                    <>
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                      Reset stock
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-3 h-3 mr-1" />
+                      Reset stock
+                    </>
+                  )}
+                </Button>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addLineItem}
+                className="h-7 text-xs border-slate-300 dark:border-slate-600"
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Add Item
+              </Button>
+            </div>
           </div>
 
           {/* Table-style header (visible on larger screens) */}
@@ -886,24 +993,16 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
                         )}
                       </div>
 
-                      {/* Qty: auto-computed if packaging set, otherwise manual */}
-                      {hasPkg ? (
-                        <div className="h-8 flex items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800">
-                          <span className={`text-xs font-bold ${qty > 0 ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-300'}`}>
-                            {qty > 0 ? qty : '—'}
-                          </span>
-                        </div>
-                      ) : (
-                        <Input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => updateLineItem(item.id, 'quantity', e.target.value)}
-                          placeholder="0"
-                          min="0"
-                          step="0.01"
-                          className="h-8 text-sm text-center border border-slate-200 dark:border-slate-700 rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        />
-                      )}
+                      {/* Qty: editable even when packaging is set */}
+                      <Input
+                        type="number"
+                        value={item.quantity}
+                        onChange={(e) => updateLineItem(item.id, 'quantity', e.target.value)}
+                        placeholder="0"
+                        min="0"
+                        step="0.01"
+                        className="h-8 text-sm text-center border border-slate-200 dark:border-slate-700 rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
 
                       {/* Buy price input */}
                       <Input
@@ -1148,23 +1247,21 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
                     )}
 
                     {/* Price row */}
-                    <div className={`grid gap-2 ${hasPkg ? 'grid-cols-2' : 'grid-cols-3'}`}>
-                      {!hasPkg && (
-                        <div>
-                          <label className="text-[10px] font-medium text-slate-400 mb-0.5 block">
-                            Qty{item.unitType ? ` (${item.unitType})` : ''}
-                          </label>
-                          <Input
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => updateLineItem(item.id, 'quantity', e.target.value)}
-                            placeholder="0"
-                            min="0"
-                            step="0.01"
-                            className="h-8 text-sm border border-slate-200 dark:border-slate-700 rounded-lg"
-                          />
-                        </div>
-                      )}
+                    <div className="grid gap-2 grid-cols-3">
+                      <div>
+                        <label className="text-[10px] font-medium text-slate-400 mb-0.5 block">
+                          Qty{item.unitType ? ` (${item.unitType})` : ''}
+                        </label>
+                        <Input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => updateLineItem(item.id, 'quantity', e.target.value)}
+                          placeholder="0"
+                          min="0"
+                          step="0.01"
+                          className="h-8 text-sm border border-slate-200 dark:border-slate-700 rounded-lg"
+                        />
+                      </div>
                       <div>
                         <label className="text-[10px] font-medium text-slate-400 mb-0.5 block">
                           Buy Price

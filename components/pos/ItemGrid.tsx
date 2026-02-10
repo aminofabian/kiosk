@@ -120,7 +120,7 @@ const ItemCard = memo(function ItemCard({
             <Button
               size="sm"
               variant="default"
-              className="h-8 px-3 flex items-center justify-center gap-1.5 flex-shrink-0 transition-all duration-150 rounded-lg bg-[#259783] hover:bg-[#1e8572] text-white text-xs font-semibold border border-[#1e8572] shadow-sm shadow-[#259783]/30 hover:shadow-md active:scale-95 -mt-0.5 -mr-1 focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+              className="h-8 px-2 flex items-center justify-center gap-1.5 flex-shrink-0 transition-all duration-150 rounded-lg bg-[#259783] hover:bg-[#1e8572] text-white text-xs font-semibold border border-[#1e8572] shadow-sm shadow-[#259783]/30 hover:shadow-md active:scale-95 -mt-0.5 -mr-1 focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
               onClick={(e) => {
                 e.stopPropagation();
                 onQuickAdd(item, quickQty);
@@ -493,9 +493,9 @@ export function ItemGrid({
 
         {/* ── 🔥 Quick Sell – Top Sellers ── */}
         {hasFeatured && (
-          <section>
+          <section className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-slate-900/70 shadow-sm p-3.5 sm:p-4 space-y-3">
             {/* Section header */}
-            <div className="flex items-center gap-2 mb-3 px-0.5">
+            <div className="flex items-center gap-2 mb-2">
               <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm shadow-[#259783]/25">
                 <Flame className="w-3.5 h-3.5 text-white" />
               </div>
@@ -599,7 +599,7 @@ export function ItemGrid({
                             e.stopPropagation();
                             onQuickAdd(item, quickQty);
                           }}
-                          className="flex items-center justify-center gap-1 h-9 px-3.5 rounded-full bg-[#259783] hover:bg-[#1e8572] text-white text-xs font-bold border border-[#1e8572] shadow-sm shadow-[#259783]/30 hover:shadow-md hover:shadow-[#259783]/40 transition-all duration-150 active:scale-95 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+                          className="flex items-center justify-center gap-1 h-9 px-2 rounded-full bg-[#259783] hover:bg-[#1e8572] text-white text-xs font-bold border border-[#1e8572] shadow-sm shadow-[#259783]/30 hover:shadow-md hover:shadow-[#259783]/40 transition-all duration-150 active:scale-95 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
                           title={`Quick add ${quickQty} ${item.unit_type}`}
                         >
                           <Zap className="w-3 h-3" />
@@ -616,8 +616,8 @@ export function ItemGrid({
 
         {/* ── ⚠️ Low Stock Strip ── */}
         {hasLowStock && (
-          <section>
-            <div className="flex items-center gap-2 mb-2 px-0.5">
+          <section className="rounded-2xl border border-amber-100/80 dark:border-amber-800/40 bg-amber-50/60 dark:bg-amber-950/30 shadow-sm p-3 sm:p-3.5 space-y-2">
+            <div className="flex items-center gap-2 mb-2">
               <div className="w-6 h-6 rounded-md bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm shadow-amber-400/20">
                 <AlertTriangle className="w-3 h-3 text-white" />
               </div>
@@ -631,7 +631,7 @@ export function ItemGrid({
             </div>
 
             {/* Horizontal scrollable strip */}
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 -mx-1 px-1">
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
               {lowStockItems!.map((item) => (
                 <button
                   key={item.id}
@@ -750,8 +750,8 @@ if (items.length === 0 && !loading) {
 }
 
 return (
-  <div className="p-4 sm:p-6 flex items-center justify-center min-h-full">
-    <div className="w-full max-w-6xl">
+  <div className="p-4 sm:p-6 flex items-start justify-center min-h-full">
+    <div className="w-full max-w-6xl rounded-3xl border border-gray-100/80 dark:border-gray-800/70 bg-white/90 dark:bg-slate-900/80 shadow-sm px-3 sm:px-5 py-4 sm:py-5">
       {searchQuery && items.length > 0 && (
         <div className="mb-6 space-y-2.5">
           <div className="flex items-center justify-between">

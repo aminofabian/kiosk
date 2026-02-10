@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
          AND s.sale_date >= ?
        GROUP BY i.id
        ORDER BY quantity_sold DESC
-       LIMIT 24`,
+       LIMIT 30`,
       [auth.businessId, sinceSeconds]
     );
 

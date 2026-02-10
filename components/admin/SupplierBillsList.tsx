@@ -42,10 +42,12 @@ import {
   TrendingUp,
   Wallet,
   Truck,
+  Trash2,
 } from 'lucide-react';
-import { apiGet, apiPost } from '@/lib/utils/api-client';
+import { apiGet, apiPost, apiDelete } from '@/lib/utils/api-client';
 import { SupplierBillEditForm } from '@/components/admin/SupplierBillEditForm';
 import type { SupplierBill } from '@/lib/db/types';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -85,6 +87,8 @@ interface SupplierBillsListProps {
 
 export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
   // ── State ────────────────────────────────────────────
+  const { user } = useCurrentUser();
+  const canDeleteBills = user?.role === 'admin' || user?.role === 'owner';
   const [bills, setBills] = useState<SupplierBillWithDetails[]>([]);
   const [suppliersFromTable, setSuppliersFromTable] = useState<SupplierFromTable[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,6 +110,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
     totalTransactions: number;
   } | null>(null);
   const [salesLoading, setSalesLoading] = useState(false);
+  const [deletingBillId, setDeletingBillId] = useState<string | null>(null);
 
   // ── Helpers ──────────────────────────────────────────
 
@@ -332,6 +337,40 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
     setPaymentMethod('');
     setPaymentNotes('');
     setMarkAsPaidDialog({ open: true, bill });
+  };
+
+  const handleDeleteBill = async (bill: SupplierBillWithDetails) => {
+    if (!canDeleteBills) {
+      alert('Only administrators can cancel supplier bills.');
+      return;
+    }
+
+    if (bill.status === 'paid') {
+      alert('You cannot delete a paid bill.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Cancel this bill from "${bill.supplier_name}" for ${formatPrice(
+        bill.amount
+      )}? This will mark the bill as cancelled and cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setDeletingBillId(bill.id);
+    try {
+      const result = await apiDelete(`/api/supplier-bills/${bill.id}`);
+      if (result.success) {
+        await fetchBills();
+      } else {
+        setError(result.message || 'Failed to cancel bill');
+      }
+    } catch (err) {
+      console.error('Error cancelling bill:', err);
+      setError('An error occurred while cancelling the bill.');
+    } finally {
+      setDeletingBillId(null);
+    }
   };
 
   const handleConfirmMarkAsPaid = async () => {
@@ -1316,7 +1355,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                         </div>
                       )}
 
-                      {bill.status !== 'paid' && (
+                      {bill.status !== 'paid' && bill.status !== 'cancelled' && (
                         <div className="pt-1 flex flex-wrap gap-2">
                           <Button
                             onClick={() => setEditingBill(bill)}
@@ -1335,6 +1374,27 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                             <CheckCircle2 className="w-4 h-4 mr-1.5" />
                             Mark as Paid
                           </Button>
+                          {canDeleteBills && (
+                            <Button
+                              onClick={() => handleDeleteBill(bill)}
+                              variant="outline"
+                              size="sm"
+                              disabled={deletingBillId === bill.id}
+                              className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/20"
+                            >
+                              {deletingBillId === bill.id ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                                  Cancelling...
+                                </>
+                              ) : (
+                                <>
+                                  <Trash2 className="w-4 h-4 mr-1.5" />
+                                  Cancel
+                                </>
+                              )}
+                            </Button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1448,7 +1508,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                           </span>
                         </td>
                         <td className="p-3 text-right">
-                          {bill.status !== 'paid' && (
+                          {bill.status !== 'paid' && bill.status !== 'cancelled' && (
                             <div className="flex items-center justify-end gap-1.5">
                               <Button
                                 onClick={() => setEditingBill(bill)}
@@ -1467,6 +1527,27 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                                 <CheckCircle2 className="w-4 h-4 mr-1.5" />
                                 Pay
                               </Button>
+                              {canDeleteBills && (
+                                <Button
+                                  onClick={() => handleDeleteBill(bill)}
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={deletingBillId === bill.id}
+                                  className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/20"
+                                >
+                                  {deletingBillId === bill.id ? (
+                                    <>
+                                      <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                                      Cancelling...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Trash2 className="w-4 h-4 mr-1.5" />
+                                      Cancel
+                                    </>
+                                  )}
+                                </Button>
+                              )}
                             </div>
                           )}
                         </td>
