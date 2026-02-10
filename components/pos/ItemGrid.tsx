@@ -2,9 +2,8 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback, memo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Zap, Tag } from 'lucide-react';
+import { Zap, Tag, Package, ShoppingBag } from 'lucide-react';
 import type { Item } from '@/lib/db/types';
 import type { Category } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
@@ -34,6 +33,23 @@ interface ItemGridProps {
   categories?: Category[]; // Pass categories from parent to avoid redundant fetch
 }
 
+// Stock status helpers
+function getStockStatus(stock: number): 'out' | 'low' | 'ok' {
+  if (stock <= 0) return 'out';
+  if (stock < 10) return 'low';
+  return 'ok';
+}
+
+function formatStock(stock: number, unitType: UnitType): string {
+  if (stock <= 0) return 'Out of stock';
+  return `${stock} ${unitType}`;
+}
+
+function getQuickAddQuantity(item: Item): number {
+  if (item.unit_type === 'kg' || item.unit_type === 'g') return 0.5;
+  return 1;
+}
+
 // Memoized item card component for better performance
 const ItemCard = memo(function ItemCard({
   item,
@@ -45,75 +61,117 @@ const ItemCard = memo(function ItemCard({
   onQuickAdd?: (item: Item, quantity: number) => void;
 }) {
   const formatPrice = (price: number) => `KES ${price.toFixed(0)}`;
-  const formatStock = (stock: number, unitType: UnitType) => {
-    if (stock <= 0) return 'Out of stock';
-    if (stock < 10) return `Low (${stock} ${unitType})`;
-    return `${stock} ${unitType}`;
-  };
-  const isLowStock = (stock: number) => stock > 0 && stock < 10;
-  const getQuickAddQuantity = (item: Item): number => {
-    if (item.unit_type === 'kg' || item.unit_type === 'g') return 0.5;
-    return 1;
-  };
-
+  const stockStatus = getStockStatus(item.current_stock);
   const quickQty = getQuickAddQuantity(item);
+  const isOutOfStock = stockStatus === 'out';
 
   return (
     <Card
-      className="group cursor-pointer hover:-translate-y-0.5 transition-all duration-200 ease-out touch-target bg-white dark:bg-slate-800/80 border-gray-200/80 dark:border-gray-700/40 hover:border-[#259783]/50 dark:hover:border-[#259783]/40 shadow-sm hover:shadow-lg hover:shadow-[#259783]/[0.06] relative overflow-hidden"
+      className={`group cursor-pointer transition-all duration-200 ease-out touch-target relative overflow-hidden rounded-xl ${
+        isOutOfStock
+          ? 'bg-gray-50/80 dark:bg-slate-800/40 border-gray-200/60 dark:border-gray-700/30 opacity-75 hover:opacity-100'
+          : 'bg-white dark:bg-slate-800/80 border-gray-200/80 dark:border-gray-700/40 hover:border-[#259783]/40 dark:hover:border-[#259783]/30 shadow-sm hover:shadow-md'
+      } hover:-translate-y-0.5`}
       onClick={() => onSelect(item)}
     >
-      {/* Subtle top accent on hover */}
-      <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#259783] to-[#3bd522] opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-      <CardContent className="p-4 sm:p-5 flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <div className="font-semibold text-sm sm:text-base line-clamp-2 text-gray-800 dark:text-gray-200 min-h-[2.5rem] leading-tight group-hover:text-[#259783] dark:group-hover:text-[#3bd522] transition-colors">
-            {item.name}
-          </div>
-        </div>
-        
-        <div className="space-y-2">
-          <div className="text-lg sm:text-xl font-bold text-[#259783]" style={{ background: 'linear-gradient(to right, #259783, #3bd522)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-            {formatPrice(item.current_sell_price)}
-          </div>
-          {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
-            <div className="flex items-center gap-1.5">
-              <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] px-2 py-0.5 h-5 flex items-center gap-1">
-                <Tag className="w-2.5 h-2.5" />
-                <span className="font-semibold">
-                  {item.bundle_name || `${item.bundle_quantity} for ${formatPrice(item.bundle_price)}`}
-                </span>
-              </Badge>
-            </div>
-          )}
-        </div>
-        
-        <div className="flex items-center justify-between gap-2 mt-auto">
-          <div className="flex items-center gap-2">
-            {isLowStock(item.current_stock) ? (
-              <Badge variant="destructive" className="text-xs font-semibold animate-pulse">
-                {formatStock(item.current_stock, item.unit_type)}
-              </Badge>
-            ) : (
-              <span className="text-xs text-gray-500 font-medium">
-                {formatStock(item.current_stock, item.unit_type)}
-              </span>
+      {/* Left accent bar */}
+      <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl transition-all duration-200 ${
+        isOutOfStock
+          ? 'bg-gray-300 dark:bg-gray-600'
+          : stockStatus === 'low'
+            ? 'bg-amber-400'
+            : 'bg-gradient-to-b from-[#259783] to-[#3bd522] opacity-0 group-hover:opacity-100'
+      }`} />
+
+      <CardContent className="p-3.5 sm:p-4 flex flex-col h-full">
+        {/* Top row: Name + Quick Add */}
+        <div className="flex items-start justify-between gap-2 mb-auto">
+          <div className="flex-1 min-w-0">
+            <h3 className={`font-semibold text-[13px] sm:text-sm leading-snug line-clamp-2 transition-colors ${
+              isOutOfStock
+                ? 'text-gray-400 dark:text-gray-500'
+                : 'text-gray-800 dark:text-gray-100 group-hover:text-[#259783] dark:group-hover:text-[#3bd522]'
+            }`}>
+              {item.name}
+            </h3>
+            {item.variant_name && (
+              <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+                {item.variant_name}
+              </p>
             )}
           </div>
-          {onQuickAdd && (
+
+          {onQuickAdd && !isOutOfStock && (
             <Button
               size="sm"
               variant="ghost"
-              className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-[#259783]/15 hover:text-[#259783] hover:scale-110 active:scale-95 rounded-lg"
+              className="h-7 w-7 p-0 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-all duration-150 hover:bg-[#259783]/10 text-gray-400 hover:text-[#259783] hover:scale-110 active:scale-90 rounded-lg -mt-0.5 -mr-1"
               onClick={(e) => {
                 e.stopPropagation();
                 onQuickAdd(item, quickQty);
               }}
               title={`Quick add ${quickQty} ${item.unit_type}`}
             >
-              <Zap className="w-4 h-4" />
+              <Zap className="w-3.5 h-3.5" />
             </Button>
           )}
+        </div>
+
+        {/* Spacer */}
+        <div className="flex-1 min-h-2" />
+
+        {/* Price section */}
+        <div className="mt-2">
+          <div className="flex items-baseline gap-1.5">
+            <span className={`text-base sm:text-lg font-bold tracking-tight ${
+              isOutOfStock
+                ? 'text-gray-400 dark:text-gray-500'
+                : 'text-[#259783]'
+            }`}>
+              {formatPrice(item.current_sell_price)}
+            </span>
+            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
+              /{item.unit_type}
+            </span>
+          </div>
+
+          {/* Bundle deal */}
+          {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
+            <div className="mt-1.5">
+              <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-[10px] font-semibold px-2 py-0.5 rounded-md border border-amber-200/60 dark:border-amber-700/40">
+                <Tag className="w-2.5 h-2.5" />
+                {item.bundle_name || `${item.bundle_quantity} for ${formatPrice(item.bundle_price)}`}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Stock indicator */}
+        <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700/40">
+          <div className="flex items-center gap-1.5">
+            {stockStatus === 'out' ? (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0" />
+                <span className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">
+                  Out of stock
+                </span>
+              </>
+            ) : stockStatus === 'low' ? (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
+                <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                  {formatStock(item.current_stock, item.unit_type)}
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+                <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+                  {formatStock(item.current_stock, item.unit_type)}
+                </span>
+              </>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -410,10 +468,24 @@ export function ItemGrid({
 
   if (loading) {
     return (
-      <div className="p-4 flex items-center justify-center h-full">
-        <div className="text-center space-y-3">
-          <div className="w-12 h-12 mx-auto border-4 border-[#259783]/20 border-t-[#259783] rounded-full animate-spin"></div>
-          <p className="text-gray-600 font-medium">Loading items...</p>
+      <div className="p-4 sm:p-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="rounded-xl border border-gray-200/50 dark:border-gray-700/30 bg-white dark:bg-slate-800/50 overflow-hidden animate-pulse">
+              <div className="p-3.5 sm:p-4 flex flex-col gap-3">
+                <div className="space-y-1.5">
+                  <div className="h-3.5 bg-gray-100 dark:bg-gray-700 rounded-md w-[85%]" />
+                  <div className="h-3 bg-gray-50 dark:bg-gray-700/50 rounded-md w-[55%]" />
+                </div>
+                <div className="mt-1">
+                  <div className="h-5 bg-gray-100 dark:bg-gray-700 rounded-md w-[45%]" />
+                </div>
+                <div className="pt-2 border-t border-gray-100 dark:border-gray-700/30">
+                  <div className="h-2.5 bg-gray-50 dark:bg-gray-700/40 rounded-md w-[35%]" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -477,9 +549,6 @@ export function ItemGrid({
     );
   }
 
-  // Format helpers for the parent group header
-  const formatPrice = (price: number) => `KES ${price.toFixed(0)}`;
-
   return (
     <div className="p-4 sm:p-6">
       {searchQuery && items.length > 0 && (
@@ -511,26 +580,29 @@ export function ItemGrid({
           )}
         </div>
       )}
-      <div className="space-y-8">
-        {groupedItems.map((group) => {
-          if (group.type === 'parent' && group.parent && group.children && group.children.length > 0) {
-            return (
-              <div key={group.parent.id} className="space-y-5 bg-gradient-to-br from-[#259783]/5 via-transparent to-[#3bd522]/5 dark:from-[#259783]/10 dark:via-transparent dark:to-[#3bd522]/10 rounded-2xl p-5 sm:p-6 border border-[#259783]/10 dark:border-[#259783]/20">
-                {/* Parent Label */}
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-[#259783]/20 dark:border-[#259783]/30"></div>
-                  </div>
-                  <div className="relative flex justify-center">
-                    <div className="px-6 py-3 bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-full shadow-lg shadow-[#259783]/30 border-2 border-white dark:border-gray-50">
-                      <h2 className="text-base font-extrabold text-white uppercase tracking-wider whitespace-nowrap drop-shadow-sm">
-                        {group.parent.name}
-                      </h2>
-                    </div>
-                  </div>
+      <div className="space-y-6">
+        {/* Render parent groups */}
+        {groupedItems.filter(g => g.type === 'parent').map((group) => {
+          if (!group.parent || !group.children || group.children.length === 0) return null;
+          return (
+            <div key={group.parent.id} className="rounded-2xl border border-gray-200/60 dark:border-gray-700/40 bg-gradient-to-br from-white via-white to-[#259783]/[0.02] dark:from-slate-800/60 dark:via-slate-800/40 dark:to-[#259783]/[0.05] overflow-hidden">
+              {/* Parent header */}
+              <div className="flex items-center gap-3 px-4 sm:px-5 py-3 border-b border-gray-100 dark:border-gray-700/40 bg-gray-50/50 dark:bg-gray-800/30">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm shadow-[#259783]/20 flex-shrink-0">
+                  <Package className="w-4 h-4 text-white" />
                 </div>
-                {/* Children Grid - using memoized ItemCard */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate">
+                    {group.parent.name}
+                  </h2>
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                    {group.children.length} variant{group.children.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              </div>
+              {/* Children Grid */}
+              <div className="p-3 sm:p-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3">
                   {group.children.map((item) => (
                     <ItemCard
                       key={item.id}
@@ -541,20 +613,39 @@ export function ItemGrid({
                   ))}
                 </div>
               </div>
-            );
-          } else if (group.type === 'standalone' && group.item) {
-            return (
-              <div key={group.item.id} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
-                <ItemCard
-                  item={group.item}
-                  onSelect={handleItemClick}
-                  onQuickAdd={onQuickAdd}
-                />
-              </div>
-            );
-          }
-          return null;
+            </div>
+          );
         })}
+
+        {/* Render standalone items grouped together */}
+        {groupedItems.filter(g => g.type === 'standalone').length > 0 && (
+          <div>
+            {/* Section label if there are also parent groups */}
+            {groupedItems.some(g => g.type === 'parent') && (
+              <div className="flex items-center gap-2.5 mb-3 px-1">
+                <div className="w-6 h-6 rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+                  <ShoppingBag className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                </div>
+                <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                  Individual Products
+                </h3>
+                <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800" />
+              </div>
+            )}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3">
+              {groupedItems.filter(g => g.type === 'standalone').map((group) => (
+                group.item && (
+                  <ItemCard
+                    key={group.item.id}
+                    item={group.item}
+                    onSelect={handleItemClick}
+                    onQuickAdd={onQuickAdd}
+                  />
+                )
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
