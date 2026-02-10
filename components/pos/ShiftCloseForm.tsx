@@ -67,6 +67,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingApproval, setPendingApproval] = useState<BalanceApprovalRequest | null>(null);
+  const [pendingClosingCount, setPendingClosingCount] = useState(0);
   const [requiresApproval, setRequiresApproval] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -90,10 +91,9 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
       try {
         const result = await apiGet<BalanceApprovalRequest[]>('/api/balance/approvals?status=pending');
         if (result.success && result.data) {
-          const closingRequest = result.data.find(r => r.balance_type === 'closing' && r.shift_id === shift.id);
-          if (closingRequest) {
-            setPendingApproval(closingRequest);
-          }
+          const closingRequests = result.data.filter(r => r.balance_type === 'closing' && r.shift_id === shift.id);
+          setPendingClosingCount(closingRequests.length);
+          setPendingApproval(closingRequests[0] ?? null);
         }
       } catch (err) {
         console.error('Error checking pending approval:', err);
@@ -191,6 +191,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
             status: 'pending',
             shift_id: shift.id,
           } as BalanceApprovalRequest);
+          setPendingClosingCount(prev => prev + 1);
         } else {
           setError(result.message || 'Failed to submit for approval');
         }
@@ -226,8 +227,8 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
     }
   };
 
-  // Show pending approval status
-  if (pendingApproval || submitted) {
+  // Show success screen only when they just submitted (they can submit again from here)
+  if (submitted) {
     return (
       <div className="flex flex-col items-center justify-center min-h-full p-6">
         <div className="text-center space-y-4 max-w-md">
@@ -256,17 +257,12 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
           </p>
           <div className="pt-4 space-y-2">
             <Button 
-              onClick={() => {
-                setPendingApproval(null);
-                setSubmitted(false);
-                // Refresh to check status
-                window.location.reload();
-              }} 
+              onClick={() => setSubmitted(false)} 
               variant="outline" 
               size="touch" 
               className="w-full"
             >
-              Refresh Status
+              Submit a different closing balance
             </Button>
             <Button 
               onClick={() => router.push('/pos')} 
@@ -285,6 +281,15 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
   return (
     <div className="flex items-center justify-center min-h-full p-4 pb-24">
       <div className="w-full max-w-2xl space-y-4">
+        {pendingClosingCount > 0 && (
+          <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-start gap-2">
+            <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              You have {pendingClosingCount} pending closing request{pendingClosingCount !== 1 ? 's' : ''}
+              {pendingApproval ? ` (latest: ${formatPrice(pendingApproval.amount)})` : ''}. You can submit another one below; each will wait for admin approval.
+            </p>
+          </div>
+        )}
         {/* Shift Summary - Simplified for cashiers, detailed for admin/owner */}
         {isCashier ? (
           <Card className="border-2 border-slate-200 dark:border-slate-700">

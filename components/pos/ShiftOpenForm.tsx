@@ -43,6 +43,7 @@ export function ShiftOpenForm() {
   const [error, setError] = useState<string | null>(null);
   const [hasOpenShift, setHasOpenShift] = useState<boolean | null>(null);
   const [pendingApproval, setPendingApproval] = useState<BalanceApprovalRequest | null>(null);
+  const [pendingOpeningCount, setPendingOpeningCount] = useState(0);
   const [requiresApproval, setRequiresApproval] = useState(false);
   const [submittedForApproval, setSubmittedForApproval] = useState(false);
 
@@ -51,13 +52,49 @@ export function ShiftOpenForm() {
   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner';
 
   useEffect(() => {
-    async function checkOpenShift() {
+    async function run() {
       try {
-        const result = await apiGet<Shift>('/api/shifts/current');
-        if (result.success && result.data) {
+        const [currentResult, pendingResult] = await Promise.all([
+          apiGet<Shift>('/api/shifts/current'),
+          apiGet<BalanceApprovalRequest[]>('/api/balance/approvals?status=pending'),
+        ]);
+
+        if (currentResult.success && currentResult.data) {
           setHasOpenShift(true);
         } else {
           setHasOpenShift(false);
+          // No open shift: prefill opening form from last closed shift denominations
+          const lastClosedResult = await apiGet<{
+            closing_denom_1: number;
+            closing_denom_5: number;
+            closing_denom_10: number;
+            closing_denom_20: number;
+            closing_denom_50: number;
+            closing_denom_100: number;
+            closing_denom_200: number;
+            closing_denom_500: number;
+            closing_denom_1000: number;
+          }>('/api/shifts/last-closed');
+          if (lastClosedResult.success && lastClosedResult.data) {
+            const d = lastClosedResult.data;
+            setDenominations({
+              1: d.closing_denom_1 ?? 0,
+              5: d.closing_denom_5 ?? 0,
+              10: d.closing_denom_10 ?? 0,
+              20: d.closing_denom_20 ?? 0,
+              50: d.closing_denom_50 ?? 0,
+              100: d.closing_denom_100 ?? 0,
+              200: d.closing_denom_200 ?? 0,
+              500: d.closing_denom_500 ?? 0,
+              1000: d.closing_denom_1000 ?? 0,
+            });
+          }
+        }
+
+        if (pendingResult.success && pendingResult.data) {
+          const openingRequests = pendingResult.data.filter(r => r.balance_type === 'opening');
+          setPendingOpeningCount(openingRequests.length);
+          setPendingApproval(openingRequests[0] ?? null);
         }
       } catch (err) {
         console.error('Error checking shift:', err);
@@ -65,22 +102,7 @@ export function ShiftOpenForm() {
       }
     }
 
-    async function checkPendingApproval() {
-      try {
-        const result = await apiGet<BalanceApprovalRequest[]>('/api/balance/approvals?status=pending');
-        if (result.success && result.data) {
-          const openingRequest = result.data.find(r => r.balance_type === 'opening');
-          if (openingRequest) {
-            setPendingApproval(openingRequest);
-          }
-        }
-      } catch (err) {
-        console.error('Error checking pending approval:', err);
-      }
-    }
-
-    checkOpenShift();
-    checkPendingApproval();
+    run();
   }, []);
 
   const totalCash = useMemo(() => {
@@ -138,6 +160,7 @@ export function ShiftOpenForm() {
             amount: totalCash,
             status: 'pending',
           } as BalanceApprovalRequest);
+          setPendingOpeningCount(prev => prev + 1);
           setSubmittedForApproval(true);
         } else {
           setError(result.message || 'Failed to submit for approval');
@@ -216,11 +239,31 @@ export function ShiftOpenForm() {
           </div>
           <h2 className="text-2xl font-bold">Shift Submitted Successfully</h2>
           <p className="text-muted-foreground">
-            Your opening balance has been submitted for admin approval. An admin will review and approve it before your shift can start. You can check back on this page to see when it&apos;s approved.
+            Your opening balance has been submitted for admin approval. An admin will review and approve it before your shift can start.
           </p>
-          <Button onClick={() => router.push('/pos')} size="touch" className="bg-[#259783] hover:bg-[#1a7a69]">
-            Back to POS
-          </Button>
+          {pendingApproval && (
+            <div className="w-full p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center justify-center gap-2">
+              <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                Pending approval — {formatPrice(pendingApproval.amount)}
+              </span>
+            </div>
+          )}
+          <div className="flex flex-col sm:flex-row gap-3 w-full">
+            <Button
+              variant="outline"
+              size="touch"
+              className="flex-1"
+              onClick={() => {
+                setSubmittedForApproval(false);
+              }}
+            >
+              Open a new one
+            </Button>
+            <Button onClick={() => router.push('/pos')} size="touch" className="flex-1 bg-[#259783] hover:bg-[#1a7a69]">
+              Back to POS
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -239,11 +282,12 @@ export function ShiftOpenForm() {
           </p>
         </CardHeader>
         <CardContent>
-          {pendingApproval && pendingApproval.balance_type === 'opening' && (
+          {pendingOpeningCount > 0 && (
             <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-start gap-2">
               <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
               <p className="text-sm text-amber-800 dark:text-amber-200">
-                You have a pending opening request ({formatPrice(pendingApproval.amount)}). You can open a new shift below; submitting will replace the pending request.
+                You have {pendingOpeningCount} pending opening request{pendingOpeningCount !== 1 ? 's' : ''}
+                {pendingApproval ? ` (latest: ${formatPrice(pendingApproval.amount)})` : ''}. You can submit another one below; each will wait for admin approval.
               </p>
             </div>
           )}

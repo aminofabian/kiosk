@@ -15,26 +15,19 @@ export async function POST(
     const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
 
-    // Only admin and owner can reject requests
-    if (auth.role !== 'admin' && auth.role !== 'owner') {
-      return jsonResponse(
-        { success: false, message: 'Forbidden' },
-        403
-      );
-    }
-
     const { id } = await params;
-    const body = await request.json();
-    const { reason } = body;
+    const body = await request.json().catch(() => ({}));
+    const { reason } = body || {};
 
-    // Get the approval request
+    // Get the approval request (need user_id to allow requester to withdraw own)
     const approvalRequest = await queryOne<{
       id: string;
       business_id: string;
+      user_id: string;
       balance_type: string;
       status: string;
     }>(
-      `SELECT id, business_id, balance_type, status FROM balance_approval_requests 
+      `SELECT id, business_id, user_id, balance_type, status FROM balance_approval_requests 
        WHERE id = ? AND business_id = ?`,
       [id, auth.businessId]
     );
@@ -53,19 +46,35 @@ export async function POST(
       );
     }
 
+    // Requester can withdraw their own request; admin/owner can reject any
+    const canAct =
+      auth.userId === approvalRequest.user_id ||
+      auth.role === 'admin' ||
+      auth.role === 'owner';
+    if (!canAct) {
+      return jsonResponse(
+        { success: false, message: 'Forbidden' },
+        403
+      );
+    }
+
     const now = Math.floor(Date.now() / 1000);
+    const isWithdraw = auth.userId === approvalRequest.user_id;
+    const rejectionReason = reason || (isWithdraw ? 'Withdrawn by user' : null);
 
     // Update approval request status
     await execute(
       `UPDATE balance_approval_requests 
        SET status = 'rejected', approved_by = ?, approved_at = ?, rejection_reason = ?
        WHERE id = ?`,
-      [auth.userId, now, reason || null, id]
+      [auth.userId, now, rejectionReason, id]
     );
 
     return jsonResponse({
       success: true,
-      message: `${approvalRequest.balance_type === 'opening' ? 'Opening' : 'Closing'} balance request rejected`,
+      message: isWithdraw
+        ? `${approvalRequest.balance_type === 'opening' ? 'Opening' : 'Closing'} balance request withdrawn`
+        : `${approvalRequest.balance_type === 'opening' ? 'Opening' : 'Closing'} balance request rejected`,
     });
   } catch (error) {
     console.error('Error rejecting balance request:', error);

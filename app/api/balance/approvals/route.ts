@@ -151,33 +151,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check if there's already a pending request for this user and balance type
-    const existingRequest = await queryOne<{ id: string }>(
-      `SELECT id FROM balance_approval_requests 
-       WHERE business_id = ? AND user_id = ? AND balance_type = ? AND status = 'pending'
-       ${balanceType === 'closing' ? 'AND shift_id = ?' : ''}`,
-      balanceType === 'closing'
-        ? [auth.businessId, auth.userId, balanceType, shiftId]
-        : [auth.businessId, auth.userId, balanceType]
-    );
-
-    if (existingRequest) {
-      // For closing: block duplicate pending closing requests
-      if (balanceType === 'closing') {
-        return jsonResponse(
-          { success: false, message: 'You already have a pending balance request' },
-          400
-        );
-      }
-      // For opening: allow opening a new shift by superseding the previous pending request
-      const now = Math.floor(Date.now() / 1000);
-      await execute(
-        `UPDATE balance_approval_requests 
-         SET status = 'rejected', approved_by = NULL, approved_at = ?, rejection_reason = ?
-         WHERE id = ?`,
-        [now, 'Superseded by new opening request', existingRequest.id]
-      );
-    }
+    // Allow multiple pending requests for both opening and closing
 
     const requestId = generateUUID();
 

@@ -54,6 +54,7 @@ import {
   Layers,
   Receipt,
   BarChart3,
+  Clock,
 } from 'lucide-react';
 
 type ButtonTheme = 'brand' | 'blue' | 'amber' | 'rose' | 'violet' | 'slate';
@@ -256,34 +257,97 @@ const ACTION_BUTTONS: ActionButton[] = [
   },
 ];
 
+type PendingOpeningItem = { id: string; amount: number; user_name?: string; balance_type: string };
+
 function CloseShiftDrawerContent() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [shift, setShift] = useState<Shift | null>(null);
+  const [pendingOpening, setPendingOpening] = useState<PendingOpeningItem[]>([]);
+  const [withdrawingId, setWithdrawingId] = useState<string | null>(null);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await fetch('/api/shifts/current?scope=business');
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        setShift(result.data);
+        setPendingOpening([]);
+        return;
+      }
+
+      setShift(null);
+      // No open shift: fetch pending opening requests so user can withdraw
+      const approvalsRes = await fetch('/api/balance/approvals?status=pending');
+      const approvalsData = await approvalsRes.json();
+      if (approvalsData.success && Array.isArray(approvalsData.data)) {
+        const opening = approvalsData.data.filter(
+          (r: { balance_type: string }) => r.balance_type === 'opening'
+        );
+        setPendingOpening(opening);
+      } else {
+        setPendingOpening([]);
+      }
+    } catch (err) {
+      setError('Failed to load shift');
+      console.error('Error fetching shift:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function fetchShift() {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/shifts/current');
-        const result = await response.json();
-
-        if (result.success && result.data) {
-          setShift(result.data);
-        } else {
-          setError('No open shift found');
-        }
-      } catch (err) {
-        setError('Failed to load shift');
-        console.error('Error fetching shift:', err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchShift();
+    fetchData();
   }, []);
+
+  const handleWithdraw = async (requestId: string) => {
+    try {
+      setWithdrawingId(requestId);
+      const res = await fetch(`/api/balance/approvals/${requestId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchData();
+      } else {
+        setError(data.message || 'Failed to withdraw');
+      }
+    } catch (err) {
+      setError('Failed to withdraw');
+      console.error('Error withdrawing:', err);
+    } finally {
+      setWithdrawingId(null);
+    }
+  };
+
+  const handleApprove = async (requestId: string) => {
+    try {
+      setApprovingId(requestId);
+      const res = await fetch(`/api/balance/approvals/${requestId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (data.success) {
+        await fetchData();
+      } else {
+        setError(data.message || 'Failed to approve');
+      }
+    } catch (err) {
+      setError('Failed to approve');
+      console.error('Error approving:', err);
+    } finally {
+      setApprovingId(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -296,18 +360,83 @@ function CloseShiftDrawerContent() {
     );
   }
 
-  if (error || !shift) {
+  if (shift) {
+    return <ShiftCloseForm shift={shift} />;
+  }
+
+  // No open shift: show pending opening requests so they can withdraw (close a pending one)
+  if (pendingOpening.length > 0) {
+    const formatPrice = (n: number) => `KES ${n.toLocaleString('en-US')}`;
     return (
-      <div className="flex flex-col items-center justify-center h-64 space-y-4">
-        <p className="text-destructive text-sm">{error || 'No open shift found'}</p>
-        <Button onClick={() => router.push('/pos')} size="touch">
+      <div className="p-4 space-y-4">
+        <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-start gap-2">
+          <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+              No open shift yet
+            </p>
+            <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+              There are pending opening request(s). Approve one to open the shift and then close it, or withdraw to cancel.
+            </p>
+          </div>
+        </div>
+        <ul className="space-y-2">
+          {pendingOpening.map((req) => (
+            <li
+              key={req.id}
+              className="flex items-center justify-between gap-2 p-3 rounded-lg border border-slate-200 dark:border-slate-700"
+            >
+              <div>
+                <span className="font-medium">{formatPrice(req.amount)}</span>
+                {req.user_name && (
+                  <span className="text-muted-foreground text-sm ml-2">— {req.user_name}</span>
+                )}
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  disabled={approvingId === req.id}
+                  onClick={() => handleApprove(req.id)}
+                  className="bg-[#259783] hover:bg-[#1a7a69]"
+                >
+                  {approvingId === req.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    'Approve & close'
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={withdrawingId === req.id}
+                  onClick={() => handleWithdraw(req.id)}
+                >
+                  {withdrawingId === req.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    'Withdraw'
+                  )}
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+        {error && <p className="text-destructive text-sm">{error}</p>}
+        <Button onClick={() => router.push('/pos')} size="touch" variant="secondary" className="w-full">
           Go to POS
         </Button>
       </div>
     );
   }
 
-  return <ShiftCloseForm shift={shift} />;
+  return (
+    <div className="flex flex-col items-center justify-center h-64 space-y-4">
+      <p className="text-destructive text-sm">{error || 'No open shift found'}</p>
+      <Button onClick={() => router.push('/pos')} size="touch">
+        Go to POS
+      </Button>
+    </div>
+  );
 }
 
 function BalanceApprovalsDrawerContent() {
