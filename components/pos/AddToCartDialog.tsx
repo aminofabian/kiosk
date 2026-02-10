@@ -12,6 +12,7 @@ import { getItemImage } from '@/lib/utils/item-images';
 import { Badge } from '@/components/ui/badge';
 
 type PurchaseMode = 'regular' | 'bundle';
+type PortionSize = 'full' | 'half' | 'quarter' | 'eighth' | 'tenth' | 'custom';
 
 interface AddToCartDialogProps {
   item: Item | null;
@@ -29,6 +30,7 @@ export function AddToCartDialog({
   const [purchaseMode, setPurchaseMode] = useState<PurchaseMode>('regular');
   const [manualPrice, setManualPrice] = useState<number | null>(null);
   const [useManualPrice, setUseManualPrice] = useState(false);
+  const [portion, setPortion] = useState<PortionSize>('full');
   const { addItem, items: cartItems } = useCartStore();
 
   // Check if item has bundle pricing
@@ -48,6 +50,7 @@ export function AddToCartDialog({
       } else {
         setQuantity(1);
       }
+      setPortion('full');
     }
   }, [open, item, cartItems]);
 
@@ -129,17 +132,19 @@ export function AddToCartDialog({
   const isOutOfStock = remainingStock <= 0;
   // Remove maxQuantity restriction - allow any quantity
   const isWeight = item.unit_type === 'kg' || item.unit_type === 'g';
-  const step = isWeight ? 0.1 : 1;
+  const step = isWeight ? 0.05 : 1;
 
   const handleIncrement = () => {
     const newValue = quantity + step;
-    setQuantity(Number(newValue.toFixed(isWeight ? 1 : 0)));
+    setQuantity(Number(newValue.toFixed(isWeight ? 2 : 0)));
+    setPortion('custom');
   };
 
   const handleDecrement = () => {
     const newValue = quantity - step;
     if (newValue >= 0) {
-      setQuantity(Number(newValue.toFixed(isWeight ? 1 : 0)));
+      setQuantity(Number(newValue.toFixed(isWeight ? 2 : 0)));
+      setPortion('custom');
     }
   };
 
@@ -160,8 +165,9 @@ export function AddToCartDialog({
     }
 
     // Remove maxQuantity restriction - allow any quantity
-    const fixedValue = isWeight ? parseFloat(numValue.toFixed(1)) : Math.floor(numValue);
+    const fixedValue = isWeight ? parseFloat(numValue.toFixed(2)) : Math.floor(numValue);
     setQuantity(fixedValue);
+    setPortion('custom');
   };
 
   const handleManualPriceChange = (value: string) => {
@@ -186,6 +192,7 @@ export function AddToCartDialog({
   const handleQuantityBlur = () => {
     if (quantity <= 0) {
       setQuantity(1);
+      setPortion('full');
     }
   };
 
@@ -288,7 +295,7 @@ export function AddToCartDialog({
                     : 'text-red-700 dark:text-red-300'
                 }`}>
                   {remainingStock > 0 ? (
-                    <>Remaining: {remainingStock.toFixed(isWeight ? 1 : 0)} {item.unit_type}</>
+                    <>Remaining: {remainingStock.toFixed(isWeight ? 2 : 0)} {item.unit_type}</>
                   ) : (
                     <>Out of Stock</>
                   )}
@@ -386,34 +393,119 @@ export function AddToCartDialog({
               </div>
             ) : (
               /* Regular Mode Quantity Selector */
-              <div className="flex items-center justify-center gap-6 mb-6">
-                <button
-                  onClick={handleDecrement}
-                  disabled={quantity <= 0}
-                  className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <Minus className="w-6 h-6 text-gray-700 dark:text-gray-300" />
-                </button>
-                <div className="flex flex-col items-center">
-                  <input
-                    type="number"
-                    value={quantity.toFixed(isWeight ? 1 : 0)}
-                    onChange={(e) => handleQuantityChange(e.target.value)}
-                    onBlur={handleQuantityBlur}
-                    min="0"
-                    step={step}
-                    className="text-4xl font-bold text-gray-900 dark:text-gray-100 bg-transparent border-none outline-none text-center w-32 focus:ring-2 focus:ring-[#259783] rounded-lg px-2 py-1"
-                  />
-                  <span className="text-sm text-gray-600 dark:text-gray-400 uppercase mt-1">
-                    {item.unit_type}
-                  </span>
+              <div className="flex flex-col items-center gap-4 mb-6">
+                <div className="flex items-center justify-center gap-6">
+                  <button
+                    onClick={handleDecrement}
+                    disabled={quantity <= 0}
+                    className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <Minus className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+                  </button>
+                  <div className="flex flex-col items-center">
+                    <input
+                      type="number"
+                      value={quantity.toFixed(isWeight ? 2 : 0)}
+                      onChange={(e) => handleQuantityChange(e.target.value)}
+                      onBlur={handleQuantityBlur}
+                      min="0"
+                      step={step}
+                      className="text-4xl font-bold text-gray-900 dark:text-gray-100 bg-transparent border-none outline-none text-center w-32 focus:ring-2 focus:ring-[#259783] rounded-lg px-2 py-1"
+                    />
+                    <span className="text-sm text-gray-600 dark:text-gray-400 uppercase mt-1">
+                      {item.unit_type}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleIncrement}
+                    className="w-12 h-12 rounded-full bg-[#259783] flex items-center justify-center hover:bg-[#45d827] transition-colors"
+                  >
+                    <Plus className="w-6 h-6 text-white" />
+                  </button>
                 </div>
-                <button
-                  onClick={handleIncrement}
-                  className="w-12 h-12 rounded-full bg-[#259783] flex items-center justify-center hover:bg-[#45d827] transition-colors"
-                >
-                  <Plus className="w-6 h-6 text-white" />
-                </button>
+
+                <div className="flex flex-col items-center gap-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    Choose portion
+                  </p>
+                  <div className="flex gap-2 flex-wrap justify-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = 0.125;
+                        setQuantity(Number(target.toFixed(2)));
+                        setPortion('eighth');
+                      }}
+                      className={`w-12 px-0 py-1.5 rounded-full text-sm font-semibold flex items-center justify-center transition-all border ${
+                        portion === 'eighth'
+                          ? 'bg-[#259783] text-white border-[#259783] shadow-md'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      ⅛
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = 0.1;
+                        setQuantity(Number(target.toFixed(2)));
+                        setPortion('tenth');
+                      }}
+                      className={`w-12 px-0 py-1.5 rounded-full text-xs font-semibold flex items-center justify-center transition-all border ${
+                        portion === 'tenth'
+                          ? 'bg-[#259783] text-white border-[#259783] shadow-md'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      1/10
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = 0.25;
+                        setQuantity(Number(target.toFixed(2)));
+                        setPortion('quarter');
+                      }}
+                      className={`w-12 px-0 py-1.5 rounded-full text-sm font-semibold flex items-center justify-center transition-all border ${
+                        portion === 'quarter'
+                          ? 'bg-[#259783] text-white border-[#259783] shadow-md'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      ¼
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = 0.5;
+                        setQuantity(Number(target.toFixed(2)));
+                        setPortion('half');
+                      }}
+                      className={`w-12 px-0 py-1.5 rounded-full text-sm font-semibold flex items-center justify-center transition-all border ${
+                        portion === 'half'
+                          ? 'bg-[#259783] text-white border-[#259783] shadow-md'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      ½
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const target = 1;
+                        setQuantity(Number(target.toFixed(2)));
+                        setPortion('full');
+                      }}
+                      className={`w-12 px-0 py-1.5 rounded-full text-sm font-semibold flex items-center justify-center transition-all border ${
+                        portion === 'full'
+                          ? 'bg-[#259783] text-white border-[#259783] shadow-md'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      1
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
