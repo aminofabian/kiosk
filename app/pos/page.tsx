@@ -1746,7 +1746,7 @@ export default function POSPage() {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 auto-rows-fr">
+                  <div className="grid grid-cols-2 gap-2.5 auto-rows-fr">
                     {filteredCategories.map((category) => {
                       const imageUrl = getCategoryImage(category.name);
                       const icon = getCategoryIcon(category.name);
@@ -1756,21 +1756,30 @@ export default function POSPage() {
                         <button
                           key={category.id}
                           onClick={() => handleCategoryClick(category.id)}
-                          className="group relative flex flex-col justify-between p-3 h-[120px] rounded-xl bg-white dark:bg-[#1c2e18] shadow-sm border border-slate-200/40 dark:border-slate-700/30 active:scale-[0.97] transition-all overflow-hidden text-left"
+                          className="group relative flex flex-col justify-end p-3.5 h-[130px] rounded-2xl shadow-sm active:scale-[0.97] transition-all duration-200 overflow-hidden text-left"
                         >
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/20 to-transparent z-10 rounded-xl" />
-                          {imageUrl && (
-                            <div
-                              className="absolute inset-0 bg-cover bg-center rounded-xl transition-transform duration-500 group-active:scale-105"
-                              style={{ backgroundImage: `url(${imageUrl})` }}
-                            />
+                          {/* Background image or gradient fallback */}
+                          {imageUrl ? (
+                            <>
+                              <div
+                                className="absolute inset-0 bg-cover bg-center rounded-2xl transition-transform duration-500 group-active:scale-105"
+                                style={{ backgroundImage: `url(${imageUrl})` }}
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-black/5 z-10 rounded-2xl" />
+                            </>
+                          ) : (
+                            <div className="absolute inset-0 bg-gradient-to-br from-[#259783] to-[#1e8a72] rounded-2xl" />
                           )}
+
+                          {/* Icon badge - top left */}
                           <span
-                            className={`relative z-20 flex items-center justify-center w-9 h-9 rounded-lg bg-white/90 dark:bg-black/60 backdrop-blur-sm ${color} shadow-sm [&>svg]:w-5 [&>svg]:h-5`}
+                            className={`absolute top-3 left-3 z-20 flex items-center justify-center w-8 h-8 rounded-xl bg-white/90 dark:bg-black/50 backdrop-blur-md ${color} shadow-sm [&>svg]:w-4 [&>svg]:h-4`}
                           >
                             {icon}
                           </span>
-                          <span className="relative z-20 text-white font-semibold text-[13px] tracking-tight leading-tight drop-shadow-lg">
+
+                          {/* Category name */}
+                          <span className="relative z-20 text-white font-bold text-[14px] tracking-tight leading-snug drop-shadow-lg">
                             {category.name}
                           </span>
                         </button>
@@ -2450,78 +2459,106 @@ export default function POSPage() {
       {/* Category Products Drawer */}
       <Drawer open={categoryDrawerOpen} onOpenChange={setCategoryDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900 print:hidden">
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
+          <DrawerHeader className="border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-slate-900 px-4 sm:px-5 py-4">
             <div className="flex items-center justify-between pr-8">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm flex-shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm shadow-[#259783]/20 flex-shrink-0 [&>svg]:w-5 [&>svg]:h-5 [&>svg]:text-white">
                   {drawerCategory && getCategoryIcon(drawerCategory.name)}
                 </div>
-                <div>
-                  <DrawerTitle className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
+                <div className="min-w-0">
+                  <DrawerTitle className="text-base sm:text-lg font-bold text-gray-900 dark:text-white truncate">
                     {drawerCategory?.name || 'Category'}
                   </DrawerTitle>
-                  <DrawerDescription className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  <DrawerDescription className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                     {drawerItemsLoading 
-                      ? 'Loading products...' 
-                      : `${drawerCategoryItems.length} ${drawerCategoryItems.length === 1 ? 'product' : 'products'} available`}
+                      ? 'Loading...' 
+                      : `${drawerCategoryItems.length} product${drawerCategoryItems.length !== 1 ? 's' : ''}`}
                   </DrawerDescription>
                 </div>
               </div>
               <DrawerClose asChild>
                 <button
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white active:scale-95 transition-all shadow-sm"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 active:scale-95 transition-all"
                   aria-label="Close drawer"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </DrawerClose>
             </div>
-            <div className="mt-4 relative">
+            {/* Drawer search */}
+            <div className="mt-3 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
                 type="text"
-                placeholder={`Search ${drawerCategory?.name.toLowerCase()}...`}
+                placeholder={`Search ${drawerCategory?.name.toLowerCase() || 'products'}...`}
                 value={drawerSearchQuery}
                 onChange={(e) => setDrawerSearchQuery(e.target.value)}
-                className="pl-10 pr-10 h-11 bg-white dark:bg-slate-800 rounded-xl border-gray-200 dark:border-gray-700 focus:border-[#259783] focus:ring-2 focus:ring-[#259783]/20"
+                className="pl-10 pr-10 h-10 bg-gray-50 dark:bg-slate-800 rounded-xl border-gray-200/80 dark:border-gray-700/60 focus:border-[#259783] focus:ring-2 focus:ring-[#259783]/20 text-sm"
               />
+              {drawerSearchQuery && (
+                <button
+                  onClick={() => setDrawerSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-md bg-gray-200 dark:bg-gray-700 text-gray-500 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
             </div>
           </DrawerHeader>
-          <div className="overflow-y-auto flex-1 bg-gradient-to-b from-white via-slate-50/30 to-white dark:from-slate-900 dark:via-slate-900/50 dark:to-slate-900 px-4 sm:px-6 py-6">
+
+          <div className="overflow-y-auto flex-1 bg-gray-50/50 dark:bg-slate-900/50 px-4 sm:px-5 py-4">
             {drawerItemsLoading ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="w-10 h-10 border-4 border-[#259783]/20 border-t-[#259783] rounded-full animate-spin"></div>
+              /* Skeleton loading grid */
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="rounded-xl border border-gray-200/50 dark:border-gray-700/30 bg-white dark:bg-slate-800/50 overflow-hidden animate-pulse">
+                    <div className="aspect-[4/3] bg-gray-100 dark:bg-gray-800" />
+                    <div className="p-3 space-y-2">
+                      <div className="h-3.5 bg-gray-100 dark:bg-gray-800 rounded w-3/4" />
+                      <div className="h-5 bg-gray-100 dark:bg-gray-800 rounded w-2/5" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : filteredDrawerGroupedItems.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 gap-4">
-                <Package className="w-16 h-16 text-gray-300 dark:text-gray-600" />
-                <p className="text-gray-500 dark:text-gray-400 text-center">
-                  {drawerSearchQuery
-                    ? `No products found for "${drawerSearchQuery}"`
-                    : 'No products in this category'}
-                </p>
+              /* Empty state */
+              <div className="flex flex-col items-center justify-center h-64 gap-3">
+                <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                  <Package className="w-7 h-7 text-gray-300 dark:text-gray-600" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    {drawerSearchQuery
+                      ? `No results for "${drawerSearchQuery}"`
+                      : 'No products yet'}
+                  </p>
+                  {drawerSearchQuery && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">Try a different search term</p>
+                  )}
+                </div>
               </div>
             ) : (
-              <div className="space-y-8">
-                {filteredDrawerGroupedItems.map((group) => {
-                  if (group.type === 'parent' && group.parent && group.children && group.children.length > 0) {
-                    return (
-                      <div key={group.parent.id} className="space-y-5 bg-gradient-to-br from-[#259783]/5 via-transparent to-[#3bd522]/5 dark:from-[#259783]/10 dark:via-transparent dark:to-[#3bd522]/10 rounded-2xl p-5 sm:p-6 border border-[#259783]/10 dark:border-[#259783]/20">
-                        {/* Parent Label */}
-                        <div className="relative">
-                          <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-[#259783]/20 dark:border-[#259783]/30"></div>
-                          </div>
-                          <div className="relative flex justify-center">
-                            <div className="px-6 py-3 bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-full shadow-lg shadow-[#259783]/30 border-2 border-white dark:border-slate-900">
-                              <h2 className="text-base font-extrabold text-white uppercase tracking-wider whitespace-nowrap drop-shadow-sm">
-                                {group.parent.name}
-                              </h2>
-                            </div>
-                          </div>
+              <div className="space-y-5">
+                {/* Parent groups */}
+                {filteredDrawerGroupedItems.filter(g => g.type === 'parent').map((group) => {
+                  if (!group.parent || !group.children || group.children.length === 0) return null;
+                  return (
+                    <div key={group.parent.id} className="rounded-2xl border border-gray-200/60 dark:border-gray-700/40 bg-white dark:bg-slate-800/40 overflow-hidden">
+                      {/* Parent header */}
+                      <div className="flex items-center gap-2.5 px-3.5 py-2.5 border-b border-gray-100 dark:border-gray-700/40 bg-gray-50/80 dark:bg-gray-800/30">
+                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center flex-shrink-0">
+                          <Package className="w-3.5 h-3.5 text-white" />
                         </div>
-                        {/* Children Grid */}
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                        <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate flex-1">
+                          {group.parent.name}
+                        </h2>
+                        <span className="text-[11px] text-gray-400 dark:text-gray-500 font-medium flex-shrink-0">
+                          {group.children.length} variant{group.children.length !== 1 ? 's' : ''}
+                        </span>
+                      </div>
+                      {/* Children grid */}
+                      <div className="p-2.5">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {group.children.map((item) => (
                             <button
                               key={item.id}
@@ -2529,117 +2566,172 @@ export default function POSPage() {
                                 handleSelectItem(item);
                                 setCategoryDrawerOpen(false);
                               }}
-                              className="group bg-white dark:bg-slate-800 rounded-xl shadow-md hover:shadow-xl border border-slate-200 dark:border-slate-700 hover:border-[#259783] active:scale-[0.98] transition-all duration-200 overflow-hidden text-left"
+                              className="group bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-gray-700/40 hover:border-[#259783]/40 dark:hover:border-[#259783]/30 active:scale-[0.98] transition-all duration-200 overflow-hidden text-left hover:shadow-md"
                             >
-                              <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-xl overflow-hidden relative">
+                              {/* Image */}
+                              <div className="aspect-[4/3] bg-gray-50 dark:bg-gray-800/50 overflow-hidden relative">
                                 {group.parent && getItemImage(group.parent.name) ? (
                                   <img
                                     src={getItemImage(group.parent.name)!}
                                     alt={item.name}
-                                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                     loading="lazy"
                                     onError={(e) => {
                                       const target = e.target as HTMLImageElement;
                                       const parentEl = target.parentElement;
                                       if (parentEl) {
-                                        parentEl.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800"><svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></div>';
+                                        parentEl.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-800/50"><svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></div>';
                                       }
                                     }}
                                   />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center">
-                                    <Package className="w-12 h-12 text-gray-400" />
+                                    <Package className="w-8 h-8 text-gray-300 dark:text-gray-600" />
+                                  </div>
+                                )}
+                                {/* Stock overlay for out of stock */}
+                                {item.current_stock <= 0 && (
+                                  <div className="absolute inset-0 bg-white/60 dark:bg-black/40 flex items-center justify-center">
+                                    <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 bg-white/90 dark:bg-black/60 px-2 py-0.5 rounded-full">
+                                      Out of stock
+                                    </span>
                                   </div>
                                 )}
                               </div>
-                              <div className="p-3.5">
-                                <h3 className="font-bold text-sm mb-2.5 line-clamp-2 text-slate-900 dark:text-white leading-tight">
+                              {/* Info */}
+                              <div className="p-2.5">
+                                <h3 className="font-semibold text-[12px] sm:text-[13px] line-clamp-2 text-gray-800 dark:text-gray-100 leading-snug group-hover:text-[#259783] dark:group-hover:text-[#3bd522] transition-colors">
                                   {item.name}
                                 </h3>
-                                <div className="space-y-2">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] text-white font-bold text-sm px-3 py-1.5 rounded-lg shadow-md">
-                                      KES {item.current_sell_price.toFixed(0)}
-                                    </span>
-                                    <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
-                                      / {item.unit_type}
+                                <div className="flex items-baseline gap-1.5 mt-1.5">
+                                  <span className="text-sm font-bold text-[#259783]">
+                                    KES {item.current_sell_price.toFixed(0)}
+                                  </span>
+                                  <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
+                                    /{item.unit_type}
+                                  </span>
+                                </div>
+                                {/* Stock indicator */}
+                                <div className="flex items-center gap-1 mt-1.5">
+                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                    item.current_stock <= 0 ? 'bg-gray-300 dark:bg-gray-600' :
+                                    item.current_stock < 10 ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'
+                                  }`} />
+                                  <span className={`text-[10px] font-medium ${
+                                    item.current_stock <= 0 ? 'text-gray-400' :
+                                    item.current_stock < 10 ? 'text-amber-500' : 'text-gray-400'
+                                  }`}>
+                                    {item.current_stock <= 0 ? 'Out of stock' : `${item.current_stock} ${item.unit_type}`}
+                                  </span>
+                                </div>
+                                {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
+                                  <div className="mt-1.5">
+                                    <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-[9px] font-semibold px-1.5 py-0.5 rounded border border-amber-200/60 dark:border-amber-700/40">
+                                      <Tag className="w-2 h-2" />
+                                      {item.bundle_name || `${item.bundle_quantity} for KES ${item.bundle_price.toFixed(0)}`}
                                     </span>
                                   </div>
-                                  {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
-                                    <div className="flex items-center gap-1.5">
-                                      <span className="bg-amber-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded flex items-center gap-1">
-                                        <Tag className="w-2.5 h-2.5" />
-                                        {item.bundle_name || `${item.bundle_quantity} for KES ${item.bundle_price.toFixed(0)}`}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
+                                )}
                               </div>
                             </button>
                           ))}
                         </div>
                       </div>
-                    );
-                  } else if (group.type === 'standalone' && group.item) {
-                    return (
-                      <div key={group.item.id} className="flex justify-center">
-                        <button
-                          onClick={() => {
-                            handleSelectItem(group.item!);
-                            setCategoryDrawerOpen(false);
-                          }}
-                          className="group bg-white dark:bg-slate-800 rounded-xl shadow-md hover:shadow-xl border border-slate-200 dark:border-slate-700 hover:border-[#259783] active:scale-[0.98] transition-all duration-200 overflow-hidden text-left w-full max-w-xs"
-                        >
-                        <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-xl overflow-hidden relative">
-                          {getItemImage(group.item.name) ? (
-                            <img
-                              src={getItemImage(group.item.name)!}
-                              alt={group.item.name}
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                              loading="lazy"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                const parentEl = target.parentElement;
-                                if (parentEl) {
-                                  parentEl.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gray-100 dark:bg-gray-800"><svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></div>';
-                                }
-                              }}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Package className="w-12 h-12 text-gray-400" />
+                    </div>
+                  );
+                })}
+
+                {/* Standalone items grouped */}
+                {filteredDrawerGroupedItems.filter(g => g.type === 'standalone').length > 0 && (
+                  <div>
+                    {filteredDrawerGroupedItems.some(g => g.type === 'parent') && (
+                      <div className="flex items-center gap-2 mb-3 px-1">
+                        <h3 className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                          Individual Products
+                        </h3>
+                        <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800" />
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {filteredDrawerGroupedItems.filter(g => g.type === 'standalone').map((group) => {
+                        if (!group.item) return null;
+                        const item = group.item;
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                              handleSelectItem(item);
+                              setCategoryDrawerOpen(false);
+                            }}
+                            className="group bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-gray-700/40 hover:border-[#259783]/40 dark:hover:border-[#259783]/30 active:scale-[0.98] transition-all duration-200 overflow-hidden text-left hover:shadow-md"
+                          >
+                            <div className="aspect-[4/3] bg-gray-50 dark:bg-gray-800/50 overflow-hidden relative">
+                              {getItemImage(item.name) ? (
+                                <img
+                                  src={getItemImage(item.name)!}
+                                  alt={item.name}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  loading="lazy"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    const parentEl = target.parentElement;
+                                    if (parentEl) {
+                                      parentEl.innerHTML = '<div class="w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-800/50"><svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></div>';
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <Package className="w-8 h-8 text-gray-300 dark:text-gray-600" />
+                                </div>
+                              )}
+                              {item.current_stock <= 0 && (
+                                <div className="absolute inset-0 bg-white/60 dark:bg-black/40 flex items-center justify-center">
+                                  <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 bg-white/90 dark:bg-black/60 px-2 py-0.5 rounded-full">
+                                    Out of stock
+                                  </span>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                        <div className="p-3.5">
-                          <h3 className="font-bold text-sm mb-2.5 line-clamp-2 text-slate-900 dark:text-white leading-tight">
-                            {group.item.name}
-                          </h3>
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] text-white font-bold text-sm px-3 py-1.5 rounded-lg shadow-md">
-                                KES {group.item.current_sell_price.toFixed(0)}
-                              </span>
-                              <span className="text-xs text-slate-600 dark:text-slate-400 font-medium">
-                                / {group.item.unit_type}
-                              </span>
-                            </div>
-                            {group.item.bundle_quantity && group.item.bundle_price && group.item.bundle_quantity > 0 && group.item.bundle_price > 0 && (
-                              <div className="flex items-center gap-1.5">
-                                <span className="bg-amber-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded flex items-center gap-1">
-                                  <Tag className="w-2.5 h-2.5" />
-                                  {group.item.bundle_name || `${group.item.bundle_quantity} for KES ${group.item.bundle_price.toFixed(0)}`}
+                            <div className="p-2.5">
+                              <h3 className="font-semibold text-[12px] sm:text-[13px] line-clamp-2 text-gray-800 dark:text-gray-100 leading-snug group-hover:text-[#259783] dark:group-hover:text-[#3bd522] transition-colors">
+                                {item.name}
+                              </h3>
+                              <div className="flex items-baseline gap-1.5 mt-1.5">
+                                <span className="text-sm font-bold text-[#259783]">
+                                  KES {item.current_sell_price.toFixed(0)}
+                                </span>
+                                <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
+                                  /{item.unit_type}
                                 </span>
                               </div>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                      </div>
-                    );
-                  }
-                  return null;
-                })}
+                              <div className="flex items-center gap-1 mt-1.5">
+                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                  item.current_stock <= 0 ? 'bg-gray-300 dark:bg-gray-600' :
+                                  item.current_stock < 10 ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'
+                                }`} />
+                                <span className={`text-[10px] font-medium ${
+                                  item.current_stock <= 0 ? 'text-gray-400' :
+                                  item.current_stock < 10 ? 'text-amber-500' : 'text-gray-400'
+                                }`}>
+                                  {item.current_stock <= 0 ? 'Out of stock' : `${item.current_stock} ${item.unit_type}`}
+                                </span>
+                              </div>
+                              {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
+                                <div className="mt-1.5">
+                                  <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-[9px] font-semibold px-1.5 py-0.5 rounded border border-amber-200/60 dark:border-amber-700/40">
+                                    <Tag className="w-2 h-2" />
+                                    {item.bundle_name || `${item.bundle_quantity} for KES ${item.bundle_price.toFixed(0)}`}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

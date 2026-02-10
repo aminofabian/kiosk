@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
 import type { Category } from '@/lib/db/types';
 import { shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
 import {
@@ -184,10 +183,11 @@ export function CategoryList({
 
   if (loading) {
     return (
-      <div className="p-6 flex items-center justify-center">
-        <div className="text-center space-y-3">
-          <div className="w-10 h-10 mx-auto border-4 border-[#259783]/20 border-t-[#259783] rounded-full animate-spin"></div>
-          <p className="text-gray-600 font-medium">Loading categories...</p>
+      <div className="px-4 sm:px-6 py-3">
+        <div className="flex gap-2.5 overflow-hidden">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex-shrink-0 w-[120px] h-[52px] rounded-xl bg-gray-100 dark:bg-gray-800 animate-pulse" />
+          ))}
         </div>
       </div>
     );
@@ -195,67 +195,54 @@ export function CategoryList({
 
   if (error) {
     return (
-      <div className="p-6 flex items-center justify-center">
-        <div className="text-center space-y-3">
-          <div className="w-12 h-12 mx-auto bg-red-100 rounded-full flex items-center justify-center">
-            <span className="text-xl">⚠️</span>
-          </div>
-          <p className="text-destructive font-semibold">Error: {error}</p>
-        </div>
+      <div className="px-4 sm:px-6 py-3 flex items-center gap-2 text-red-500">
+        <span className="text-sm font-medium">Failed to load categories</span>
       </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="flex items-center justify-between mb-4 sm:mb-6">
-        <h2 className="text-lg sm:text-xl font-semibold text-gray-700">
-          Categories
-        </h2>
+    <div className="px-4 sm:px-6 py-3">
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+        {/* All categories / clear button */}
         {selectedCategoryId && (
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={() => onSelectCategory(null)}
-            className="text-xs text-gray-500 hover:text-gray-700"
+            className="flex-shrink-0 flex items-center gap-1.5 h-[44px] px-3.5 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/60 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all text-xs font-medium"
           >
-            Clear selection
-          </Button>
+            <Package className="w-3.5 h-3.5" />
+            All
+          </button>
         )}
-      </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
         {filteredCategories.map((category) => {
           const isSelected = selectedCategoryId === category.id;
-          // Always use lucide-react icons
           const icon = getCategoryIcon(category.name);
           
           return (
-            <Button
+            <button
               key={category.id}
-              variant={isSelected ? 'default' : 'outline'}
-              size="touch"
-              className={`flex flex-col items-center justify-center h-20 sm:h-24 gap-2 transition-all duration-200 hover-lift ${
+              className={`flex-shrink-0 flex items-center gap-2 h-[44px] px-4 rounded-xl border transition-all duration-200 ${
                 isSelected
-                  ? 'bg-[#259783] text-white border-0 shadow-lg scale-105 ring-2 ring-[#259783]/30'
-                  : 'bg-white hover:bg-[#259783]/10 border-gray-200 hover:border-[#259783] shadow-sm hover:scale-102'
+                  ? 'bg-[#259783] text-white border-[#259783] shadow-md shadow-[#259783]/20'
+                  : 'bg-white dark:bg-slate-800/60 border-gray-200/80 dark:border-gray-700/50 text-gray-700 dark:text-gray-300 hover:border-[#259783]/40 hover:bg-[#259783]/[0.04] dark:hover:bg-[#259783]/10'
               }`}
               onClick={() =>
                 onSelectCategory(isSelected ? null : category.id)
               }
             >
               <span
-                className={`transition-transform ${
-                  isSelected ? 'scale-110 text-white' : 'text-[#259783]'
+                className={`[&>svg]:w-4 [&>svg]:h-4 transition-colors ${
+                  isSelected ? 'text-white' : 'text-[#259783]'
                 }`}
               >
                 {icon}
               </span>
-              <span className={`text-xs sm:text-sm font-semibold leading-tight text-center ${
-                isSelected ? 'text-white' : 'text-gray-700'
+              <span className={`text-[13px] font-semibold whitespace-nowrap ${
+                isSelected ? 'text-white' : ''
               }`}>
                 {category.name}
               </span>
-            </Button>
+            </button>
           );
         })}
       </div>
