@@ -3,14 +3,14 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/layouts/admin-layout';
-import { CategoryList } from '@/components/admin/CategoryList';
+import { CategoryList, type CategoryWithCount } from '@/components/admin/CategoryList';
 import { CategoryForm } from '@/components/admin/CategoryForm';
 import { Loader2 } from 'lucide-react';
 import type { Category } from '@/lib/db/types';
 
 function CategoriesPageContent() {
   const searchParams = useSearchParams();
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<CategoryWithCount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(searchParams.get('new') === 'true');
@@ -20,7 +20,7 @@ function CategoriesPageContent() {
   const fetchCategories = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/categories');
+      const response = await fetch('/api/categories?all=true&withCounts=true');
       const result = await response.json();
 
       if (result.success) {
@@ -88,7 +88,7 @@ function CategoriesPageContent() {
   if (showForm) {
     return (
       <AdminLayout>
-        <div className="p-6">
+        <div className="p-6 sm:p-8">
           <CategoryForm
             category={editingCategory}
             existingCategories={categories}
@@ -102,20 +102,24 @@ function CategoriesPageContent() {
 
   return (
     <AdminLayout>
-      <div className="p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold">Category Management</h1>
-          <p className="text-muted-foreground">
+      <div className="p-6 sm:p-8">
+        <div className="mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+            Category Management
+          </h1>
+          <p className="mt-1.5 text-slate-600 dark:text-slate-400">
             Organize your products into categories
           </p>
         </div>
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-10 w-10 animate-spin text-[#259783]" />
           </div>
         ) : error ? (
-          <div className="text-center py-12 text-destructive">{error}</div>
+          <div className="rounded-none border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-6 py-12 text-center text-red-600 dark:text-red-400 font-medium">
+            {error}
+          </div>
         ) : (
           <CategoryList
             categories={categories}

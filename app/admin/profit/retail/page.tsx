@@ -27,6 +27,7 @@ import {
   Users,
 } from 'lucide-react';
 import { ProfitCalendar } from '@/components/admin/ProfitCalendar';
+import { LatestSalesCard } from '@/components/admin/LatestSalesCard';
 import { apiPut, apiGet } from '@/lib/utils/api-client';
 import { Edit2, Check, X } from 'lucide-react';
 
@@ -255,8 +256,18 @@ export default function RetailProfitPage() {
             </div>
           </div>
 
-          {/* ─── Top Earners & Needs Attention ──────────────────────── */}
-          <div className="grid lg:grid-cols-2 gap-4">
+          {/* ─── Latest Sales & Top Earners & Needs Attention ───────── */}
+          <div className="grid lg:grid-cols-3 gap-4">
+            {/* Latest Sales */}
+            {(() => {
+              const [sY, sM, sD] = dateRange.start.split('-').map(Number);
+              const [eY, eM, eD] = dateRange.end.split('-').map(Number);
+              const startTs = Math.floor(new Date(sY, sM - 1, sD, 0, 0, 0).getTime() / 1000);
+              const endTs = Math.floor(new Date(eY, eM - 1, eD, 23, 59, 59).getTime() / 1000);
+              return (
+                <LatestSalesCard startTs={startTs} endTs={endTs} itemType="retail" accentColor="blue" />
+              );
+            })()}
             <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg">
               <div className="p-4 border-b-2 border-slate-200 dark:border-slate-700">
                 <div className="flex items-center gap-2">

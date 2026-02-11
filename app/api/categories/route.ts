@@ -13,21 +13,44 @@ export async function OPTIONS() {
   return optionsResponse();
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
 
+    const { searchParams } = new URL(request.url);
+    const all = searchParams.get('all') === 'true';
+    const withCounts = searchParams.get('withCounts') === 'true';
+
+    const activeFilter = all ? '' : 'AND active = 1';
+
     const categories = await query<Category>(
       `SELECT * FROM categories 
-       WHERE business_id = ? AND active = 1 
+       WHERE business_id = ? ${activeFilter}
        ORDER BY position ASC, name ASC`,
       [auth.businessId]
     );
 
+    let data = categories;
+
+    if (withCounts) {
+      const countRows = await query<{ category_id: string; item_count: string }>(
+        `SELECT category_id, COUNT(*) as item_count 
+         FROM items 
+         WHERE business_id = ? AND active = 1 
+         GROUP BY category_id`,
+        [auth.businessId]
+      );
+      const countMap = new Map(countRows.map(r => [r.category_id, Number(r.item_count)]));
+      data = categories.map(c => ({
+        ...c,
+        item_count: countMap.get(c.id) ?? 0,
+      }));
+    }
+
     return jsonResponse({
       success: true,
-      data: categories,
+      data,
     });
   } catch (error) {
     console.error('Error fetching categories:', error);

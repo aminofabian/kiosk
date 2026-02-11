@@ -24,6 +24,8 @@ import {
   BarChart3,
   Leaf,
   Store,
+  ListOrdered,
+  PackageX,
 } from 'lucide-react';
 
 interface SubItem {
@@ -65,6 +67,7 @@ const SECTIONS: MenuSection[] = [
           { href: '/admin/sales/retail', label: 'Retail', icon: Store },
         ],
       },
+      { href: '/admin/transactions', label: 'Transactions', icon: ListOrdered },
       {
         href: '/admin/profit',
         label: 'Profit',
@@ -84,6 +87,7 @@ const SECTIONS: MenuSection[] = [
       { href: '/admin/categories', label: 'Categories', icon: FolderTree },
       { href: '/admin/items', label: 'Items', icon: Package },
       { href: '/admin/stock', label: 'Stock', icon: PackageCheck },
+      { href: '/admin/out-of-stock-requests', label: 'Requested (Not Sold)', icon: PackageX },
       { href: '/admin/stock/approvals', label: 'Approvals', icon: Scale, roles: ['admin', 'owner'] },
     ],
   },
@@ -152,6 +156,7 @@ export function AdminSidebar() {
           '/admin/credits',
           '/admin/expenses',
           '/admin/supplier-bills',
+          '/admin/out-of-stock-requests',
         ];
         return (
           allowed.includes(item.href) ||

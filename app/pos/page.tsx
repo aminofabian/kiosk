@@ -5,6 +5,7 @@ import { POSLayout } from '@/components/layouts/pos-layout';
 import { CategoryList } from '@/components/pos/CategoryList';
 import { ItemGrid } from '@/components/pos/ItemGrid';
 import { AddToCartDialog } from '@/components/pos/AddToCartDialog';
+import { OutOfStockRequestModal } from '@/components/pos/OutOfStockRequestModal';
 import { VariantSelector } from '@/components/pos/VariantSelector';
 import { CartView } from '@/components/pos/CartView';
 import { CheckoutForm } from '@/components/pos/CheckoutForm';
@@ -62,6 +63,7 @@ import {
   UtensilsCrossed,
   RefreshCw,
   Trash2,
+  PackageX,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Item } from '@/lib/db/types';
@@ -177,6 +179,7 @@ export default function POSPage() {
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const [checkoutDrawerOpen, setCheckoutDrawerOpen] = useState(false);
   const [receiptDrawerOpen, setReceiptDrawerOpen] = useState(false);
+  const [outOfStockModalOpen, setOutOfStockModalOpen] = useState(false);
   const [receiptSaleId, setReceiptSaleId] = useState<string | null>(null);
   const [receiptData, setReceiptData] = useState<{ sale: any; items: any[]; splitPayments?: any[] } | null>(null);
   const [receiptLoading, setReceiptLoading] = useState(false);
@@ -1590,6 +1593,15 @@ export default function POSPage() {
                   >
                     <RefreshCw className={`w-4 h-4 text-slate-500 dark:text-slate-400 ${refreshing ? 'animate-spin' : ''}`} />
                   </button>
+
+                  <button
+                    aria-label="Requested but not sold"
+                    onClick={() => setOutOfStockModalOpen(true)}
+                    className="pos-icon-btn"
+                    title="Log item customer asked for but we don't have"
+                  >
+                    <PackageX className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  </button>
                   
                   {canAccessAdmin && (
                     <Link
@@ -1854,6 +1866,15 @@ export default function POSPage() {
                     title="Refresh"
                   >
                     <RefreshCw className={`w-4 h-4 text-slate-500 dark:text-slate-400 ${refreshing ? 'animate-spin' : ''}`} />
+                  </button>
+
+                  <button
+                    aria-label="Requested but not sold"
+                    onClick={() => setOutOfStockModalOpen(true)}
+                    className="pos-icon-btn"
+                    title="Log item customer asked for but we don't have"
+                  >
+                    <PackageX className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                   </button>
                   
                   {canAccessAdmin && (
@@ -2209,6 +2230,15 @@ export default function POSPage() {
                       title="Refresh"
                     >
                       <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setOutOfStockModalOpen(true)}
+                      className="pos-icon-btn h-9 w-9 p-0"
+                      title="Log item customer asked for but we don't have"
+                    >
+                      <PackageX className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                     </Button>
                     
                     {canAccessAdmin && (
@@ -2928,6 +2958,11 @@ export default function POSPage() {
           </div>
         </DrawerContent>
       </Drawer>
+
+      <OutOfStockRequestModal
+        open={outOfStockModalOpen}
+        onOpenChange={setOutOfStockModalOpen}
+      />
     </>
   );
 }

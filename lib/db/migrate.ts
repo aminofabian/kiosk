@@ -343,6 +343,13 @@ export async function runMigrations() {
       console.error('⚠ packaging_units migration skipped:', error);
     }
 
+    try {
+      const { migrateOutOfStockRequests } = await import('./migrate-out-of-stock-requests');
+      await migrateOutOfStockRequests();
+    } catch (error) {
+      console.error('⚠ out_of_stock_requests migration skipped:', error);
+    }
+
     console.log('✅ Migration completed successfully!');
     return true;
   } catch (error) {

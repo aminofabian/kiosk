@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { ProfitCalendar } from '@/components/admin/ProfitCalendar';
+import { LatestSalesCard } from '@/components/admin/LatestSalesCard';
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -313,16 +314,30 @@ export default function ProfitHubPage() {
             </Card>
           </div>
 
-          {/* P&L Breakdown */}
-          <Card className="border-2 border-slate-200 dark:border-slate-700">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-[#259783]" />
-                Profit &amp; Loss Breakdown
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+          {/* Latest Sales + P&L Breakdown */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div className="lg:col-span-1">
+              {(() => {
+                const [sY, sM, sD] = dateRange.start.split('-').map(Number);
+                const [eY, eM, eD] = dateRange.end.split('-').map(Number);
+                const startTs = Math.floor(new Date(sY, sM - 1, sD, 0, 0, 0, 0).getTime() / 1000);
+                const endTs = Math.floor(new Date(eY, eM - 1, eD, 23, 59, 59, 999).getTime() / 1000);
+                return (
+                  <LatestSalesCard startTs={startTs} endTs={endTs} accentColor="teal" />
+                );
+              })()}
+            </div>
+            <div className="lg:col-span-2">
+              {/* P&L Breakdown */}
+              <Card className="border-2 border-slate-200 dark:border-slate-700">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <BarChart3 className="w-4 h-4 text-[#259783]" />
+                    Profit &amp; Loss Breakdown
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
                 {/* Revenue */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -401,9 +416,11 @@ export default function ProfitHubPage() {
                     </span>
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
 
           {/* Expenses & Banking Row */}
           {hasExpenses ? (
