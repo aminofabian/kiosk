@@ -1,17 +1,9 @@
 import type { Metadata } from "next";
-import { Outfit } from "next/font/google";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 import { DynamicMetaTags } from "@/components/DynamicMetaTags";
 import { Toaster } from "sonner";
 import { getCurrentUser } from "@/lib/auth";
 import "./globals.css";
-
-const outfit = Outfit({
-  variable: "--font-outfit",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800", "900"],
-  display: "swap",
-});
 
 export async function generateMetadata(): Promise<Metadata> {
   const user = await getCurrentUser();
@@ -48,7 +40,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
-      <body className={`${outfit.variable} font-sans antialiased`}>
+      <body className="font-sans antialiased">
         <SessionProvider>
           <DynamicMetaTags />
           {children}

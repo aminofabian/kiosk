@@ -206,9 +206,9 @@ export function AddToCartDialog({
           <div className="relative px-6 pt-6">
             <button
               onClick={() => onOpenChange(false)}
-              className="absolute top-0 right-0 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              className="absolute top-0 right-0 w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
             >
-              <X className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+              <X className="w-4 h-4 text-slate-600 dark:text-slate-400" />
             </button>
 
             <div className="flex flex-col items-center pt-8 pb-4">
@@ -546,7 +546,7 @@ export function AddToCartDialog({
             <Button
               onClick={handleAddToCart}
               disabled={quantity <= 0 || (useManualPrice && (manualPrice === null || manualPrice < 0))}
-              className="w-full h-14 bg-[#259783] hover:bg-[#45d827] text-white font-bold text-lg rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-14 pos-btn-primary rounded-2xl flex items-center justify-center gap-2 text-base font-bold disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ShoppingCart className="w-5 h-5" />
               <span>ADD TO CART</span>

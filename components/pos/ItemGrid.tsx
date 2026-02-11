@@ -79,10 +79,10 @@ const ItemCard = memo(function ItemCard({
     <Card
       role="button"
       tabIndex={0}
-      className={`group cursor-pointer transition-all duration-200 ease-out touch-target relative overflow-hidden rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${isOutOfStock
-        ? 'bg-gray-50/80 dark:bg-slate-800/40 border-gray-200/60 dark:border-gray-700/30 opacity-75 hover:opacity-100'
-        : 'bg-white dark:bg-slate-800/80 border-gray-200/80 dark:border-gray-700/40 hover:border-[#259783]/40 dark:hover:border-[#259783]/30 shadow-sm hover:shadow-md'
-        } hover:-translate-y-0.5`}
+      className={`pos-grid-btn group cursor-pointer touch-target relative overflow-hidden rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 transition-transform duration-100 active:scale-[0.97] ${isOutOfStock
+        ? 'bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-200/70 dark:border-slate-600/50 opacity-75 hover:opacity-100 shadow-md'
+        : 'bg-white dark:bg-slate-800/90 border-2 border-slate-200/80 dark:border-slate-600/50 hover:border-[#259783]/40 dark:hover:border-[#259783]/40 shadow-[0_4px_14px_rgba(0,0,0,0.08)] active:shadow-[0_2px_6px_rgba(0,0,0,0.12)]'
+        }`}
       onClick={() => onSelect(item)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -92,7 +92,7 @@ const ItemCard = memo(function ItemCard({
       }}
     >
       {/* Left accent bar */}
-      <div className={`absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl transition-all duration-200 ${isOutOfStock
+      <div className={`absolute left-0 top-0 bottom-0 w-[4px] rounded-l-2xl transition-all duration-200 ${isOutOfStock
         ? 'bg-gray-300 dark:bg-gray-600'
         : stockStatus === 'low'
           ? 'bg-amber-400'

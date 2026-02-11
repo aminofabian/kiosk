@@ -89,12 +89,13 @@ export function ProductStore() {
   const selectedCategoryData = categories.find(c => c.id === selectedCategory);
 
   return (
-    <section className="py-16 md:py-24 bg-gradient-to-b from-white to-green-50" aria-labelledby="store-heading">
-      <div className="container mx-auto px-4">
+    <section className="py-16 md:py-24 bg-gradient-to-b from-white via-emerald-50/30 to-green-50 relative overflow-hidden" aria-labelledby="store-heading">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_0%,rgba(52,211,153,0.08),transparent)]" />
+      <div className="container mx-auto px-4 relative">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="text-center mb-12">
-            <h2 id="store-heading" className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            <h2 id="store-heading" className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-gray-900 via-emerald-800 to-gray-900 bg-clip-text text-transparent mb-4">
               Fresh Products Store
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
@@ -119,11 +120,11 @@ export function ProductStore() {
                     'flex items-center gap-2 px-6 py-3 rounded-full font-semibold transition-all duration-300',
                     'hover:scale-105 hover:shadow-lg',
                     isActive
-                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg'
-                      : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-emerald-300'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/25'
+                      : 'bg-white text-gray-700 border-2 border-gray-200 hover:border-emerald-300 hover:shadow-emerald-500/10'
                   )}
                 >
-                  <Icon className="w-5 h-5" />
+                  <Icon className={cn('w-5 h-5 transition-transform', isActive && 'drop-shadow-sm')} strokeWidth={2} />
                   <span>{category.name}</span>
                   <span className={cn(
                     'px-2 py-0.5 rounded-full text-xs font-bold',
@@ -141,7 +142,7 @@ export function ProductStore() {
             {filteredProducts.map((product) => (
               <div
                 key={product.id}
-                className="group bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border border-gray-100"
+                className="group bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-[0_25px_50px_-12px_rgba(5,150,105,0.2)] transition-all duration-300 hover:-translate-y-2 border border-emerald-100/50 hover:border-emerald-200"
               >
                 {/* Product Image */}
                 <div className="relative aspect-square bg-gradient-to-br from-emerald-50 to-teal-50 overflow-hidden">
@@ -149,18 +150,19 @@ export function ProductStore() {
                     src={product.image}
                     alt={product.name}
                     fill
-                    className="object-cover group-hover:scale-110 transition-transform duration-300"
+                    className="object-cover group-hover:scale-110 transition-transform duration-500"
                     sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                   />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   {!product.inStock && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                      <span className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+                      <span className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold shadow-lg">
                         Out of Stock
                       </span>
                     </div>
                   )}
                   {product.inStock && (
-                    <div className="absolute top-2 right-2 bg-emerald-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+                    <div className="absolute top-2 right-2 bg-emerald-500/95 backdrop-blur-sm text-white px-2 py-1 rounded-full text-xs font-bold shadow-md">
                       In Stock
                     </div>
                   )}
@@ -174,7 +176,7 @@ export function ProductStore() {
                   
                   <div className="flex items-baseline justify-between mb-3">
                     <div>
-                      <span className="text-2xl font-extrabold text-emerald-600">
+                      <span className="text-2xl font-extrabold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
                         KES {product.price}
                       </span>
                       <span className="text-sm text-gray-500 ml-1">
@@ -186,10 +188,10 @@ export function ProductStore() {
                   {/* Add to Cart Button */}
                   <Button
                     onClick={() => handleAddToCart(product)}
-                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-300 gap-2"
+                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-semibold rounded-xl shadow-md hover:shadow-lg hover:shadow-emerald-500/25 transition-all duration-300 gap-2"
                     disabled={!product.inStock}
                   >
-                    <ShoppingCart className="w-4 h-4" />
+                    <ShoppingCart className="w-4 h-4" strokeWidth={2} />
                     Add to Cart
                   </Button>
                 </div>
@@ -208,9 +210,9 @@ export function ProductStore() {
           {/* Category Info */}
           {selectedCategoryData && selectedCategory !== 'all' && (
             <div className="mt-12 text-center">
-              <div className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-50 rounded-full border border-emerald-200">
+              <div className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-50 rounded-full border border-emerald-200 shadow-sm">
                 {selectedCategoryData.icon && (
-                  <selectedCategoryData.icon className="w-5 h-5 text-emerald-600" />
+                  <selectedCategoryData.icon className="w-5 h-5 text-emerald-600" strokeWidth={2} />
                 )}
                 <span className="text-emerald-700 font-semibold">
                   Showing {filteredProducts.length} {selectedCategoryData.name.toLowerCase()}
@@ -226,8 +228,8 @@ export function ProductStore() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <div className="flex items-center justify-center mb-4">
-              <div className="p-4 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-full">
-                <Clock className="w-12 h-12 text-emerald-600" />
+              <div className="p-4 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-2xl shadow-inner border border-emerald-200/30">
+                <Clock className="w-12 h-12 text-emerald-600" strokeWidth={2} />
               </div>
             </div>
             <DialogTitle className="text-2xl font-bold text-center">

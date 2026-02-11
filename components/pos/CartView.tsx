@@ -64,18 +64,18 @@ export function CartView({ onContinueShopping, onCheckout }: CartViewProps = {})
   return (
     <div className="flex flex-col h-full">
       {/* Cart Tabs */}
-      <div className="border-b bg-gray-50 dark:bg-gray-900">
-        <div className="flex items-center gap-1 p-2 overflow-x-auto">
+      <div className="border-b bg-slate-50/80 dark:bg-slate-900/80">
+        <div className="flex items-center gap-2 p-2 overflow-x-auto">
           {carts.map((cart) => (
             <button
               key={cart.id}
               onClick={() => switchCart(cart.id)}
               className={`
-                relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
+                relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium
                 transition-all duration-200 whitespace-nowrap min-w-fit
                 ${cart.id === activeCartId
-                  ? 'bg-[#259783] text-white shadow-md'
-                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600'
+                  ? 'bg-gradient-to-r from-[#259783] to-[#1e8a72] text-white shadow-lg shadow-[#259783]/25'
+                  : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600'
                 }
               `}
             >
@@ -114,7 +114,7 @@ export function CartView({ onContinueShopping, onCheckout }: CartViewProps = {})
             variant="outline"
             size="sm"
             onClick={handleNewCart}
-            className="h-8 px-2.5 gap-1 text-[#259783] border-[#259783]/30 hover:bg-[#259783]/10 whitespace-nowrap"
+            className="h-9 px-3 gap-2 rounded-xl text-[#259783] border-[#259783]/40 hover:bg-[#259783]/10 hover:border-[#259783]/50 whitespace-nowrap font-medium transition-all"
           >
             <PlusCircle className="w-4 h-4" />
             <span className="hidden sm:inline">New Cart</span>
@@ -136,14 +136,14 @@ export function CartView({ onContinueShopping, onCheckout }: CartViewProps = {})
             {onContinueShopping ? (
               <Button
                 size="touch"
-                className="mt-4 bg-[#259783] hover:bg-[#45d827] text-white"
+                className="mt-4 pos-btn-primary rounded-xl px-8"
                 onClick={onContinueShopping}
               >
                 Continue Shopping
               </Button>
             ) : (
               <Link href="/pos">
-                <Button size="touch" className="mt-4 bg-[#259783] hover:bg-[#45d827] text-white">
+                <Button size="touch" className="mt-4 pos-btn-primary rounded-xl px-8">
                   Continue Shopping
                 </Button>
               </Link>
@@ -251,12 +251,12 @@ export function CartView({ onContinueShopping, onCheckout }: CartViewProps = {})
                   {formatPrice(cartTotal)}
                 </span>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={clearCart}
-                  className="flex-1 h-9"
+                  className="flex-1 h-10 pos-btn-outline rounded-xl font-medium"
                 >
                   Clear Cart
                 </Button>
@@ -264,7 +264,7 @@ export function CartView({ onContinueShopping, onCheckout }: CartViewProps = {})
                   <Button
                     size="sm"
                     onClick={onCheckout}
-                    className="flex-1 h-9 bg-[#259783] hover:bg-[#45d827] text-white"
+                    className="flex-1 h-10 pos-btn-primary rounded-xl font-semibold"
                   >
                     Checkout
                   </Button>
@@ -272,7 +272,7 @@ export function CartView({ onContinueShopping, onCheckout }: CartViewProps = {})
                   <Link href="/pos/checkout" className="flex-1">
                     <Button
                       size="sm"
-                      className="w-full h-9 bg-[#259783] hover:bg-[#45d827] text-white"
+                      className="w-full h-10 pos-btn-primary rounded-xl font-semibold"
                     >
                       Checkout
                     </Button>

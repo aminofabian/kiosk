@@ -208,7 +208,7 @@ export function CategoryList({
         {selectedCategoryId && (
           <button
             onClick={() => onSelectCategory(null)}
-            className="flex-shrink-0 flex items-center gap-1.5 h-[44px] px-3.5 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/60 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all text-xs font-medium"
+            className="pos-grid-btn flex-shrink-0 flex items-center gap-1.5 h-[44px] px-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 border-2 border-slate-200/80 dark:border-slate-600/60 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-medium shadow-md active:scale-95 transition-transform duration-100"
           >
             <Package className="w-3.5 h-3.5" />
             All
@@ -221,10 +221,10 @@ export function CategoryList({
           return (
             <button
               key={category.id}
-              className={`flex-shrink-0 flex items-center gap-2 h-[44px] px-4 rounded-xl border transition-all duration-200 ${
+              className={`pos-grid-btn flex-shrink-0 flex items-center gap-2 h-[44px] px-4 rounded-xl border-2 transition-all duration-200 active:scale-95 ${
                 isSelected
-                  ? 'bg-[#259783] text-white border-[#259783] shadow-md shadow-[#259783]/20'
-                  : 'bg-white dark:bg-slate-800/60 border-gray-200/80 dark:border-gray-700/50 text-gray-700 dark:text-gray-300 hover:border-[#259783]/40 hover:bg-[#259783]/[0.04] dark:hover:bg-[#259783]/10'
+                  ? 'bg-[#259783] text-white border-[#259783] shadow-lg shadow-[#259783]/25'
+                  : 'bg-white dark:bg-slate-800/80 border-slate-200/80 dark:border-slate-600/50 text-slate-700 dark:text-slate-300 hover:border-[#259783]/40 hover:bg-[#259783]/5 dark:hover:bg-[#259783]/10 shadow-md'
               }`}
               onClick={() =>
                 onSelectCategory(isSelected ? null : category.id)

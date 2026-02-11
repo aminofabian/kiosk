@@ -314,6 +314,7 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
               }
             }}
             size="touch"
+            className="pos-btn-primary rounded-xl px-8"
           >
             Continue Shopping
           </Button>
@@ -632,7 +633,7 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
               </p>
             </>
           )}
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <Button
               type="button"
               variant="outline"
@@ -644,7 +645,7 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
                   router.push('/pos/cart');
                 }
               }}
-              className={paymentMethod === 'mpesa' ? 'flex-1' : 'flex-1'}
+              className="flex-1 pos-btn-outline rounded-xl font-medium"
               disabled={isProcessing}
             >
               Cancel
@@ -654,7 +655,7 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
                 type="submit"
                 size="touch"
                 disabled={!isValid || isProcessing}
-                className="flex-1 bg-[#259783] hover:bg-[#45d827] text-white"
+                className="flex-1 pos-btn-primary rounded-xl font-semibold"
               >
                 {isProcessing ? (
                   <>

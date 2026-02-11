@@ -30,6 +30,7 @@ import {
   Tag,
   X,
   Calendar,
+  Link2,
 } from 'lucide-react';
 import { apiGet, apiPost, apiPatch } from '@/lib/utils/api-client';
 import { Badge } from '@/components/ui/badge';
@@ -71,6 +72,7 @@ interface SupplierBillFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
   preSelectedSupplierId?: string;
+  onOpenManageLinkProducts?: (supplier: Supplier) => void;
 }
 
 interface LinkedProduct {
@@ -86,7 +88,7 @@ interface LinkedProduct {
   packaging_unit_qty: number | null;
 }
 
-export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }: SupplierBillFormProps) {
+export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, onOpenManageLinkProducts }: SupplierBillFormProps) {
   const PACKAGING_PRESETS = ['Carton', 'Sack', 'Net', 'Crate', 'Box', 'Bag', 'Bale', 'Bundle', 'Tray'];
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
@@ -716,6 +718,18 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId }:
                   >
                     Edit
                   </Button>
+                  {onOpenManageLinkProducts && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onOpenManageLinkProducts({ ...selected, location: selected.location ?? null, notes: selected.notes ?? null })}
+                      className="h-6 px-2 text-[10px] border-[#259783]/40 text-[#259783] hover:bg-[#259783]/10 rounded-full"
+                    >
+                      <Link2 className="w-3 h-3 mr-1" />
+                      Manage linked products
+                    </Button>
+                  )}
                 </div>
                 {selected.contact_phone && (
                   <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">

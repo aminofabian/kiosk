@@ -1555,10 +1555,10 @@ export default function POSPage() {
                 <div className="flex items-center gap-2">
                   <button
                     aria-label="Menu"
-                    className="flex size-8 items-center justify-center rounded-lg bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700/60 active:scale-95 transition-all"
+                    className="pos-icon-btn"
                     onClick={() => setCategoryDrawerOpen(true)}
                   >
-                    <Menu className="w-[18px] h-[18px] text-gray-500 dark:text-gray-400" />
+                    <Menu className="w-[18px] h-[18px] text-slate-600 dark:text-slate-400" />
                   </button>
                   <div>
                     <h1 className="text-[15px] font-bold text-[#259783] leading-none tracking-tight">
@@ -1572,42 +1572,42 @@ export default function POSPage() {
                 </div>
 
                 {/* Right - Actions */}
-                <div className="flex items-center gap-0.5">
+                <div className="flex items-center gap-1">
                   <button
                     aria-label="Search"
                     onClick={() => setShowSearch(true)}
-                    className="flex size-8 items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/60 active:scale-95 transition-all"
+                    className="pos-icon-btn"
                   >
-                    <Search className="w-[18px] h-[18px] text-gray-500 dark:text-gray-400" />
+                    <Search className="w-[18px] h-[18px] text-slate-600 dark:text-slate-400" />
                   </button>
 
                   <button
                     aria-label="Refresh"
                     onClick={handleRefresh}
                     disabled={refreshing}
-                    className="flex size-8 items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/60 active:scale-95 transition-all disabled:opacity-40"
+                    className="pos-icon-btn disabled:opacity-40"
                     title="Refresh"
                   >
-                    <RefreshCw className={`w-4 h-4 text-gray-400 dark:text-gray-500 ${refreshing ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`w-4 h-4 text-slate-500 dark:text-slate-400 ${refreshing ? 'animate-spin' : ''}`} />
                   </button>
                   
                   {canAccessAdmin && (
                     <Link
                       href="/admin"
-                      className="flex size-8 items-center justify-center rounded-lg hover:bg-[#259783]/10 active:scale-95 transition-all"
+                      className="pos-icon-btn-primary"
                       aria-label="Admin"
                     >
-                      <Settings className="w-4 h-4 text-[#259783]" />
+                      <Settings className="w-4 h-4" />
                     </Link>
                   )}
                   
                   <button
                     aria-label="Logout"
                     onClick={() => signOut({ callbackUrl: '/pos/login' })}
-                    className="flex size-8 items-center justify-center rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 active:scale-95 transition-all"
+                    className="pos-icon-btn-danger"
                     title="Logout"
                   >
-                    <LogOut className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                    <LogOut className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                   </button>
                 </div>
               </div>
@@ -1753,20 +1753,20 @@ export default function POSPage() {
             <main className="flex-1 overflow-y-auto no-scrollbar pb-32 px-4">
               {!searchQuery && !debouncedSearchQuery && (
                 <>
-                  <div className="flex gap-1.5 py-1 overflow-x-auto no-scrollbar w-full mb-2">
-                    <button className="flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-white dark:bg-[#1c2e18] border border-gray-200/80 dark:border-gray-700/60 px-3 active:scale-[0.97] transition-all shadow-sm hover:shadow">
-                      <DollarSign className="w-3.5 h-3.5 text-[#259783]" />
-                      <span className="font-medium text-[13px] whitespace-nowrap text-slate-600 dark:text-slate-300">Custom Amount</span>
+                  <div className="flex gap-2 py-2 overflow-x-auto no-scrollbar w-full mb-2">
+                    <button className="pos-pill pos-btn-outline flex shrink-0 items-center gap-2 shadow-sm">
+                      <DollarSign className="w-4 h-4 text-[#259783]" />
+                      <span className="whitespace-nowrap text-slate-700 dark:text-slate-300">Custom Amount</span>
                     </button>
                     <button 
                       onClick={() => {
                         setShowSearch(true);
                         setSearchQuery('');
                       }}
-                      className="flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-[#259783]/[0.07] dark:bg-[#259783]/15 border border-[#259783]/15 dark:border-[#259783]/25 px-3 active:scale-[0.97] transition-all"
+                      className="pos-pill pos-btn-primary flex shrink-0 items-center gap-2 text-white"
                     >
-                      <QrCode className="w-3.5 h-3.5 text-[#259783]" />
-                      <span className="font-medium text-[13px] whitespace-nowrap text-[#259783]">Scan Barcode</span>
+                      <QrCode className="w-4 h-4" />
+                      <span className="whitespace-nowrap">Scan Barcode</span>
                     </button>
                   </div>
 
@@ -1780,7 +1780,7 @@ export default function POSPage() {
                         <button
                           key={category.id}
                           onClick={() => handleCategoryClick(category.id)}
-                          className="group relative flex flex-col justify-end p-3.5 h-[130px] rounded-2xl shadow-sm active:scale-[0.97] transition-all duration-200 overflow-hidden text-left"
+                          className="pos-grid-btn group relative flex flex-col justify-end p-3.5 h-[130px] rounded-2xl overflow-hidden text-left border-2 border-white/40 shadow-[0_4px_14px_rgba(0,0,0,0.15)] active:scale-[0.96] active:shadow-[0_2px_6px_rgba(0,0,0,0.25)] transition-transform duration-100"
                         >
                           {/* Background image or gradient fallback */}
                           {imageUrl ? (
@@ -1797,7 +1797,7 @@ export default function POSPage() {
 
                           {/* Icon badge - top left */}
                           <span
-                            className={`absolute top-3 left-3 z-20 flex items-center justify-center w-8 h-8 rounded-xl bg-white/90 dark:bg-black/50 backdrop-blur-md ${color} shadow-sm [&>svg]:w-4 [&>svg]:h-4`}
+                            className={`absolute top-3 left-3 z-20 flex items-center justify-center w-9 h-9 rounded-xl bg-white/95 dark:bg-slate-900/80 backdrop-blur-md ${color} shadow-lg border border-white/50 [&>svg]:w-4 [&>svg]:h-4`}
                           >
                             {icon}
                           </span>
@@ -1856,9 +1856,9 @@ export default function POSPage() {
               <div className="flex items-center gap-2.5 px-3 py-2">
                 <button
                   onClick={() => setSelectedCategoryId(null)}
-                  className="flex size-8 items-center justify-center rounded-lg bg-gray-50 dark:bg-gray-800/50 hover:bg-gray-100 dark:hover:bg-gray-700/60 active:scale-95 transition-all flex-shrink-0"
+                  className="pos-icon-btn flex-shrink-0"
                 >
-                  <ArrowLeft className="w-[18px] h-[18px] text-gray-500 dark:text-gray-400" />
+                  <ArrowLeft className="w-[18px] h-[18px] text-slate-600 dark:text-slate-400" />
                 </button>
 
                 <div className="flex-1 min-w-0">
@@ -1871,34 +1871,30 @@ export default function POSPage() {
                   />
                 </div>
 
-                <div className="flex items-center gap-0.5 flex-shrink-0">
+                <div className="flex items-center gap-1 flex-shrink-0">
                   <button
                     aria-label="Refresh"
                     onClick={handleRefresh}
                     disabled={refreshing}
-                    className="flex size-8 items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700/60 active:scale-95 transition-all disabled:opacity-40"
+                    className="pos-icon-btn disabled:opacity-40"
                     title="Refresh"
                   >
-                    <RefreshCw className={`w-4 h-4 text-gray-400 dark:text-gray-500 ${refreshing ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`w-4 h-4 text-slate-500 dark:text-slate-400 ${refreshing ? 'animate-spin' : ''}`} />
                   </button>
                   
                   {canAccessAdmin && (
-                    <Link
-                      href="/admin"
-                      className="flex size-8 items-center justify-center rounded-lg hover:bg-[#259783]/10 active:scale-95 transition-all"
-                      aria-label="Admin"
-                    >
-                      <Settings className="w-4 h-4 text-[#259783]" />
+                    <Link href="/admin" className="pos-icon-btn-primary" aria-label="Admin">
+                      <Settings className="w-4 h-4" />
                     </Link>
                   )}
                   
                   <button
                     aria-label="Logout"
                     onClick={() => signOut({ callbackUrl: '/pos/login' })}
-                    className="flex size-8 items-center justify-center rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 active:scale-95 transition-all"
+                    className="pos-icon-btn-danger"
                     title="Logout"
                   >
-                    <LogOut className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                    <LogOut className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                   </button>
                 </div>
               </div>
@@ -1955,9 +1951,9 @@ export default function POSPage() {
                               <button
                                 key={item.id}
                                 onClick={() => handleMobileItemClick(item)}
-                                className="bg-[#1c2e18] dark:bg-[#132210] rounded-xl shadow-md hover:shadow-xl border border-[#259783]/10 dark:border-[#259783]/20 overflow-hidden active:scale-[0.98] transition-all duration-200 relative group"
+                                className="pos-grid-btn bg-[#1c2e18] dark:bg-[#132210] rounded-2xl border-2 border-[#259783]/30 shadow-[0_6px_16px_rgba(0,0,0,0.25)] active:scale-[0.96] active:shadow-[0_2px_8px_rgba(0,0,0,0.3)] overflow-hidden relative group transition-transform duration-100"
                               >
-                                <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-xl overflow-hidden relative">
+                                <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-2xl overflow-hidden relative">
                                   {group.parent && getItemImage(group.parent.name) ? (
                                     <img
                                       src={getItemImage(group.parent.name)!}
@@ -2012,9 +2008,9 @@ export default function POSPage() {
                         <div key={group.item.id} className="flex justify-center">
                           <button
                             onClick={() => handleMobileItemClick(group.item!)}
-                            className="bg-[#1c2e18] dark:bg-[#132210] rounded-xl shadow-md hover:shadow-xl border border-[#259783]/10 dark:border-[#259783]/20 overflow-hidden active:scale-[0.98] transition-all duration-200 relative group w-full max-w-xs"
+                            className="pos-grid-btn bg-[#1c2e18] dark:bg-[#132210] rounded-2xl border-2 border-[#259783]/30 shadow-[0_6px_16px_rgba(0,0,0,0.25)] active:scale-[0.96] active:shadow-[0_2px_8px_rgba(0,0,0,0.3)] overflow-hidden relative group w-full max-w-xs transition-transform duration-100"
                           >
-                          <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-xl overflow-hidden relative">
+                          <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-2xl overflow-hidden relative">
                             {getItemImage(group.item.name) ? (
                               <img
                                 src={getItemImage(group.item.name)!}
@@ -2074,14 +2070,14 @@ export default function POSPage() {
         <div className="fixed bottom-4 left-0 right-0 px-3 flex justify-center z-30 pointer-events-none">
           <button
             onClick={() => setCartDrawerOpen(true)}
-            className="pointer-events-auto w-full max-w-md h-14 bg-[#259783] rounded-[14px] flex items-center justify-between pl-2.5 pr-4 shadow-lg shadow-[#259783]/25 active:scale-[0.98] transition-all group relative overflow-hidden"
+            className="pointer-events-auto w-full max-w-md h-14 pos-btn-primary rounded-2xl flex items-center justify-between pl-3 pr-4 group relative overflow-hidden"
           >
             {/* Subtle shine */}
-            <div className="absolute inset-0 bg-gradient-to-r from-white/[0.06] via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-r from-white/[0.08] via-transparent to-transparent" />
             
-            <div className="relative flex items-center gap-2.5">
-              <div className="relative w-9 h-9 rounded-[10px] bg-white/15 flex items-center justify-center">
-                <ShoppingCart className="w-[18px] h-[18px] text-white" />
+            <div className="relative flex items-center gap-3">
+              <div className="relative w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                <ShoppingCart className="w-5 h-5 text-white" />
                 {cartItemCount > 0 && (
                   <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-white text-[#259783] text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
                     {cartItemCount}
@@ -2111,10 +2107,10 @@ export default function POSPage() {
                     e.stopPropagation();
                     handleClearCart();
                   }}
-                  className="w-7 h-7 rounded-md bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all active:scale-90"
+                  className="w-8 h-8 rounded-xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition-all active:scale-95"
                   title="Clear Cart"
                 >
-                  <Trash2 className="w-3 h-3 text-white/60" />
+                  <Trash2 className="w-4 h-4 text-white/80" />
                 </button>
               )}
               <span className="text-white font-bold text-lg tracking-tight">
@@ -2134,9 +2130,9 @@ export default function POSPage() {
                 {/* Left Section - Brand & Search */}
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   {/* Logo/Brand Section */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <div className="w-8 h-8 bg-[#259783] rounded-lg flex items-center justify-center">
-                      <ShoppingCart className="w-4 h-4 text-white" />
+                  <div className="flex items-center gap-2.5 flex-shrink-0">
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#259783] to-[#1e8a72] shadow-md shadow-[#259783]/20 flex items-center justify-center">
+                      <ShoppingCart className="w-4.5 h-4.5 text-white" />
                     </div>
                     <div>
                       <h1 className="text-sm font-bold text-[#259783] hidden sm:block tracking-tight leading-none">
@@ -2216,12 +2212,12 @@ export default function POSPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => setShowSearch(true)}
-                      className="hidden sm:flex items-center gap-2 border-gray-200/80 dark:border-gray-700/60 hover:border-[#259783]/50 hover:bg-[#259783]/[0.04] h-9 px-3.5 rounded-lg transition-all group"
+                      className="hidden sm:flex items-center gap-2 pos-btn-outline h-9 px-4 rounded-xl group"
                     >
-                      <Search className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#259783] transition-colors" />
-                      <span className="hidden md:inline text-gray-400 dark:text-gray-500 text-sm group-hover:text-gray-500 dark:group-hover:text-gray-400 transition-colors">Search products...</span>
-                      <kbd className="hidden lg:flex pointer-events-none h-5 items-center rounded border border-gray-200/80 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-1.5 font-mono text-[10px] text-gray-400 ml-1">
-                        <span className="text-xs">⌘</span>K
+                      <Search className="w-4 h-4 text-slate-500 group-hover:text-[#259783] transition-colors" />
+                      <span className="hidden md:inline text-slate-600 dark:text-slate-400 text-sm group-hover:text-[#259783] transition-colors">Search products...</span>
+                      <kbd className="hidden lg:flex pointer-events-none h-5 items-center rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 px-2 font-mono text-[10px] text-slate-500 ml-1">
+                        ⌘K
                       </kbd>
                     </Button>
                   )}
@@ -2229,26 +2225,26 @@ export default function POSPage() {
 
                 {/* Right Section - Actions & Cart */}
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <div className="hidden sm:flex items-center gap-0.5">
+                  <div className="hidden sm:flex items-center gap-1">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={handleRefresh}
                       disabled={refreshing}
-                      className="h-8 w-8 p-0 text-gray-400 dark:text-gray-500 hover:text-[#259783] hover:bg-[#259783]/10 rounded-lg disabled:opacity-40"
+                      className="pos-icon-btn-primary h-9 w-9 p-0 disabled:opacity-40"
                       title="Refresh"
                     >
-                      <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                      <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                     </Button>
                     
                     {canAccessAdmin && (
                       <Link href="/admin">
                         <Button
                           size="sm"
-                          className="h-8 px-2.5 bg-[#259783] hover:bg-[#1e8a72] text-white font-medium shadow-sm rounded-lg transition-colors text-xs"
+                          className="pos-btn-primary h-9 px-3.5 rounded-xl text-sm gap-2"
                         >
-                          <Settings className="w-3.5 h-3.5" />
-                          <span className="hidden md:inline ml-1 text-xs">Admin</span>
+                          <Settings className="w-4 h-4" />
+                          <span className="hidden md:inline">Admin</span>
                         </Button>
                       </Link>
                     )}
@@ -2257,10 +2253,10 @@ export default function POSPage() {
                       variant="ghost"
                       size="sm"
                       onClick={() => signOut({ callbackUrl: '/pos/login' })}
-                      className="h-8 w-8 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg"
+                      className="pos-icon-btn-danger h-9 w-9 p-0"
                       title="Logout"
                     >
-                      <LogOut className="w-3.5 h-3.5" />
+                      <LogOut className="w-4 h-4" />
                     </Button>
                   </div>
 
@@ -2273,17 +2269,17 @@ export default function POSPage() {
                         variant="ghost"
                         size="sm"
                         onClick={handleClearCart}
-                        className="hidden sm:flex h-8 w-8 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg"
+                        className="hidden sm:flex pos-icon-btn-danger h-9 w-9 p-0"
                         title="Clear Cart"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     )}
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => setCartDrawerOpen(true)}
-                      className="relative h-9 px-2.5 border-gray-200/80 dark:border-gray-700/60 hover:border-[#259783] hover:bg-[#259783]/5 rounded-lg transition-all group"
+                      className="relative h-10 px-3.5 pos-btn-outline rounded-xl group"
                     >
                       <div className="relative">
                         <ShoppingCart className="w-[18px] h-[18px] text-[#259783]" />
@@ -2388,13 +2384,13 @@ export default function POSPage() {
           {/* Toast Content */}
           <div className="relative w-full max-w-md animate-in zoom-in-95 fade-in duration-300">
             {/* Main Card */}
-            <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 backdrop-blur-xl overflow-hidden">
+            <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl shadow-slate-900/10 border border-slate-200/80 dark:border-slate-700/60 backdrop-blur-xl overflow-hidden">
               <div className="p-6">
                 {/* Header Section */}
                 <div className="flex items-start gap-4 mb-5">
                   {/* Icon Container */}
-                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                    <Trash2 className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-red-50 dark:bg-red-950/30 flex items-center justify-center border border-red-100/50 dark:border-red-900/30">
+                    <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
                   </div>
                   
                   {/* Text Content */}
@@ -2410,27 +2406,27 @@ export default function POSPage() {
                   {/* Close Button */}
                   <button
                     onClick={cancelClearCart}
-                    className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                    className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     aria-label="Close"
                   >
-                    <X className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                    <X className="w-4 h-4 text-slate-500 dark:text-slate-400" />
                   </button>
                 </div>
                 
                 {/* Action Buttons */}
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-3">
                   <Button
                     onClick={cancelClearCart}
                     variant="outline"
                     size="sm"
-                    className="flex-1 h-9 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 font-medium rounded-lg text-sm"
+                    className="flex-1 h-10 pos-btn-outline rounded-xl font-medium"
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={confirmClearCart}
                     size="sm"
-                    className="flex-1 h-9 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg text-sm transition-colors"
+                    className="flex-1 h-10 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl shadow-lg shadow-red-500/25 transition-all active:scale-[0.98]"
                   >
                     Clear Cart
                   </Button>
@@ -2445,12 +2441,12 @@ export default function POSPage() {
       {(barcodeScanStatus.scanning || barcodeScanStatus.error || barcodeScanStatus.success) && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-2 duration-300 print:hidden">
           <div className={`
-            flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border backdrop-blur-sm
+            flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl border backdrop-blur-md
             ${barcodeScanStatus.scanning 
-              ? 'bg-blue-50/90 border-blue-200 text-blue-800' 
+              ? 'bg-blue-50/95 dark:bg-blue-950/80 border-blue-200/80 dark:border-blue-800/50 text-blue-800 dark:text-blue-200' 
               : barcodeScanStatus.error 
-                ? 'bg-red-50/90 border-red-200 text-red-800'
-                : 'bg-green-50/90 border-green-200 text-green-800'
+                ? 'bg-red-50/95 dark:bg-red-950/80 border-red-200/80 dark:border-red-800/50 text-red-800 dark:text-red-200'
+                : 'bg-emerald-50/95 dark:bg-emerald-950/80 border-emerald-200/80 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-200'
             }
           `}>
             {barcodeScanStatus.scanning ? (

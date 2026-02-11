@@ -3,11 +3,18 @@
 
 @custom-variant dark (&:is(.dark *));
 
+@font-face {
+  font-family: "En Font";
+  src: url("/images/en-font%20(1).woff2") format("woff2");
+  font-weight: 100 900;
+  font-display: swap;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-outfit);
-  --font-mono: var(--font-outfit);
+  --font-sans: "En Font", sans-serif;
+  --font-mono: "En Font", monospace;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -121,7 +128,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-outfit), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: "En Font", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
   
   h1, h2, h3, h4, h5, h6 {
@@ -234,6 +241,344 @@
   .animate-gentle-pulse {
     animation: gentle-pulse 2s ease-in-out infinite;
   }
+
+  /* === Creative Landing Page Styles === */
+  
+  /* Icon glow effect - soft radiant halo */
+  .icon-glow {
+    position: relative;
+    box-shadow: 0 0 20px -5px currentColor, 0 0 40px -10px currentColor;
+  }
+
+  .icon-glow-emerald {
+    color: rgb(5 150 105);
+    filter: drop-shadow(0 0 8px rgb(5 150 105 / 0.5));
+  }
+
+  .icon-glow-orange {
+    color: rgb(234 88 12);
+    filter: drop-shadow(0 0 8px rgb(234 88 12 / 0.5));
+  }
+
+  /* Icon container with gradient border */
+  .icon-container-creative {
+    position: relative;
+    background: linear-gradient(white, white) padding-box,
+      linear-gradient(135deg, rgb(5 150 105 / 0.4), rgb(20 184 166 / 0.6), rgb(16 185 129 / 0.4)) border-box;
+    border: 2px solid transparent;
+    border-radius: 1.5rem;
+  }
+
+  /* Floating icon animation */
+  @keyframes float-icon {
+    0%, 100% {
+      transform: translateY(0) scale(1);
+    }
+    50% {
+      transform: translateY(-6px) scale(1.02);
+    }
+  }
+
+  .animate-float-icon {
+    animation: float-icon 3s ease-in-out infinite;
+  }
+
+  /* Icon spin on hover - when parent group is hovered */
+  .group:hover .icon-spin-hover {
+    animation: icon-spin 0.6s ease-in-out;
+  }
+
+  @keyframes icon-spin {
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Gradient text shimmer */
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  .text-shimmer {
+    background: linear-gradient(
+      90deg,
+      rgb(5 150 105),
+      rgb(20 184 166),
+      rgb(5 150 105)
+    );
+    background-size: 200% auto;
+    animation: shimmer 3s linear infinite;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Blob background mesh */
+  .bg-mesh-blobs {
+    background: 
+      radial-gradient(ellipse 80% 50% at 20% 40%, rgb(52 211 153 / 0.15) 0%, transparent 50%),
+      radial-gradient(ellipse 60% 40% at 80% 60%, rgb(20 184 166 / 0.12) 0%, transparent 50%),
+      radial-gradient(ellipse 50% 30% at 50% 90%, rgb(251 191 36 / 0.08) 0%, transparent 50%),
+      linear-gradient(180deg, rgb(240 253 244), rgb(236 253 245));
+  }
+
+  /* Card gradient border */
+  .card-gradient-border {
+    position: relative;
+    border-radius: 1.5rem;
+  }
+
+  .card-gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    padding: 2px;
+    background: linear-gradient(135deg, rgb(5 150 105 / 0.5), rgb(20 184 166 / 0.3), rgb(251 191 36 / 0.2));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Stats counter pop */
+  @keyframes stat-pop {
+    0% {
+      transform: scale(0.9);
+      opacity: 0.5;
+    }
+    50% {
+      transform: scale(1.05);
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+
+  .animate-stat-pop {
+    animation: stat-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+
+  /* Badge shine */
+  .badge-shine {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .badge-shine::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255 255 255 / 0.3),
+      transparent
+    );
+    animation: badge-shine 2s ease-in-out infinite;
+  }
+
+  @keyframes badge-shine {
+    100% {
+      left: 100%;
+    }
+  }
+
+  /* === POS Page Styles === */
+  
+  /* Polished icon button - consistent touch target */
+  .pos-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.75rem;
+    transition: all 0.2s;
+    background-color: rgb(241 245 249 / 0.8);
+  }
+
+  .dark .pos-icon-btn {
+    background-color: rgb(30 41 59 / 0.6);
+  }
+
+  .pos-icon-btn:hover {
+    background-color: rgb(226 232 240 / 0.9);
+  }
+
+  .dark .pos-icon-btn:hover {
+    background-color: rgb(51 65 85 / 0.7);
+  }
+
+  .pos-icon-btn:active {
+    transform: scale(0.95);
+  }
+
+  .pos-icon-btn-primary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.75rem;
+    transition: all 0.2s;
+    background-color: rgb(241 245 249 / 0.8);
+    color: rgb(100 116 139);
+  }
+
+  .dark .pos-icon-btn-primary {
+    background-color: rgb(30 41 59 / 0.6);
+    color: rgb(148 163 184);
+  }
+
+  .pos-icon-btn-primary:hover {
+    background-color: rgb(5 150 105 / 0.15);
+    color: rgb(5 150 105);
+  }
+
+  .pos-icon-btn-primary:active {
+    transform: scale(0.95);
+  }
+
+  .pos-icon-btn-danger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.75rem;
+    transition: all 0.2s;
+    background-color: rgb(241 245 249 / 0.8);
+  }
+
+  .dark .pos-icon-btn-danger {
+    background-color: rgb(30 41 59 / 0.6);
+  }
+
+  .pos-icon-btn-danger:hover {
+    background-color: rgb(254 242 242);
+    color: rgb(220 38 38);
+  }
+
+  .dark .pos-icon-btn-danger:hover {
+    background-color: rgb(127 29 29 / 0.3);
+    color: rgb(248 113 113);
+  }
+
+  .pos-icon-btn-danger:active {
+    transform: scale(0.95);
+  }
+
+  /* Primary action button - POS brand */
+  .pos-btn-primary {
+    background: linear-gradient(to right, rgb(5 150 105), rgb(30 138 114));
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 10px 15px -3px rgb(5 150 105 / 0.25);
+    transition: all 0.2s;
+  }
+
+  .pos-btn-primary:hover {
+    box-shadow: 0 20px 25px -5px rgb(5 150 105 / 0.3);
+    background: linear-gradient(to right, rgb(30 138 114), rgb(5 150 105));
+  }
+
+  .pos-btn-primary:active {
+    transform: scale(0.98);
+  }
+
+  /* Outline/secondary button */
+  .pos-btn-outline {
+    border: 2px solid rgb(226 232 240 / 0.8);
+    background-color: white;
+    transition: all 0.2s;
+  }
+
+  .dark .pos-btn-outline {
+    border-color: rgb(51 65 85 / 0.6);
+    background-color: rgb(30 41 59 / 0.5);
+  }
+
+  .pos-btn-outline:hover {
+    border-color: rgb(5 150 105 / 0.5);
+    background-color: rgb(5 150 105 / 0.05);
+  }
+
+  .dark .pos-btn-outline:hover {
+    background-color: rgb(5 150 105 / 0.1);
+  }
+
+  .pos-btn-outline:active {
+    transform: scale(0.98);
+  }
+
+  /* Quick action pill */
+  .pos-pill {
+    border-radius: 9999px;
+    padding: 0.5rem 1rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+  }
+
+  .pos-pill:active {
+    transform: scale(0.98);
+  }
+
+  /* Hero card glassmorphism */
+  .hero-card-glass {
+    background: rgba(255 255 255 / 0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255 255 255 / 0.5);
+    box-shadow: 
+      0 25px 50px -12px rgb(0 0 0 / 0.08),
+      inset 0 1px 0 rgba(255 255 255 / 0.8);
+  }
+}
+
+/* POS grid buttons - unlayered so they override Tailwind, obvious button-like appearance */
+.pos-grid-btn {
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0 0 0 0.12);
+}
+
+.pos-grid-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 2px 0 0 rgba(255 255 255 / 0.25);
+  pointer-events: none;
+}
+
+.pos-grid-btn:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -4px rgba(0 0 0 0.2);
+}
+
+.pos-grid-btn:active {
+  transform: translateY(2px) scale(0.97);
+  box-shadow: 0 2px 6px rgba(0 0 0 0.2);
+}
+
+.pos-grid-btn:active::before {
+  box-shadow: inset 0 3px 6px rgba(0 0 0 0.2);
 }
 
 /* Print Styles - Only show receipt when printing */

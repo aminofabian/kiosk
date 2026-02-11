@@ -217,7 +217,7 @@ export function SupplierProductsDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="right">
-      <DrawerContent className="!w-full sm:!w-[520px] !max-w-none h-full max-h-screen">
+      <DrawerContent className="!w-full sm:!w-[520px] !max-w-none h-full max-h-screen z-[52]">
         <DrawerHeader className="border-b-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 relative pr-12">
           <Button
             variant="ghost"

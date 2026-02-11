@@ -9,7 +9,7 @@ export function POSLayout({ children, header }: POSLayoutProps) {
   return (
     <div className="flex flex-col h-screen w-screen bg-[#f6f8f6] dark:bg-[#0f1a0d]">
       {header && (
-        <header className="sticky top-0 z-10 border-b border-slate-200/60 dark:border-slate-800/60 bg-white/95 dark:bg-[#1c2e18]/95 backdrop-blur-xl shadow-sm">
+        <header className="sticky top-0 z-10 border-b border-slate-200/80 dark:border-slate-700/60 bg-white/95 dark:bg-[#1c2e18]/95 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           {header}
         </header>
       )}

@@ -152,6 +152,10 @@ function SupplierBillsPageContent() {
                   onSuccess={handleSuccess}
                   onCancel={() => setDrawerOpen(false)}
                   preSelectedSupplierId={preSelectedSupplierId}
+                  onOpenManageLinkProducts={(supplier) => {
+                    setSelectedSupplier(supplier);
+                    setSupplierDrawerOpen(true);
+                  }}
                 />
               </div>
             </DrawerContent>
