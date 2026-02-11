@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { Button } from '@/components/ui/button';
@@ -93,7 +93,7 @@ interface TransactionsData {
   completedCount: number;
 }
 
-export default function TransactionsPage() {
+function TransactionsContent() {
   const searchParams = useSearchParams();
 
   const todayStr = toDateStr(new Date());
@@ -203,8 +203,7 @@ export default function TransactionsPage() {
   };
 
   return (
-    <AdminLayout>
-      <div className="min-h-screen bg-white dark:bg-[#0f1a0d]">
+    <div className="min-h-screen bg-white dark:bg-[#0f1a0d]">
         {/* Header */}
         <header className="sticky top-0 z-10 bg-white dark:bg-[#0f1a0d] border-b border-slate-200 dark:border-slate-800">
           <div className="px-4 md:px-8 py-5">
@@ -422,6 +421,19 @@ export default function TransactionsPage() {
           ) : null}
         </main>
       </div>
+  );
+}
+
+export default function TransactionsPage() {
+  return (
+    <AdminLayout>
+      <Suspense fallback={
+        <div className="min-h-screen bg-white dark:bg-[#0f1a0d] flex items-center justify-center py-32">
+          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+        </div>
+      }>
+        <TransactionsContent />
+      </Suspense>
     </AdminLayout>
   );
 }
