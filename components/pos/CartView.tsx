@@ -163,7 +163,7 @@ export function CartView({ onContinueShopping, onCheckout }: CartViewProps = {})
                     <div className="flex items-center gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 mb-0.5">
-                          <h3 className="font-semibold text-sm truncate">{item.name}</h3>
+                          <h3 className="font-semibold text-sm uppercase break-words">{item.name}</h3>
                           {item.isBundle && (
                             <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] px-1.5 py-0 h-4 flex-shrink-0">
                               <Tag className="w-2.5 h-2.5 mr-0.5" />

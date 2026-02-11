@@ -456,7 +456,7 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
                   className="flex justify-between items-start"
                 >
                   <div className="flex-1">
-                    <div className="font-medium">{item.name}</div>
+                    <div className="font-medium uppercase">{item.name}</div>
                     <div className="text-sm text-muted-foreground">
                       {item.quantity} {item.unitType} × {formatPrice(item.price)}
                     </div>

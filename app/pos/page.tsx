@@ -622,7 +622,7 @@ export default function POSPage() {
       <>
         {parts.map((part, i) =>
           regex.test(part) ? (
-            <mark key={i} className="bg-[#259783]/15 text-[#259783] dark:text-[#3bd522] font-bold rounded-[2px] px-[1px] mx-[-1px]" style={{ textDecoration: 'none' }}>{part}</mark>
+            <mark key={i} className="bg-[#259783]/15 text-[#259783] dark:text-[#3bd522] font-bold rounded-none px-[1px] mx-[-1px]" style={{ textDecoration: 'none' }}>{part}</mark>
           ) : (
             <span key={i}>{part}</span>
           )
@@ -642,12 +642,12 @@ export default function POSPage() {
     if (!showSkeleton && !showResults && !showNoResults) return null;
 
     return (
-      <div className={`absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-[#1a2c17] rounded-2xl border border-gray-200/80 dark:border-gray-700/60 shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 ${isDesktop ? 'max-h-[420px]' : 'max-h-[60vh]'} relative`}>
+      <div className={`absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-[#1a2c17] rounded-none border border-gray-200/80 dark:border-gray-700/60 shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 ${isDesktop ? 'max-h-[420px]' : 'max-h-[60vh]'} relative`}>
         {/* Close suggestions button */}
         <button
           type="button"
           onClick={() => setShowSuggestions(false)}
-          className="absolute top-1.5 right-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-white/80 dark:bg-black/40 border border-gray-200/70 dark:border-gray-700/60 text-gray-400 hover:text-gray-700 dark:hover:text-gray-100 hover:bg-white shadow-sm transition-all active:scale-90"
+          className="absolute top-1.5 right-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-none bg-white/80 dark:bg-black/40 border border-gray-200/70 dark:border-gray-700/60 text-gray-400 hover:text-gray-700 dark:hover:text-gray-100 hover:bg-white shadow-sm transition-all active:scale-90"
           aria-label="Close suggestions"
         >
           <X className="w-3 h-3" />
@@ -657,12 +657,12 @@ export default function POSPage() {
           <div className="p-2">
             {[1, 2, 3, 4].map(i => (
               <div key={i} className="flex items-center gap-3 px-3 py-3 animate-pulse">
-                <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex-shrink-0" />
+                <div className="w-10 h-10 rounded-none bg-gray-100 dark:bg-gray-800 flex-shrink-0" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-3.5 bg-gray-100 dark:bg-gray-800 rounded-lg w-3/5" />
-                  <div className="h-2.5 bg-gray-50 dark:bg-gray-800/60 rounded-lg w-2/5" />
+                  <div className="h-3.5 bg-gray-100 dark:bg-gray-800 rounded-none w-3/5" />
+                  <div className="h-2.5 bg-gray-50 dark:bg-gray-800/60 rounded-none w-2/5" />
                 </div>
-                <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded-lg w-14" />
+                <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded-none w-14" />
               </div>
             ))}
           </div>
@@ -684,14 +684,14 @@ export default function POSPage() {
                     type="button"
                     onClick={() => handleSelectSuggestion(suggestion)}
                     onMouseEnter={() => setSelectedSuggestionIndex(index)}
-                    className={`w-full px-2.5 py-2.5 flex items-center gap-3 transition-all duration-100 text-left rounded-xl group ${
+                    className={`w-full px-2.5 py-2.5 flex items-center gap-3 transition-all duration-100 text-left rounded-none group ${
                       index === selectedSuggestionIndex
                         ? 'bg-[#259783]/[0.08] dark:bg-[#259783]/15'
                         : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
                     }`}
                   >
                     {/* Product icon with category color accent */}
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-150 ${
+                    <div className={`w-10 h-10 rounded-none flex items-center justify-center flex-shrink-0 transition-all duration-150 ${
                       index === selectedSuggestionIndex
                         ? 'bg-[#259783] shadow-md shadow-[#259783]/25 scale-105'
                         : 'bg-gray-100 dark:bg-gray-800/80'
@@ -722,7 +722,7 @@ export default function POSPage() {
                           <span className="text-gray-300 dark:text-gray-600 text-[8px]">{'·'}</span>
                         )}
                         {suggestion.category_name && (
-                          <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-md flex-shrink-0">
+                          <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-none flex-shrink-0">
                             {suggestion.category_name}
                           </span>
                         )}
@@ -754,16 +754,16 @@ export default function POSPage() {
               <div className="flex items-center justify-between text-[10px] text-gray-400 dark:text-gray-500">
                 <div className="hidden md:flex items-center gap-3">
                   <span className="flex items-center gap-1">
-                    <kbd className="px-1 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-[9px] font-mono shadow-sm">↑</kbd>
-                    <kbd className="px-1 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-[9px] font-mono shadow-sm">↓</kbd>
+                    <kbd className="px-1 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-none text-[9px] font-mono shadow-sm">↑</kbd>
+                    <kbd className="px-1 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-none text-[9px] font-mono shadow-sm">↓</kbd>
                     <span className="ml-0.5">navigate</span>
                   </span>
                   <span className="flex items-center gap-1">
-                    <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-[9px] font-mono shadow-sm">↵</kbd>
+                    <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-none text-[9px] font-mono shadow-sm">↵</kbd>
                     <span className="ml-0.5">select</span>
                   </span>
                   <span className="flex items-center gap-1">
-                    <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-[9px] font-mono shadow-sm">esc</kbd>
+                    <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-none text-[9px] font-mono shadow-sm">esc</kbd>
                     <span className="ml-0.5">close</span>
                   </span>
                 </div>
@@ -781,7 +781,7 @@ export default function POSPage() {
         {/* No results state */}
         {showNoResults && (
           <div className="px-4 py-8 text-center">
-            <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center">
+            <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 dark:bg-gray-800 rounded-none flex items-center justify-center">
               <Search className="w-5 h-5 text-gray-300 dark:text-gray-600" />
             </div>
             <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
@@ -1619,7 +1619,7 @@ export default function POSPage() {
                   <form onSubmit={handleSearchSubmit}>
                     <div className="relative group/input">
                       {/* Animated focus ring */}
-                      <div className="absolute -inset-[1px] bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-[13px] opacity-0 group-focus-within/input:opacity-100 transition-opacity duration-300 blur-[0.5px]" />
+                      <div className="absolute -inset-[1px] bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-none opacity-0 group-focus-within/input:opacity-100 transition-opacity duration-300 blur-[0.5px]" />
                       <div className="relative">
                         {isSearchPending || barcodeScanStatus.scanning || loadingSuggestions ? (
                           <Loader2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#259783] animate-spin z-10" />
@@ -1634,7 +1634,7 @@ export default function POSPage() {
                           onChange={(e) => handleSearchChange(e.target.value)}
                           onFocus={() => searchSuggestions.length > 0 && setShowSuggestions(true)}
                           onKeyDown={handleSearchKeyDown}
-                          className="pl-10 pr-16 h-12 bg-white dark:bg-[#1c2e18] rounded-xl border border-gray-200/80 dark:border-gray-700/60 focus:border-transparent focus:ring-0 text-[15px] font-medium placeholder:text-gray-400 shadow-sm"
+                          className="pl-10 pr-16 h-12 bg-white dark:bg-[#1c2e18] rounded-none border border-gray-200/80 dark:border-gray-700/60 focus:border-transparent focus:ring-0 text-[15px] font-medium placeholder:text-gray-400 shadow-sm"
                           autoComplete="off"
                           autoCorrect="off"
                           spellCheck={false}
@@ -1645,12 +1645,12 @@ export default function POSPage() {
                             <button
                               type="button"
                               onClick={clearSearch}
-                              className="h-7 w-7 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700/80 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all active:scale-90"
+                              className="h-7 w-7 flex items-center justify-center rounded-none bg-gray-100 dark:bg-gray-700/80 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all active:scale-90"
                             >
                               <X className="w-3.5 h-3.5 text-gray-500" />
                             </button>
                           ) : (
-                            <span className="hidden md:flex items-center gap-0.5 text-[10px] text-gray-400 bg-gray-100/80 dark:bg-gray-700/60 px-1.5 py-1 rounded-md border border-gray-200/50 dark:border-gray-600/30">
+                            <span className="hidden md:flex items-center gap-0.5 text-[10px] text-gray-400 bg-gray-100/80 dark:bg-gray-700/60 px-1.5 py-1 rounded-none border border-gray-200/50 dark:border-gray-600/30">
                               <Command className="w-3 h-3" />K
                             </span>
                           )}
@@ -1669,11 +1669,11 @@ export default function POSPage() {
                     <span className="text-xs text-gray-500">
                       {isSearchPending ? (
                         <span className="flex items-center gap-1.5">
-                          <span className="inline-block w-1.5 h-1.5 bg-[#259783] rounded-full animate-pulse" />
+                          <span className="inline-block w-1.5 h-1.5 bg-[#259783] rounded-none animate-pulse" />
                           <span className="text-gray-500 font-medium">Searching...</span>
                         </span>
                       ) : isValidBarcode(searchQuery) ? (
-                        <span className="flex items-center gap-1.5 bg-[#259783]/[0.06] dark:bg-[#259783]/10 px-2.5 py-1 rounded-lg">
+                        <span className="flex items-center gap-1.5 bg-[#259783]/[0.06] dark:bg-[#259783]/10 px-2.5 py-1 rounded-none">
                           <QrCode className="w-3.5 h-3.5 text-[#259783]" />
                           <span className="text-[#259783] font-medium text-[11px]">Press Enter to scan barcode</span>
                         </span>
@@ -1717,7 +1717,7 @@ export default function POSPage() {
                           onClick={() => {
                             setSearchQuery(query);
                           }}
-                          className="group/recent flex items-center gap-1.5 pl-2.5 pr-2 py-1.5 bg-white dark:bg-[#1c2e18] rounded-lg border border-gray-200/80 dark:border-gray-700/50 hover:border-[#259783]/40 hover:bg-[#259783]/[0.04] dark:hover:bg-[#259783]/10 text-[12px] text-gray-600 dark:text-gray-400 hover:text-[#259783] transition-all active:scale-[0.97] shadow-sm"
+                          className="group/recent flex items-center gap-1.5 pl-2.5 pr-2 py-1.5 bg-white dark:bg-[#1c2e18] rounded-none border border-gray-200/80 dark:border-gray-700/50 hover:border-[#259783]/40 hover:bg-[#259783]/[0.04] dark:hover:bg-[#259783]/10 text-[12px] text-gray-600 dark:text-gray-400 hover:text-[#259783] transition-all active:scale-[0.97] shadow-sm"
                         >
                           <Clock className="w-3 h-3 text-gray-300 dark:text-gray-600 group-hover/recent:text-[#259783]/50 flex-shrink-0" />
                           <span className="capitalize truncate max-w-[100px]">{query}</span>
@@ -1728,7 +1728,7 @@ export default function POSPage() {
                               removeRecentSearch(query);
                               setRecentSearches(prev => prev.filter(s => s !== query));
                             }}
-                            className="opacity-0 group-hover/recent:opacity-100 p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex-shrink-0"
+                            className="opacity-0 group-hover/recent:opacity-100 p-0.5 rounded-none hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex-shrink-0"
                           >
                             <X className="w-2.5 h-2.5" />
                           </span>
@@ -1741,7 +1741,7 @@ export default function POSPage() {
                 {/* Quick tips when empty */}
                 {!searchQuery && recentSearches.length === 0 && (
                   <div className="mt-3.5 flex items-center gap-2.5 text-gray-400 dark:text-gray-500">
-                    <div className="w-6 h-6 rounded-lg bg-[#259783]/10 flex items-center justify-center flex-shrink-0">
+                    <div className="w-6 h-6 rounded-none bg-[#259783]/10 flex items-center justify-center flex-shrink-0">
                       <Sparkles className="w-3 h-3 text-[#259783]" />
                     </div>
                     <span className="text-xs">Type to search products or scan a barcode</span>
@@ -1750,7 +1750,7 @@ export default function POSPage() {
               </div>
             )}
 
-            <main className="flex-1 overflow-y-auto no-scrollbar pb-32 px-4">
+            <main className="flex-1 overflow-y-auto no-scrollbar pb-32 px-5 sm:px-6">
               {!searchQuery && !debouncedSearchQuery && (
                 <>
                   <div className="flex gap-2 py-2 overflow-x-auto no-scrollbar w-full mb-2">
@@ -1780,24 +1780,24 @@ export default function POSPage() {
                         <button
                           key={category.id}
                           onClick={() => handleCategoryClick(category.id)}
-                          className="pos-grid-btn group relative flex flex-col justify-end p-3.5 h-[130px] rounded-2xl overflow-hidden text-left border-2 border-white/40 shadow-[0_4px_14px_rgba(0,0,0,0.15)] active:scale-[0.96] active:shadow-[0_2px_6px_rgba(0,0,0,0.25)] transition-transform duration-100"
+                          className="pos-grid-btn group relative flex flex-col justify-end p-3.5 h-[130px] rounded-none overflow-hidden text-left border-2 border-white/40 shadow-[0_4px_14px_rgba(0,0,0,0.15)] active:scale-[0.96] active:shadow-[0_2px_6px_rgba(0,0,0,0.25)] transition-transform duration-100"
                         >
                           {/* Background image or gradient fallback */}
                           {imageUrl ? (
                             <>
                               <div
-                                className="absolute inset-0 bg-cover bg-center rounded-2xl transition-transform duration-500 group-active:scale-105"
+                                className="absolute inset-0 bg-cover bg-center rounded-none transition-transform duration-500 group-active:scale-105"
                                 style={{ backgroundImage: `url(${imageUrl})` }}
                               />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-black/5 z-10 rounded-2xl" />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-black/5 z-10 rounded-none" />
                             </>
                           ) : (
-                            <div className="absolute inset-0 bg-gradient-to-br from-[#259783] to-[#1e8a72] rounded-2xl" />
+                            <div className="absolute inset-0 bg-gradient-to-br from-[#259783] to-[#1e8a72] rounded-none" />
                           )}
 
                           {/* Icon badge - top left */}
                           <span
-                            className={`absolute top-3 left-3 z-20 flex items-center justify-center w-9 h-9 rounded-xl bg-white/95 dark:bg-slate-900/80 backdrop-blur-md ${color} shadow-lg border border-white/50 [&>svg]:w-4 [&>svg]:h-4`}
+                            className={`absolute top-3 left-3 z-20 flex items-center justify-center w-9 h-9 rounded-none bg-white/95 dark:bg-slate-900/80 backdrop-blur-md ${color} shadow-lg border border-white/50 [&>svg]:w-4 [&>svg]:h-4`}
                           >
                             {icon}
                           </span>
@@ -1822,12 +1822,12 @@ export default function POSPage() {
                       {/* Skeleton loading grid for search results */}
                       <div className="grid grid-cols-2 gap-2.5">
                         {[1, 2, 3, 4, 5, 6].map(i => (
-                          <div key={i} className="bg-white dark:bg-[#1c2e18] rounded-xl border border-gray-200/50 dark:border-gray-700/30 overflow-hidden animate-pulse">
+                          <div key={i} className="bg-white dark:bg-[#1c2e18] rounded-none border-2 border-slate-300 dark:border-slate-600 overflow-hidden animate-pulse">
                             <div className="aspect-square bg-gray-100 dark:bg-gray-800" />
                             <div className="p-3 space-y-2.5">
-                              <div className="h-3.5 bg-gray-100 dark:bg-gray-800 rounded-lg w-4/5" />
-                              <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded-lg w-3/5" />
-                              <div className="h-7 bg-gray-100 dark:bg-gray-800 rounded-lg w-2/5" />
+                              <div className="h-3.5 bg-gray-100 dark:bg-gray-800 rounded-none w-4/5" />
+                              <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded-none w-3/5" />
+                              <div className="h-7 bg-gray-100 dark:bg-gray-800 rounded-none w-2/5" />
                             </div>
                           </div>
                         ))}
@@ -1908,15 +1908,15 @@ export default function POSPage() {
                   placeholder={`Search ${selectedCategory?.name.toLowerCase()}...`}
                   value={categorySearchQuery}
                   onChange={(e) => setCategorySearchQuery(e.target.value)}
-                  className="pl-9 pr-9 h-10 bg-white dark:bg-[#1c2e18] rounded-xl border-gray-200 dark:border-gray-700 focus:border-[#259783] focus:ring-2 focus:ring-[#259783]/20 text-sm"
+                  className="pl-9 pr-9 h-10 bg-white dark:bg-[#1c2e18] rounded-none border-gray-200 dark:border-gray-700 focus:border-[#259783] focus:ring-2 focus:ring-[#259783]/20 text-sm"
                 />
               </div>
             </div>
 
-            <main className="flex-1 overflow-y-auto no-scrollbar pb-32 px-4">
+            <main className="flex-1 overflow-y-auto no-scrollbar pb-32 px-5 sm:px-6">
               {itemsLoading ? (
                 <div className="flex items-center justify-center h-64">
-                  <div className="w-10 h-10 border-4 border-[#259783]/20 border-t-[#259783] rounded-full animate-spin"></div>
+                  <div className="w-10 h-10 border-4 border-[#259783]/20 border-t-[#259783] rounded-none animate-spin"></div>
                 </div>
               ) : filteredGroupedCategoryItems.length === 0 ? (
                 <div className="flex items-center justify-center h-64">
@@ -1931,14 +1931,14 @@ export default function POSPage() {
                   {filteredGroupedCategoryItems.map((group, groupIndex) => {
                     if (group.type === 'parent' && group.parent && group.children && group.children.length > 0) {
                       return (
-                        <div key={group.parent.id} className="space-y-4 bg-gradient-to-br from-[#259783]/5 via-transparent to-[#3bd522]/5 dark:from-[#259783]/10 dark:via-transparent dark:to-[#3bd522]/10 rounded-2xl p-4 sm:p-5 border border-[#259783]/10 dark:border-[#259783]/20">
+                        <div key={group.parent.id} className="space-y-4 bg-gradient-to-br from-[#259783]/5 via-transparent to-[#3bd522]/5 dark:from-[#259783]/10 dark:via-transparent dark:to-[#3bd522]/10 rounded-none p-4 sm:p-5 border border-[#259783]/10 dark:border-[#259783]/20">
                           {/* Parent Label */}
                           <div className="relative">
                             <div className="absolute inset-0 flex items-center">
                               <div className="w-full border-t border-[#259783]/20 dark:border-[#259783]/30"></div>
                             </div>
                             <div className="relative flex justify-center">
-                              <div className="px-5 py-2.5 bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-full shadow-lg shadow-[#259783]/30 border-2 border-white dark:border-[#132210]">
+                              <div className="px-5 py-2.5 bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-none shadow-lg shadow-[#259783]/30 border-2 border-white dark:border-[#132210]">
                                 <h2 className="text-sm font-extrabold text-white uppercase tracking-wider whitespace-nowrap drop-shadow-sm">
                                   {group.parent.name}
                                 </h2>
@@ -1951,7 +1951,7 @@ export default function POSPage() {
                               <button
                                 key={item.id}
                                 onClick={() => handleMobileItemClick(item)}
-                                className="pos-grid-btn bg-[#1c2e18] dark:bg-[#132210] rounded-2xl border-2 border-[#259783]/30 shadow-[0_6px_16px_rgba(0,0,0,0.25)] active:scale-[0.96] active:shadow-[0_2px_8px_rgba(0,0,0,0.3)] overflow-hidden relative group transition-transform duration-100"
+                                className="pos-grid-btn bg-gradient-to-b from-[#1c2e18] to-[#152a14] dark:from-[#132210] dark:to-[#0f1d0e] rounded-none border-2 border-[#259783] dark:border-[#3bd522] overflow-hidden relative group"
                               >
                                 <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-2xl overflow-hidden relative">
                                   {group.parent && getItemImage(group.parent.name) ? (
@@ -1974,13 +1974,13 @@ export default function POSPage() {
                                     </div>
                                   )}
                                 </div>
-                                <div className="p-3.5">
-                                  <h3 className="font-bold text-sm text-left mb-2.5 line-clamp-2 text-white leading-tight">
+                                <div className="p-2">
+                                  <h3 className="font-bold text-xs text-left mb-1 text-white leading-tight uppercase tracking-tight break-words">
                                     {item.name}
                                   </h3>
-                                  <div className="space-y-2">
+                                  <div className="space-y-1">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] text-white font-bold text-sm px-3 py-1.5 rounded-lg shadow-md">
+                                      <span className="bg-gradient-to-r from-[#259783] to-[#2ab88a] text-white font-bold text-sm px-3 py-1.5 rounded-none shadow-lg shadow-[#259783]/25">
                                         {formatPrice(item.current_sell_price)}
                                       </span>
                                       <span className="text-xs text-white/70 font-medium">
@@ -2008,7 +2008,7 @@ export default function POSPage() {
                         <div key={group.item.id} className="flex justify-center">
                           <button
                             onClick={() => handleMobileItemClick(group.item!)}
-                            className="pos-grid-btn bg-[#1c2e18] dark:bg-[#132210] rounded-2xl border-2 border-[#259783]/30 shadow-[0_6px_16px_rgba(0,0,0,0.25)] active:scale-[0.96] active:shadow-[0_2px_8px_rgba(0,0,0,0.3)] overflow-hidden relative group w-full max-w-xs transition-transform duration-100"
+                            className="pos-grid-btn bg-gradient-to-b from-[#1c2e18] to-[#152a14] dark:from-[#132210] dark:to-[#0f1d0e] rounded-none border-2 border-[#259783] dark:border-[#3bd522] overflow-hidden relative group w-full max-w-xs"
                           >
                           <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-2xl overflow-hidden relative">
                             {getItemImage(group.item.name) ? (
@@ -2031,13 +2031,13 @@ export default function POSPage() {
                               </div>
                             )}
                           </div>
-                          <div className="p-3.5">
-                            <h3 className="font-bold text-sm text-left mb-2.5 line-clamp-2 text-white leading-tight">
+                          <div className="p-2">
+                            <h3 className="font-bold text-xs text-left mb-1 text-white leading-tight uppercase tracking-tight break-words">
                               {group.item.name}
                             </h3>
-                            <div className="space-y-2">
+                            <div className="space-y-1">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] text-white font-bold text-sm px-3 py-1.5 rounded-lg shadow-md">
+                                <span className="bg-gradient-to-r from-[#259783] to-[#2ab88a] text-white font-bold text-sm px-3 py-1.5 rounded-none shadow-lg shadow-[#259783]/25">
                                   {formatPrice(group.item.current_sell_price)}
                                 </span>
                                 <span className="text-xs text-white/70 font-medium">
@@ -2070,21 +2070,21 @@ export default function POSPage() {
         <div className="fixed bottom-4 left-0 right-0 px-3 flex justify-center z-30 pointer-events-none">
           <button
             onClick={() => setCartDrawerOpen(true)}
-            className="pointer-events-auto w-full max-w-md h-14 pos-btn-primary rounded-2xl flex items-center justify-between pl-3 pr-4 group relative overflow-hidden"
+            className="pointer-events-auto w-full max-w-md h-14 pos-btn-primary rounded-none flex items-center justify-between pl-3 pr-4 group relative overflow-hidden"
           >
             {/* Subtle shine */}
             <div className="absolute inset-0 bg-gradient-to-r from-white/[0.08] via-transparent to-transparent" />
             
             <div className="relative flex items-center gap-3">
-              <div className="relative w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+              <div className="relative w-10 h-10 rounded-none bg-white/20 flex items-center justify-center">
                 <ShoppingCart className="w-5 h-5 text-white" />
                 {cartItemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-white text-[#259783] text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm">
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-white text-[#259783] text-[10px] font-bold rounded-none flex items-center justify-center shadow-sm">
                     {cartItemCount}
                   </span>
                 )}
                 {carts.length > 1 && (
-                  <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-amber-400 text-amber-900 text-[8px] font-bold rounded-full flex items-center justify-center">
+                  <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-amber-400 text-amber-900 text-[8px] font-bold rounded-none flex items-center justify-center">
                     {carts.length}
                   </span>
                 )}
@@ -2107,7 +2107,7 @@ export default function POSPage() {
                     e.stopPropagation();
                     handleClearCart();
                   }}
-                  className="w-8 h-8 rounded-xl bg-white/15 hover:bg-white/25 flex items-center justify-center transition-all active:scale-95"
+                  className="w-8 h-8 rounded-none bg-white/15 hover:bg-white/25 flex items-center justify-center transition-all active:scale-95"
                   title="Clear Cart"
                 >
                   <Trash2 className="w-4 h-4 text-white/80" />
@@ -2131,7 +2131,7 @@ export default function POSPage() {
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   {/* Logo/Brand Section */}
                   <div className="flex items-center gap-2.5 flex-shrink-0">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#259783] to-[#1e8a72] shadow-md shadow-[#259783]/20 flex items-center justify-center">
+                    <div className="w-9 h-9 rounded-none bg-gradient-to-br from-[#259783] to-[#1e8a72] shadow-md shadow-[#259783]/20 flex items-center justify-center">
                       <ShoppingCart className="w-4.5 h-4.5 text-white" />
                     </div>
                     <div>
@@ -2151,7 +2151,7 @@ export default function POSPage() {
                       <form onSubmit={handleSearchSubmit}>
                         <div className="relative flex items-center group/dinput">
                           {/* Gradient focus ring */}
-                          <div className="absolute -inset-[1px] bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-[9px] opacity-0 group-focus-within/dinput:opacity-100 transition-opacity duration-300 blur-[0.5px]" />
+                          <div className="absolute -inset-[1px] bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-none opacity-0 group-focus-within/dinput:opacity-100 transition-opacity duration-300 blur-[0.5px]" />
                           <div className="absolute left-3 z-10">
                             {isSearchPending || barcodeScanStatus.scanning || loadingSuggestions ? (
                               <Loader2 className="w-4 h-4 text-[#259783] animate-spin" />
@@ -2169,7 +2169,7 @@ export default function POSPage() {
                             onChange={(e) => handleSearchChange(e.target.value)}
                             onFocus={() => searchSuggestions.length > 0 && setShowSuggestions(true)}
                             onKeyDown={handleSearchKeyDown}
-                            className="relative pl-9 pr-20 h-9 border border-gray-200/80 dark:border-gray-700/60 focus:border-transparent focus:ring-0 rounded-lg text-sm bg-white dark:bg-slate-800 transition-all"
+                            className="relative pl-9 pr-20 h-9 border border-gray-200/80 dark:border-gray-700/60 focus:border-transparent focus:ring-0 rounded-none text-sm bg-white dark:bg-slate-800 transition-all"
                             autoComplete="off"
                             autoCorrect="off"
                             spellCheck={false}
@@ -2200,7 +2200,7 @@ export default function POSPage() {
                       {/* Barcode status hint */}
                       {searchQuery && !showSuggestions && !loadingSuggestions && isValidBarcode(searchQuery) && (
                         <div className="absolute top-full left-0 right-0 mt-1.5 text-xs flex items-center gap-1.5 pl-3">
-                          <span className="flex items-center gap-1.5 bg-[#259783]/[0.06] dark:bg-[#259783]/10 px-2.5 py-1 rounded-lg">
+                          <span className="flex items-center gap-1.5 bg-[#259783]/[0.06] dark:bg-[#259783]/10 px-2.5 py-1 rounded-none">
                             <QrCode className="w-3 h-3 text-[#259783]" />
                             <span className="text-[#259783] font-medium text-[11px]">Press Enter to scan barcode</span>
                           </span>
@@ -2212,11 +2212,11 @@ export default function POSPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => setShowSearch(true)}
-                      className="hidden sm:flex items-center gap-2 pos-btn-outline h-9 px-4 rounded-xl group"
+                      className="hidden sm:flex items-center gap-2 pos-btn-outline h-9 px-4 rounded-none group"
                     >
                       <Search className="w-4 h-4 text-slate-500 group-hover:text-[#259783] transition-colors" />
                       <span className="hidden md:inline text-slate-600 dark:text-slate-400 text-sm group-hover:text-[#259783] transition-colors">Search products...</span>
-                      <kbd className="hidden lg:flex pointer-events-none h-5 items-center rounded-lg border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 px-2 font-mono text-[10px] text-slate-500 ml-1">
+                      <kbd className="hidden lg:flex pointer-events-none h-5 items-center rounded-none border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 px-2 font-mono text-[10px] text-slate-500 ml-1">
                         ⌘K
                       </kbd>
                     </Button>
@@ -2241,7 +2241,7 @@ export default function POSPage() {
                       <Link href="/admin">
                         <Button
                           size="sm"
-                          className="pos-btn-primary h-9 px-3.5 rounded-xl text-sm gap-2"
+                          className="pos-btn-primary h-9 px-3.5 rounded-none text-sm gap-2"
                         >
                           <Settings className="w-4 h-4" />
                           <span className="hidden md:inline">Admin</span>
@@ -2279,7 +2279,7 @@ export default function POSPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => setCartDrawerOpen(true)}
-                      className="relative h-10 px-3.5 pos-btn-outline rounded-xl group"
+                      className="relative h-10 px-3.5 pos-btn-outline rounded-none group"
                     >
                       <div className="relative">
                         <ShoppingCart className="w-[18px] h-[18px] text-[#259783]" />
@@ -2311,9 +2311,9 @@ export default function POSPage() {
             </div>
           }
         >
-          <div className="flex flex-col h-full">
+          <div className="flex flex-col h-full min-h-0">
             {!debouncedSearchQuery && !searchQuery && (
-              <div className="border-b border-gray-200 bg-white/50 backdrop-blur-sm">
+              <div className="flex-shrink-0 border-b border-gray-200 bg-white/50 backdrop-blur-sm">
                 <CategoryList
                   onSelectCategory={handleCategoryClick}
                   selectedCategoryId={selectedCategoryId || undefined}
@@ -2322,13 +2322,13 @@ export default function POSPage() {
                 />
               </div>
             )}
-            <div className="flex-1 overflow-auto bg-gradient-to-b from-transparent to-gray-50/50">
+            <div className="flex-1 min-h-0 overflow-y-auto bg-gradient-to-b from-transparent to-gray-50/50 flex flex-col">
               {searchQuery && isSearchPending ? (
-                <div className="p-6">
+                <div className="p-6 px-6 sm:px-10">
                   {/* Skeleton loading grid for desktop search */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 animate-pulse">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 animate-pulse">
                     {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
-                      <div key={i} className="bg-white dark:bg-slate-800 rounded-xl border border-gray-200/50 dark:border-gray-700/30 overflow-hidden">
+                      <div key={i} className="bg-white dark:bg-slate-800 rounded-none border-2 border-slate-300 dark:border-slate-600 overflow-hidden">
                         <div className="p-4 sm:p-5 space-y-3">
                           <div className="h-4 bg-gray-100 dark:bg-gray-700 rounded w-4/5" />
                           <div className="h-3 bg-gray-50 dark:bg-gray-700/60 rounded w-3/5" />
@@ -2340,7 +2340,7 @@ export default function POSPage() {
                   </div>
                 </div>
               ) : (
-                <div className="min-h-full flex items-center justify-center px-4 sm:px-8">
+                <div className="min-h-full flex flex-col px-4 sm:px-6 lg:px-8">
                   <ItemGrid
                     categoryId={debouncedSearchQuery ? null : selectedCategoryId}
                     searchQuery={debouncedSearchQuery || undefined}
@@ -2384,12 +2384,12 @@ export default function POSPage() {
           {/* Toast Content */}
           <div className="relative w-full max-w-md animate-in zoom-in-95 fade-in duration-300">
             {/* Main Card */}
-            <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl shadow-slate-900/10 border border-slate-200/80 dark:border-slate-700/60 backdrop-blur-xl overflow-hidden">
+            <div className="relative bg-white dark:bg-slate-900 rounded-none shadow-2xl shadow-slate-900/10 border border-slate-200/80 dark:border-slate-700/60 backdrop-blur-xl overflow-hidden">
               <div className="p-6">
                 {/* Header Section */}
                 <div className="flex items-start gap-4 mb-5">
                   {/* Icon Container */}
-                  <div className="flex-shrink-0 w-12 h-12 rounded-xl bg-red-50 dark:bg-red-950/30 flex items-center justify-center border border-red-100/50 dark:border-red-900/30">
+                  <div className="flex-shrink-0 w-12 h-12 rounded-none bg-red-50 dark:bg-red-950/30 flex items-center justify-center border border-red-100/50 dark:border-red-900/30">
                     <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
                   </div>
                   
@@ -2406,7 +2406,7 @@ export default function POSPage() {
                   {/* Close Button */}
                   <button
                     onClick={cancelClearCart}
-                    className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-none hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     aria-label="Close"
                   >
                     <X className="w-4 h-4 text-slate-500 dark:text-slate-400" />
@@ -2419,14 +2419,14 @@ export default function POSPage() {
                     onClick={cancelClearCart}
                     variant="outline"
                     size="sm"
-                    className="flex-1 h-10 pos-btn-outline rounded-xl font-medium"
+                    className="flex-1 h-10 pos-btn-outline rounded-none font-medium"
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={confirmClearCart}
                     size="sm"
-                    className="flex-1 h-10 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl shadow-lg shadow-red-500/25 transition-all active:scale-[0.98]"
+                    className="flex-1 h-10 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-none shadow-lg shadow-red-500/25 transition-all active:scale-[0.98]"
                   >
                     Clear Cart
                   </Button>
@@ -2441,7 +2441,7 @@ export default function POSPage() {
       {(barcodeScanStatus.scanning || barcodeScanStatus.error || barcodeScanStatus.success) && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-top-2 duration-300 print:hidden">
           <div className={`
-            flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl border backdrop-blur-md
+            flex items-center gap-3 px-5 py-3.5 rounded-none shadow-xl border backdrop-blur-md
             ${barcodeScanStatus.scanning 
               ? 'bg-blue-50/95 dark:bg-blue-950/80 border-blue-200/80 dark:border-blue-800/50 text-blue-800 dark:text-blue-200' 
               : barcodeScanStatus.error 
@@ -2459,7 +2459,7 @@ export default function POSPage() {
               </>
             ) : barcodeScanStatus.error ? (
               <>
-                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <div className="w-8 h-8 rounded-none bg-red-100 flex items-center justify-center flex-shrink-0">
                   <X className="w-4 h-4 text-red-600" />
                 </div>
                 <div>
@@ -2469,7 +2469,7 @@ export default function POSPage() {
               </>
             ) : (
               <>
-                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+                <div className="w-8 h-8 rounded-none bg-green-100 flex items-center justify-center flex-shrink-0">
                   <QrCode className="w-4 h-4 text-green-600" />
                 </div>
                 <div>
@@ -2488,7 +2488,7 @@ export default function POSPage() {
           <DrawerHeader className="border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-slate-900 px-4 sm:px-5 py-4">
             <div className="flex items-center justify-between pr-8">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm shadow-[#259783]/20 flex-shrink-0 [&>svg]:w-5 [&>svg]:h-5 [&>svg]:text-white">
+                <div className="w-10 h-10 rounded-none bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm shadow-[#259783]/20 flex-shrink-0 [&>svg]:w-5 [&>svg]:h-5 [&>svg]:text-white">
                   {drawerCategory && getCategoryIcon(drawerCategory.name)}
                 </div>
                 <div className="min-w-0">
@@ -2504,7 +2504,7 @@ export default function POSPage() {
               </div>
               <DrawerClose asChild>
                 <button
-                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 active:scale-95 transition-all"
+                  className="w-8 h-8 flex items-center justify-center rounded-none bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 active:scale-95 transition-all"
                   aria-label="Close drawer"
                 >
                   <X className="w-4 h-4" />
@@ -2519,12 +2519,12 @@ export default function POSPage() {
                 placeholder={`Search ${drawerCategory?.name.toLowerCase() || 'products'}...`}
                 value={drawerSearchQuery}
                 onChange={(e) => setDrawerSearchQuery(e.target.value)}
-                className="pl-10 pr-10 h-10 bg-gray-50 dark:bg-slate-800 rounded-xl border-gray-200/80 dark:border-gray-700/60 focus:border-[#259783] focus:ring-2 focus:ring-[#259783]/20 text-sm"
+                className="pl-10 pr-10 h-10 bg-gray-50 dark:bg-slate-800 rounded-none border-gray-200/80 dark:border-gray-700/60 focus:border-[#259783] focus:ring-2 focus:ring-[#259783]/20 text-sm"
               />
               {drawerSearchQuery && (
                 <button
                   onClick={() => setDrawerSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-md bg-gray-200 dark:bg-gray-700 text-gray-500 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-none bg-gray-200 dark:bg-gray-700 text-gray-500 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -2537,7 +2537,7 @@ export default function POSPage() {
               /* Skeleton loading grid */
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="rounded-xl border border-gray-200/50 dark:border-gray-700/30 bg-white dark:bg-slate-800/50 overflow-hidden animate-pulse">
+                  <div key={i} className="rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800/50 overflow-hidden animate-pulse">
                     <div className="aspect-[4/3] bg-gray-100 dark:bg-gray-800" />
                     <div className="p-3 space-y-2">
                       <div className="h-3.5 bg-gray-100 dark:bg-gray-800 rounded w-3/4" />
@@ -2549,7 +2549,7 @@ export default function POSPage() {
             ) : filteredDrawerGroupedItems.length === 0 ? (
               /* Empty state */
               <div className="flex flex-col items-center justify-center h-64 gap-3">
-                <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                <div className="w-16 h-16 rounded-none bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
                   <Package className="w-7 h-7 text-gray-300 dark:text-gray-600" />
                 </div>
                 <div className="text-center">
@@ -2569,10 +2569,10 @@ export default function POSPage() {
                 {filteredDrawerGroupedItems.filter(g => g.type === 'parent').map((group) => {
                   if (!group.parent || !group.children || group.children.length === 0) return null;
                   return (
-                    <div key={group.parent.id} className="rounded-2xl border border-gray-200/60 dark:border-gray-700/40 bg-white dark:bg-slate-800/40 overflow-hidden">
+                    <div key={group.parent.id} className="rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800/40 overflow-hidden">
                       {/* Parent header */}
                       <div className="flex items-center gap-2.5 px-3.5 py-2.5 border-b border-gray-100 dark:border-gray-700/40 bg-gray-50/80 dark:bg-gray-800/30">
-                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center flex-shrink-0">
+                        <div className="w-7 h-7 rounded-none bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center flex-shrink-0">
                           <Package className="w-3.5 h-3.5 text-white" />
                         </div>
                         <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate flex-1">
@@ -2592,7 +2592,7 @@ export default function POSPage() {
                                 handleSelectItem(item);
                                 setCategoryDrawerOpen(false);
                               }}
-                              className="group bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-gray-700/40 hover:border-[#259783]/40 dark:hover:border-[#259783]/30 active:scale-[0.98] transition-all duration-200 overflow-hidden text-left hover:shadow-md"
+                              className="pos-grid-btn group bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-800/95 dark:to-slate-800/70 rounded-none border-2 border-slate-300 dark:border-slate-500 overflow-hidden text-left"
                             >
                               {/* Image */}
                               <div className="aspect-[4/3] bg-gray-50 dark:bg-gray-800/50 overflow-hidden relative">
@@ -2618,18 +2618,18 @@ export default function POSPage() {
                                 {/* Stock overlay for out of stock */}
                                 {item.current_stock <= 0 && (
                                   <div className="absolute inset-0 bg-white/60 dark:bg-black/40 flex items-center justify-center">
-                                    <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 bg-white/90 dark:bg-black/60 px-2 py-0.5 rounded-full">
+                                    <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 bg-white/90 dark:bg-black/60 px-2 py-0.5 rounded-none">
                                       Out of stock
                                     </span>
                                   </div>
                                 )}
                               </div>
                               {/* Info */}
-                              <div className="p-2.5">
-                                <h3 className="font-semibold text-[12px] sm:text-[13px] line-clamp-2 text-gray-800 dark:text-gray-100 leading-snug group-hover:text-[#259783] dark:group-hover:text-[#3bd522] transition-colors">
+                              <div className="p-2">
+                                <h3 className="font-semibold text-[11px] sm:text-[12px] text-gray-800 dark:text-gray-100 leading-tight group-hover:text-[#259783] dark:group-hover:text-[#3bd522] transition-colors uppercase tracking-tight break-words">
                                   {item.name}
                                 </h3>
-                                <div className="flex items-baseline gap-1.5 mt-1.5">
+                                <div className="flex items-baseline gap-1 mt-1">
                                   <span className="text-sm font-bold text-[#259783]">
                                     KES {item.current_sell_price.toFixed(0)}
                                   </span>
@@ -2639,7 +2639,7 @@ export default function POSPage() {
                                 </div>
                                 {/* Stock indicator */}
                                 <div className="flex items-center gap-1 mt-1.5">
-                                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                  <span className={`w-1.5 h-1.5 rounded-none flex-shrink-0 ${
                                     item.current_stock <= 0 ? 'bg-gray-300 dark:bg-gray-600' :
                                     item.current_stock < 10 ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'
                                   }`} />
@@ -2689,7 +2689,7 @@ export default function POSPage() {
                               handleSelectItem(item);
                               setCategoryDrawerOpen(false);
                             }}
-                            className="group bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-gray-700/40 hover:border-[#259783]/40 dark:hover:border-[#259783]/30 active:scale-[0.98] transition-all duration-200 overflow-hidden text-left hover:shadow-md"
+                            className="pos-grid-btn group bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-800/95 dark:to-slate-800/70 rounded-none border-2 border-slate-300 dark:border-slate-500 overflow-hidden text-left"
                           >
                             <div className="aspect-[4/3] bg-gray-50 dark:bg-gray-800/50 overflow-hidden relative">
                               {getItemImage(item.name) ? (
@@ -2713,17 +2713,17 @@ export default function POSPage() {
                               )}
                               {item.current_stock <= 0 && (
                                 <div className="absolute inset-0 bg-white/60 dark:bg-black/40 flex items-center justify-center">
-                                  <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 bg-white/90 dark:bg-black/60 px-2 py-0.5 rounded-full">
+                                  <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 bg-white/90 dark:bg-black/60 px-2 py-0.5 rounded-none">
                                     Out of stock
                                   </span>
                                 </div>
                               )}
                             </div>
-                            <div className="p-2.5">
-                              <h3 className="font-semibold text-[12px] sm:text-[13px] line-clamp-2 text-gray-800 dark:text-gray-100 leading-snug group-hover:text-[#259783] dark:group-hover:text-[#3bd522] transition-colors">
+                            <div className="p-2">
+                              <h3 className="font-semibold text-[11px] sm:text-[12px] text-gray-800 dark:text-gray-100 leading-tight group-hover:text-[#259783] dark:group-hover:text-[#3bd522] transition-colors uppercase tracking-tight break-words">
                                 {item.name}
                               </h3>
-                              <div className="flex items-baseline gap-1.5 mt-1.5">
+                              <div className="flex items-baseline gap-1 mt-1">
                                 <span className="text-sm font-bold text-[#259783]">
                                   KES {item.current_sell_price.toFixed(0)}
                                 </span>
@@ -2732,7 +2732,7 @@ export default function POSPage() {
                                 </span>
                               </div>
                               <div className="flex items-center gap-1 mt-1.5">
-                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                <span className={`w-1.5 h-1.5 rounded-none flex-shrink-0 ${
                                   item.current_stock <= 0 ? 'bg-gray-300 dark:bg-gray-600' :
                                   item.current_stock < 10 ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'
                                 }`} />
@@ -2770,10 +2770,10 @@ export default function POSPage() {
           <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
             <div className="flex items-center justify-between pr-8">
               <div className="flex items-center gap-3">
-                <div className="relative w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm flex-shrink-0">
+                <div className="relative w-10 h-10 rounded-none bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm flex-shrink-0">
                   <ShoppingCart className="w-5 h-5 text-white" />
                   {carts.length > 1 && (
-                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-400 text-amber-900 text-xs font-bold rounded-full flex items-center justify-center shadow-md">
+                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-400 text-amber-900 text-xs font-bold rounded-none flex items-center justify-center shadow-md">
                       {carts.length}
                     </span>
                   )}
@@ -2792,7 +2792,7 @@ export default function POSPage() {
               </div>
               <DrawerClose asChild>
                 <button
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white active:scale-95 transition-all shadow-sm"
+                  className="w-10 h-10 flex items-center justify-center rounded-none bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white active:scale-95 transition-all shadow-sm"
                   aria-label="Close drawer"
                 >
                   <X className="w-5 h-5" />
@@ -2818,7 +2818,7 @@ export default function POSPage() {
           <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
             <div className="flex items-center justify-between pr-8">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm flex-shrink-0">
+                <div className="w-10 h-10 rounded-none bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm flex-shrink-0">
                   <DollarSign className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -2832,7 +2832,7 @@ export default function POSPage() {
               </div>
               <DrawerClose asChild>
                 <button
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white active:scale-95 transition-all shadow-sm"
+                  className="w-10 h-10 flex items-center justify-center rounded-none bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white active:scale-95 transition-all shadow-sm"
                   aria-label="Close drawer"
                 >
                   <X className="w-5 h-5" />
@@ -2869,7 +2869,7 @@ export default function POSPage() {
           <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5 print:hidden">
             <div className="flex items-center justify-between pr-8">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm flex-shrink-0">
+                <div className="w-10 h-10 rounded-none bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm flex-shrink-0">
                   <FileText className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -2894,7 +2894,7 @@ export default function POSPage() {
                 )}
                 <DrawerClose asChild>
                   <button
-                    className="w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white active:scale-95 transition-all shadow-sm"
+                    className="w-10 h-10 flex items-center justify-center rounded-none bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white active:scale-95 transition-all shadow-sm"
                     aria-label="Close drawer"
                   >
                     <X className="w-5 h-5" />

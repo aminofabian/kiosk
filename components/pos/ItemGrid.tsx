@@ -79,9 +79,9 @@ const ItemCard = memo(function ItemCard({
     <Card
       role="button"
       tabIndex={0}
-      className={`pos-grid-btn group cursor-pointer touch-target relative overflow-hidden rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 transition-transform duration-100 active:scale-[0.97] ${isOutOfStock
-        ? 'bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-200/70 dark:border-slate-600/50 opacity-75 hover:opacity-100 shadow-md'
-        : 'bg-white dark:bg-slate-800/90 border-2 border-slate-200/80 dark:border-slate-600/50 hover:border-[#259783]/40 dark:hover:border-[#259783]/40 shadow-[0_4px_14px_rgba(0,0,0,0.08)] active:shadow-[0_2px_6px_rgba(0,0,0,0.12)]'
+      className={`pos-grid-btn group cursor-pointer touch-target relative overflow-hidden rounded-none outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 transition-all duration-200 ${isOutOfStock
+        ? 'bg-gradient-to-b from-slate-50 to-slate-100/80 dark:from-slate-800/60 dark:to-slate-800/40 border-2 border-slate-300 dark:border-slate-500 opacity-75 hover:opacity-100'
+        : 'bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-800/95 dark:to-slate-800/70 border-2 border-slate-300 dark:border-slate-500 hover:border-[#259783] dark:hover:border-[#259783]'
         }`}
       onClick={() => onSelect(item)}
       onKeyDown={(e) => {
@@ -92,25 +92,25 @@ const ItemCard = memo(function ItemCard({
       }}
     >
       {/* Left accent bar */}
-      <div className={`absolute left-0 top-0 bottom-0 w-[4px] rounded-l-2xl transition-all duration-200 ${isOutOfStock
+      <div className={`absolute left-0 top-0 bottom-0 w-[4px] rounded-l-none transition-all duration-200 ${isOutOfStock
         ? 'bg-gray-300 dark:bg-gray-600'
         : stockStatus === 'low'
           ? 'bg-amber-400'
           : 'bg-gradient-to-b from-[#259783] to-[#3bd522] opacity-0 group-hover:opacity-100'
         }`} />
 
-      <CardContent className="p-3.5 sm:p-4 flex flex-col h-full">
+      <CardContent className="p-2.5 sm:p-3 flex flex-col h-full">
         {/* Top row: Name + Quick Add */}
         <div className="flex items-start justify-between gap-2 mb-auto">
           <div className="flex-1 min-w-0">
-            <h3 className={`font-semibold text-[13px] sm:text-sm leading-snug line-clamp-2 transition-colors ${isOutOfStock
+            <h3 className={`font-semibold text-[12px] sm:text-[13px] leading-tight transition-colors uppercase tracking-tight break-words ${isOutOfStock
               ? 'text-gray-400 dark:text-gray-500'
               : 'text-gray-800 dark:text-gray-100 group-hover:text-[#259783] dark:group-hover:text-[#3bd522]'
               }`}>
               {item.name}
             </h3>
             {item.variant_name && (
-              <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 truncate">
+              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 break-words">
                 {item.variant_name}
               </p>
             )}
@@ -120,7 +120,7 @@ const ItemCard = memo(function ItemCard({
             <Button
               size="sm"
               variant="default"
-              className="h-8 px-2 flex items-center justify-center gap-1.5 flex-shrink-0 transition-all duration-150 rounded-lg bg-[#259783] hover:bg-[#1e8572] text-white text-xs font-semibold border border-[#1e8572] shadow-sm shadow-[#259783]/30 hover:shadow-md active:scale-95 -mt-0.5 -mr-1 focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+              className="h-8 px-2 flex items-center justify-center gap-1.5 flex-shrink-0 transition-all duration-200 rounded-none bg-gradient-to-b from-[#259783] to-[#1e8a72] hover:from-[#1e8a72] hover:to-[#178266] text-white text-xs font-semibold shadow-md shadow-[#259783]/25 hover:shadow-lg hover:shadow-[#259783]/30 active:scale-95 -mt-0.5 -mr-1 focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
               onClick={(e) => {
                 e.stopPropagation();
                 onQuickAdd(item, quickQty);
@@ -153,7 +153,7 @@ const ItemCard = memo(function ItemCard({
           {/* Bundle deal */}
           {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
             <div className="mt-1.5">
-              <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-[10px] font-semibold px-2 py-0.5 rounded-md border border-amber-200/60 dark:border-amber-700/40">
+              <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-[10px] font-semibold px-2 py-0.5 rounded-none border border-amber-200/60 dark:border-amber-700/40">
                 <Tag className="w-2.5 h-2.5" />
                 {item.bundle_name || `${item.bundle_quantity} for ${formatPrice(item.bundle_price)}`}
               </span>
@@ -166,21 +166,21 @@ const ItemCard = memo(function ItemCard({
           <div className="flex items-center gap-1.5">
             {stockStatus === 'out' ? (
               <>
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0" />
+                <span className="w-1.5 h-1.5 rounded-none bg-gray-300 dark:bg-gray-600 flex-shrink-0" />
                 <span className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">
                   Out of stock
                 </span>
               </>
             ) : stockStatus === 'low' ? (
               <>
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
+                <span className="w-1.5 h-1.5 rounded-none bg-amber-400 animate-pulse flex-shrink-0" />
                 <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
                   {formatStock(item.current_stock, item.unit_type)}
                 </span>
               </>
             ) : (
               <>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
+                <span className="w-1.5 h-1.5 rounded-none bg-emerald-400 flex-shrink-0" />
                 <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
                   {formatStock(item.current_stock, item.unit_type)}
                 </span>
@@ -472,9 +472,9 @@ export function ItemGrid({
 
     if (!hasContent) {
       return (
-        <div className="p-4 sm:p-6 flex items-center justify-center h-full">
+        <div className="mx-4 sm:mx-6 lg:mx-8 p-4 sm:p-6 flex items-center justify-center h-full">
           <div className="text-center space-y-4 max-w-md animate-in fade-in duration-500">
-            <div className="w-20 h-20 mx-auto bg-gradient-to-br from-[#259783]/15 to-[#3bd522]/10 rounded-2xl flex items-center justify-center shadow-lg">
+            <div className="w-20 h-20 mx-auto bg-gradient-to-br from-[#259783]/15 to-[#3bd522]/10 rounded-none flex items-center justify-center shadow-lg">
               <ShoppingBag className="w-9 h-9 text-[#259783]" />
             </div>
             <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">
@@ -489,32 +489,76 @@ export function ItemGrid({
     }
 
     return (
-      <div className="p-3 sm:p-5 space-y-5 animate-in fade-in duration-300">
+      <div className="min-h-full flex flex-col mx-4 sm:mx-6 lg:mx-8 px-3 sm:px-4 py-1.5 sm:py-2 animate-in fade-in duration-300">
 
-        {/* ── 🔥 Quick Sell – Top Sellers ── */}
+        {/* ── 🔥 Quick Sell – First screen only ── */}
         {hasFeatured && (
-          <section className="rounded-2xl border border-gray-200/70 dark:border-gray-700/60 bg-white/90 dark:bg-slate-900/70 shadow-sm p-3.5 sm:p-4 space-y-3">
-            {/* Section header */}
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm shadow-[#259783]/25">
+          <section className="min-h-[calc(100vh-11rem)] flex flex-col rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-sm p-1.5 sm:p-2 overflow-hidden flex-shrink-0 justify-center">
+            {/* Section header - compact */}
+            <div className="flex items-center gap-1.5 mb-1 flex-shrink-0">
+              <div className="w-7 h-7 rounded-none bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm shadow-[#259783]/25">
                 <Flame className="w-3.5 h-3.5 text-white" />
               </div>
               <div className="flex-1 min-w-0">
-                <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 tracking-tight leading-none">
+                <h2 className="text-xs font-bold text-gray-800 dark:text-gray-100 tracking-tight leading-none">
                   Quick Sell
                 </h2>
-                <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5">
-                  Tap <span className="text-[#259783] font-semibold">⚡</span> to add · Tap name to adjust qty
+                <p className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">
+                  Tap <span className="text-[#259783] font-semibold">⚡</span> to add
                 </p>
               </div>
-              <span className="text-[10px] font-semibold text-[#259783] dark:text-[#3bd522] bg-[#259783]/8 dark:bg-[#259783]/15 px-2 py-0.5 rounded-full">
-                {featuredItems!.length} popular
-              </span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] font-semibold text-[#259783] dark:text-[#3bd522] bg-[#259783]/10 dark:bg-[#259783]/15 px-2 py-1 rounded-none border border-[#259783]/20 dark:border-[#259783]/25 shadow-sm">
+                  {featuredItems!.length} popular
+                </span>
+                {(() => {
+                  const out = featuredItems!.filter(i => getStockStatus(i.current_stock) === 'out').length;
+                  const low = featuredItems!.filter(i => getStockStatus(i.current_stock) === 'low').length;
+                  const ok = featuredItems!.filter(i => getStockStatus(i.current_stock) === 'ok').length;
+                  return (
+                    <span className="flex items-center gap-1">
+                      {out > 0 && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px] font-semibold bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200/60 dark:border-red-800/50">
+                          <span className="w-1 h-1 rounded-none bg-red-500" />
+                          {out} out
+                        </span>
+                      )}
+                      {low > 0 && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px] font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/50">
+                          <span className="w-1 h-1 rounded-none bg-amber-500" />
+                          {low} low
+                        </span>
+                      )}
+                      {ok > 0 && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/50">
+                          <span className="w-1 h-1 rounded-none bg-emerald-500" />
+                          {ok} in stock
+                        </span>
+                      )}
+                    </span>
+                  );
+                })()}
+              </div>
             </div>
 
-            {/* Products grid – compact cards for speed */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-2.5">
-              {featuredItems!.map((item, index) => {
+            {/* Products grid – sorted alphabetically so related items appear together */}
+            <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-[repeat(12,minmax(0,1fr))] xl:grid-cols-[repeat(14,minmax(0,1fr))] gap-1 sm:gap-1.5 auto-rows-[minmax(0,auto)] overflow-hidden">
+              {(() => {
+                const top3Ranks = new Map(
+                  [...featuredItems!]
+                    .filter((i) => ((i as { quantity_sold?: number }).quantity_sold ?? 0) > 0)
+                    .sort((a, b) => ((b as { quantity_sold?: number }).quantity_sold ?? 0) - ((a as { quantity_sold?: number }).quantity_sold ?? 0))
+                    .slice(0, 3)
+                    .map((i, idx) => [i.id, idx + 1])
+                );
+                return [...featuredItems!]
+                  .sort((a, b) => {
+                    const nameA = `${a.name} ${a.variant_name || ''}`.trim().toLowerCase();
+                    const nameB = `${b.name} ${b.variant_name || ''}`.trim().toLowerCase();
+                    return nameA.localeCompare(nameB);
+                  })
+                  .map((item) => {
+                const rank = top3Ranks.get(item.id);
                 const stock = getStockStatus(item.current_stock);
                 const isOut = stock === 'out';
                 const quickQty = getQuickAddQuantity(item);
@@ -531,31 +575,31 @@ export function ItemGrid({
                         onSelectItem(item);
                       }
                     }}
-                    className={`group relative rounded-xl border overflow-hidden transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${isOut
-                      ? 'bg-gray-50/60 dark:bg-slate-800/30 border-gray-200/40 dark:border-gray-700/25 opacity-60'
-                      : 'bg-white dark:bg-slate-800/80 border-gray-200/70 dark:border-gray-700/40 hover:border-[#259783]/30 dark:hover:border-[#259783]/25 shadow-sm hover:shadow-md'
+                    className={`pos-grid-btn group relative rounded-none overflow-hidden cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 flex flex-col min-h-0 ${isOut
+                      ? 'bg-slate-100 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-500 opacity-60'
+                      : 'bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-500'
                       }`}
                   >
-                    {/* Rank badge for top 3 */}
-                    {index < 3 && (
-                      <div className={`absolute top-1.5 left-1.5 z-10 w-5 h-5 rounded-md flex items-center justify-center text-[9px] font-black shadow ${RANK_STYLES[index]}`}>
-                        {index + 1}
+                    {/* Rank badge for top 3 by sales */}
+                    {rank != null && (
+                      <div className={`absolute top-1 left-1 z-10 w-4 h-4 rounded-none flex items-center justify-center text-[8px] font-black shadow ${RANK_STYLES[rank - 1]}`}>
+                        {rank}
                       </div>
                     )}
 
                     {/* Bundle deal badge */}
                     {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
-                      <div className="absolute top-1.5 right-1.5 z-10">
-                        <span className="inline-flex items-center gap-0.5 bg-amber-400/90 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-md shadow-sm">
-                          <Tag className="w-2 h-2" />
+                      <div className="absolute top-1 right-1 z-10">
+                        <span className="inline-flex items-center gap-0.5 bg-amber-400/90 text-white text-[7px] font-bold px-1 py-0.5 rounded-none shadow-sm">
+                          <Tag className="w-1.5 h-1.5" />
                           Deal
                         </span>
                       </div>
                     )}
 
-                    {/* Product name area */}
-                    <div className="w-full text-left p-2.5 sm:p-3 pb-1.5 sm:pb-2">
-                      <h3 className={`font-semibold text-[12px] sm:text-[13px] leading-snug line-clamp-2 transition-colors ${index < 3 ? 'pl-6' : ''
+                    {/* Product name area - compact, full title */}
+                    <div className="w-full text-left p-1 sm:p-1.5 pb-1 flex-1 min-h-0 flex flex-col justify-center overflow-hidden">
+                      <h3 className={`font-semibold text-[8px] sm:text-[9px] leading-tight transition-colors uppercase tracking-tight break-words ${rank != null ? 'pl-4' : ''
                         } ${isOut
                           ? 'text-gray-400 dark:text-gray-500'
                           : 'text-gray-800 dark:text-gray-100 group-hover:text-[#259783] dark:group-hover:text-[#3bd522]'
@@ -563,27 +607,27 @@ export function ItemGrid({
                         {item.name}
                       </h3>
                       {item.variant_name && (
-                        <p className={`text-[10px] text-gray-400 dark:text-gray-500 truncate mt-0.5 ${index < 3 ? 'pl-6' : ''}`}>
+                        <p className={`text-[7px] text-gray-400 dark:text-gray-500 mt-0.5 break-words ${rank != null ? 'pl-4' : ''}`}>
                           {item.variant_name}
                         </p>
                       )}
                     </div>
 
-                    {/* Bottom bar: price + quick add */}
-                    <div className="px-2.5 sm:px-3 pb-2.5 sm:pb-3 flex items-end justify-between gap-1">
-                      <div>
-                        <span className={`text-sm sm:text-base font-bold tracking-tight ${isOut ? 'text-gray-400' : 'text-[#259783]'}`}>
+                    {/* Bottom bar: price + quick add - compact */}
+                    <div className="px-1 sm:px-1.5 pb-1 sm:pb-1.5 flex items-end justify-between gap-0.5 flex-shrink-0">
+                      <div className="min-w-0">
+                        <span className={`text-[10px] sm:text-[11px] font-bold tracking-tight ${isOut ? 'text-gray-400' : 'text-[#259783]'}`}>
                           {formatPrice(item.current_sell_price)}
                         </span>
-                        <span className="text-[9px] text-gray-400 font-medium ml-0.5">/{item.unit_type}</span>
+                        <span className="text-[7px] text-gray-400 font-medium ml-0.5">/{item.unit_type}</span>
 
                         {/* Stock indicator inline */}
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <span className={`w-1 h-1 rounded-full flex-shrink-0 ${isOut ? 'bg-gray-300 dark:bg-gray-600'
-                            : stock === 'low' ? 'bg-amber-400 animate-pulse'
+                        <div className="flex items-center gap-0.5 mt-0.5">
+                          <span className={`w-1 h-1 rounded-none flex-shrink-0 ${isOut ? 'bg-gray-300 dark:bg-gray-600'
+                            : stock === 'low' ? 'bg-amber-400'
                               : 'bg-emerald-400'
                             }`} />
-                          <span className={`text-[9px] font-medium ${isOut ? 'text-gray-400'
+                          <span className={`text-[7px] sm:text-[8px] font-medium ${isOut ? 'text-gray-400'
                             : stock === 'low' ? 'text-amber-600 dark:text-amber-400'
                               : 'text-gray-400'
                             }`}>
@@ -599,7 +643,7 @@ export function ItemGrid({
                             e.stopPropagation();
                             onQuickAdd(item, quickQty);
                           }}
-                          className="flex items-center justify-center gap-1 h-9 px-2 rounded-full bg-[#259783] hover:bg-[#1e8572] text-white text-xs font-bold border border-[#1e8572] shadow-sm shadow-[#259783]/30 hover:shadow-md hover:shadow-[#259783]/40 transition-all duration-150 active:scale-95 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+                          className="flex items-center justify-center gap-0.5 h-6 sm:h-7 px-1.5 rounded-none bg-[#259783] hover:bg-[#1e8a72] text-white text-[10px] font-bold shadow-md transition-all duration-200 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
                           title={`Quick add ${quickQty} ${item.unit_type}`}
                         >
                           <Zap className="w-3 h-3" />
@@ -609,16 +653,17 @@ export function ItemGrid({
                     </div>
                   </div>
                 );
-              })}
+                  });
+              })()}
             </div>
           </section>
         )}
 
-        {/* ── ⚠️ Low Stock Strip ── */}
+        {/* ── ⚠️ Low Stock – Below fold, scroll to see ── */}
         {hasLowStock && (
-          <section className="rounded-2xl border border-amber-100/80 dark:border-amber-800/40 bg-amber-50/60 dark:bg-amber-950/30 shadow-sm p-3 sm:p-3.5 space-y-2">
+          <section className="flex-shrink-0 rounded-none border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 shadow-sm p-2 sm:p-3 space-y-1.5 mt-4">
             <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 rounded-md bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm shadow-amber-400/20">
+              <div className="w-6 h-6 rounded-none bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm shadow-amber-400/20">
                 <AlertTriangle className="w-3 h-3 text-white" />
               </div>
               <h2 className="text-xs font-bold text-gray-700 dark:text-gray-200 tracking-tight">
@@ -636,13 +681,13 @@ export function ItemGrid({
                 <button
                   key={item.id}
                   onClick={() => onSelectItem(item)}
-                  className="group flex-shrink-0 flex items-center gap-2.5 pl-2.5 pr-3.5 py-2.5 rounded-xl border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/70 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all duration-150 active:scale-[0.98] min-w-[180px] max-w-[240px] cursor-pointer shadow-[0_1px_0_rgba(0,0,0,0.02)] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-amber-50 dark:focus-visible:ring-offset-slate-900"
+                  className="group flex-shrink-0 flex items-center gap-2.5 pl-2.5 pr-3.5 py-2.5 rounded-none border-2 border-amber-300 dark:border-amber-600 bg-amber-50/70 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all duration-150 active:scale-[0.98] min-w-[180px] max-w-[240px] cursor-pointer shadow-[0_1px_0_rgba(0,0,0,0.02)] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-amber-50 dark:focus-visible:ring-offset-slate-900"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 rounded-none bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
                     <Package className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                   </div>
                   <div className="flex-1 min-w-0 text-left">
-                    <p className="text-[12px] font-semibold text-gray-800 dark:text-gray-200 truncate group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors">
+                    <p className="text-[11px] font-semibold text-gray-800 dark:text-gray-200 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors uppercase tracking-tight break-words">
                       {item.name}
                     </p>
                     <div className="flex items-center gap-1.5 mt-0.5">
@@ -668,20 +713,20 @@ export function ItemGrid({
 
 if (loading) {
   return (
-    <div className="p-4 sm:p-6">
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3">
+    <div className="mx-4 sm:mx-6 lg:mx-8 px-4 sm:px-6 py-4 sm:py-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
         {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="rounded-xl border border-gray-200/50 dark:border-gray-700/30 bg-white dark:bg-slate-800/50 overflow-hidden animate-pulse">
+          <div key={i} className="rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800/50 overflow-hidden animate-pulse">
             <div className="p-3.5 sm:p-4 flex flex-col gap-3">
               <div className="space-y-1.5">
-                <div className="h-3.5 bg-gray-100 dark:bg-gray-700 rounded-md w-[85%]" />
-                <div className="h-3 bg-gray-50 dark:bg-gray-700/50 rounded-md w-[55%]" />
+                <div className="h-3.5 bg-gray-100 dark:bg-gray-700 rounded-none w-[85%]" />
+                <div className="h-3 bg-gray-50 dark:bg-gray-700/50 rounded-none w-[55%]" />
               </div>
               <div className="mt-1">
-                <div className="h-5 bg-gray-100 dark:bg-gray-700 rounded-md w-[45%]" />
+                <div className="h-5 bg-gray-100 dark:bg-gray-700 rounded-none w-[45%]" />
               </div>
               <div className="pt-2 border-t border-gray-100 dark:border-gray-700/30">
-                <div className="h-2.5 bg-gray-50 dark:bg-gray-700/40 rounded-md w-[35%]" />
+                <div className="h-2.5 bg-gray-50 dark:bg-gray-700/40 rounded-none w-[35%]" />
               </div>
             </div>
           </div>
@@ -693,9 +738,9 @@ if (loading) {
 
 if (error) {
   return (
-    <div className="p-4 flex items-center justify-center h-full">
+    <div className="mx-4 sm:mx-6 lg:mx-8 p-4 flex items-center justify-center h-full">
       <div className="text-center space-y-3">
-        <div className="w-16 h-16 mx-auto bg-red-100 rounded-full flex items-center justify-center">
+        <div className="w-16 h-16 mx-auto bg-red-100 rounded-none flex items-center justify-center">
           <span className="text-2xl">⚠️</span>
         </div>
         <p className="text-destructive font-semibold">Error: {error}</p>
@@ -706,11 +751,11 @@ if (error) {
 
 if (items.length === 0 && !loading) {
   return (
-    <div className="p-6 flex items-center justify-center h-full min-h-[300px]">
+    <div className="mx-4 sm:mx-6 lg:mx-8 p-6 flex items-center justify-center h-full min-h-[300px]">
       <div className="text-center space-y-5 max-w-sm">
         <div className="relative mx-auto w-20 h-20">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#259783]/10 to-[#3bd522]/10 rounded-2xl rotate-6" />
-          <div className="relative w-20 h-20 bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50 rounded-2xl flex items-center justify-center border border-gray-200/60 dark:border-gray-700/40 shadow-sm">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#259783]/10 to-[#3bd522]/10 rounded-none rotate-6" />
+          <div className="relative w-20 h-20 bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50 rounded-none flex items-center justify-center border-2 border-slate-300 dark:border-slate-500 shadow-sm">
             <svg className="w-9 h-9 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
@@ -729,15 +774,15 @@ if (items.length === 0 && !loading) {
               </p>
               <div className="pt-3 flex flex-col gap-1.5 items-start mx-auto max-w-[200px]">
                 <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
-                  <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+                  <span className="w-1 h-1 rounded-none bg-gray-300 dark:bg-gray-600" />
                   <span>Check for spelling errors</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
-                  <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+                  <span className="w-1 h-1 rounded-none bg-gray-300 dark:bg-gray-600" />
                   <span>Try different keywords</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
-                  <span className="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600" />
+                  <span className="w-1 h-1 rounded-none bg-gray-300 dark:bg-gray-600" />
                   <span>Browse by category instead</span>
                 </div>
               </div>
@@ -750,13 +795,13 @@ if (items.length === 0 && !loading) {
 }
 
 return (
-  <div className="p-4 sm:p-6 flex items-start justify-center min-h-full">
-    <div className="w-full max-w-6xl rounded-3xl border border-gray-100/80 dark:border-gray-800/70 bg-white/90 dark:bg-slate-900/80 shadow-sm px-3 sm:px-5 py-4 sm:py-5">
+  <div className="mx-4 sm:mx-6 lg:mx-8 px-4 sm:px-6 py-4 sm:py-6 flex items-start justify-center min-h-full">
+    <div className="w-full max-w-6xl rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white/90 dark:bg-slate-900/80 shadow-sm px-4 sm:px-6 py-4 sm:py-5">
       {searchQuery && items.length > 0 && (
         <div className="mb-6 space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm shadow-[#259783]/20">
+              <div className="w-8 h-8 rounded-none bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm shadow-[#259783]/20">
                 <span className="text-white text-xs font-bold">{items.length}</span>
               </div>
               <div>
@@ -770,8 +815,8 @@ return (
             </div>
           </div>
           {showingOtherShopType && (
-            <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-amber-50/80 dark:bg-amber-900/15 border border-amber-200/80 dark:border-amber-800/50 rounded-xl">
-              <div className="w-5 h-5 rounded-lg bg-amber-400/20 flex items-center justify-center flex-shrink-0">
+            <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-amber-50/80 dark:bg-amber-900/15 border-2 border-amber-300 dark:border-amber-700 rounded-none">
+              <div className="w-5 h-5 rounded-none bg-amber-400/20 flex items-center justify-center flex-shrink-0">
                 <span className="text-amber-600 text-[10px] font-bold">i</span>
               </div>
               <p className="text-xs text-amber-700 dark:text-amber-200/80">
@@ -786,10 +831,10 @@ return (
         {groupedItems.filter(g => g.type === 'parent').map((group) => {
           if (!group.parent || !group.children || group.children.length === 0) return null;
           return (
-            <div key={group.parent.id} className="rounded-2xl border border-gray-200/60 dark:border-gray-700/40 bg-gradient-to-br from-white via-white to-[#259783]/[0.02] dark:from-slate-800/60 dark:via-slate-800/40 dark:to-[#259783]/[0.05] overflow-hidden">
+            <div key={group.parent.id} className="rounded-none border-2 border-slate-300 dark:border-slate-600 bg-gradient-to-br from-white via-white to-[#259783]/[0.02] dark:from-slate-800/60 dark:via-slate-800/40 dark:to-[#259783]/[0.05] overflow-hidden">
               {/* Parent header */}
               <div className="flex items-center gap-3 px-4 sm:px-5 py-3 border-b border-gray-100 dark:border-gray-700/40 bg-gray-50/50 dark:bg-gray-800/30">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm shadow-[#259783]/20 flex-shrink-0">
+                <div className="w-8 h-8 rounded-none bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm shadow-[#259783]/20 flex-shrink-0">
                   <Package className="w-4 h-4 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -803,7 +848,7 @@ return (
               </div>
               {/* Children Grid */}
               <div className="p-3 sm:p-4">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
                   {group.children.map((item) => (
                     <ItemCard
                       key={item.id}
@@ -824,7 +869,7 @@ return (
             {/* Section label if there are also parent groups */}
             {groupedItems.some(g => g.type === 'parent') && (
               <div className="flex items-center gap-2.5 mb-3 px-1">
-                <div className="w-6 h-6 rounded-md bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+                <div className="w-6 h-6 rounded-none bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
                   <ShoppingBag className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
                 </div>
                 <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
@@ -833,7 +878,7 @@ return (
                 <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800" />
               </div>
             )}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
               {groupedItems.filter(g => g.type === 'standalone').map((group) => (
                 group.item && (
                   <ItemCard
