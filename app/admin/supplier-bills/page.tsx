@@ -153,7 +153,11 @@ function SupplierBillsPageContent() {
                   onCancel={() => setDrawerOpen(false)}
                   preSelectedSupplierId={preSelectedSupplierId}
                   onOpenManageLinkProducts={(supplier) => {
-                    setSelectedSupplier(supplier);
+                    setSelectedSupplier({
+                      ...supplier,
+                      location: supplier.location ?? null,
+                      notes: supplier.notes ?? null,
+                    });
                     setSupplierDrawerOpen(true);
                   }}
                 />
