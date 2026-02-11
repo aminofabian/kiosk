@@ -489,15 +489,15 @@ export function ItemGrid({
     }
 
     return (
-      <div className="min-h-full flex flex-col mx-4 sm:mx-6 lg:mx-8 px-3 sm:px-4 py-1.5 sm:py-2 animate-in fade-in duration-300">
+      <div className="min-h-full flex flex-col mx-2 sm:mx-4 lg:mx-6 px-2 sm:px-3 py-1 animate-in fade-in duration-300">
 
         {/* ── 🔥 Quick Sell – First screen only ── */}
         {hasFeatured && (
-          <section className="min-h-[calc(100vh-11rem)] flex flex-col rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-sm p-1.5 sm:p-2 overflow-hidden flex-shrink-0 justify-center">
+          <section className="min-h-0 flex flex-col flex-1 rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-sm p-1 sm:p-1.5 overflow-hidden flex-shrink-0 justify-center">
             {/* Section header - compact */}
-            <div className="flex items-center gap-1.5 mb-1 flex-shrink-0">
-              <div className="w-7 h-7 rounded-none bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm shadow-[#259783]/25">
-                <Flame className="w-3.5 h-3.5 text-white" />
+            <div className="flex items-center gap-1.5 mb-0.5 flex-shrink-0">
+              <div className="w-6 h-6 rounded-none bg-[#259783] flex items-center justify-center shadow-sm">
+                <Flame className="w-3 h-3 text-white" />
               </div>
               <div className="flex-1 min-w-0">
                 <h2 className="text-xs font-bold text-gray-800 dark:text-gray-100 tracking-tight leading-none">
@@ -542,7 +542,7 @@ export function ItemGrid({
             </div>
 
             {/* Products grid – sorted alphabetically so related items appear together */}
-            <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-[repeat(12,minmax(0,1fr))] xl:grid-cols-[repeat(14,minmax(0,1fr))] gap-1 sm:gap-1.5 auto-rows-[minmax(0,auto)] overflow-hidden">
+            <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-[repeat(12,minmax(0,1fr))] xl:grid-cols-[repeat(14,minmax(0,1fr))] gap-1 auto-rows-[minmax(0,auto)] overflow-hidden flex-1 min-h-0">
               {(() => {
                 const top3Ranks = new Map(
                   [...featuredItems!]
@@ -661,47 +661,43 @@ export function ItemGrid({
 
         {/* ── ⚠️ Low Stock – Below fold, scroll to see ── */}
         {hasLowStock && (
-          <section className="flex-shrink-0 rounded-none border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950 shadow-sm p-2 sm:p-3 space-y-1.5 mt-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-6 h-6 rounded-none bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm shadow-amber-400/20">
-                <AlertTriangle className="w-3 h-3 text-white" />
-              </div>
-              <h2 className="text-xs font-bold text-gray-700 dark:text-gray-200 tracking-tight">
+          <section className="flex-shrink-0 rounded-none border border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/50 p-1.5 mt-2">
+            <div className="flex items-center gap-1.5 mb-1">
+              <h2 className="text-[9px] font-medium text-amber-800 dark:text-amber-200 uppercase tracking-wider">
                 Low Stock
               </h2>
-              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
-                {lowStockItems!.length} item{lowStockItems!.length !== 1 ? 's' : ''}
+              <span className="text-[8px] text-amber-600 dark:text-amber-400">
+                {lowStockItems!.length} items
               </span>
-              <div className="flex-1 h-px bg-gradient-to-r from-amber-200/50 dark:from-amber-800/30 to-transparent" />
             </div>
 
             {/* Horizontal scrollable strip */}
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+            <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
               {lowStockItems!.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => onSelectItem(item)}
-                  className="group flex-shrink-0 flex items-center gap-2.5 pl-2.5 pr-3.5 py-2.5 rounded-none border-2 border-amber-300 dark:border-amber-600 bg-amber-50/70 dark:bg-amber-950/30 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all duration-150 active:scale-[0.98] min-w-[180px] max-w-[240px] cursor-pointer shadow-[0_1px_0_rgba(0,0,0,0.02)] hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-amber-50 dark:focus-visible:ring-offset-slate-900"
+                  className="group flex-shrink-0 flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-none border border-amber-200 dark:border-amber-700 bg-white dark:bg-slate-800/80 hover:border-amber-400 dark:hover:border-amber-600 min-w-[120px] max-w-[160px] cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
                 >
-                  <div className="w-8 h-8 rounded-none bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
-                    <Package className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  <div className="w-5 h-5 rounded-none bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center flex-shrink-0">
+                    <Package className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400" />
                   </div>
                   <div className="flex-1 min-w-0 text-left">
-                    <p className="text-[11px] font-semibold text-gray-800 dark:text-gray-200 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors uppercase tracking-tight break-words">
+                    <p className="text-[9px] font-medium text-gray-800 dark:text-gray-200 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors uppercase tracking-tight break-words">
                       {item.name}
                     </p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className={`text-[10px] font-bold tabular-nums ${item.current_stock <= 0 ? 'text-red-500' : 'text-amber-600 dark:text-amber-400'
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <span className={`text-[8px] font-semibold tabular-nums ${item.current_stock <= 0 ? 'text-red-500' : 'text-amber-600 dark:text-amber-400'
                         }`}>
                         {item.current_stock <= 0 ? 'OUT' : `${item.current_stock} left`}
                       </span>
-                      <span className="text-[9px] text-gray-400">·</span>
-                      <span className="text-[10px] text-gray-400 font-medium">
+                      <span className="text-[7px] text-gray-400">·</span>
+                      <span className="text-[8px] text-gray-400 font-medium">
                         {formatPrice(item.current_sell_price)}
                       </span>
                     </div>
                   </div>
-                  <ArrowRight className="w-3 h-3 text-gray-300 dark:text-gray-600 group-hover:text-amber-500 transition-colors flex-shrink-0" />
+                  <ArrowRight className="w-2.5 h-2.5 text-gray-300 dark:text-gray-600 group-hover:text-amber-500 transition-colors flex-shrink-0" />
                 </button>
               ))}
             </div>

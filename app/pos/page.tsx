@@ -1549,8 +1549,8 @@ export default function POSPage() {
 
         {!selectedCategoryId ? (
           <>
-            <header className="sticky top-0 z-20 bg-white/95 dark:bg-[#1a2c17]/95 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800/60">
-              <div className="flex items-center justify-between px-3 py-2">
+            <header className="sticky top-0 z-20 bg-white dark:bg-[#1a2c17] border-b border-gray-100 dark:border-gray-800/60">
+              <div className="flex items-center justify-between px-3 py-1.5">
                 {/* Left - Menu + Brand */}
                 <div className="flex items-center gap-2">
                   <button
@@ -1750,12 +1750,12 @@ export default function POSPage() {
               </div>
             )}
 
-            <main className="flex-1 overflow-y-auto no-scrollbar pb-32 px-5 sm:px-6">
+            <main className="flex-1 overflow-y-auto no-scrollbar pb-32 px-3 sm:px-4">
               {!searchQuery && !debouncedSearchQuery && (
                 <>
-                  <div className="flex gap-2 py-2 overflow-x-auto no-scrollbar w-full mb-2">
-                    <button className="pos-pill pos-btn-outline flex shrink-0 items-center gap-2 shadow-sm">
-                      <DollarSign className="w-4 h-4 text-[#259783]" />
+                  <div className="flex gap-1.5 py-1 overflow-x-auto no-scrollbar w-full mb-1">
+                    <button className="pos-pill pos-btn-outline flex shrink-0 items-center gap-1.5 h-8 px-2.5 text-xs shadow-sm">
+                      <DollarSign className="w-3.5 h-3.5 text-[#259783]" />
                       <span className="whitespace-nowrap text-slate-700 dark:text-slate-300">Custom Amount</span>
                     </button>
                     <button 
@@ -1763,54 +1763,28 @@ export default function POSPage() {
                         setShowSearch(true);
                         setSearchQuery('');
                       }}
-                      className="pos-pill pos-btn-primary flex shrink-0 items-center gap-2 text-white"
+                      className="pos-pill pos-btn-primary flex shrink-0 items-center gap-1.5 h-8 px-2.5 text-xs text-white"
                     >
-                      <QrCode className="w-4 h-4" />
+                      <QrCode className="w-3.5 h-3.5" />
                       <span className="whitespace-nowrap">Scan Barcode</span>
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2.5 auto-rows-fr">
-                    {filteredCategories.map((category) => {
-                      const imageUrl = getCategoryImage(category.name);
-                      const icon = getCategoryIcon(category.name);
-                      const color = getCategoryColor(category.name);
-
-                      return (
-                        <button
-                          key={category.id}
-                          onClick={() => handleCategoryClick(category.id)}
-                          className="pos-grid-btn group relative flex flex-col justify-end p-3.5 h-[130px] rounded-none overflow-hidden text-left border-2 border-white/40 shadow-[0_4px_14px_rgba(0,0,0,0.15)] active:scale-[0.96] active:shadow-[0_2px_6px_rgba(0,0,0,0.25)] transition-transform duration-100"
-                        >
-                          {/* Background image or gradient fallback */}
-                          {imageUrl ? (
-                            <>
-                              <div
-                                className="absolute inset-0 bg-cover bg-center rounded-none transition-transform duration-500 group-active:scale-105"
-                                style={{ backgroundImage: `url(${imageUrl})` }}
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-black/5 z-10 rounded-none" />
-                            </>
-                          ) : (
-                            <div className="absolute inset-0 bg-gradient-to-br from-[#259783] to-[#1e8a72] rounded-none" />
-                          )}
-
-                          {/* Icon badge - top left */}
-                          <span
-                            className={`absolute top-3 left-3 z-20 flex items-center justify-center w-9 h-9 rounded-none bg-white/95 dark:bg-slate-900/80 backdrop-blur-md ${color} shadow-lg border border-white/50 [&>svg]:w-4 [&>svg]:h-4`}
-                          >
-                            {icon}
-                          </span>
-
-                          {/* Category name */}
-                          <span className="relative z-20 text-white font-bold text-[14px] tracking-tight leading-snug drop-shadow-lg">
-                            {category.name}
-                          </span>
-                        </button>
-                      );
-                    })}
-
-                    <div className="h-20 w-full col-span-2" />
+                  <div className="space-y-2">
+                    <p className="text-[9px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      Categories
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                    {filteredCategories.map((category) => (
+                      <button
+                        key={category.id}
+                        onClick={() => handleCategoryClick(category.id)}
+                        className="px-3 py-1.5 text-[10px] font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-600/60 hover:border-[#259783]/60 hover:bg-[#259783]/8 dark:hover:bg-[#259783]/12 hover:text-[#259783] active:scale-[0.98] transition-all duration-150 shadow-sm"
+                      >
+                        {category.name}
+                      </button>
+                    ))}
+                    </div>
                   </div>
                 </>
               )}
@@ -2340,7 +2314,7 @@ export default function POSPage() {
                   </div>
                 </div>
               ) : (
-                <div className="min-h-full flex flex-col px-4 sm:px-6 lg:px-8">
+                <div className="min-h-full flex flex-col px-3 sm:px-4 lg:px-6">
                   <ItemGrid
                     categoryId={debouncedSearchQuery ? null : selectedCategoryId}
                     searchQuery={debouncedSearchQuery || undefined}
