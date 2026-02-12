@@ -907,6 +907,54 @@ export function ItemForm({
     fetchData();
   }, [parentItemId, itemId, initialData?.parent_item_id]);
 
+  // Sync form state when initialData changes (e.g. switching items to edit) - prevents stale values
+  useEffect(() => {
+    if (!initialData) {
+      // Reset to defaults when adding new item (no initialData)
+      if (!itemId) {
+        setName('');
+        setVariantName('');
+        if (!parentItemId) setCategoryId('');
+        setUnitType('piece');
+        setSellPrice('');
+        setBuyPrice('');
+        setMinStockLevel('');
+        setBarcode('');
+        setExpiryDate('');
+        setInitialStock('0');
+        setBundleQuantity('');
+        setBundlePrice('');
+        setBundleName('');
+        setPackagingUnitName('');
+        setPackagingUnitQty('');
+      }
+      return;
+    }
+    setName(initialData.name || '');
+    setVariantName(initialData.variant_name || '');
+    setCategoryId(initialData.category_id || '');
+    setUnitType(initialData.unit_type || 'piece');
+    setSellPrice(initialData.current_sell_price?.toString() || '');
+    setBuyPrice(initialData.buy_price?.toString() || '');
+    setMinStockLevel(initialData.min_stock_level?.toString() || '');
+    setBarcode(initialData.barcode || '');
+    setExpiryDate(initialData.expiry_date ? new Date(initialData.expiry_date * 1000).toISOString().split('T')[0] : '');
+    setSelectedParentId(initialData.parent_item_id || '');
+    setItemType(initialData.item_type || 'retail');
+    // Stock: use current value from DB, not stale
+    const unitType = initialData.unit_type || 'piece';
+    if (unitType === 'piece') {
+      setInitialStock((initialData.current_stock ?? 0) ? Math.round(initialData.current_stock).toString() : '0');
+    } else {
+      setInitialStock((initialData.current_stock ?? 0) ? initialData.current_stock.toString() : '0');
+    }
+    setBundleQuantity(initialData.bundle_quantity?.toString() || '');
+    setBundlePrice(initialData.bundle_price?.toString() || '');
+    setBundleName(initialData.bundle_name || '');
+    setPackagingUnitName(initialData.packaging_unit_name || '');
+    setPackagingUnitQty(initialData.packaging_unit_qty?.toString() || '');
+  }, [initialData, itemId, parentItemId]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -1116,10 +1164,12 @@ export function ItemForm({
 
       if (result.success) {
         // If editing and stock changed, update stock via adjustment API
-        if (itemId && initialData && mode !== 'parent') {
-          const oldStock = initialData.current_stock || 0;
+        // Use result.data.current_stock (actual DB value) not initialData - avoids stale/ inconsistent updates
+        let finalItem: Item | undefined = result.data;
+        if (itemId && result.data && mode !== 'parent') {
+          const currentStockInDb = result.data.current_stock ?? 0;
           const newStock = stock;
-          const stockDifference = newStock - oldStock;
+          const stockDifference = newStock - currentStockInDb;
 
           // Only adjust if there's a difference
           if (Math.abs(stockDifference) > 0.001) {
@@ -1135,6 +1185,9 @@ export function ItemForm({
               if (!adjustmentResult.success) {
                 console.warn('Item updated but stock adjustment failed:', adjustmentResult.message);
                 // Don't fail the whole operation, just log a warning
+              } else {
+                // Pass item with correct new stock to onSuccess so UI shows right value
+                finalItem = { ...result.data, current_stock: newStock };
               }
             } catch (adjustErr) {
               console.error('Error adjusting stock:', adjustErr);
@@ -1144,7 +1197,7 @@ export function ItemForm({
         }
 
         if (onSuccess) {
-          onSuccess(result.data);
+          onSuccess(finalItem);
         } else {
           router.push('/admin/items');
         }

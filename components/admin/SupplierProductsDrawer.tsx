@@ -82,7 +82,6 @@ export function SupplierProductsDrawer({
   const [loadingItems, setLoadingItems] = useState(false);
   const [deletingSupplier, setDeletingSupplier] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showAddProducts, setShowAddProducts] = useState(false);
   const [addingItemIds, setAddingItemIds] = useState<Set<string>>(new Set());
   const [removingItemIds, setRemovingItemIds] = useState<Set<string>>(new Set());
 
@@ -122,15 +121,9 @@ export function SupplierProductsDrawer({
     if (open && supplier) {
       fetchLinkedProducts();
       setSearchQuery('');
-      setShowAddProducts(false);
-    }
-  }, [open, supplier, fetchLinkedProducts]);
-
-  useEffect(() => {
-    if (showAddProducts) {
       fetchAllItems();
     }
-  }, [showAddProducts, fetchAllItems]);
+  }, [open, supplier, fetchLinkedProducts, fetchAllItems]);
 
   const handleLinkProduct = async (itemId: string) => {
     if (!supplier) return;
@@ -217,8 +210,8 @@ export function SupplierProductsDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="right">
-      <DrawerContent className="!w-full sm:!w-[520px] !max-w-none h-full max-h-screen z-[52]">
-        <DrawerHeader className="border-b-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 relative pr-12">
+      <DrawerContent className="!w-full sm:!w-[520px] md:!w-[900px] lg:!w-[960px] !max-w-none h-full max-h-screen z-[52]">
+        <DrawerHeader className="border-b-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 relative pr-12 shrink-0">
           <Button
             variant="ghost"
             size="icon"
@@ -236,9 +229,9 @@ export function SupplierProductsDrawer({
           </DrawerDescription>
         </DrawerHeader>
 
-        <div className="overflow-y-auto flex-1 bg-white dark:bg-[#0f1a0d]">
+        <div className="flex flex-col flex-1 min-h-0 bg-white dark:bg-[#0f1a0d]">
           {/* Supplier Info */}
-          <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
+          <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 shrink-0">
             <div className="flex flex-wrap gap-3 text-sm">
               {supplier.contact_phone && (
                 <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
@@ -288,209 +281,189 @@ export function SupplierProductsDrawer({
             </div>
           </div>
 
-          {/* Linked Products Section */}
-          <div className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Link2 className="w-4 h-4 text-[#259783]" />
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Linked Products
-                </h3>
-                <Badge
-                  variant="outline"
-                  className="text-xs bg-[#259783]/10 text-[#259783] border-[#259783]/30"
-                >
-                  {linkedProducts.length}
-                </Badge>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAddProducts(!showAddProducts)}
-                className={`h-8 text-xs ${
-                  showAddProducts
-                    ? 'bg-[#259783]/10 text-[#259783] border-[#259783]/30'
-                    : ''
-                }`}
-              >
-                <Plus className="w-3.5 h-3.5 mr-1.5" />
-                {showAddProducts ? 'Done Adding' : 'Add Products'}
-              </Button>
-            </div>
-
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-5 h-5 animate-spin text-[#259783]" />
-                <span className="ml-2 text-sm text-slate-500">
-                  Loading products...
-                </span>
-              </div>
-            ) : linkedProducts.length === 0 ? (
-              <div className="py-8 text-center">
-                <Package className="w-10 h-10 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                  No products linked yet
-                </p>
-                <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                  Link products to auto-fill when creating bills
-                </p>
-                {!showAddProducts && (
-                  <Button
+          {/* Side-by-side: Linked Products | Add Products */}
+          <div className="flex flex-1 min-h-0 md:flex-row flex-col">
+            {/* Linked Products Column */}
+            <div className="flex flex-col flex-1 min-w-0 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800">
+              <div className="p-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 shrink-0">
+                <div className="flex items-center gap-2">
+                  <Link2 className="w-4 h-4 text-[#259783]" />
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Linked Products
+                  </h3>
+                  <Badge
                     variant="outline"
-                    size="sm"
-                    onClick={() => setShowAddProducts(true)}
-                    className="mt-3"
+                    className="text-xs bg-[#259783]/10 text-[#259783] border-[#259783]/30"
                   >
-                    <Plus className="w-3.5 h-3.5 mr-1.5" />
-                    Add Products
-                  </Button>
+                    {linkedProducts.length}
+                  </Badge>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto p-3">
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-5 h-5 animate-spin text-[#259783]" />
+                    <span className="ml-2 text-sm text-slate-500">
+                      Loading products...
+                    </span>
+                  </div>
+                ) : linkedProducts.length === 0 ? (
+                  <div className="py-6 text-center">
+                    <Package className="w-10 h-10 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
+                    <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                      No products linked yet
+                    </p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                      Link products from the panel on the right
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {linkedProducts.map((product) => (
+                      <Card
+                        key={product.item_id}
+                        className="border-l-2 border-l-[#259783] bg-white dark:bg-slate-800/50"
+                      >
+                        <CardContent className="p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm text-slate-900 dark:text-white truncate">
+                                {getDisplayName(
+                                  product.item_name,
+                                  product.variant_name
+                                )}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] px-1.5 py-0"
+                                >
+                                  {product.category_name}
+                                </Badge>
+                                <span className="text-[10px] text-slate-400">
+                                  {product.unit_type}
+                                </span>
+                                <span className="text-[10px] text-slate-400">
+                                  Sell: {formatPrice(product.current_sell_price)}
+                                </span>
+                                {product.default_cost_price !== null && (
+                                  <span className="text-[10px] text-amber-600 dark:text-amber-400">
+                                    Cost: {formatPrice(product.default_cost_price)}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleUnlinkProduct(product.item_id)}
+                              disabled={removingItemIds.has(product.item_id)}
+                              className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0"
+                            >
+                              {removingItemIds.has(product.item_id) ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-3.5 h-3.5" />
+                              )}
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 )}
               </div>
-            ) : (
-              <div className="space-y-2">
-                {linkedProducts.map((product) => (
-                  <Card
-                    key={product.item_id}
-                    className="border-l-2 border-l-[#259783] bg-white dark:bg-slate-800/50"
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm text-slate-900 dark:text-white truncate">
-                            {getDisplayName(
-                              product.item_name,
-                              product.variant_name
-                            )}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] px-1.5 py-0"
-                            >
-                              {product.category_name}
-                            </Badge>
-                            <span className="text-[10px] text-slate-400">
-                              {product.unit_type}
-                            </span>
-                            <span className="text-[10px] text-slate-400">
-                              Sell: {formatPrice(product.current_sell_price)}
-                            </span>
-                            {product.default_cost_price !== null && (
-                              <span className="text-[10px] text-amber-600 dark:text-amber-400">
-                                Cost: {formatPrice(product.default_cost_price)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleUnlinkProduct(product.item_id)}
-                          disabled={removingItemIds.has(product.item_id)}
-                          className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0"
-                        >
-                          {removingItemIds.has(product.item_id) ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-3.5 h-3.5" />
-                          )}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Add Products Section */}
-          {showAddProducts && (
-            <div className="p-4 border-t-2 border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
-              <div className="flex items-center gap-2 mb-3">
-                <Search className="w-4 h-4 text-slate-400" />
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                  Add Products
-                </h3>
-              </div>
-              <div className="relative mb-3">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search products..."
-                  className="pl-9 h-10 border-2 border-slate-200 dark:border-slate-700"
-                />
-              </div>
-
-              {loadingItems ? (
-                <div className="flex items-center justify-center py-6">
-                  <Loader2 className="w-5 h-5 animate-spin text-[#259783]" />
-                  <span className="ml-2 text-sm text-slate-500">
-                    Loading products...
-                  </span>
-                </div>
-              ) : filteredAvailableItems.length === 0 ? (
-                <div className="py-6 text-center">
-                  <p className="text-sm text-slate-500">
-                    {searchQuery
-                      ? 'No matching products found'
-                      : 'All products are already linked'}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
-                  {filteredAvailableItems.slice(0, 50).map((item) => {
-                    const isAdding = addingItemIds.has(item.id);
-                    return (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/30 hover:border-[#259783]/50 transition-colors"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
-                            {getDisplayName(item.name, item.variant_name)}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] text-slate-400">
-                              {item.unit_type}
-                            </span>
-                            <span className="text-[10px] text-slate-400">
-                              {item.item_type}
-                            </span>
-                            <span className="text-[10px] text-slate-400">
-                              {formatPrice(item.current_sell_price)}
-                            </span>
-                          </div>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleLinkProduct(item.id)}
-                          disabled={isAdding}
-                          className="h-7 px-2.5 text-xs border-[#259783]/30 text-[#259783] hover:bg-[#259783]/10 shrink-0"
-                        >
-                          {isAdding ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : (
-                            <>
-                              <Check className="w-3 h-3 mr-1" />
-                              Link
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    );
-                  })}
-                  {filteredAvailableItems.length > 50 && (
-                    <p className="text-xs text-center text-slate-400 py-2">
-                      Showing 50 of {filteredAvailableItems.length} products.
-                      Use search to narrow down.
-                    </p>
-                  )}
-                </div>
-              )}
             </div>
-          )}
+
+            {/* Add Products Column - always visible alongside */}
+            <div className="flex flex-col flex-1 min-w-0 min-h-[280px] md:min-h-0 bg-slate-50/50 dark:bg-slate-900/30">
+              <div className="p-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
+                <div className="flex items-center gap-2 mb-3">
+                  <Plus className="w-4 h-4 text-[#259783]" />
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                    Add Products
+                  </h3>
+                </div>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search products to link..."
+                    className="pl-9 h-9 border-2 border-slate-200 dark:border-slate-700 text-sm"
+                  />
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto p-3">
+                {loadingItems ? (
+                  <div className="flex items-center justify-center py-6">
+                    <Loader2 className="w-5 h-5 animate-spin text-[#259783]" />
+                    <span className="ml-2 text-sm text-slate-500">
+                      Loading products...
+                    </span>
+                  </div>
+                ) : filteredAvailableItems.length === 0 ? (
+                  <div className="py-6 text-center">
+                    <p className="text-sm text-slate-500">
+                      {searchQuery
+                        ? 'No matching products found'
+                        : 'All products are already linked'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {filteredAvailableItems.slice(0, 50).map((item) => {
+                      const isAdding = addingItemIds.has(item.id);
+                      return (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/30 hover:border-[#259783]/50 transition-colors"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                              {getDisplayName(item.name, item.variant_name)}
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] text-slate-400">
+                                {item.unit_type}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {item.item_type}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {formatPrice(item.current_sell_price)}
+                              </span>
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleLinkProduct(item.id)}
+                            disabled={isAdding}
+                            className="h-7 px-2.5 text-xs border-[#259783]/30 text-[#259783] hover:bg-[#259783]/10 shrink-0"
+                          >
+                            {isAdding ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <>
+                                <Check className="w-3 h-3 mr-1" />
+                                Link
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      );
+                    })}
+                    {filteredAvailableItems.length > 50 && (
+                      <p className="text-xs text-center text-slate-400 py-2">
+                        Showing 50 of {filteredAvailableItems.length}. Use search to narrow.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </DrawerContent>
     </Drawer>
