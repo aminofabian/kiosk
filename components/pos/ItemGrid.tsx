@@ -103,14 +103,14 @@ const ItemCard = memo(function ItemCard({
         {/* Top row: Name + Quick Add */}
         <div className="flex items-start justify-between gap-2 mb-auto">
           <div className="flex-1 min-w-0">
-            <h3 className={`font-semibold text-[12px] sm:text-[13px] leading-tight transition-colors uppercase tracking-tight break-words ${isOutOfStock
+            <h3 className={`font-semibold text-[14px] sm:text-[16px] leading-tight transition-colors uppercase tracking-tight break-words ${isOutOfStock
               ? 'text-gray-400 dark:text-gray-500'
               : 'text-gray-800 dark:text-gray-100 group-hover:text-[#259783] dark:group-hover:text-[#3bd522]'
               }`}>
               {item.name}
             </h3>
             {item.variant_name && (
-              <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-0.5 break-words">
+              <p className="text-[11px] sm:text-[12px] text-gray-400 dark:text-gray-500 mt-0.5 break-words">
                 {item.variant_name}
               </p>
             )}
@@ -139,13 +139,13 @@ const ItemCard = memo(function ItemCard({
         {/* Price section */}
         <div className="mt-2">
           <div className="flex items-baseline gap-1.5">
-            <span className={`text-base sm:text-lg font-bold tracking-tight ${isOutOfStock
+            <span className={`text-lg sm:text-xl font-bold tracking-tight ${isOutOfStock
               ? 'text-gray-400 dark:text-gray-500'
               : 'text-[#259783]'
               }`}>
               {formatPrice(item.current_sell_price)}
             </span>
-            <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
+            <span className="text-[11px] sm:text-[12px] text-gray-400 dark:text-gray-500 font-medium">
               /{item.unit_type}
             </span>
           </div>
@@ -542,7 +542,7 @@ export function ItemGrid({
             </div>
 
             {/* Products grid – sorted alphabetically so related items appear together */}
-            <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-[repeat(12,minmax(0,1fr))] xl:grid-cols-[repeat(14,minmax(0,1fr))] gap-1 auto-rows-[minmax(0,auto)] overflow-hidden flex-1 min-h-0">
+            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-1.5 sm:gap-2 auto-rows-[minmax(0,auto)] overflow-hidden flex-1 min-h-0">
               {(() => {
                 const top3Ranks = new Map(
                   [...featuredItems!]
@@ -582,7 +582,7 @@ export function ItemGrid({
                   >
                     {/* Rank badge for top 3 by sales */}
                     {rank != null && (
-                      <div className={`absolute top-1 left-1 z-10 w-4 h-4 rounded-none flex items-center justify-center text-[8px] font-black shadow ${RANK_STYLES[rank - 1]}`}>
+                      <div className={`absolute top-1 left-1 z-10 w-5 h-5 rounded-none flex items-center justify-center text-[9px] font-black shadow ${RANK_STYLES[rank - 1]}`}>
                         {rank}
                       </div>
                     )}
@@ -598,8 +598,8 @@ export function ItemGrid({
                     )}
 
                     {/* Product name area - compact, full title */}
-                    <div className="w-full text-left p-1 sm:p-1.5 pb-1 flex-1 min-h-0 flex flex-col justify-center overflow-hidden">
-                      <h3 className={`font-semibold text-[8px] sm:text-[9px] leading-tight transition-colors uppercase tracking-tight break-words ${rank != null ? 'pl-4' : ''
+                    <div className="w-full text-left p-1.5 sm:p-2 pb-1 flex-1 min-h-0 flex flex-col justify-center overflow-hidden">
+                      <h3 className={`font-semibold text-[11px] sm:text-[12px] leading-tight transition-colors uppercase tracking-tight break-words ${rank != null ? 'pl-4' : ''
                         } ${isOut
                           ? 'text-gray-400 dark:text-gray-500'
                           : 'text-gray-800 dark:text-gray-100 group-hover:text-[#259783] dark:group-hover:text-[#3bd522]'
@@ -607,19 +607,19 @@ export function ItemGrid({
                         {item.name}
                       </h3>
                       {item.variant_name && (
-                        <p className={`text-[7px] text-gray-400 dark:text-gray-500 mt-0.5 break-words ${rank != null ? 'pl-4' : ''}`}>
+                        <p className={`text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 break-words ${rank != null ? 'pl-4' : ''}`}>
                           {item.variant_name}
                         </p>
                       )}
                     </div>
 
                     {/* Bottom bar: price + quick add - compact */}
-                    <div className="px-1 sm:px-1.5 pb-1 sm:pb-1.5 flex items-end justify-between gap-0.5 flex-shrink-0">
+                    <div className="px-1.5 sm:px-2 pb-1 sm:pb-1.5 flex items-end justify-between gap-0.5 flex-shrink-0">
                       <div className="min-w-0">
-                        <span className={`text-[10px] sm:text-[11px] font-bold tracking-tight ${isOut ? 'text-gray-400' : 'text-[#259783]'}`}>
+                        <span className={`text-[13px] sm:text-[14px] font-bold tracking-tight ${isOut ? 'text-gray-400' : 'text-[#259783]'}`}>
                           {formatPrice(item.current_sell_price)}
                         </span>
-                        <span className="text-[7px] text-gray-400 font-medium ml-0.5">/{item.unit_type}</span>
+                        <span className="text-[8px] text-gray-400 font-medium ml-0.5">/{item.unit_type}</span>
 
                         {/* Stock indicator inline */}
                         <div className="flex items-center gap-0.5 mt-0.5">
@@ -627,7 +627,7 @@ export function ItemGrid({
                             : stock === 'low' ? 'bg-amber-400'
                               : 'bg-emerald-400'
                             }`} />
-                          <span className={`text-[7px] sm:text-[8px] font-medium ${isOut ? 'text-gray-400'
+                          <span className={`text-[8px] sm:text-[9px] font-medium ${isOut ? 'text-gray-400'
                             : stock === 'low' ? 'text-amber-600 dark:text-amber-400'
                               : 'text-gray-400'
                             }`}>
@@ -643,7 +643,7 @@ export function ItemGrid({
                             e.stopPropagation();
                             onQuickAdd(item, quickQty);
                           }}
-                          className="flex items-center justify-center gap-0.5 h-6 sm:h-7 px-1.5 rounded-none bg-[#259783] hover:bg-[#1e8a72] text-white text-[10px] font-bold shadow-md transition-all duration-200 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+                          className="flex items-center justify-center gap-0.5 h-7 sm:h-8 px-2 rounded-none bg-[#259783] hover:bg-[#1e8a72] text-white text-[11px] font-bold shadow-md transition-all duration-200 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
                           title={`Quick add ${quickQty} ${item.unit_type}`}
                         >
                           <Zap className="w-3 h-3" />
@@ -683,7 +683,7 @@ export function ItemGrid({
                     <Package className="w-2.5 h-2.5 text-amber-600 dark:text-amber-400" />
                   </div>
                   <div className="flex-1 min-w-0 text-left">
-                    <p className="text-[9px] font-medium text-gray-800 dark:text-gray-200 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors uppercase tracking-tight break-words">
+                    <p className="text-[11px] font-medium text-gray-800 dark:text-gray-200 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors uppercase tracking-tight break-words">
                       {item.name}
                     </p>
                     <div className="flex items-center gap-1 mt-0.5">
@@ -834,7 +834,7 @@ return (
                   <Package className="w-4 h-4 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate">
+                  <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 truncate">
                     {group.parent.name}
                   </h2>
                   <p className="text-[11px] text-gray-400 dark:text-gray-500">

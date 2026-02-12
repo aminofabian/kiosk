@@ -309,12 +309,6 @@ export async function POST(request: NextRequest) {
     }
 
     const stock = initialStock || 0;
-    if (stock > 0 && (!buyPrice || buyPrice <= 0)) {
-      return jsonResponse(
-        { success: false, message: 'Buy price is required when setting initial stock' },
-        400
-      );
-    }
 
     // Verify category exists
     const category = await queryOne<{ id: string }>(

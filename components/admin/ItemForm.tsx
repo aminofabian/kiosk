@@ -1017,14 +1017,10 @@ export function ItemForm({
     const stock = unitType === 'piece' 
       ? parseInt(initialStock, 10) || 0
       : parseFloat(initialStock) || 0;
-    const buy = buyPrice ? parseFloat(buyPrice) : null;
+    // Treat empty or <= 0 as no buy price (optional)
+    const buy = buyPrice && parseFloat(buyPrice) > 0 ? parseFloat(buyPrice) : null;
     const price = mode === 'parent' ? 0 : parseFloat(sellPrice);
     const minStock = minStockLevel ? parseFloat(minStockLevel) : null;
-
-    if (mode !== 'parent' && stock > 0 && buy !== null && buy <= 0) {
-      setError('Buy price must be greater than 0 when setting initial stock');
-      return;
-    }
 
     if (mode !== 'parent' && minStock !== null && minStock < 0) {
       setError('Min stock level cannot be negative');
