@@ -32,6 +32,7 @@ import {
   Upload,
 } from 'lucide-react';
 import type { Banner } from '@/lib/types/banner';
+import { toast } from 'sonner';
 
 interface BannerFormData {
   file: File | null;
@@ -187,24 +188,33 @@ export function BannerManager() {
     }
   };
 
-  const handleDelete = async (bannerId: string) => {
-    if (!businessId || !confirm('Are you sure you want to delete this banner?')) return;
+  const handleDelete = (bannerId: string) => {
+    if (!businessId) return;
 
-    try {
-      const response = await fetch(`/api/businesses/${businessId}/banners/${bannerId}`, {
-        method: 'DELETE',
-      });
+    toast('Are you sure you want to delete this banner?', {
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          try {
+            const response = await fetch(`/api/businesses/${businessId}/banners/${bannerId}`, {
+              method: 'DELETE',
+            });
 
-      const result = await response.json();
+            const result = await response.json();
 
-      if (result.success) {
-        fetchBanners();
-      } else {
-        alert(result.message || 'Failed to delete banner');
-      }
-    } catch {
-      alert('Failed to delete banner');
-    }
+            if (result.success) {
+              fetchBanners();
+              toast.success('Banner deleted');
+            } else {
+              toast.error(result.message || 'Failed to delete banner');
+            }
+          } catch {
+            toast.error('Failed to delete banner');
+          }
+        },
+      },
+      cancel: { label: 'Cancel', onClick: () => {} },
+    });
   };
 
   const handleToggleActive = async (banner: Banner) => {

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Pencil, Trash2, User, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import type { UserRole } from '@/lib/constants';
 
 interface UserData {
@@ -49,29 +50,33 @@ export function UserList({ onAddUser, onEditUser }: UserListProps) {
     fetchUsers();
   }, []);
 
-  const handleDelete = async (userId: string) => {
-    if (!confirm('Are you sure you want to deactivate this user?')) {
-      return;
-    }
+  const handleDelete = (userId: string) => {
+    toast('Are you sure you want to deactivate this user?', {
+      action: {
+        label: 'Deactivate',
+        onClick: async () => {
+          setDeletingId(userId);
+          try {
+            const response = await fetch(`/api/users/${userId}`, {
+              method: 'DELETE',
+            });
+            const result = await response.json();
 
-    setDeletingId(userId);
-
-    try {
-      const response = await fetch(`/api/users/${userId}`, {
-        method: 'DELETE',
-      });
-      const result = await response.json();
-
-      if (result.success) {
-        fetchUsers();
-      } else {
-        alert(result.message || 'Failed to deactivate user');
-      }
-    } catch {
-      alert('An error occurred');
-    } finally {
-      setDeletingId(null);
-    }
+            if (result.success) {
+              fetchUsers();
+              toast.success('User deactivated');
+            } else {
+              toast.error(result.message || 'Failed to deactivate user');
+            }
+          } catch {
+            toast.error('An error occurred');
+          } finally {
+            setDeletingId(null);
+          }
+        },
+      },
+      cancel: { label: 'Cancel', onClick: () => {} },
+    });
   };
 
   const getRoleBadgeVariant = (role: UserRole) => {

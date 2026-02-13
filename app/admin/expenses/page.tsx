@@ -42,6 +42,7 @@ import {
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/utils/api-client';
 import type { ExpenseCategory, ExpenseFrequency } from '@/lib/db/types';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { toast } from 'sonner';
 
 interface Expense {
   id: string;
@@ -227,18 +228,27 @@ export default function ExpensesPage() {
     }
   };
 
-  const handleDelete = async (expense: Expense) => {
+  const handleDelete = (expense: Expense) => {
     setMenuOpenId(null);
-    if (!confirm(`Delete "${expense.name}"? This cannot be undone.`)) return;
-
-    try {
-      const result = await apiDelete(`/api/expenses/${expense.id}`);
-      if (result.success) {
-        fetchExpenses();
-      }
-    } catch {
-      // Handle error silently
-    }
+    toast(`Delete "${expense.name}"? This cannot be undone.`, {
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          try {
+            const result = await apiDelete(`/api/expenses/${expense.id}`);
+            if (result.success) {
+              fetchExpenses();
+              toast.success('Expense deleted');
+            } else {
+              toast.error(result.message || 'Failed to delete expense');
+            }
+          } catch {
+            toast.error('Failed to delete expense');
+          }
+        },
+      },
+      cancel: { label: 'Cancel', onClick: () => {} },
+    });
   };
 
   const [timeFilter, setTimeFilter] = useState<string>('all');

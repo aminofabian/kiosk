@@ -21,6 +21,7 @@ import {
   DollarSign,
 } from 'lucide-react';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { toast } from 'sonner';
 import type { BalanceApprovalRequest } from '@/lib/db/types';
 
 interface BalanceApprovalRequestWithDetails extends BalanceApprovalRequest {
@@ -148,12 +149,13 @@ export function BalanceApprovals() {
 
       if (result.success) {
         await fetchRequests();
+        toast.success('Request approved');
       } else {
-        alert(result.message || 'Failed to approve request');
+        toast.error(result.message || 'Failed to approve request');
       }
     } catch (err) {
       console.error('Error approving request:', err);
-      alert('Failed to approve request');
+      toast.error('Failed to approve request');
     } finally {
       setProcessingId(null);
     }
@@ -176,12 +178,13 @@ export function BalanceApprovals() {
         setShowRejectDialog({ ...showRejectDialog, [requestId]: false });
         setRejectReason({ ...rejectReason, [requestId]: '' });
         await fetchRequests();
+        toast.success('Request rejected');
       } else {
-        alert(result.message || 'Failed to reject request');
+        toast.error(result.message || 'Failed to reject request');
       }
     } catch (err) {
       console.error('Error rejecting request:', err);
-      alert('Failed to reject request');
+      toast.error('Failed to reject request');
     } finally {
       setProcessingId(null);
     }

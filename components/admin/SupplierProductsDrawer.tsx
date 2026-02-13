@@ -28,6 +28,7 @@ import {
   Check,
 } from 'lucide-react';
 import { apiGet, apiPost, apiDelete } from '@/lib/utils/api-client';
+import { toast } from 'sonner';
 
 interface Supplier {
   id: string;
@@ -169,22 +170,30 @@ export function SupplierProductsDrawer({
 
   const handleDeleteSupplier = async () => {
     if (!supplier) return;
-    if (!confirm(`Delete supplier "${supplier.name}"? Linked products and bill history will be unaffected; existing bills will show as "No supplier". This cannot be undone.`)) return;
-    setDeletingSupplier(true);
-    try {
-      const result = await apiDelete(`/api/suppliers/${supplier.id}`);
-      if (result.success) {
-        onOpenChange(false);
-        onSupplierDeleted?.();
-      } else {
-        alert(result.message || 'Failed to delete supplier');
-      }
-    } catch (err) {
-      console.error('Error deleting supplier:', err);
-      alert('Failed to delete supplier');
-    } finally {
-      setDeletingSupplier(false);
-    }
+    toast(`Delete supplier "${supplier.name}"? Linked products and bill history will be unaffected; existing bills will show as "No supplier". This cannot be undone.`, {
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          setDeletingSupplier(true);
+          try {
+            const result = await apiDelete(`/api/suppliers/${supplier.id}`);
+            if (result.success) {
+              onOpenChange(false);
+              onSupplierDeleted?.();
+              toast.success('Supplier deleted');
+            } else {
+              toast.error(result.message || 'Failed to delete supplier');
+            }
+          } catch (err) {
+            console.error('Error deleting supplier:', err);
+            toast.error('Failed to delete supplier');
+          } finally {
+            setDeletingSupplier(false);
+          }
+        },
+      },
+      cancel: { label: 'Cancel', onClick: () => {} },
+    });
   };
 
   const linkedItemIds = new Set(linkedProducts.map((p) => p.item_id));

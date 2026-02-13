@@ -208,37 +208,40 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
     setError(null);
   };
 
-  const handleDeleteItem = async (itemId: string, itemName: string, e: React.MouseEvent) => {
+  const handleDeleteItem = (itemId: string, itemName: string, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent selecting the item when clicking delete
-    
-    if (!confirm(`Are you sure you want to delete "${itemName}"? This action cannot be undone.`)) {
-      return;
-    }
 
-    setDeletingItemId(itemId);
-    try {
-      const response = await fetch(`/api/items/${itemId}`, {
-        method: 'DELETE',
-      });
+    toast(`Are you sure you want to delete "${itemName}"? This action cannot be undone.`, {
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          setDeletingItemId(itemId);
+          try {
+            const response = await fetch(`/api/items/${itemId}`, {
+              method: 'DELETE',
+            });
 
-      const result = await response.json();
+            const result = await response.json();
 
-      if (result.success) {
-        // If the deleted item was selected, clear selection
-        if (selectedItemId === itemId) {
-          handleReset();
-        }
-        // Refresh items list
-        await fetchItems();
-      } else {
-        alert(result.message || 'Failed to delete item');
-      }
-    } catch (err) {
-      console.error('Error deleting item:', err);
-      alert('Failed to delete item. Please try again.');
-    } finally {
-      setDeletingItemId(null);
-    }
+            if (result.success) {
+              if (selectedItemId === itemId) {
+                handleReset();
+              }
+              await fetchItems();
+              toast.success('Item deleted');
+            } else {
+              toast.error(result.message || 'Failed to delete item');
+            }
+          } catch (err) {
+            console.error('Error deleting item:', err);
+            toast.error('Failed to delete item. Please try again.');
+          } finally {
+            setDeletingItemId(null);
+          }
+        },
+      },
+      cancel: { label: 'Cancel', onClick: () => {} },
+    });
   };
 
   if (loadingItems) {

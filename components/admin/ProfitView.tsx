@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { ProfitCalendar } from './ProfitCalendar';
 import { apiPut, apiGet } from '@/lib/utils/api-client';
+import { toast } from 'sonner';
 import { Edit2, Check, X } from 'lucide-react';
 
 interface ProfitData {
@@ -223,13 +224,12 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
   const handleSaveBuyPrice = async (itemId: string) => {
     const price = parseFloat(editBuyPrice);
     if (isNaN(price) || price < 0) {
-      alert('Please enter a valid price');
+      toast.error('Please enter a valid price');
       return;
     }
 
     setUpdatingPrice(itemId);
     try {
-      // First fetch the item to get all required fields
       const itemResult = await apiGet<{
         id: string;
         name: string;
@@ -240,13 +240,12 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
       }>(`/api/items/${itemId}`);
 
       if (!itemResult.success || !itemResult.data) {
-        alert('Failed to fetch item details');
+        toast.error('Failed to fetch item details');
         return;
       }
 
       const item = itemResult.data;
 
-      // Update the item with the new buy price
       const result = await apiPut(`/api/items/${itemId}`, {
         name: item.name,
         categoryId: item.category_id,
@@ -258,14 +257,14 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
       if (result.success) {
         setEditingItemId(null);
         setEditBuyPrice('');
-        // Refresh profit data to reflect the updated buy price
         await fetchProfitData();
+        toast.success('Buy price updated');
       } else {
-        alert(result.message || 'Failed to update buy price');
+        toast.error(result.message || 'Failed to update buy price');
       }
     } catch (err) {
       console.error('Error updating buy price:', err);
-      alert('Failed to update buy price');
+      toast.error('Failed to update buy price');
     } finally {
       setUpdatingPrice(null);
     }

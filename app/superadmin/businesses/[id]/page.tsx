@@ -36,6 +36,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 interface User {
   id: string;
@@ -180,29 +181,37 @@ export default function BusinessDetailsPage() {
     }
   };
 
-  const handleDeleteDomain = async (domainId: string) => {
-    if (!confirm('Are you sure you want to delete this domain?')) return;
-    
-    setDeletingDomainId(domainId);
-    
-    try {
-      const response = await fetch(`/api/domains/${domainId}`, {
-        method: 'DELETE',
-      });
-      
-      const result = await response.json();
-      
-      if (result.success && data) {
-        setData({
-          ...data,
-          domains: data.domains.filter((d) => d.id !== domainId),
-        });
-      }
-    } catch {
-      // Handle error silently
-    } finally {
-      setDeletingDomainId(null);
-    }
+  const handleDeleteDomain = (domainId: string) => {
+    toast('Are you sure you want to delete this domain?', {
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          setDeletingDomainId(domainId);
+          try {
+            const response = await fetch(`/api/domains/${domainId}`, {
+              method: 'DELETE',
+            });
+
+            const result = await response.json();
+
+            if (result.success && data) {
+              setData({
+                ...data,
+                domains: data.domains.filter((d) => d.id !== domainId),
+              });
+              toast.success('Domain deleted');
+            } else {
+              toast.error(result.message || 'Failed to delete domain');
+            }
+          } catch {
+            toast.error('Failed to delete domain');
+          } finally {
+            setDeletingDomainId(null);
+          }
+        },
+      },
+      cancel: { label: 'Cancel', onClick: () => {} },
+    });
   };
 
   const handleSetPrimary = async (domainId: string) => {

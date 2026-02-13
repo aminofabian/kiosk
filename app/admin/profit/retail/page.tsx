@@ -29,6 +29,7 @@ import {
 import { ProfitCalendar } from '@/components/admin/ProfitCalendar';
 import { LatestSalesCard } from '@/components/admin/LatestSalesCard';
 import { apiPut, apiGet } from '@/lib/utils/api-client';
+import { toast } from 'sonner';
 import { Edit2, Check, X } from 'lucide-react';
 
 // ─── Types ───────────────────────────────────────────────────────
@@ -121,16 +122,16 @@ export default function RetailProfitPage() {
   const handleCancelEdit = () => { setEditingItemId(null); setEditBuyPrice(''); };
   const handleSaveBuyPrice = async (itemId: string) => {
     const price = parseFloat(editBuyPrice);
-    if (isNaN(price) || price < 0) { alert('Please enter a valid price'); return; }
+    if (isNaN(price) || price < 0) { toast.error('Please enter a valid price'); return; }
     setUpdatingPrice(itemId);
     try {
       const itemResult = await apiGet<{ id: string; name: string; category_id: string; unit_type: string; current_sell_price: number; parent_item_id: string | null; }>(`/api/items/${itemId}`);
-      if (!itemResult.success || !itemResult.data) { alert('Failed to fetch item details'); return; }
+      if (!itemResult.success || !itemResult.data) { toast.error('Failed to fetch item details'); return; }
       const item = itemResult.data;
       const result = await apiPut(`/api/items/${itemId}`, { name: item.name, categoryId: item.category_id, unitType: item.unit_type, sellPrice: item.current_sell_price, buyPrice: price });
-      if (result.success) { setEditingItemId(null); setEditBuyPrice(''); await fetchProfitData(); }
-      else alert(result.message || 'Failed to update');
-    } catch { alert('Failed to update buy price'); }
+      if (result.success) { setEditingItemId(null); setEditBuyPrice(''); await fetchProfitData(); toast.success('Buy price updated'); }
+      else toast.error(result.message || 'Failed to update');
+    } catch { toast.error('Failed to update buy price'); }
     finally { setUpdatingPrice(null); }
   };
 

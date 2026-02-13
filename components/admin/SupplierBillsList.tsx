@@ -45,6 +45,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { apiGet, apiPost, apiDelete } from '@/lib/utils/api-client';
+import { toast } from 'sonner';
 import { SupplierBillEditForm } from '@/components/admin/SupplierBillEditForm';
 import type { SupplierBill } from '@/lib/db/types';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
@@ -339,38 +340,43 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
     setMarkAsPaidDialog({ open: true, bill });
   };
 
-  const handleDeleteBill = async (bill: SupplierBillWithDetails) => {
+  const handleDeleteBill = (bill: SupplierBillWithDetails) => {
     if (!canDeleteBills) {
-      alert('Only administrators can cancel supplier bills.');
+      toast.error('Only administrators can cancel supplier bills.');
       return;
     }
 
     if (bill.status === 'paid') {
-      alert('You cannot delete a paid bill.');
+      toast.error('You cannot delete a paid bill.');
       return;
     }
 
-    const confirmed = window.confirm(
-      `Cancel this bill from "${bill.supplier_name}" for ${formatPrice(
-        bill.amount
-      )}? This will mark the bill as cancelled and cannot be undone.`
-    );
-    if (!confirmed) return;
-
-    setDeletingBillId(bill.id);
-    try {
-      const result = await apiDelete(`/api/supplier-bills/${bill.id}`);
-      if (result.success) {
-        await fetchBills();
-      } else {
-        setError(result.message || 'Failed to cancel bill');
+    toast(
+      `Cancel this bill from "${bill.supplier_name}" for ${formatPrice(bill.amount)}? This will mark the bill as cancelled and cannot be undone.`,
+      {
+        action: {
+          label: 'Cancel bill',
+          onClick: async () => {
+            setDeletingBillId(bill.id);
+            try {
+              const result = await apiDelete(`/api/supplier-bills/${bill.id}`);
+              if (result.success) {
+                await fetchBills();
+                toast.success('Bill cancelled');
+              } else {
+                toast.error(result.message || 'Failed to cancel bill');
+              }
+            } catch (err) {
+              console.error('Error cancelling bill:', err);
+              toast.error('An error occurred while cancelling the bill.');
+            } finally {
+              setDeletingBillId(null);
+            }
+          },
+        },
+        cancel: { label: 'Keep', onClick: () => {} },
       }
-    } catch (err) {
-      console.error('Error cancelling bill:', err);
-      setError('An error occurred while cancelling the bill.');
-    } finally {
-      setDeletingBillId(null);
-    }
+    );
   };
 
   const handleConfirmMarkAsPaid = async () => {

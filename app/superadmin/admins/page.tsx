@@ -35,6 +35,7 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/utils/api-client';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 interface Admin {
@@ -204,30 +205,36 @@ export default function AdminsPage() {
       });
       if (result.success) {
         fetchAdmins();
+        toast.success('Admin updated');
       } else {
-        alert(result.message || 'Failed to update admin');
+        toast.error(result.message || 'Failed to update admin');
       }
     } catch {
-      alert('Failed to update admin');
+      toast.error('Failed to update admin');
     }
   };
 
-  const handleDelete = async (admin: Admin) => {
+  const handleDelete = (admin: Admin) => {
     setMenuOpenId(null);
-    if (!confirm(`Are you sure you want to delete ${admin.name}? This action cannot be undone.`)) {
-      return;
-    }
-
-    try {
-      const result = await apiDelete(`/api/superadmin/admins/${admin.id}`);
-      if (result.success) {
-        fetchAdmins();
-      } else {
-        alert(result.message || 'Failed to delete admin');
-      }
-    } catch {
-      alert('Failed to delete admin');
-    }
+    toast(`Are you sure you want to delete ${admin.name}? This action cannot be undone.`, {
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          try {
+            const result = await apiDelete(`/api/superadmin/admins/${admin.id}`);
+            if (result.success) {
+              fetchAdmins();
+              toast.success('Admin deleted');
+            } else {
+              toast.error(result.message || 'Failed to delete admin');
+            }
+          } catch {
+            toast.error('Failed to delete admin');
+          }
+        },
+      },
+      cancel: { label: 'Cancel', onClick: () => {} },
+    });
   };
 
   const formatDate = (timestamp: number) => {

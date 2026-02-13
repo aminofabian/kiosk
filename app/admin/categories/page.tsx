@@ -7,6 +7,7 @@ import { CategoryList, type CategoryWithCount } from '@/components/admin/Categor
 import { CategoryForm } from '@/components/admin/CategoryForm';
 import { Loader2 } from 'lucide-react';
 import type { Category } from '@/lib/db/types';
+import { toast } from 'sonner';
 
 function CategoriesPageContent() {
   const searchParams = useSearchParams();
@@ -49,29 +50,33 @@ function CategoriesPageContent() {
     setShowForm(true);
   };
 
-  const handleDeleteCategory = async (categoryId: string) => {
-    if (!confirm('Are you sure you want to delete this category? Items in this category will need to be reassigned.')) {
-      return;
-    }
+  const handleDeleteCategory = (categoryId: string) => {
+    toast('Are you sure you want to delete this category? Items in this category will need to be reassigned.', {
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          setDeletingId(categoryId);
+          try {
+            const response = await fetch(`/api/categories/${categoryId}`, {
+              method: 'DELETE',
+            });
+            const result = await response.json();
 
-    setDeletingId(categoryId);
-
-    try {
-      const response = await fetch(`/api/categories/${categoryId}`, {
-        method: 'DELETE',
-      });
-      const result = await response.json();
-
-      if (result.success) {
-        fetchCategories();
-      } else {
-        alert(result.message || 'Failed to delete category');
-      }
-    } catch {
-      alert('An error occurred');
-    } finally {
-      setDeletingId(null);
-    }
+            if (result.success) {
+              fetchCategories();
+              toast.success('Category deleted');
+            } else {
+              toast.error(result.message || 'Failed to delete category');
+            }
+          } catch {
+            toast.error('An error occurred');
+          } finally {
+            setDeletingId(null);
+          }
+        },
+      },
+      cancel: { label: 'Cancel', onClick: () => {} },
+    });
   };
 
   const handleClose = () => {

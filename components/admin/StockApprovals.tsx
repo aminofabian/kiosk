@@ -16,6 +16,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import type { StockApprovalRequest } from '@/lib/db/types';
+import { toast } from 'sonner';
 
 interface StockApprovalRequestWithDetails extends StockApprovalRequest {
   item_name: string;
@@ -76,12 +77,13 @@ export function StockApprovals() {
 
       if (result.success) {
         await fetchRequests();
+        toast.success('Request approved');
       } else {
-        alert(result.message || 'Failed to approve request');
+        toast.error(result.message || 'Failed to approve request');
       }
     } catch (err) {
       console.error('Error approving request:', err);
-      alert('Failed to approve request');
+      toast.error('Failed to approve request');
     } finally {
       setProcessingId(null);
     }
@@ -104,12 +106,13 @@ export function StockApprovals() {
         setShowRejectDialog({ ...showRejectDialog, [requestId]: false });
         setRejectReason({ ...rejectReason, [requestId]: '' });
         await fetchRequests();
+        toast.success('Request rejected');
       } else {
-        alert(result.message || 'Failed to reject request');
+        toast.error(result.message || 'Failed to reject request');
       }
     } catch (err) {
       console.error('Error rejecting request:', err);
-      alert('Failed to reject request');
+      toast.error('Failed to reject request');
     } finally {
       setProcessingId(null);
     }

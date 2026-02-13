@@ -318,7 +318,7 @@ export function ItemsManager() {
       if (result.success) {
         // Check if approval is required (cashier)
         if (result.data?.requiresApproval) {
-          alert('Stock adjustment request submitted. Waiting for admin approval.');
+          toast.info('Stock adjustment request submitted. Waiting for admin approval.');
           setStockDrawerOpen(false);
           setAdjustingItem(null);
           await fetchItems(); // Refresh items list
@@ -370,52 +370,54 @@ export function ItemsManager() {
         : Math.max(0, adjustingItem.current_stock - (parseFloat(adjustmentQuantity) || 0)))
     : null;
 
-  const handleDeleteClick = async () => {
+  const handleDeleteClick = () => {
     if (!selectedItem) return;
 
-    const itemName = selectedItem.variant_name 
+    const itemName = selectedItem.variant_name
       ? `${selectedItem.name} - ${selectedItem.variant_name}`
       : selectedItem.name;
-    
+
     const hasVariants = selectedItem.isParent && selectedItem.variantCount && selectedItem.variantCount > 0;
     const confirmMessage = hasVariants
       ? `Are you sure you want to delete "${itemName}" and all its ${selectedItem.variantCount} variant(s)? This action cannot be undone.`
       : `Are you sure you want to delete "${itemName}"? This action cannot be undone.`;
 
-    if (!confirm(confirmMessage)) return;
+    toast(confirmMessage, {
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          setIsDeleting(true);
+          try {
+            const response = await fetch(`/api/items/${selectedItem.id}`, {
+              method: 'DELETE',
+            });
 
-    setIsDeleting(true);
-    try {
-      const response = await fetch(`/api/items/${selectedItem.id}`, {
-        method: 'DELETE',
-      });
+            const result = await response.json();
 
-      const result = await response.json();
-
-      if (result.success) {
-        // Clear selected item first
-        setSelectedItem(null);
-        
-        // If it was a parent, remove from expanded parents
-        if (selectedItem.isParent) {
-          setExpandedParents(prev => {
-            const next = new Set(prev);
-            next.delete(selectedItem.id);
-            return next;
-          });
-        }
-        
-        // Refresh items list to ensure consistency
-        await fetchItems();
-      } else {
-        alert(result.message || 'Failed to delete item');
-      }
-    } catch (err) {
-      console.error('Error deleting item:', err);
-      alert('Failed to delete item. Please try again.');
-    } finally {
-      setIsDeleting(false);
-    }
+            if (result.success) {
+              setSelectedItem(null);
+              if (selectedItem.isParent) {
+                setExpandedParents((prev) => {
+                  const next = new Set(prev);
+                  next.delete(selectedItem.id);
+                  return next;
+                });
+              }
+              await fetchItems();
+              toast.success('Item deleted');
+            } else {
+              toast.error(result.message || 'Failed to delete item');
+            }
+          } catch (err) {
+            console.error('Error deleting item:', err);
+            toast.error('Failed to delete item. Please try again.');
+          } finally {
+            setIsDeleting(false);
+          }
+        },
+      },
+      cancel: { label: 'Cancel', onClick: () => {} },
+    });
   };
 
   const handleToggleItemType = async (item: ItemWithCategory, e: React.MouseEvent) => {
@@ -457,54 +459,53 @@ export function ItemsManager() {
     }
   };
 
-  const handleDeleteItemFromList = async (item: ItemWithCategory, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent selecting the item when clicking delete
-    
-    const itemName = item.variant_name 
-      ? `${item.name} - ${item.variant_name}`
-      : item.name;
-    
+  const handleDeleteItemFromList = (item: ItemWithCategory, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    const itemName = item.variant_name ? `${item.name} - ${item.variant_name}` : item.name;
     const hasVariants = item.isParent && item.variantCount && item.variantCount > 0;
     const confirmMessage = hasVariants
       ? `Are you sure you want to delete "${itemName}" and all its ${item.variantCount} variant(s)? This action cannot be undone.`
       : `Are you sure you want to delete "${itemName}"? This action cannot be undone.`;
 
-    if (!confirm(confirmMessage)) return;
+    toast(confirmMessage, {
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          setDeletingItemId(item.id);
+          try {
+            const response = await fetch(`/api/items/${item.id}`, {
+              method: 'DELETE',
+            });
 
-    setDeletingItemId(item.id);
-    try {
-      const response = await fetch(`/api/items/${item.id}`, {
-        method: 'DELETE',
-      });
+            const result = await response.json();
 
-      const result = await response.json();
-
-      if (result.success) {
-        // Clear selected item if it was the one being deleted
-        if (selectedItem?.id === item.id) {
-          setSelectedItem(null);
-        }
-        
-        // If it was a parent, remove from expanded parents
-        if (item.isParent) {
-          setExpandedParents(prev => {
-            const next = new Set(prev);
-            next.delete(item.id);
-            return next;
-          });
-        }
-        
-        // Refresh items list to ensure consistency
-        await fetchItems();
-      } else {
-        alert(result.message || 'Failed to delete item');
-      }
-    } catch (err) {
-      console.error('Error deleting item:', err);
-      alert('Failed to delete item. Please try again.');
-    } finally {
-      setDeletingItemId(null);
-    }
+            if (result.success) {
+              if (selectedItem?.id === item.id) {
+                setSelectedItem(null);
+              }
+              if (item.isParent) {
+                setExpandedParents((prev) => {
+                  const next = new Set(prev);
+                  next.delete(item.id);
+                  return next;
+                });
+              }
+              await fetchItems();
+              toast.success('Item deleted');
+            } else {
+              toast.error(result.message || 'Failed to delete item');
+            }
+          } catch (err) {
+            console.error('Error deleting item:', err);
+            toast.error('Failed to delete item. Please try again.');
+          } finally {
+            setDeletingItemId(null);
+          }
+        },
+      },
+      cancel: { label: 'Cancel', onClick: () => {} },
+    });
   };
 
   return (

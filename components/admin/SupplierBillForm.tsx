@@ -359,9 +359,9 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
   const linkedCount = lineItems.filter((i) => i.itemId).length;
 
   const formatBillDescription = () => {
-    // Only include items that have a quantity and amount; lines without quantity are ignored.
+    // Include items that have description and quantity; amount can be empty (treated as 0).
     const validItems = lineItems.filter(
-      (item) => item.description.trim() && item.quantity && item.amount
+      (item) => item.description.trim() && item.quantity
     );
     if (validItems.length === 0) return '';
 
@@ -446,70 +446,76 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
       return;
     }
 
-    const confirmed = window.confirm(
+    toast(
       `This will reset current stock to 0 for ${itemsToReset.length} linked product${
         itemsToReset.length !== 1 ? 's' : ''
-      } (including negatives). This cannot be undone.\n\nContinue?`
-    );
-    if (!confirmed) return;
+      } (including negatives). This cannot be undone.`,
+      {
+        action: {
+          label: 'Continue',
+          onClick: async () => {
+            setIsResettingStock(true);
+            try {
+              const results = await Promise.allSettled(
+                itemsToReset.map((item) => {
+                  const current = item.currentStock!;
+                  const adjustmentType = current > 0 ? 'decrease' : 'increase';
+                  const quantity = Math.abs(current);
 
-    setIsResettingStock(true);
-    try {
-      const results = await Promise.allSettled(
-        itemsToReset.map((item) => {
-          const current = item.currentStock!;
-          const adjustmentType = current > 0 ? 'decrease' : 'increase';
-          const quantity = Math.abs(current);
+                  return apiPost('/api/stock/adjust', {
+                    itemId: item.itemId!,
+                    adjustmentType,
+                    quantity,
+                    reason: 'counting_error',
+                    notes: 'Reset from Supplier Bill',
+                  });
+                })
+              );
 
-          return apiPost('/api/stock/adjust', {
-            itemId: item.itemId!,
-            adjustmentType,
-            quantity,
-            reason: 'counting_error',
-            notes: 'Reset from Supplier Bill',
-          });
-        })
-      );
+              const succeededItemIds = new Set(
+                itemsToReset
+                  .map((item, index) => {
+                    const res = results[index];
+                    if (
+                      res.status === 'fulfilled' &&
+                      (res.value as { success?: boolean })?.success
+                    ) {
+                      return item.itemId!;
+                    }
+                    return null;
+                  })
+                  .filter((id): id is string => Boolean(id))
+              );
 
-      const succeededItemIds = new Set(
-        itemsToReset
-          .map((item, index) => {
-            const res = results[index];
-            if (
-              res.status === 'fulfilled' &&
-              (res.value as { success?: boolean })?.success
-            ) {
-              return item.itemId!;
+              if (succeededItemIds.size === 0) {
+                toast.error('Failed to reset stock. Please try again.');
+                return;
+              }
+
+              setLineItems((prev) =>
+                prev.map((item) =>
+                  item.itemId && succeededItemIds.has(item.itemId)
+                    ? { ...item, currentStock: 0 }
+                    : item
+                )
+              );
+
+              toast.success(
+                `Stock reset to zero for ${succeededItemIds.size} product${
+                  succeededItemIds.size !== 1 ? 's' : ''
+                }.`
+              );
+            } catch (err) {
+              console.error('Error resetting stock:', err);
+              toast.error('Failed to reset stock. Please try again.');
+            } finally {
+              setIsResettingStock(false);
             }
-            return null;
-          })
-          .filter((id): id is string => Boolean(id))
-      );
-
-      if (succeededItemIds.size === 0) {
-        toast.error('Failed to reset stock. Please try again.');
-        return;
+          },
+        },
+        cancel: { label: 'Cancel', onClick: () => {} },
       }
-
-      setLineItems((prev) =>
-        prev.map((item) =>
-          item.itemId && succeededItemIds.has(item.itemId)
-            ? { ...item, currentStock: 0 }
-            : item
-        )
-      );
-
-      toast.success(
-        `Stock reset to zero for ${succeededItemIds.size} product${
-          succeededItemIds.size !== 1 ? 's' : ''
-        }.`
-      );
-    } catch (err) {
-      console.error('Error resetting stock:', err);
-      toast.error('Failed to reset stock. Please try again.');
-    } finally {
-      setIsResettingStock(false);
-    }
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -522,31 +528,25 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
     }
 
     const validItems = lineItems.filter(
-      (item) => item.description.trim() && item.quantity && item.amount
+      (item) => item.description.trim() && item.quantity
     );
 
     if (validItems.length === 0) {
-      setError('Please add at least one bill item with description, quantity, and amount');
+      setError('Please add at least one bill item with description and quantity');
       return;
     }
 
     for (const item of validItems) {
       const quantity = parseFloat(item.quantity || '0');
-      const unitPrice = parseFloat(item.amount);
 
       if (isNaN(quantity) || quantity <= 0) {
         setError(`Please enter a valid quantity for "${item.description.trim()}"`);
         return;
       }
-
-      if (isNaN(unitPrice) || unitPrice <= 0) {
-        setError(`Please enter a valid buy price for "${item.description.trim()}"`);
-        return;
-      }
     }
 
-    if (totalAmount <= 0) {
-      setError('Total amount must be greater than 0');
+    if (totalAmount < 0) {
+      setError('Total amount cannot be negative');
       return;
     }
 
@@ -560,7 +560,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
     try {
       const billDescription = formatBillDescription();
 
-      // Lines that will actually update stock (must have quantity)
+      // Lines that will actually update stock (must have quantity and buy price)
       const stockSourceItems = lineItems.filter(
         (item) => item.description.trim() && item.quantity && item.amount
       );
@@ -1024,7 +1024,6 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
                         value={item.amount}
                         onChange={(e) => updateLineItem(item.id, 'amount', e.target.value)}
                         placeholder="0.00"
-                        required
                         min="0"
                         step="0.01"
                         className={`h-8 text-sm text-center border rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
@@ -1285,7 +1284,6 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
                           value={item.amount}
                           onChange={(e) => updateLineItem(item.id, 'amount', e.target.value)}
                           placeholder="0.00"
-                          required
                           min="0"
                           step="0.01"
                           className={`h-8 text-sm border rounded-lg ${

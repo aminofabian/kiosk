@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
       FROM supplier_bills sb
       LEFT JOIN users u ON sb.created_by = u.id
       LEFT JOIN users p ON sb.paid_by = p.id
-      WHERE sb.business_id = ?
+      WHERE sb.business_id = ? AND sb.status != 'cancelled'
     `;
     const params: (string | number)[] = [auth.businessId];
 
