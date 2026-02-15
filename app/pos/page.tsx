@@ -495,7 +495,7 @@ export default function POSPage() {
     };
   }, [searchQuery]);
 
-  // Close suggestions when clicking outside
+  // Close suggestions when clicking outside (use 'click' so suggestion button onClick runs first)
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
@@ -506,8 +506,8 @@ export default function POSPage() {
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
   // Handle selecting a suggestion
@@ -685,7 +685,10 @@ export default function POSPage() {
                   <button
                     key={suggestion.id}
                     type="button"
-                    onClick={() => handleSelectSuggestion(suggestion)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelectSuggestion(suggestion);
+                    }}
                     onMouseEnter={() => setSelectedSuggestionIndex(index)}
                     className={`w-full px-2.5 py-2.5 flex items-center gap-3 transition-all duration-100 text-left rounded-none group ${
                       index === selectedSuggestionIndex

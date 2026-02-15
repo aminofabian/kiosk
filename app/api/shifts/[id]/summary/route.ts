@@ -36,8 +36,8 @@ export async function GET(
 
     const endTime = shiftInfo.ended_at || Math.floor(Date.now() / 1000);
 
-    // Get cash sales summary (only cash payments count toward drawer)
-    const salesSummary = await queryOne<{
+    // Get cash from FULL cash sales (payment_method = 'cash' - entire sale is cash)
+    const fullCashSales = await queryOne<{
       count: number;
       total: number;
     }>(
@@ -48,6 +48,30 @@ export async function GET(
        WHERE shift_id = ? AND business_id = ? AND status = 'completed' AND payment_method = 'cash'`,
       [shiftId, auth.businessId]
     );
+
+    // Get cash from SPLIT payments (payment_method = 'split' - only the cash portion goes in drawer)
+    // sale_payments stores each method's amount; we sum the cash portions only
+    const splitCashSales = await queryOne<{
+      count: number;
+      total: number;
+    }>(
+      `SELECT 
+        COUNT(DISTINCT s.id) as count,
+        COALESCE(SUM(sp.amount), 0) as total
+       FROM sale_payments sp
+       JOIN sales s ON sp.sale_id = s.id
+       WHERE s.shift_id = ? AND s.business_id = ? AND s.status = 'completed' 
+         AND s.payment_method = 'split' AND sp.payment_method = 'cash'`,
+      [shiftId, auth.businessId]
+    );
+
+    // Combine: total cash received from sales = full cash + cash portion of splits
+    const fullCash = fullCashSales || { count: 0, total: 0 };
+    const splitCash = splitCashSales || { count: 0, total: 0 };
+    const salesSummary = {
+      count: fullCash.count + splitCash.count,
+      total: fullCash.total + splitCash.total,
+    };
 
     // Get credit payments collected during this shift (cash payments only)
     // IMPORTANT: we scope by both business AND cashier (recorded_by) so that:
@@ -112,7 +136,11 @@ export async function GET(
     return jsonResponse({
       success: true,
       data: {
-        sales: salesSummary || { count: 0, total: 0 },
+        sales: salesSummary,
+        salesBreakdown: {
+          fullCashSales: fullCash,
+          splitCashSales: splitCash,
+        },
         creditPayments: creditPayments || { count: 0, total: 0 },
         cashExpenses: cashExpensesSummary || { count: 0, total: 0 },
         expensesList: expensesList || [],

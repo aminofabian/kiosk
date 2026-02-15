@@ -34,6 +34,10 @@ interface BalanceApprovalRequestWithDetails extends BalanceApprovalRequest {
 
 interface ShiftSummary {
   sales: { count: number; total: number };
+  salesBreakdown?: {
+    fullCashSales: { count: number; total: number };
+    splitCashSales: { count: number; total: number };
+  };
   creditPayments: { count: number; total: number };
   cashExpenses: { count: number; total: number };
   expensesList?: Array<{
@@ -385,10 +389,14 @@ export function BalanceApprovals() {
           const isExpanded = expandedId === request.id;
           const isOpening = request.balance_type === 'opening';
           const denomBreakdown = getDenominationBreakdown(request);
-          // For both opening and closing, show difference as:
-          // Actual (submitted amount) - Expected (if we have it)
-          const hasExpected = request.expected_amount !== null && request.expected_amount !== undefined;
-          const difference = hasExpected ? request.amount - (request.expected_amount || 0) : null;
+          // For closing: use recalculated expected (includes split payments) when we have shift summary
+          const summary = shiftSummaries[request.id];
+          const recalculatedExpected = !isOpening && summary
+            ? (request.shift_opening_cash || 0) + summary.sales.total + summary.creditPayments.total - summary.cashExpenses.total
+            : null;
+          const expectedForDiff = recalculatedExpected ?? request.expected_amount ?? 0;
+          const hasExpected = (recalculatedExpected !== null || (request.expected_amount !== null && request.expected_amount !== undefined));
+          const difference = hasExpected ? request.amount - expectedForDiff : null;
 
           return (
             <Card key={request.id} className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
@@ -454,15 +462,50 @@ export function BalanceApprovals() {
                         {shiftSummaries[request.id] && (
                           <>
                             <div className="border-t border-slate-200 dark:border-slate-700 pt-3 space-y-2">
-                              <div className="flex justify-between text-sm">
-                                <span className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
-                                  <TrendingUp className="w-4 h-4 text-green-500" />
-                                  Cash Sales ({shiftSummaries[request.id].sales.count}):
-                                </span>
-                                <span className="font-bold text-green-600">
-                                  + {formatPrice(shiftSummaries[request.id].sales.total)}
-                                </span>
-                              </div>
+                              {shiftSummaries[request.id].salesBreakdown ? (
+                                <>
+                                  {shiftSummaries[request.id].salesBreakdown!.fullCashSales.total > 0 && (
+                                    <div className="flex justify-between text-sm">
+                                      <span className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                                        <TrendingUp className="w-4 h-4 text-green-500" />
+                                        Full Cash Sales ({shiftSummaries[request.id].salesBreakdown!.fullCashSales.count}):
+                                      </span>
+                                      <span className="font-bold text-green-600">
+                                        + {formatPrice(shiftSummaries[request.id].salesBreakdown!.fullCashSales.total)}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {shiftSummaries[request.id].salesBreakdown!.splitCashSales.total > 0 && (
+                                    <div className="flex justify-between text-sm">
+                                      <span className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                                        <TrendingUp className="w-4 h-4 text-green-500" />
+                                        Cash from Split Payments ({shiftSummaries[request.id].salesBreakdown!.splitCashSales.count}):
+                                      </span>
+                                      <span className="font-bold text-green-600">
+                                        + {formatPrice(shiftSummaries[request.id].salesBreakdown!.splitCashSales.total)}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {(shiftSummaries[request.id].salesBreakdown!.fullCashSales.total > 0 || shiftSummaries[request.id].salesBreakdown!.splitCashSales.total > 0) && (
+                                    <div className="flex justify-between text-sm font-semibold bg-green-50 dark:bg-green-900/20 -mx-2 px-2 py-1 rounded">
+                                      <span className="text-slate-700 dark:text-slate-300">Total Cash from Sales:</span>
+                                      <span className="font-bold text-green-600">
+                                        + {formatPrice(shiftSummaries[request.id].sales.total)}
+                                      </span>
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
+                                    <TrendingUp className="w-4 h-4 text-green-500" />
+                                    Cash Sales ({shiftSummaries[request.id].sales.count}):
+                                  </span>
+                                  <span className="font-bold text-green-600">
+                                    + {formatPrice(shiftSummaries[request.id].sales.total)}
+                                  </span>
+                                </div>
+                              )}
 
                               {shiftSummaries[request.id].creditPayments.total > 0 && (
                                 <div className="flex justify-between text-sm">
@@ -500,17 +543,46 @@ export function BalanceApprovals() {
                                   {formatPrice(request.shift_opening_cash || 0)}
                                 </span>
                               </div>
-                              <div className="flex justify-between text-sm">
-                                <span className="text-slate-600 dark:text-slate-400">
-                                  + Cash Received (Sales + Credit Payments):
-                                </span>
-                                <span className="font-medium text-green-600">
-                                  + {formatPrice(
-                                    shiftSummaries[request.id].sales.total + 
-                                    shiftSummaries[request.id].creditPayments.total
+                              {shiftSummaries[request.id].salesBreakdown ? (
+                                <>
+                                  {shiftSummaries[request.id].salesBreakdown!.fullCashSales.total > 0 && (
+                                    <div className="flex justify-between text-sm">
+                                      <span className="text-slate-600 dark:text-slate-400">+ Full Cash Sales:</span>
+                                      <span className="font-medium text-green-600">
+                                        + {formatPrice(shiftSummaries[request.id].salesBreakdown!.fullCashSales.total)}
+                                      </span>
+                                    </div>
                                   )}
-                                </span>
-                              </div>
+                                  {shiftSummaries[request.id].salesBreakdown!.splitCashSales.total > 0 && (
+                                    <div className="flex justify-between text-sm">
+                                      <span className="text-slate-600 dark:text-slate-400">+ Cash from Split Payments:</span>
+                                      <span className="font-medium text-green-600">
+                                        + {formatPrice(shiftSummaries[request.id].salesBreakdown!.splitCashSales.total)}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {shiftSummaries[request.id].creditPayments.total > 0 && (
+                                    <div className="flex justify-between text-sm">
+                                      <span className="text-slate-600 dark:text-slate-400">+ Credit Payments (cash):</span>
+                                      <span className="font-medium text-green-600">
+                                        + {formatPrice(shiftSummaries[request.id].creditPayments.total)}
+                                      </span>
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-slate-600 dark:text-slate-400">
+                                    + Cash Received (Sales + Credit Payments):
+                                  </span>
+                                  <span className="font-medium text-green-600">
+                                    + {formatPrice(
+                                      shiftSummaries[request.id].sales.total +
+                                      shiftSummaries[request.id].creditPayments.total
+                                    )}
+                                  </span>
+                                </div>
+                              )}
                               <div className="flex justify-between text-sm">
                                 <span className="text-slate-600 dark:text-slate-400">
                                   - Cash Given Out (Expenses/Withdrawals):
@@ -525,11 +597,11 @@ export function BalanceApprovals() {
                                     Expected Cash in Drawer:
                                   </span>
                                   <span className="text-2xl font-black text-[#259783]">
-                                    {formatPrice(request.expected_amount || 0)}
+                                    {formatPrice(recalculatedExpected ?? request.expected_amount ?? 0)}
                                   </span>
                                 </div>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 italic">
-                                  Formula: Opening + Cash In - Cash Out = Expected
+                                  Formula: Opening + Full Cash + Split Cash + Credit Payments - Expenses = Expected
                                 </p>
                               </div>
                             </div>

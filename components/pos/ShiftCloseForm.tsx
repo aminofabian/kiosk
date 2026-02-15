@@ -48,6 +48,10 @@ interface ShiftCloseFormProps {
 
 interface ShiftSummary {
   sales: { count: number; total: number };
+  salesBreakdown?: {
+    fullCashSales: { count: number; total: number };
+    splitCashSales: { count: number; total: number };
+  };
   creditPayments: { count: number; total: number };
   cashExpenses: { count: number; total: number };
 }
@@ -330,13 +334,42 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
                 <>
                   <Separator />
                   <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground flex items-center gap-2">
-                        <TrendingUp className="w-4 h-4 text-green-500" />
-                        Cash Sales ({salesSummary.sales.count}):
-                      </span>
-                      <span className="font-bold text-green-600">+ {formatPrice(salesSummary.sales.total)}</span>
-                    </div>
+                    {salesSummary.salesBreakdown ? (
+                      <>
+                        {salesSummary.salesBreakdown.fullCashSales.total > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground flex items-center gap-2">
+                              <TrendingUp className="w-4 h-4 text-green-500" />
+                              Full Cash Sales ({salesSummary.salesBreakdown.fullCashSales.count}):
+                            </span>
+                            <span className="font-bold text-green-600">+ {formatPrice(salesSummary.salesBreakdown.fullCashSales.total)}</span>
+                          </div>
+                        )}
+                        {salesSummary.salesBreakdown.splitCashSales.total > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground flex items-center gap-2">
+                              <TrendingUp className="w-4 h-4 text-green-500" />
+                              Cash from Split Payments ({salesSummary.salesBreakdown.splitCashSales.count}):
+                            </span>
+                            <span className="font-bold text-green-600">+ {formatPrice(salesSummary.salesBreakdown.splitCashSales.total)}</span>
+                          </div>
+                        )}
+                        {(salesSummary.salesBreakdown.fullCashSales.total > 0 || salesSummary.salesBreakdown.splitCashSales.total > 0) && (
+                          <div className="flex justify-between text-sm font-semibold bg-green-50 dark:bg-green-900/20 -mx-1 px-2 py-1 rounded">
+                            <span className="text-slate-700 dark:text-slate-300">Total Cash from Sales:</span>
+                            <span className="font-bold text-green-600">+ {formatPrice(salesSummary.sales.total)}</span>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4 text-green-500" />
+                          Cash Sales ({salesSummary.sales.count}):
+                        </span>
+                        <span className="font-bold text-green-600">+ {formatPrice(salesSummary.sales.total)}</span>
+                      </div>
+                    )}
                     
                     {salesSummary.creditPayments.total > 0 && (
                       <div className="flex justify-between text-sm">
@@ -369,12 +402,41 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
                   <span className="text-muted-foreground">Opening Cash:</span>
                   <span className="font-medium">{formatPrice(shift.opening_cash)}</span>
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">+ Cash Received (Sales + Credit Payments):</span>
-                  <span className="font-medium text-green-600">
-                    + {formatPrice(cashIn)}
-                  </span>
-                </div>
+                {salesSummary?.salesBreakdown ? (
+                  <>
+                    {salesSummary.salesBreakdown.fullCashSales.total > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">+ Full Cash Sales:</span>
+                        <span className="font-medium text-green-600">
+                          + {formatPrice(salesSummary.salesBreakdown.fullCashSales.total)}
+                        </span>
+                      </div>
+                    )}
+                    {salesSummary.salesBreakdown.splitCashSales.total > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">+ Cash from Split Payments:</span>
+                        <span className="font-medium text-green-600">
+                          + {formatPrice(salesSummary.salesBreakdown.splitCashSales.total)}
+                        </span>
+                      </div>
+                    )}
+                    {salesSummary.creditPayments.total > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">+ Credit Payments (cash):</span>
+                        <span className="font-medium text-green-600">
+                          + {formatPrice(salesSummary.creditPayments.total)}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">+ Cash Received (Sales + Credit Payments):</span>
+                    <span className="font-medium text-green-600">
+                      + {formatPrice(cashIn)}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">- Cash Given Out (Expenses/Withdrawals):</span>
                   <span className="font-medium text-red-600">
@@ -389,7 +451,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 italic">
-                  Formula: Opening + Cash In - Cash Out = Expected
+                  Formula: Opening + Full Cash + Split Cash + Credit Payments - Expenses = Expected
                 </p>
               </div>
             </CardContent>

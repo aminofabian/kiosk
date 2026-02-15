@@ -122,6 +122,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
   const [isUpdatingSupplier, setIsUpdatingSupplier] = useState(false);
   const [editSupplierError, setEditSupplierError] = useState<string | null>(null);
   const [isResettingStock, setIsResettingStock] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
 
   // Filtered suppliers based on search, sorted alphabetically by name
   const filteredSuppliers = useMemo(() => {
@@ -210,6 +211,15 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
     fetchLinkedProducts();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplierId]);
+
+  // Filter line items by product search (filters the table only)
+  const filteredLineItems = useMemo(() => {
+    const q = productSearch.trim().toLowerCase();
+    if (!q) return lineItems;
+    return lineItems.filter((item) =>
+      item.description.toLowerCase().includes(q)
+    );
+  }, [lineItems, productSearch]);
 
   const handleSelectSupplier = (supplier: Supplier) => {
     setSupplierId(supplier.id);
@@ -921,6 +931,28 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
             </div>
           </div>
 
+          {/* Product search bar - filters the table */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <Input
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              placeholder="Filter products in table..."
+              className="pl-9 h-9 border-2 border-slate-200 dark:border-slate-700 text-sm bg-white dark:bg-slate-800/50"
+            />
+            {productSearch && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                onClick={() => setProductSearch('')}
+              >
+                <X className="w-3.5 h-3.5 text-slate-400" />
+              </Button>
+            )}
+          </div>
+
           {/* Table-style header (visible on larger screens) */}
           <div className="hidden sm:grid sm:grid-cols-[1fr_80px_100px_90px_28px] gap-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
             <span>Product</span>
@@ -932,7 +964,14 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
 
           {/* Items */}
           <div className="space-y-2">
-            {lineItems.map((item, index) => {
+            {filteredLineItems.length === 0 ? (
+              <div className="py-8 text-center text-slate-500 text-sm">
+                {productSearch.trim()
+                  ? 'No products match your search'
+                  : 'No items yet. Click "Add Item" to add products.'}
+              </div>
+            ) : (
+              filteredLineItems.map((item, index) => {
               const qty = parseFloat(item.quantity || '0');
               const buyPrice = parseFloat(item.amount || '0');
               const itemTotal = qty * buyPrice;
@@ -1305,7 +1344,8 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
                   </div>
                 </div>
               );
-            })}
+            })
+            )}
           </div>
 
           {/* Grand total */}

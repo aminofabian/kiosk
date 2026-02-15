@@ -3,7 +3,7 @@ import { queryOne, execute, query } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
 import type { Item } from '@/lib/db/types';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
-import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import { requireAuth, requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic';
@@ -18,7 +18,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await requirePermission('manage_items');
+    const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
 
     const { id: itemId } = await params;

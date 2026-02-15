@@ -519,6 +519,21 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
   // ── Delivery Schedule Matrix ─────────────────────────
 
   const deliveryMatrix = (() => {
+    // Current week: Monday 00:00 to Sunday 23:59
+    const now = new Date();
+    const daysSinceMonday = (now.getDay() + 6) % 7;
+    const mondayStart = new Date(now);
+    mondayStart.setDate(now.getDate() - daysSinceMonday);
+    mondayStart.setHours(0, 0, 0, 0);
+    const sundayEnd = new Date(mondayStart);
+    sundayEnd.setDate(mondayStart.getDate() + 6);
+    sundayEnd.setHours(23, 59, 59, 999);
+    const weekStart = Math.floor(mondayStart.getTime() / 1000);
+    const weekEnd = Math.floor(sundayEnd.getTime() / 1000);
+
+    // Bills from current week only
+    const billsThisWeek = bills.filter((b) => b.created_at >= weekStart && b.created_at <= weekEnd);
+
     // Track per-supplier, per-day: deliveries, total spend, and distinct calendar dates
     const matrix: Record<
       string,
@@ -526,8 +541,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
     > = {};
     const dateTracker: Record<string, Record<number, Set<string>>> = {};
 
-    // Use ALL bills for full delivery pattern (not just filtered)
-    bills.forEach((b) => {
+    billsThisWeek.forEach((b) => {
       const name = b.supplier_name || 'Unknown';
       const date = new Date(b.created_at * 1000);
       const day = date.getDay();
@@ -571,21 +585,25 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
     // per Thursday, the Thursday budget = 1,185 + 9,690 = 10,875.
     // The column values ADD UP to the daily budget.
     const dayBudgets: Record<number, number> = {};
+    const dayBillsCount: Record<number, number> = {};
     DAY_ORDER.forEach((d) => {
-      let sum = 0;
+      let budgetSum = 0;
+      let countSum = 0;
       suppliers.forEach((name) => {
         const cell = matrix[name]?.[d];
         if (cell) {
-          sum += cell.total / cell.distinctDays;
+          budgetSum += cell.total / cell.distinctDays;
+          countSum += cell.count;
         }
       });
-      dayBudgets[d] = sum;
+      dayBudgets[d] = budgetSum;
+      dayBillsCount[d] = countSum;
     });
 
     // Weekly budget = sum of all daily budgets
     const weeklyBudget = DAY_ORDER.reduce((s, d) => s + dayBudgets[d], 0);
 
-    return { matrix, suppliers, maxCount, dayBudgets, weeklyBudget };
+    return { matrix, suppliers, maxCount, dayBudgets, dayBillsCount, weeklyBudget };
   })();
 
   const getHeatBg = (count: number, max: number) => {
@@ -1083,7 +1101,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                 </h3>
               </div>
               <p className="text-[10px] text-slate-500 dark:text-slate-400 ml-9">
-                Which supplier delivers on which days &middot; Based on all historical bill data
+                Which supplier delivers on which days &middot; Current week only
               </p>
             </div>
 
@@ -1158,19 +1176,27 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                   ))}
                 </tbody>
                 <tfoot>
-                  {/* Daily budget row - sums the column */}
+                  {/* Daily budget row - amount and bills count per day */}
                   <tr className="bg-blue-50/50 dark:bg-blue-950/10 border-t-2 border-slate-300 dark:border-slate-700">
                     <td className="px-4 py-2.5 font-bold text-xs text-slate-900 dark:text-white">
                       Daily Budget
                     </td>
                     {DAY_ORDER.map((d) => {
                       const budget = deliveryMatrix.dayBudgets[d];
+                      const count = deliveryMatrix.dayBillsCount[d] ?? 0;
                       return (
                         <td key={d} className="text-center px-1 py-2.5">
-                          {budget > 0 ? (
-                            <span className="font-bold text-xs text-slate-900 dark:text-white">
-                              {formatPrice(budget)}
-                            </span>
+                          {budget > 0 || count > 0 ? (
+                            <div className="space-y-0.5">
+                              <span className="font-bold text-xs text-slate-900 dark:text-white block">
+                                {formatPrice(budget)}
+                              </span>
+                              {count > 0 && (
+                                <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                                  {count} bill{count !== 1 ? 's' : ''}
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <span className="text-slate-300 dark:text-slate-700">—</span>
                           )}
@@ -1204,7 +1230,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                 amount you pay that supplier on that day (e.g. &quot;KES 9,690&quot; = typical
                 Thursday bill). Below it: deliveries / distinct days.{' '}
                 <span className="font-semibold">Daily Budget</span> = sum of the column (what to
-                budget for that day).{' '}
+                budget for that day), with bills count shown below.{' '}
                 <span className="font-semibold">Weekly Total</span> = sum of all daily budgets.
               </p>
             </div>
