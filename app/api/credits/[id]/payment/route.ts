@@ -3,6 +3,7 @@ import { execute, queryOne } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
+import { isAdminOrOwner } from '@/lib/auth/permissions';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -69,9 +70,8 @@ export async function POST(
     );
 
     // Update shift expected_closing_cash if payment is cash
-    // We REQUIRE an open shift for the recording user so that:
-    // - The cash goes into a specific drawer/shift
-    // - Shift summary and expected_closing_cash stay in sync
+    // Admin/owner can record cash payments without an open shift (no drawer update).
+    // Cashiers need an open shift so the cash is attributed to their drawer.
     if (paymentMethod === 'cash') {
       const shift = await queryOne<{ id: string }>(
         `SELECT id FROM shifts WHERE business_id = ? AND user_id = ? AND status = 'open' LIMIT 1`,
@@ -79,20 +79,23 @@ export async function POST(
       );
 
       if (!shift) {
-        return jsonResponse(
-          {
-            success: false,
-            message:
-              'Cannot record cash payment without an open shift. Please open a shift first.',
-          },
-          400
+        if (!isAdminOrOwner(auth.role)) {
+          return jsonResponse(
+            {
+              success: false,
+              message:
+                'Cannot record cash payment without an open shift. Please open a shift first.',
+            },
+            400
+          );
+        }
+        // Admin/owner: allow recording cash payment without updating a shift
+      } else {
+        await execute(
+          `UPDATE shifts SET expected_closing_cash = expected_closing_cash + ? WHERE id = ?`,
+          [amount, shift.id]
         );
       }
-
-      await execute(
-        `UPDATE shifts SET expected_closing_cash = expected_closing_cash + ? WHERE id = ?`,
-        [amount, shift.id]
-      );
     }
 
     // Update credit account balance

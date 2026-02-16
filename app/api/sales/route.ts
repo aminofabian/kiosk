@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
       cashReceived,
       customerName,
       customerPhone,
+      creditAccountId,
       splitPayments,
     } = body;
 
@@ -147,12 +148,42 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // For credit payment: require either creditAccountId (existing creditor) or customerName (new)
+    if (paymentMethod === 'credit') {
+      if (creditAccountId) {
+        const existingAccount = await queryOne<{ id: string; customer_name: string; customer_phone: string | null }>(
+          'SELECT id, customer_name, customer_phone FROM credit_accounts WHERE id = ? AND business_id = ?',
+          [creditAccountId, auth.businessId]
+        );
+        if (!existingAccount) {
+          return jsonResponse(
+            { success: false, message: 'Selected credit account not found' },
+            400
+          );
+        }
+      } else if (!customerName || customerName.trim().length === 0) {
+        return jsonResponse(
+          { success: false, message: 'Select an existing creditor or enter customer name' },
+          400
+        );
+      }
+    }
+
     // For split payments, we'll store customer info from credit portion if any
     let saleCustomerName = null;
     let saleCustomerPhone = null;
     if (paymentMethod === 'credit') {
-      saleCustomerName = customerName || null;
-      saleCustomerPhone = customerPhone || null;
+      if (creditAccountId) {
+        const accountForSale = await queryOne<{ customer_name: string; customer_phone: string | null }>(
+          'SELECT customer_name, customer_phone FROM credit_accounts WHERE id = ? AND business_id = ?',
+          [creditAccountId, auth.businessId]
+        );
+        saleCustomerName = accountForSale?.customer_name ?? null;
+        saleCustomerPhone = accountForSale?.customer_phone ?? null;
+      } else {
+        saleCustomerName = customerName || null;
+        saleCustomerPhone = customerPhone || null;
+      }
     } else if (paymentMethod === 'split' && splitPayments) {
       const creditPayment = (splitPayments as SplitPaymentInput[]).find(p => p.method === 'credit');
       if (creditPayment) {
@@ -401,9 +432,31 @@ export async function POST(request: NextRequest) {
       );
     };
 
+    // Add debt to an existing credit account by ID
+    const addDebtToExistingAccount = async (accountId: string, amount: number) => {
+      await execute(
+        `UPDATE credit_accounts 
+         SET total_credit = total_credit + ?, last_transaction_at = ? 
+         WHERE id = ?`,
+        [amount, now, accountId]
+      );
+      const creditTransactionId = generateUUID();
+      await execute(
+        `INSERT INTO credit_transactions (
+          id, credit_account_id, sale_id, type, amount, 
+          recorded_by, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [creditTransactionId, accountId, saleId, 'debt', amount, auth.userId, now]
+      );
+    };
+
     // Handle credit for regular credit payment
-    if (paymentMethod === 'credit' && customerName) {
-      await handleCreditPayment(customerName, customerPhone || null, totalAmount);
+    if (paymentMethod === 'credit') {
+      if (creditAccountId) {
+        await addDebtToExistingAccount(creditAccountId, totalAmount);
+      } else if (customerName) {
+        await handleCreditPayment(customerName, customerPhone || null, totalAmount);
+      }
     }
 
     // Handle credit for split payment with credit portion

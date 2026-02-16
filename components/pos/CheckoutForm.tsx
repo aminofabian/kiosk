@@ -47,6 +47,7 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
   const [cashReceived, setCashReceived] = useState<string>('');
   const [customerName, setCustomerName] = useState<string>('');
   const [customerPhone, setCustomerPhone] = useState<string>('');
+  const [creditAccountId, setCreditAccountId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,7 +71,7 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
 
   const isValid =
     paymentMethod === 'credit'
-      ? total > 0 && customerName.trim().length > 0
+      ? total > 0 && (customerName.trim().length > 0 || creditAccountId != null)
       : paymentMethod === 'cash'
         ? cashAmount >= total && total > 0
         : paymentMethod === 'mpesa'
@@ -210,8 +211,12 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
       if (paymentMethod === 'cash') {
         requestBody.cashReceived = cashAmount;
       } else if (paymentMethod === 'credit') {
-        requestBody.customerName = customerName;
-        requestBody.customerPhone = customerPhone || undefined;
+        if (creditAccountId) {
+          requestBody.creditAccountId = creditAccountId;
+        } else {
+          requestBody.customerName = customerName;
+          requestBody.customerPhone = customerPhone || undefined;
+        }
       } else if (paymentMethod === 'split') {
         // Send split payments data
         requestBody.splitPayments = splitPayments.map(p => ({
@@ -253,7 +258,7 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
 
     if (!isValid) {
       if (paymentMethod === 'credit') {
-        setError('Please enter customer name');
+        setError('Select an existing creditor or enter customer name');
       } else if (paymentMethod === 'cash') {
         setError('Please enter a valid cash amount');
       } else if (paymentMethod === 'mpesa') {
@@ -297,6 +302,13 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
   useEffect(() => {
     if (paymentMethod !== 'mpesa') {
       resetMpesaState();
+    }
+  }, [paymentMethod]);
+
+  // Reset credit selection when leaving credit payment method
+  useEffect(() => {
+    if (paymentMethod !== 'credit') {
+      setCreditAccountId(null);
     }
   }, [paymentMethod]);
 
@@ -561,6 +573,8 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
                   customerPhone={customerPhone}
                   onCustomerNameChange={setCustomerName}
                   onCustomerPhoneChange={setCustomerPhone}
+                  creditAccountId={creditAccountId}
+                  onCreditAccountIdChange={setCreditAccountId}
                 />
               )}
 
