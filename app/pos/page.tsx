@@ -190,11 +190,12 @@ export default function POSPage() {
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const printedReceiptIdRef = useRef<string | null>(null);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [searchSuggestions, setSearchSuggestions] = useState<{ id: string; name: string; variant_name?: string | null; current_sell_price: number; unit_type?: string; category_name?: string | null }[]>([]);
+  const [searchSuggestions, setSearchSuggestions] = useState<{ id: string; name: string; variant_name?: string | null; current_sell_price: number; unit_type?: string; category_name?: string | null; parent_item_id?: string | null; parent_name?: string | null; sibling_count?: number }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const suggestionsAbortRef = useRef<AbortController | null>(null);
+  const flatSuggestionsRef = useRef<typeof searchSuggestions>([]);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const desktopSearchContainerRef = useRef<HTMLDivElement>(null);
   const { clearCart, carts, activeCartId, switchCart } = useCartStore();
@@ -214,8 +215,8 @@ export default function POSPage() {
   const isOwnerOrAdmin = user?.role === 'owner' || user?.role === 'admin';
   const canAccessAdmin = isOwnerOrAdmin || user?.role === 'cashier';
   
-  // Debounced search - waits 150ms after user stops typing (reduced for faster response)
-  const debouncedSearchQuery = useDebounce(searchQuery, 150);
+  // Debounced search - waits 100ms after user stops typing (snappy response)
+  const debouncedSearchQuery = useDebounce(searchQuery, 100);
   const isSearchPending = searchQuery !== debouncedSearchQuery && searchQuery.length > 0;
   
   useEffect(() => {
@@ -302,15 +303,15 @@ export default function POSPage() {
   const handleSearchSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // If a suggestion is selected, choose it
-    if (showSuggestions && selectedSuggestionIndex >= 0 && selectedSuggestionIndex < searchSuggestions.length) {
-      const selectedSuggestion = searchSuggestions[selectedSuggestionIndex];
+    // If a suggestion is selected, choose it (using flat items ref for correct grouped order)
+    const flatItems = flatSuggestionsRef.current;
+    if (showSuggestions && selectedSuggestionIndex >= 0 && selectedSuggestionIndex < flatItems.length) {
+      const selectedSuggestion = flatItems[selectedSuggestionIndex];
       setShowSuggestions(false);
       setSearchQuery('');
       setShowSearch(false);
       setSearchSuggestions([]);
       
-      // Fetch the full item details and open the dialog
       try {
         const response = await fetch(`/api/items/${selectedSuggestion.id}`);
         const result = await response.json();
@@ -331,7 +332,7 @@ export default function POSPage() {
     if (query && isValidBarcode(query)) {
       handleBarcodeScan(query);
     }
-  }, [searchQuery, handleBarcodeScan, showSuggestions, selectedSuggestionIndex, searchSuggestions]);
+  }, [searchQuery, handleBarcodeScan, showSuggestions, selectedSuggestionIndex]);
 
   // Handle keyboard navigation in suggestions
   const handleSearchKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -442,12 +443,11 @@ export default function POSPage() {
     suggestionsAbortRef.current = controller;
 
     async function fetchSuggestions() {
-      // Guard: if already aborted (timer fired after cleanup), bail out
       if (controller.signal.aborted) return;
       try {
         setLoadingSuggestions(true);
         const response = await fetch(
-          `/api/items/suggest?q=${encodeURIComponent(searchQuery)}&limit=8`,
+          `/api/items/suggest?q=${encodeURIComponent(searchQuery)}&limit=10`,
           { signal: controller.signal }
         );
 
@@ -456,13 +456,16 @@ export default function POSPage() {
         const result = await response.json();
 
         if (result.success && result.data) {
-          const suggestions = result.data.map((item: { id: string; name: string; variant_name?: string | null; current_sell_price: number; unit_type?: string; category_name?: string | null }) => ({
+          const suggestions = result.data.map((item: { id: string; name: string; variant_name?: string | null; current_sell_price: number; unit_type?: string; category_name?: string | null; parent_item_id?: string | null; parent_name?: string | null; sibling_count?: number }) => ({
             id: item.id,
             name: item.name,
             variant_name: item.variant_name,
             current_sell_price: item.current_sell_price,
             unit_type: item.unit_type,
             category_name: item.category_name,
+            parent_item_id: item.parent_item_id,
+            parent_name: item.parent_name,
+            sibling_count: item.sibling_count,
           }));
           // Cache the result
           suggestCacheRef.current.set(cacheKey, { data: suggestions, ts: Date.now() });
@@ -479,18 +482,15 @@ export default function POSPage() {
         if (err instanceof Error && err.name === 'AbortError') return;
         console.error('Error fetching suggestions:', err);
       } finally {
-        // Only reset loading if THIS controller is still the active one
-        // (prevents superseded fetches from resetting loading for the latest fetch)
         if (suggestionsAbortRef.current === controller) {
           setLoadingSuggestions(false);
         }
       }
     }
 
-    // Reduced delay since endpoint is lightweight
-    const timer = setTimeout(fetchSuggestions, 30);
+    // Fire immediately — debounce is already handled by the 100ms useDebounce on searchQuery
+    fetchSuggestions();
     return () => {
-      clearTimeout(timer);
       controller.abort();
     };
   }, [searchQuery]);
@@ -616,56 +616,275 @@ export default function POSPage() {
   }, []);
 
   // Highlight matching text segments in search results
+  // Supports exact substring → word-level → fuzzy character-level matching
+  const MARK_CLASS = "bg-[#259783]/10 dark:bg-[#259783]/15 text-[#259783] dark:text-[#3bd522] font-semibold rounded-[1px] px-[0.5px]";
+
   const highlightMatch = useCallback((text: string, query: string) => {
     if (!query || query.length < 1) return <>{text}</>;
+
+    // First try exact contiguous match (fastest, cleanest highlights)
     const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(`(${escaped})`, 'gi');
-    const parts = text.split(regex);
-    return (
-      <>
-        {parts.map((part, i) =>
-          regex.test(part) ? (
-            <mark key={i} className="bg-[#259783]/15 text-[#259783] dark:text-[#3bd522] font-bold rounded-none px-[1px] mx-[-1px]" style={{ textDecoration: 'none' }}>{part}</mark>
-          ) : (
-            <span key={i}>{part}</span>
-          )
-        )}
-      </>
-    );
+    if (regex.test(text)) {
+      const parts = text.split(regex);
+      regex.lastIndex = 0;
+      return (
+        <>
+          {parts.map((part, i) =>
+            regex.test(part) ? (
+              <mark key={i} className={MARK_CLASS} style={{ textDecoration: 'none' }}>{part}</mark>
+            ) : (
+              <span key={i}>{part}</span>
+            )
+          )}
+        </>
+      );
+    }
+
+    // Try matching individual words from the query
+    const words = query.trim().split(/\s+/).filter(w => w.length > 0);
+    if (words.length > 1) {
+      const wordPattern = words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+      const wordRegex = new RegExp(`(${wordPattern})`, 'gi');
+      if (wordRegex.test(text)) {
+        const parts = text.split(wordRegex);
+        wordRegex.lastIndex = 0;
+        return (
+          <>
+            {parts.map((part, i) =>
+              wordRegex.test(part) ? (
+                <mark key={i} className={MARK_CLASS} style={{ textDecoration: 'none' }}>{part}</mark>
+              ) : (
+                <span key={i}>{part}</span>
+              )
+            )}
+          </>
+        );
+      }
+    }
+
+    // Fuzzy fallback: highlight characters that match query chars in order
+    const lowerText = text.toLowerCase();
+    const lowerQuery = query.toLowerCase();
+    const matchIndices = new Set<number>();
+    let qi = 0;
+    for (let ti = 0; ti < lowerText.length && qi < lowerQuery.length; ti++) {
+      if (lowerText[ti] === lowerQuery[qi]) {
+        matchIndices.add(ti);
+        qi++;
+      }
+    }
+
+    if (matchIndices.size === 0) return <>{text}</>;
+
+    const elements: React.ReactNode[] = [];
+    let i = 0;
+    while (i < text.length) {
+      if (matchIndices.has(i)) {
+        let end = i;
+        while (end < text.length && matchIndices.has(end)) end++;
+        elements.push(
+          <mark key={i} className={MARK_CLASS} style={{ textDecoration: 'none' }}>
+            {text.slice(i, end)}
+          </mark>
+        );
+        i = end;
+      } else {
+        let end = i;
+        while (end < text.length && !matchIndices.has(end)) end++;
+        elements.push(<span key={i}>{text.slice(i, end)}</span>);
+        i = end;
+      }
+    }
+    return <>{elements}</>;
   }, []);
+
+  // Group suggestions by parent for variant display
+  // Only groups items that share a parent AND have siblings (sibling_count > 1)
+  type SuggestionGroup = {
+    type: 'standalone';
+    item: typeof searchSuggestions[0];
+  } | {
+    type: 'variant-group';
+    parentId: string;
+    parentName: string;
+    items: typeof searchSuggestions;
+  };
+
+  const groupedSuggestionsData = (() => {
+    if (searchSuggestions.length === 0) return { groups: [] as SuggestionGroup[], flatItems: [] as typeof searchSuggestions };
+
+    const parentBuckets = new Map<string, typeof searchSuggestions>();
+    const standalone: typeof searchSuggestions = [];
+
+    for (const s of searchSuggestions) {
+      // Only group if item has a parent AND there are multiple siblings
+      if (s.parent_item_id && s.parent_name && s.sibling_count && s.sibling_count > 1) {
+        if (!parentBuckets.has(s.parent_item_id)) {
+          parentBuckets.set(s.parent_item_id, []);
+        }
+        parentBuckets.get(s.parent_item_id)!.push(s);
+      } else {
+        standalone.push(s);
+      }
+    }
+
+    const groups: SuggestionGroup[] = [];
+
+    // Add variant groups (multiple results from same parent shown as group)
+    for (const [parentId, items] of parentBuckets) {
+      if (items.length > 1) {
+        groups.push({
+          type: 'variant-group',
+          parentId,
+          parentName: items[0].parent_name!,
+          items,
+        });
+      } else {
+        // Single variant found — show inline as standalone with variant context
+        standalone.push(items[0]);
+      }
+    }
+
+    // Add standalone items
+    for (const item of standalone) {
+      groups.push({ type: 'standalone', item });
+    }
+
+    // Build flat items list for keyboard navigation index mapping
+    const flatItems: typeof searchSuggestions = [];
+    for (const g of groups) {
+      if (g.type === 'variant-group') {
+        for (const item of g.items) flatItems.push(item);
+      } else {
+        flatItems.push(g.item);
+      }
+    }
+
+    // Keep ref in sync for keyboard submit handler
+    flatSuggestionsRef.current = flatItems;
+
+    return { groups, flatItems };
+  })();
 
   // Shared search suggestions dropdown renderer
   const renderSuggestionsDropdown = useCallback((isDesktop = false) => {
-    // Only show skeleton when we're truly waiting for the first results
-    // Don't show if we already have suggestions or if the debounced ItemGrid results are loading/loaded
     const showSkeleton = loadingSuggestions && searchQuery && searchSuggestions.length === 0 && !showSuggestions && !debouncedSearchQuery;
     const showResults = showSuggestions && searchSuggestions.length > 0;
     const showNoResults = !loadingSuggestions && searchQuery.length >= 2 && searchSuggestions.length === 0 && !showSuggestions && !isSearchPending && !debouncedSearchQuery;
 
     if (!showSkeleton && !showResults && !showNoResults) return null;
 
-    return (
-      <div className={`absolute top-full left-0 right-0 mt-1.5 bg-white dark:bg-[#1a2c17] rounded-none border border-gray-200/80 dark:border-gray-700/60 shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 ${isDesktop ? 'max-h-[420px]' : 'max-h-[60vh]'} relative`}>
-        {/* Close suggestions button */}
+    const { groups, flatItems } = groupedSuggestionsData;
+
+    let flatIndex = -1;
+
+    const renderItem = (suggestion: typeof searchSuggestions[0], isVariant: boolean, isLastInGroup: boolean) => {
+      flatIndex++;
+      const currentFlatIndex = flatIndex;
+      const isSelected = currentFlatIndex === selectedSuggestionIndex;
+
+      return (
         <button
+          key={suggestion.id}
           type="button"
-          onClick={() => setShowSuggestions(false)}
-          className="absolute top-1.5 right-1.5 z-10 flex h-6 w-6 items-center justify-center rounded-none bg-white/80 dark:bg-black/40 border border-gray-200/70 dark:border-gray-700/60 text-gray-400 hover:text-gray-700 dark:hover:text-gray-100 hover:bg-white shadow-sm transition-all active:scale-90"
-          aria-label="Close suggestions"
+          onClick={(e) => {
+            e.stopPropagation();
+            handleSelectSuggestion(suggestion);
+          }}
+          onMouseEnter={() => setSelectedSuggestionIndex(currentFlatIndex)}
+          className={`w-full flex items-center gap-2.5 text-left transition-colors duration-75 ${
+            isVariant
+              ? `pl-3 pr-3 py-[9px] ${!isLastInGroup ? 'border-b border-gray-100/60 dark:border-gray-800/40' : ''}`
+              : 'px-3 py-[10px]'
+          } ${
+            isSelected
+              ? 'bg-[#259783]/[0.06] dark:bg-[#259783]/10'
+              : 'hover:bg-gray-50/80 dark:hover:bg-white/[0.03]'
+          }`}
         >
-          <X className="w-3 h-3" />
+          {/* Icon */}
+          <div className={`${isVariant ? 'w-7 h-7' : 'w-9 h-9'} rounded-[3px] flex items-center justify-center flex-shrink-0 transition-all duration-100 ${
+            isSelected
+              ? 'bg-[#259783] shadow-sm shadow-[#259783]/20'
+              : isVariant
+                ? 'bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/40'
+                : 'bg-gray-100 dark:bg-gray-800/70 border border-gray-100 dark:border-gray-700/40'
+          }`}>
+            {isVariant ? (
+              <Tag className={`w-3 h-3 ${isSelected ? 'text-white' : 'text-gray-400 dark:text-gray-500'}`} />
+            ) : (
+              <Package className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-gray-400 dark:text-gray-500'}`} />
+            )}
+          </div>
+
+          {/* Product info */}
+          <div className="flex-1 min-w-0">
+            <div className={`${isVariant ? 'text-[12.5px]' : 'text-[13px]'} font-medium truncate leading-snug transition-colors ${
+              isSelected
+                ? 'text-[#259783] dark:text-[#3bd522]'
+                : 'text-gray-800 dark:text-gray-200'
+            }`}>
+              {isVariant && suggestion.variant_name
+                ? highlightMatch(suggestion.variant_name, searchQuery)
+                : highlightMatch(suggestion.name, searchQuery)
+              }
+            </div>
+            <div className="flex items-center gap-1 mt-[2px] flex-wrap">
+              {!isVariant && suggestion.variant_name && suggestion.sibling_count && suggestion.sibling_count > 1 && suggestion.parent_name && (
+                <span className="text-[10px] text-gray-400 dark:text-gray-500">
+                  {highlightMatch(suggestion.parent_name, searchQuery)} ›
+                </span>
+              )}
+              {!isVariant && suggestion.variant_name && (
+                <span className="text-[10.5px] text-gray-400 dark:text-gray-500 truncate">
+                  {highlightMatch(suggestion.variant_name, searchQuery)}
+                </span>
+              )}
+              {suggestion.category_name && (
+                <span className={`text-[9.5px] font-medium px-1.5 py-[1px] rounded-[2px] flex-shrink-0 ${
+                  isSelected
+                    ? 'text-[#259783]/70 dark:text-[#3bd522]/60 bg-[#259783]/[0.06] dark:bg-[#259783]/10'
+                    : 'text-gray-400 dark:text-gray-500 bg-gray-100/80 dark:bg-gray-800/60'
+                }`}>
+                  {suggestion.category_name}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Price + unit */}
+          <div className="flex flex-col items-end flex-shrink-0 ml-auto pl-2">
+            <span className={`text-[13px] font-semibold tabular-nums transition-colors leading-tight ${
+              isSelected
+                ? 'text-[#259783] dark:text-[#3bd522]'
+                : 'text-gray-800 dark:text-gray-200'
+            }`}>
+              {suggestion.current_sell_price.toFixed(0)}
+            </span>
+            <span className={`text-[9.5px] tabular-nums transition-colors ${
+              isSelected ? 'text-[#259783]/50 dark:text-[#3bd522]/40' : 'text-gray-400 dark:text-gray-500'
+            }`}>
+              KES{suggestion.unit_type ? `/${suggestion.unit_type}` : ''}
+            </span>
+          </div>
         </button>
+      );
+    };
+
+    return (
+      <div className={`absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#192e15] border border-gray-200/90 dark:border-gray-700/50 shadow-xl shadow-black/[0.08] dark:shadow-black/30 z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 rounded-[4px] ${isDesktop ? 'max-h-[440px]' : 'max-h-[65vh]'}`}>
         {/* Skeleton loading */}
         {showSkeleton && (
-          <div className="p-2">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="flex items-center gap-3 px-3 py-3 animate-pulse">
-                <div className="w-10 h-10 rounded-none bg-gray-100 dark:bg-gray-800 flex-shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-3.5 bg-gray-100 dark:bg-gray-800 rounded-none w-3/5" />
-                  <div className="h-2.5 bg-gray-50 dark:bg-gray-800/60 rounded-none w-2/5" />
+          <div className="p-1.5">
+            {[0.9, 0.7, 0.8, 0.6].map((w, i) => (
+              <div key={i} className="flex items-center gap-2.5 px-3 py-[10px]">
+                <div className="w-9 h-9 rounded-[3px] bg-gray-100 dark:bg-gray-800/70 animate-pulse flex-shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3.5 bg-gray-100 dark:bg-gray-800/70 rounded-[2px] animate-pulse" style={{ width: `${w * 60}%` }} />
+                  <div className="h-2.5 bg-gray-50 dark:bg-gray-800/40 rounded-[2px] animate-pulse" style={{ width: `${w * 35}%` }} />
                 </div>
-                <div className="h-4 bg-gray-100 dark:bg-gray-800 rounded-none w-14" />
+                <div className="h-4 w-12 bg-gray-100 dark:bg-gray-800/70 rounded-[2px] animate-pulse" />
               </div>
             ))}
           </div>
@@ -674,110 +893,89 @@ export default function POSPage() {
         {/* Results list */}
         {showResults && (
           <>
-            <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: isDesktop ? '360px' : '50vh' }}>
-              <div className="px-3 pt-2.5 pb-1">
-                <span className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
-                  {searchSuggestions.length} result{searchSuggestions.length !== 1 ? 's' : ''}
+            {/* Header bar */}
+            <div className="flex items-center justify-between px-3.5 py-2 border-b border-gray-100 dark:border-gray-800/60 bg-gray-50/50 dark:bg-black/10">
+              <div className="flex items-center gap-1.5">
+                <Search className="w-3 h-3 text-gray-400 dark:text-gray-500" />
+                <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                  <span className="font-medium text-gray-600 dark:text-gray-300">{flatItems.length}</span> result{flatItems.length !== 1 ? 's' : ''}
                 </span>
               </div>
-              <div className="px-1.5 pb-1.5">
-                {searchSuggestions.map((suggestion, index) => (
-                  <button
-                    key={suggestion.id}
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSelectSuggestion(suggestion);
-                    }}
-                    onMouseEnter={() => setSelectedSuggestionIndex(index)}
-                    className={`w-full px-2.5 py-2.5 flex items-center gap-3 transition-all duration-100 text-left rounded-none group ${
-                      index === selectedSuggestionIndex
-                        ? 'bg-[#259783]/[0.08] dark:bg-[#259783]/15'
-                        : 'hover:bg-gray-50 dark:hover:bg-white/[0.04]'
-                    }`}
-                  >
-                    {/* Product icon with category color accent */}
-                    <div className={`w-10 h-10 rounded-none flex items-center justify-center flex-shrink-0 transition-all duration-150 ${
-                      index === selectedSuggestionIndex
-                        ? 'bg-[#259783] shadow-md shadow-[#259783]/25 scale-105'
-                        : 'bg-gray-100 dark:bg-gray-800/80'
-                    }`}>
-                      <Package className={`w-4.5 h-4.5 ${
-                        index === selectedSuggestionIndex
-                          ? 'text-white'
-                          : 'text-gray-400 dark:text-gray-500'
-                      }`} />
-                    </div>
+              <button
+                type="button"
+                onClick={() => setShowSuggestions(false)}
+                className="flex h-5 w-5 items-center justify-center rounded-[3px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-200/60 dark:hover:bg-gray-700/50 transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
 
-                    {/* Product info */}
-                    <div className="flex-1 min-w-0">
-                      <div className={`text-[13px] font-semibold truncate leading-tight transition-colors ${
-                        index === selectedSuggestionIndex
-                          ? 'text-[#259783] dark:text-[#3bd522]'
-                          : 'text-gray-800 dark:text-gray-200'
-                      }`}>
-                        {highlightMatch(suggestion.name, searchQuery)}
-                      </div>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        {suggestion.variant_name && (
-                          <span className="text-[11px] text-gray-400 dark:text-gray-500 truncate">
-                            {highlightMatch(suggestion.variant_name, searchQuery)}
-                          </span>
-                        )}
-                        {suggestion.variant_name && suggestion.category_name && (
-                          <span className="text-gray-300 dark:text-gray-600 text-[8px]">{'·'}</span>
-                        )}
-                        {suggestion.category_name && (
-                          <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded-none flex-shrink-0">
-                            {suggestion.category_name}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+            <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: isDesktop ? '350px' : '48vh' }}>
+              <div className="py-1">
+                {groups.map((group, gi) => {
+                  if (group.type === 'variant-group') {
+                    return (
+                      <div key={`group-${group.parentId}`}>
+                        {/* Separator before group (if not first) */}
+                        {gi > 0 && <div className="mx-3 my-1 border-t border-gray-100 dark:border-gray-800/50" />}
 
-                    {/* Price + unit */}
-                    <div className="flex flex-col items-end flex-shrink-0 ml-1">
-                      <span className={`text-xs font-bold tabular-nums transition-colors ${
-                        index === selectedSuggestionIndex
-                          ? 'text-[#259783] dark:text-[#3bd522]'
-                          : 'text-gray-700 dark:text-gray-300'
-                      }`}>
-                        KES {suggestion.current_sell_price.toFixed(0)}
-                      </span>
-                      {suggestion.unit_type && (
-                        <span className="text-[10px] text-gray-400 dark:text-gray-500">
-                          /{suggestion.unit_type}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                ))}
+                        {/* Parent group header */}
+                        <div className="flex items-center gap-2 px-3.5 pt-2.5 pb-1">
+                          <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 truncate">
+                            {highlightMatch(group.parentName, searchQuery)}
+                          </span>
+                          <span className="text-[9px] font-semibold text-[#259783] dark:text-[#3bd522]/80 bg-[#259783]/[0.07] dark:bg-[#259783]/10 px-1.5 py-[2px] rounded-[2px] flex-shrink-0 leading-tight">
+                            {group.items.length} variant{group.items.length !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+
+                        {/* Variant items with subtle left accent */}
+                        <div className="ml-3.5 border-l-[2px] border-[#259783]/15 dark:border-[#259783]/10">
+                          {group.items.map((item, idx) => renderItem(item, true, idx === group.items.length - 1))}
+                        </div>
+                      </div>
+                    );
+                  } else {
+                    return (
+                      <div key={group.item.id}>
+                        {/* Thin separator between standalone items */}
+                        {gi > 0 && groups[gi - 1]?.type !== 'variant-group' && (
+                          <div className="mx-3 border-t border-gray-50 dark:border-gray-800/30" />
+                        )}
+                        {gi > 0 && groups[gi - 1]?.type === 'variant-group' && (
+                          <div className="mx-3 my-1 border-t border-gray-100 dark:border-gray-800/50" />
+                        )}
+                        {renderItem(group.item, false, true)}
+                      </div>
+                    );
+                  }
+                })}
               </div>
             </div>
 
-            {/* Footer with keyboard hints */}
-            <div className="px-3 py-2 bg-gray-50/80 dark:bg-black/20 border-t border-gray-100 dark:border-gray-800">
+            {/* Footer */}
+            <div className="px-3.5 py-1.5 border-t border-gray-100 dark:border-gray-800/60 bg-gray-50/40 dark:bg-black/10">
               <div className="flex items-center justify-between text-[10px] text-gray-400 dark:text-gray-500">
-                <div className="hidden md:flex items-center gap-3">
+                <div className="hidden md:flex items-center gap-2.5">
                   <span className="flex items-center gap-1">
-                    <kbd className="px-1 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-none text-[9px] font-mono shadow-sm">↑</kbd>
-                    <kbd className="px-1 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-none text-[9px] font-mono shadow-sm">↓</kbd>
-                    <span className="ml-0.5">navigate</span>
+                    <kbd className="inline-flex items-center justify-center min-w-[18px] h-[18px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-[3px] text-[9px] font-mono shadow-[0_1px_0_0_rgba(0,0,0,0.05)]">↑↓</kbd>
+                    <span className="text-gray-400">navigate</span>
                   </span>
                   <span className="flex items-center gap-1">
-                    <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-none text-[9px] font-mono shadow-sm">↵</kbd>
-                    <span className="ml-0.5">select</span>
+                    <kbd className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-[3px] text-[9px] font-mono shadow-[0_1px_0_0_rgba(0,0,0,0.05)]">↵</kbd>
+                    <span className="text-gray-400">select</span>
                   </span>
                   <span className="flex items-center gap-1">
-                    <kbd className="px-1.5 py-0.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-none text-[9px] font-mono shadow-sm">esc</kbd>
-                    <span className="ml-0.5">close</span>
+                    <kbd className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-[3px] text-[9px] font-mono shadow-[0_1px_0_0_rgba(0,0,0,0.05)]">esc</kbd>
+                    <span className="text-gray-400">close</span>
                   </span>
                 </div>
-                <div className="md:hidden flex items-center gap-1">
-                  <span>Tap to select</span>
+                <div className="md:hidden text-gray-400 dark:text-gray-500">
+                  Tap to select
                 </div>
-                <span className="font-medium text-[#259783] dark:text-[#3bd522]">
-                  {searchSuggestions.length} found
+                <span className="font-medium text-[#259783]/80 dark:text-[#3bd522]/70">
+                  {flatItems.length} found
                 </span>
               </div>
             </div>
@@ -786,21 +984,33 @@ export default function POSPage() {
 
         {/* No results state */}
         {showNoResults && (
-          <div className="px-4 py-8 text-center">
-            <div className="w-12 h-12 mx-auto mb-3 bg-gray-100 dark:bg-gray-800 rounded-none flex items-center justify-center">
-              <Search className="w-5 h-5 text-gray-300 dark:text-gray-600" />
+          <div className="px-5 py-8 text-center">
+            <div className="w-11 h-11 mx-auto mb-3 bg-gray-100 dark:bg-gray-800/70 rounded-full flex items-center justify-center">
+              <Search className="w-4.5 h-4.5 text-gray-300 dark:text-gray-600" />
             </div>
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-              No products found
+            <p className="text-[13px] font-semibold text-gray-600 dark:text-gray-300">
+              No matches for &ldquo;{searchQuery}&rdquo;
             </p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              Try a different search term
+            <p className="text-[11.5px] text-gray-400 dark:text-gray-500 mt-1.5 max-w-[260px] mx-auto leading-relaxed">
+              Try a shorter or different term. Misspellings are handled automatically.
             </p>
+            <div className="mt-4 flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  (mobileSearchInputRef.current || searchInputRef.current)?.focus();
+                }}
+                className="text-[11px] font-medium text-[#259783] dark:text-[#3bd522] hover:underline"
+              >
+                Clear search
+              </button>
+            </div>
           </div>
         )}
       </div>
     );
-  }, [loadingSuggestions, searchQuery, debouncedSearchQuery, showSuggestions, searchSuggestions, isSearchPending, selectedSuggestionIndex, handleSelectSuggestion, highlightMatch]);
+  }, [loadingSuggestions, searchQuery, debouncedSearchQuery, showSuggestions, searchSuggestions, isSearchPending, selectedSuggestionIndex, handleSelectSuggestion, highlightMatch, groupedSuggestionsData]);
 
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const cartTotal = cartItems.reduce(
