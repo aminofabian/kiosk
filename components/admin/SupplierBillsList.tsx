@@ -43,6 +43,14 @@ import {
   Wallet,
   Truck,
   Trash2,
+  Banknote,
+  Smartphone,
+  Landmark,
+  CreditCard,
+  HandCoins,
+  Repeat,
+  Store,
+  ScanBarcode,
 } from 'lucide-react';
 import { apiGet, apiPost, apiDelete } from '@/lib/utils/api-client';
 import { toast } from 'sonner';
@@ -65,6 +73,8 @@ interface SupplierFromTable {
   contact_email: string | null;
   location: string | null;
   notes: string | null;
+  preferred_payment_method?: string | null;
+  payment_details?: string | null;
 }
 
 // ── Constants ──────────────────────────────────────────
@@ -270,6 +280,53 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
         Pending ({daysUntilDue}d)
       </Badge>
     );
+  };
+
+  // ── Payment method helpers ──────────────────────────────
+  const PAYMENT_METHOD_MAP: Record<string, { label: string; icon: typeof Banknote; colorClass: string }> = {
+    cash: { label: 'Cash', icon: Banknote, colorClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
+    till_number: { label: 'Till', icon: Store, colorClass: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400' },
+    paybill: { label: 'Paybill', icon: ScanBarcode, colorClass: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400' },
+    mpesa: { label: 'M-Pesa', icon: Smartphone, colorClass: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
+    bank_transfer: { label: 'Bank', icon: Landmark, colorClass: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+    cheque: { label: 'Cheque', icon: CreditCard, colorClass: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
+    credit: { label: 'Credit', icon: HandCoins, colorClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+    other: { label: 'Other', icon: Repeat, colorClass: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400' },
+  };
+
+  const renderPaymentMethods = (methodString: string | null) => {
+    if (!methodString) return null;
+    const methods = methodString.split(',').filter(Boolean);
+    if (methods.length === 0) return null;
+    return (
+      <div className="flex flex-wrap gap-1">
+        {methods.map((id) => {
+          const m = PAYMENT_METHOD_MAP[id.trim()];
+          if (!m) return null;
+          const Icon = m.icon;
+          return (
+            <span
+              key={id}
+              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium ${m.colorClass}`}
+            >
+              <Icon className="w-2.5 h-2.5" />
+              {m.label}
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Resolve payment method/details: use bill's values, fall back to supplier's when bill has none
+  const getBillPaymentDisplay = (bill: SupplierBillWithDetails) => {
+    const supplier = suppliersFromTable.find(
+      (s) => bill.supplier_id === s.id || s.name === bill.supplier_name
+    );
+    return {
+      paymentMethod: bill.preferred_payment_method || supplier?.preferred_payment_method || null,
+      paymentDetails: bill.payment_details || supplier?.payment_details || null,
+    };
   };
 
   // ── Data fetching ────────────────────────────────────
@@ -617,31 +674,29 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
   // ── Render ───────────────────────────────────────────
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* ═══════════ FILTERS ═══════════ */}
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-              Supplier Bills &amp; Budget
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              {filteredBills.length} bill{filteredBills.length !== 1 ? 's' : ''}
-              {dateRangeLabel && <span> &middot; {dateRangeLabel}</span>}
-              {supplierFilter !== 'all' && (
-                <span className="text-slate-700 dark:text-slate-300"> &middot; {supplierFilter}</span>
-              )}
-              {dayOfWeekFilter !== 'all' && (
-                <span className="text-slate-700 dark:text-slate-300">
-                  {' '}&middot; {DAY_NAMES[parseInt(dayOfWeekFilter, 10)]}s only
-                </span>
-              )}
-            </p>
-          </div>
+      <div className="space-y-3">
+        <div>
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+            Supplier Bills &amp; Budget
+          </h2>
+          <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            {filteredBills.length} bill{filteredBills.length !== 1 ? 's' : ''}
+            {dateRangeLabel && <span> &middot; {dateRangeLabel}</span>}
+            {supplierFilter !== 'all' && (
+              <span className="text-slate-700 dark:text-slate-300"> &middot; {supplierFilter}</span>
+            )}
+            {dayOfWeekFilter !== 'all' && (
+              <span className="text-slate-700 dark:text-slate-300">
+                {' '}&middot; {DAY_NAMES[parseInt(dayOfWeekFilter, 10)]}s only
+              </span>
+            )}
+          </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
           <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-            <SelectTrigger className="w-44">
+            <SelectTrigger className="min-w-[130px] sm:w-44 h-9 text-xs sm:text-sm shrink-0">
               <SelectValue placeholder="All suppliers" />
             </SelectTrigger>
             <SelectContent>
@@ -654,7 +709,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
             </SelectContent>
           </Select>
           <Select value={dayOfWeekFilter} onValueChange={setDayOfWeekFilter}>
-            <SelectTrigger className="w-36">
+            <SelectTrigger className="min-w-[100px] sm:w-36 h-9 text-xs sm:text-sm shrink-0">
               <SelectValue placeholder="All days" />
             </SelectTrigger>
             <SelectContent>
@@ -667,7 +722,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
             </SelectContent>
           </Select>
           <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="min-w-[120px] sm:w-40 h-9 text-xs sm:text-sm shrink-0">
               <SelectValue placeholder="Period" />
             </SelectTrigger>
             <SelectContent>
@@ -683,7 +738,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-32">
+            <SelectTrigger className="min-w-[90px] sm:w-32 h-9 text-xs sm:text-sm shrink-0">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -697,15 +752,15 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
       </div>
 
       {/* ═══════════ 1. FINANCIAL PULSE ═══════════ */}
-      <Card className="overflow-hidden border-2 border-slate-200 dark:border-slate-700 bg-gradient-to-br from-white via-emerald-50/30 to-white dark:from-[#1c2e18] dark:via-emerald-950/20 dark:to-[#1c2e18]">
-        <CardContent className="p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-[#259783]" />
+      <Card className="overflow-hidden border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-white via-emerald-50/30 to-white dark:from-[#1c2e18] dark:via-emerald-950/20 dark:to-[#1c2e18] rounded-xl shadow-sm">
+        <CardContent className="p-3.5 sm:p-5">
+          <div className="flex items-center gap-2 mb-3 sm:mb-4">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center shrink-0">
+              <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#259783]" />
             </div>
-            <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Financial Pulse</h3>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400">
+            <div className="min-w-0">
+              <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Financial Pulse</h3>
+              <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 truncate">
                 {dateRangeLabel || 'All time'} &middot; How much of your sales go to suppliers
               </p>
             </div>
@@ -717,40 +772,39 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
               <span className="text-sm">Loading sales data...</span>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {/* Big numbers */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">
+                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">
                     Sales Revenue
                   </p>
-                  <p className="text-xl font-bold text-emerald-700 dark:text-emerald-400">
+                  <p className="text-base sm:text-xl font-bold text-emerald-700 dark:text-emerald-400">
                     {formatPrice(salesRevenue)}
                   </p>
                   {salesSummary && (
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                      {salesSummary.totalTransactions} transaction
-                      {salesSummary.totalTransactions !== 1 ? 's' : ''}
+                    <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400">
+                      {salesSummary.totalTransactions} txn{salesSummary.totalTransactions !== 1 ? 's' : ''}
                     </p>
                   )}
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">
+                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">
                     Supplier Costs
                   </p>
-                  <p className="text-xl font-bold text-slate-900 dark:text-white">
+                  <p className="text-base sm:text-xl font-bold text-slate-900 dark:text-white">
                     {formatPrice(totalAmount)}
                   </p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400">
                     {filteredBills.length} bill{filteredBills.length !== 1 ? 's' : ''}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">
+                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">
                     Net After Suppliers
                   </p>
                   <p
-                    className={`text-xl font-bold ${
+                    className={`text-base sm:text-xl font-bold ${
                       netMargin >= 0
                         ? 'text-emerald-700 dark:text-emerald-400'
                         : 'text-red-600 dark:text-red-400'
@@ -759,18 +813,18 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                     {netMargin >= 0 ? '+' : ''}
                     {formatPrice(netMargin)}
                   </p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 hidden sm:block">
                     {netMargin >= 0 ? 'Sales cover your suppliers' : 'Costs exceed sales'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">
+                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">
                     Cost Ratio
                   </p>
-                  <p className="text-xl font-bold text-slate-900 dark:text-white">
+                  <p className="text-base sm:text-xl font-bold text-slate-900 dark:text-white">
                     {salesRevenue > 0 ? `${Math.round(costRatio)}%` : '—'}
                   </p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 hidden sm:block">
                     of sales goes to suppliers
                   </p>
                 </div>
@@ -822,26 +876,26 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
               )}
 
               {/* Daily averages comparison */}
-              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200 dark:border-slate-700">
-                <div className="p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30">
-                  <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+                <div className="p-2.5 sm:p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30">
+                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5 sm:mb-1">
                     Avg Sales / Day
                   </p>
-                  <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
+                  <p className="text-sm sm:text-lg font-bold text-emerald-700 dark:text-emerald-400">
                     {formatPrice(salesRevenue / spanDays)}
                   </p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 hidden sm:block">
                     ~{formatPrice((salesRevenue / spanDays) * 7)} / week
                   </p>
                 </div>
-                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/30">
-                  <p className="text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-                    Avg Supplier Cost / Day
+                <div className="p-2.5 sm:p-3 rounded-lg bg-slate-50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/30">
+                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5 sm:mb-1">
+                    Avg Cost / Day
                   </p>
-                  <p className="text-lg font-bold text-slate-900 dark:text-white">
+                  <p className="text-sm sm:text-lg font-bold text-slate-900 dark:text-white">
                     {formatPrice(totalAmount / spanDays)}
                   </p>
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 hidden sm:block">
                     ~{formatPrice(totalAmount / spanWeeks)} / week
                   </p>
                 </div>
@@ -852,47 +906,47 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
       </Card>
 
       {/* ═══════════ 2. QUICK STATS ═══════════ */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
-          <CardContent className="p-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+        <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
+          <CardContent className="p-2.5 sm:p-3">
             <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 mb-0.5">
-              <FileText className="w-3.5 h-3.5" />
-              <span className="text-[10px] font-medium uppercase tracking-wide">Total Bills</span>
+              <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              <span className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wide">Total Bills</span>
             </div>
-            <p className="text-lg font-bold text-slate-900 dark:text-white">
+            <p className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
               {filteredBills.length}
             </p>
           </CardContent>
         </Card>
-        <Card className="bg-white dark:bg-[#1c2e18] border border-orange-200 dark:border-orange-900/50">
-          <CardContent className="p-3">
+        <Card className="bg-white dark:bg-[#1c2e18] border border-orange-200 dark:border-orange-900/50 rounded-xl shadow-sm">
+          <CardContent className="p-2.5 sm:p-3">
             <div className="flex items-center gap-1.5 text-orange-600 dark:text-orange-400 mb-0.5">
-              <Clock className="w-3.5 h-3.5" />
-              <span className="text-[10px] font-medium uppercase tracking-wide">Pending</span>
+              <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              <span className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wide">Pending</span>
             </div>
-            <p className="text-lg font-bold text-orange-600 dark:text-orange-400">
+            <p className="text-base sm:text-lg font-bold text-orange-600 dark:text-orange-400">
               {formatPrice(totalPending)}
             </p>
           </CardContent>
         </Card>
-        <Card className="bg-white dark:bg-[#1c2e18] border border-green-200 dark:border-green-900/50">
-          <CardContent className="p-3">
+        <Card className="bg-white dark:bg-[#1c2e18] border border-green-200 dark:border-green-900/50 rounded-xl shadow-sm">
+          <CardContent className="p-2.5 sm:p-3">
             <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400 mb-0.5">
-              <CheckCircle className="w-3.5 h-3.5" />
-              <span className="text-[10px] font-medium uppercase tracking-wide">Paid</span>
+              <CheckCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              <span className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wide">Paid</span>
             </div>
-            <p className="text-lg font-bold text-green-600 dark:text-green-400">
+            <p className="text-base sm:text-lg font-bold text-green-600 dark:text-green-400">
               {formatPrice(totalPaid)}
             </p>
           </CardContent>
         </Card>
-        <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
-          <CardContent className="p-3">
+        <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
+          <CardContent className="p-2.5 sm:p-3">
             <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 mb-0.5">
-              <Calendar className="w-3.5 h-3.5" />
-              <span className="text-[10px] font-medium uppercase tracking-wide">Avg / Week</span>
+              <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              <span className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wide">Avg / Week</span>
             </div>
-            <p className="text-lg font-bold text-slate-900 dark:text-white">
+            <p className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
               {formatPrice(totalAmount / spanWeeks)}
             </p>
           </CardContent>
@@ -901,19 +955,19 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
 
       {/* ═══════════ 3. SUPPLIER BUDGET PLANNER ═══════════ */}
       {supplierBudget.length > 0 && (
-        <Card className="bg-white dark:bg-[#1c2e18] border-2 border-slate-200 dark:border-slate-800 overflow-hidden">
+        <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 overflow-hidden rounded-xl shadow-sm">
           <CardContent className="p-0">
             {/* Section header */}
-            <div className="px-5 pt-5 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="px-3.5 sm:px-5 pt-3.5 sm:pt-5 pb-2.5 sm:pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                  <Wallet className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                  <Wallet className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-600 dark:text-amber-400" />
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
                   Supplier Budget Planner
                 </h3>
               </div>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 ml-9">
+              <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 ml-8 sm:ml-9">
                 Averages based on {spanDays} day{spanDays !== 1 ? 's' : ''} of data
                 {dateRangeLabel && ` (${dateRangeLabel})`}
               </p>
@@ -1055,20 +1109,20 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
             </div>
 
             {/* Projected monthly footer */}
-            <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-700 bg-amber-50/50 dark:bg-amber-950/10">
-              <p className="text-xs text-slate-600 dark:text-slate-400">
-                <span className="font-semibold">Projected monthly supplier cost:</span>{' '}
+            <div className="px-3.5 sm:px-5 py-2.5 sm:py-3 border-t border-slate-200 dark:border-slate-700 bg-amber-50/50 dark:bg-amber-950/10">
+              <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-400">
+                <span className="font-semibold">Monthly projection:</span>{' '}
                 <span className="font-bold text-slate-900 dark:text-white">
                   {formatPrice((totalAmount / spanDays) * 30)}
                 </span>
                 {salesSummary && salesSummary.totalRevenue > 0 && (
-                  <span className="ml-3 text-slate-500 dark:text-slate-400">
-                    Projected monthly sales:{' '}
+                  <span className="block sm:inline sm:ml-3 mt-0.5 sm:mt-0 text-slate-500 dark:text-slate-400">
+                    Sales:{' '}
                     <span className="font-semibold text-emerald-700 dark:text-emerald-400">
                       {formatPrice((salesRevenue / spanDays) * 30)}
                     </span>
                     <span className="mx-1">&middot;</span>
-                    Projected monthly margin:{' '}
+                    Margin:{' '}
                     <span
                       className={`font-semibold ${
                         netMargin >= 0
@@ -1088,20 +1142,20 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
 
       {/* ═══════════ 4. DELIVERY SCHEDULE ═══════════ */}
       {deliveryMatrix.suppliers.length > 0 && (
-        <Card className="bg-white dark:bg-[#1c2e18] border-2 border-slate-200 dark:border-slate-800 overflow-hidden">
+        <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 overflow-hidden rounded-xl shadow-sm">
           <CardContent className="p-0">
             {/* Section header */}
-            <div className="px-5 pt-5 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="px-3.5 sm:px-5 pt-3.5 sm:pt-5 pb-2.5 sm:pb-3 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                  <Truck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
+                  <Truck className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-600 dark:text-blue-400" />
                 </div>
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
                   Delivery Schedule
                 </h3>
               </div>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 ml-9">
-                Which supplier delivers on which days &middot; Current week only
+              <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 ml-8 sm:ml-9">
+                Which supplier delivers on which days &middot; Current week
               </p>
             </div>
 
@@ -1224,14 +1278,11 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
             </div>
 
             {/* Legend */}
-            <div className="px-5 py-2.5 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/20">
-              <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                <span className="font-semibold">How to read:</span> Each cell shows the average
-                amount you pay that supplier on that day (e.g. &quot;KES 9,690&quot; = typical
-                Thursday bill). Below it: deliveries / distinct days.{' '}
-                <span className="font-semibold">Daily Budget</span> = sum of the column (what to
-                budget for that day), with bills count shown below.{' '}
-                <span className="font-semibold">Weekly Total</span> = sum of all daily budgets.
+            <div className="px-3.5 sm:px-5 py-2 sm:py-2.5 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/20">
+              <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                <span className="font-semibold">How to read:</span> Each cell = average spend per day.{' '}
+                <span className="font-semibold">Daily Budget</span> = column total.{' '}
+                <span className="font-semibold">Weekly Total</span> = sum of daily budgets.
               </p>
             </div>
           </CardContent>
@@ -1244,17 +1295,17 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
           <Receipt className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
         </div>
         <h3 className="text-sm font-bold text-slate-900 dark:text-white">All Bills</h3>
-        <span className="text-[10px] text-slate-500 dark:text-slate-400">
-          ({filteredBills.length})
-        </span>
+        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+          {filteredBills.length}
+        </Badge>
       </div>
 
       {filteredBills.length === 0 ? (
         <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
-          <CardContent className="p-12 text-center">
-            <Receipt className="h-12 w-12 mx-auto mb-4 text-slate-300 dark:text-slate-600" />
-            <p className="text-slate-600 dark:text-slate-300 font-semibold">No bills found</p>
-            <p className="text-sm text-slate-400 mt-1">
+          <CardContent className="py-12 sm:py-16 text-center">
+            <Receipt className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
+            <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 font-semibold">No bills found</p>
+            <p className="text-xs sm:text-sm text-slate-400 mt-1">
               {statusFilter === 'all'
                 ? 'No supplier bills match your current filters'
                 : `No ${statusFilter} bills found`}
@@ -1263,31 +1314,30 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
         </Card>
       ) : (
         <>
-          {/* Mobile: Cards */}
-          <div className="md:hidden grid gap-3">
+          {/* ── Mobile: Compact cards ── */}
+          <div className="lg:hidden grid gap-2.5">
             {filteredBills.map((bill) => {
               const daysUntilDue = getDaysUntilDue(bill.due_date);
               const isOverdue = bill.status === 'overdue' || daysUntilDue < 0;
               const isDueSoon = daysUntilDue <= 3 && daysUntilDue >= 0;
               const billDay = DAY_NAMES[new Date(bill.created_at * 1000).getDay()];
+              const { paymentMethod, paymentDetails } = getBillPaymentDisplay(bill);
 
               return (
                 <Card
                   key={bill.id}
-                  className={`bg-white dark:bg-[#1c2e18] border-2 ${
+                  className={`bg-white dark:bg-[#1c2e18] overflow-hidden transition-all ${
                     isOverdue
-                      ? 'border-red-500 dark:border-red-800'
+                      ? 'border-l-4 border-l-red-500 border-y border-r border-slate-200 dark:border-slate-800'
                       : isDueSoon
-                      ? 'border-orange-500 dark:border-orange-800'
-                      : 'border-slate-200 dark:border-slate-800'
+                      ? 'border-l-4 border-l-orange-500 border-y border-r border-slate-200 dark:border-slate-800'
+                      : 'border border-slate-200 dark:border-slate-800'
                   }`}
                 >
-                  <CardContent className="p-4">
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center shrink-0">
-                          <Receipt className="w-5 h-5 text-[#259783]" />
-                        </div>
+                  <CardContent className="p-3 sm:p-4">
+                    <div className="space-y-2.5">
+                      {/* Header: supplier name + amount + status */}
+                      <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
                           <button
                             type="button"
@@ -1295,116 +1345,74 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                               const supplier = suppliersFromTable.find(
                                 (sup) => sup.name === bill.supplier_name
                               );
-                              if (supplier && onSupplierClick) {
-                                onSupplierClick(supplier);
-                              }
+                              if (supplier && onSupplierClick) onSupplierClick(supplier);
                             }}
-                            className="font-bold text-slate-900 dark:text-white truncate block max-w-full hover:text-[#259783] dark:hover:text-[#3bd522] hover:underline underline-offset-2 transition-colors text-left"
+                            className="font-bold text-sm text-slate-900 dark:text-white truncate block max-w-full hover:text-[#259783] dark:hover:text-[#3bd522] transition-colors text-left"
                           >
                             {bill.supplier_name}
                           </button>
-                          <p className="text-sm text-slate-600 dark:text-slate-400 truncate">
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
                             {bill.bill_description}
                           </p>
-                          {bill.supplier_phone && (
-                            <p className="text-xs text-slate-500 mt-0.5">
-                              {bill.supplier_phone}
-                            </p>
-                          )}
                         </div>
-                        {getStatusBadge(bill)}
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3 text-sm">
-                        <div>
-                          <p className="text-slate-500 dark:text-slate-400 text-xs mb-0.5">
-                            Amount
-                          </p>
-                          <p className="font-bold text-slate-900 dark:text-white">
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-slate-900 dark:text-white">
                             {formatPrice(bill.amount)}
                           </p>
+                          <div className="mt-1">{getStatusBadge(bill)}</div>
                         </div>
-                        <div>
-                          <p className="text-slate-500 dark:text-slate-400 text-xs mb-0.5">
-                            Due Date
-                          </p>
-                          <p
-                            className={`font-bold ${
-                              isOverdue
-                                ? 'text-red-600 dark:text-red-400'
-                                : isDueSoon
-                                ? 'text-orange-600 dark:text-orange-400'
-                                : 'text-slate-900 dark:text-white'
-                            }`}
-                          >
-                            {formatDate(bill.due_date)}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-slate-500 dark:text-slate-400 text-xs mb-0.5">
-                            Created
-                          </p>
-                          <p className="font-semibold text-slate-700 dark:text-slate-300">
-                            {formatDate(bill.created_at)}
-                          </p>
-                          <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                            {billDay} &middot; by {bill.creator_name}
-                          </p>
-                        </div>
-                        {bill.payment_date ? (
-                          <div>
-                            <p className="text-slate-500 dark:text-slate-400 text-xs mb-0.5">
-                              Paid On
-                            </p>
-                            <p className="font-semibold text-green-600 dark:text-green-400">
-                              {formatDate(bill.payment_date)}
-                            </p>
-                            {bill.payer_name && (
-                              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                                by {bill.payer_name}
-                              </p>
-                            )}
-                          </div>
-                        ) : (
-                          <div>
-                            <p className="text-slate-500 dark:text-slate-400 text-xs mb-0.5">
-                              Status
-                            </p>
-                            <p className="font-semibold text-slate-700 dark:text-slate-300">
-                              {bill.status === 'paid'
-                                ? 'Paid'
-                                : bill.status === 'overdue'
-                                ? 'Overdue'
-                                : 'Pending'}
-                            </p>
-                          </div>
-                        )}
                       </div>
 
-                      {bill.notes && (
-                        <div className="p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                          <p className="text-xs text-slate-600 dark:text-slate-400">{bill.notes}</p>
+                      {/* Key details row */}
+                      <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 flex-wrap">
+                        <span className={`font-medium ${
+                          isOverdue ? 'text-red-600 dark:text-red-400' : isDueSoon ? 'text-orange-600 dark:text-orange-400' : ''
+                        }`}>
+                          Due {formatDate(bill.due_date)}
+                        </span>
+                        <span>&middot;</span>
+                        <span>{billDay} {formatDate(bill.created_at)}</span>
+                        <span>&middot;</span>
+                        <span>by {bill.creator_name}</span>
+                      </div>
+
+                      {/* Payment info */}
+                      {(paymentMethod || paymentDetails) && (
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 p-2 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/10 border border-emerald-200/40 dark:border-emerald-800/30">
+                          {paymentMethod && renderPaymentMethods(paymentMethod)}
+                          {paymentDetails && (
+                            <span className="text-[11px] text-slate-600 dark:text-slate-400">
+                              {paymentDetails}
+                            </span>
+                          )}
                         </div>
                       )}
 
+                      {bill.notes && (
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg">
+                          {bill.notes}
+                        </p>
+                      )}
+
+                      {/* Actions */}
                       {bill.status !== 'paid' && bill.status !== 'cancelled' && (
-                        <div className="pt-1 flex flex-wrap gap-2">
+                        <div className="flex items-center gap-2 pt-1">
                           <Button
                             onClick={() => setEditingBill(bill)}
                             variant="outline"
                             size="sm"
-                            className="border-slate-300 dark:border-slate-600"
+                            className="h-8 text-xs border-slate-300 dark:border-slate-600 flex-1"
                           >
-                            <Pencil className="w-4 h-4 mr-1.5" />
+                            <Pencil className="w-3.5 h-3.5 mr-1" />
                             Edit
                           </Button>
                           <Button
                             onClick={() => handleMarkAsPaid(bill)}
-                            className="bg-green-600 hover:bg-green-700 text-white"
+                            className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs flex-1"
                             size="sm"
                           >
-                            <CheckCircle2 className="w-4 h-4 mr-1.5" />
-                            Mark as Paid
+                            <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                            Pay
                           </Button>
                           {canDeleteBills && (
                             <Button
@@ -1412,18 +1420,12 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                               variant="outline"
                               size="sm"
                               disabled={deletingBillId === bill.id}
-                              className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/20"
+                              className="h-8 text-xs border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400"
                             >
                               {deletingBillId === bill.id ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                                  Cancelling...
-                                </>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
                               ) : (
-                                <>
-                                  <Trash2 className="w-4 h-4 mr-1.5" />
-                                  Cancel
-                                </>
+                                <Trash2 className="w-3.5 h-3.5" />
                               )}
                             </Button>
                           )}
@@ -1436,92 +1438,110 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
             })}
           </div>
 
-          {/* Desktop: Table */}
-          <Card className="hidden md:block bg-white dark:bg-[#1c2e18] border-2 border-slate-200 dark:border-slate-800 overflow-hidden">
+          {/* ── Desktop: Table ── */}
+          <Card className="hidden lg:block bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 overflow-hidden rounded-xl shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[780px]">
+              <table className="w-full text-[13px]">
                 <thead>
-                  <tr className="border-b-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-                    <th className="text-left p-3 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">
+                  <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/50">
+                    <th className="text-left px-4 py-3 font-semibold text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider">
                       Supplier
                     </th>
-                    <th className="text-left p-3 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">
+                    <th className="text-left px-3 py-3 font-semibold text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider">
                       Description
                     </th>
-                    <th className="text-right p-3 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">
+                    <th className="text-left px-3 py-3 font-semibold text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider">
+                      Payment
+                    </th>
+                    <th className="text-right px-3 py-3 font-semibold text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider">
                       Amount
                     </th>
-                    <th className="text-left p-3 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">
+                    <th className="text-left px-3 py-3 font-semibold text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider">
                       Due
                     </th>
-                    <th className="text-left p-3 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">
+                    <th className="text-left px-3 py-3 font-semibold text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="text-left p-3 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">
+                    <th className="text-left px-3 py-3 font-semibold text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider">
                       Created
                     </th>
-                    <th className="text-right p-3 font-semibold text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider w-28">
-                      Action
+                    <th className="text-right px-4 py-3 font-semibold text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider">
+                      Actions
                     </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
                   {filteredBills.map((bill, i) => {
                     const daysUntilDue = getDaysUntilDue(bill.due_date);
                     const isOverdue = bill.status === 'overdue' || daysUntilDue < 0;
                     const isDueSoon = daysUntilDue <= 3 && daysUntilDue >= 0;
                     const billDay = DAY_NAMES[new Date(bill.created_at * 1000).getDay()];
+                    const { paymentMethod, paymentDetails } = getBillPaymentDisplay(bill);
 
                     return (
                       <tr
                         key={bill.id}
-                        className={`border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors ${
-                          i % 2 === 0
-                            ? 'bg-white dark:bg-[#1c2e18]'
-                            : 'bg-slate-50/50 dark:bg-slate-900/20'
+                        className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/20 transition-colors ${
+                          i % 2 !== 0 ? 'bg-slate-50/30 dark:bg-slate-900/10' : ''
                         } ${
                           isOverdue
-                            ? 'border-l-2 border-l-red-500'
+                            ? 'border-l-[3px] border-l-red-500'
                             : isDueSoon
-                            ? 'border-l-2 border-l-orange-500'
+                            ? 'border-l-[3px] border-l-orange-400'
                             : ''
                         }`}
                       >
-                        <td className="p-3">
-                          <div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const supplier = suppliersFromTable.find(
-                                  (sup) => sup.name === bill.supplier_name
-                                );
-                                if (supplier && onSupplierClick) {
-                                  onSupplierClick(supplier);
-                                }
-                              }}
-                              className="font-medium text-slate-900 dark:text-white hover:text-[#259783] dark:hover:text-[#3bd522] hover:underline underline-offset-2 transition-colors text-left"
-                            >
-                              {bill.supplier_name}
-                            </button>
-                            {bill.supplier_phone && (
-                              <p className="text-xs text-slate-500 dark:text-slate-400">
-                                {bill.supplier_phone}
-                              </p>
-                            )}
-                          </div>
+                        {/* Supplier */}
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const supplier = suppliersFromTable.find(
+                                (sup) => sup.name === bill.supplier_name
+                              );
+                              if (supplier && onSupplierClick) onSupplierClick(supplier);
+                            }}
+                            className="font-medium text-slate-900 dark:text-white hover:text-[#259783] dark:hover:text-[#3bd522] hover:underline underline-offset-2 transition-colors text-left text-[13px]"
+                          >
+                            {bill.supplier_name}
+                          </button>
+                          {bill.supplier_phone && (
+                            <p className="text-[11px] text-slate-400 mt-0.5">{bill.supplier_phone}</p>
+                          )}
                         </td>
-                        <td
-                          className="p-3 text-slate-600 dark:text-slate-400 max-w-[200px] truncate"
-                          title={bill.bill_description}
-                        >
-                          {bill.bill_description}
+
+                        {/* Description */}
+                        <td className="px-3 py-3 max-w-[180px]">
+                          <p className="text-slate-600 dark:text-slate-400 truncate text-[13px]" title={bill.bill_description}>
+                            {bill.bill_description}
+                          </p>
                         </td>
-                        <td className="p-3 text-right font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+
+                        {/* Payment (combined method + details) */}
+                        <td className="px-3 py-3 max-w-[200px]">
+                          {(paymentMethod || paymentDetails) ? (
+                            <div className="space-y-1">
+                              {paymentMethod && renderPaymentMethods(paymentMethod)}
+                              {paymentDetails && (
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed whitespace-pre-line break-words">
+                                  {paymentDetails}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-slate-300 dark:text-slate-700">—</span>
+                          )}
+                        </td>
+
+                        {/* Amount */}
+                        <td className="px-3 py-3 text-right font-semibold text-slate-900 dark:text-white whitespace-nowrap">
                           {formatPrice(bill.amount)}
                         </td>
-                        <td className="p-3">
+
+                        {/* Due */}
+                        <td className="px-3 py-3">
                           <span
-                            className={`font-medium ${
+                            className={`text-[13px] font-medium ${
                               isOverdue
                                 ? 'text-red-600 dark:text-red-400'
                                 : isDueSoon
@@ -1532,51 +1552,50 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                             {formatDate(bill.due_date)}
                           </span>
                         </td>
-                        <td className="p-3">{getStatusBadge(bill)}</td>
-                        <td className="p-3 text-slate-600 dark:text-slate-400">
-                          {formatDate(bill.created_at)}
-                          <span className="block text-[10px] text-slate-400 dark:text-slate-500">
-                            {billDay} &middot; by {bill.creator_name}
+
+                        {/* Status */}
+                        <td className="px-3 py-3">{getStatusBadge(bill)}</td>
+
+                        {/* Created */}
+                        <td className="px-3 py-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                          <span className="text-[13px]">{formatDate(bill.created_at)}</span>
+                          <span className="block text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+                            {billDay} &middot; {bill.creator_name}
                           </span>
                         </td>
-                        <td className="p-3 text-right">
+
+                        {/* Actions */}
+                        <td className="px-4 py-3 text-right">
                           {bill.status !== 'paid' && bill.status !== 'cancelled' && (
-                            <div className="flex items-center justify-end gap-1.5">
+                            <div className="flex items-center justify-end gap-1">
                               <Button
                                 onClick={() => setEditingBill(bill)}
-                                variant="outline"
+                                variant="ghost"
                                 size="sm"
-                                className="border-slate-300 dark:border-slate-600"
+                                className="h-8 px-2 text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400"
                               >
-                                <Pencil className="w-4 h-4 mr-1.5" />
-                                Edit
+                                <Pencil className="w-3.5 h-3.5" />
                               </Button>
                               <Button
                                 onClick={() => handleMarkAsPaid(bill)}
-                                className="bg-green-600 hover:bg-green-700 text-white"
                                 size="sm"
+                                className="bg-green-600 hover:bg-green-700 text-white h-8 px-3 text-xs"
                               >
-                                <CheckCircle2 className="w-4 h-4 mr-1.5" />
+                                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
                                 Pay
                               </Button>
                               {canDeleteBills && (
                                 <Button
                                   onClick={() => handleDeleteBill(bill)}
-                                  variant="outline"
+                                  variant="ghost"
                                   size="sm"
                                   disabled={deletingBillId === bill.id}
-                                  className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/20"
+                                  className="h-8 px-2 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                                 >
                                   {deletingBillId === bill.id ? (
-                                    <>
-                                      <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-                                      Cancelling...
-                                    </>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                   ) : (
-                                    <>
-                                      <Trash2 className="w-4 h-4 mr-1.5" />
-                                      Cancel
-                                    </>
+                                    <Trash2 className="w-3.5 h-3.5" />
                                   )}
                                 </Button>
                               )}

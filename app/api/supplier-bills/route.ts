@@ -9,11 +9,32 @@ export async function OPTIONS() {
   return optionsResponse();
 }
 
+// Ensure supplier_bills has payment columns (self-healing if migration not run yet)
+async function ensureSupplierBillsPaymentColumns() {
+  const tableExists = await query<{ name: string }>(
+    `SELECT name FROM sqlite_master WHERE type='table' AND name='supplier_bills'`
+  );
+  if (tableExists.length === 0) return;
+
+  const columnCheck = await query<{ name: string }>(
+    `PRAGMA table_info(supplier_bills)`
+  );
+  const existingCols = new Set(columnCheck.map((col) => col.name));
+  if (!existingCols.has('preferred_payment_method')) {
+    await execute(`ALTER TABLE supplier_bills ADD COLUMN preferred_payment_method TEXT`);
+  }
+  if (!existingCols.has('payment_details')) {
+    await execute(`ALTER TABLE supplier_bills ADD COLUMN payment_details TEXT`);
+  }
+}
+
 // GET - List supplier bills
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
+
+    await ensureSupplierBillsPaymentColumns();
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
@@ -102,6 +123,8 @@ export async function POST(request: NextRequest) {
       dueDate,
       notes,
       stockItems,
+      preferredPaymentMethod,
+      paymentDetails,
     } = body as {
       supplierId?: string;
       supplierName: string;
@@ -115,6 +138,8 @@ export async function POST(request: NextRequest) {
         quantity: number;
         costPricePerUnit: number;
       }>;
+      preferredPaymentMethod?: string;
+      paymentDetails?: string;
     };
 
     if (!supplierName || !billDescription || !amount || !dueDate) {
@@ -141,8 +166,8 @@ export async function POST(request: NextRequest) {
     await execute(
       `INSERT INTO supplier_bills (
         id, business_id, supplier_id, supplier_name, supplier_phone, bill_description,
-        amount, due_date, status, created_by, notes, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        amount, due_date, status, created_by, notes, preferred_payment_method, payment_details, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         billId,
         auth.businessId,
@@ -155,6 +180,8 @@ export async function POST(request: NextRequest) {
         status,
         auth.userId,
         notes?.trim() || null,
+        preferredPaymentMethod?.trim() || null,
+        paymentDetails?.trim() || null,
         now,
       ]
     );

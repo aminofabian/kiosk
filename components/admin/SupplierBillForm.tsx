@@ -31,6 +31,14 @@ import {
   X,
   Calendar,
   Link2,
+  Banknote,
+  Smartphone,
+  Landmark,
+  CreditCard,
+  HandCoins,
+  Repeat,
+  Store,
+  ScanBarcode,
 } from 'lucide-react';
 import { apiGet, apiPost, apiPatch } from '@/lib/utils/api-client';
 import { Badge } from '@/components/ui/badge';
@@ -51,6 +59,8 @@ interface Supplier {
   contact_email: string | null;
   location?: string | null;
   notes?: string | null;
+  preferred_payment_method?: string | null;
+  payment_details?: string | null;
 }
 
 interface BillLineItem {
@@ -90,6 +100,16 @@ interface LinkedProduct {
 
 export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, onOpenManageLinkProducts }: SupplierBillFormProps) {
   const PACKAGING_PRESETS = ['Carton', 'Sack', 'Net', 'Crate', 'Box', 'Bag', 'Bale', 'Bundle', 'Tray'];
+  const PAYMENT_METHODS = [
+    { id: 'cash', label: 'Cash', icon: Banknote, color: 'emerald' },
+    { id: 'till_number', label: 'Till Number', icon: Store, color: 'teal' },
+    { id: 'paybill', label: 'Paybill', icon: ScanBarcode, color: 'cyan' },
+    { id: 'mpesa', label: 'M-Pesa (Send)', icon: Smartphone, color: 'green' },
+    { id: 'bank_transfer', label: 'Bank Transfer', icon: Landmark, color: 'blue' },
+    { id: 'cheque', label: 'Cheque', icon: CreditCard, color: 'purple' },
+    { id: 'credit', label: 'On Credit', icon: HandCoins, color: 'amber' },
+    { id: 'other', label: 'Other', icon: Repeat, color: 'slate' },
+  ] as const;
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [supplierId, setSupplierId] = useState<string>('');
@@ -119,10 +139,14 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
   const [editSupplierEmail, setEditSupplierEmail] = useState('');
   const [editSupplierLocation, setEditSupplierLocation] = useState('');
   const [editSupplierNotes, setEditSupplierNotes] = useState('');
+  const [editSupplierPaymentMethods, setEditSupplierPaymentMethods] = useState<string[]>([]);
+  const [editSupplierPaymentDetails, setEditSupplierPaymentDetails] = useState('');
   const [isUpdatingSupplier, setIsUpdatingSupplier] = useState(false);
   const [editSupplierError, setEditSupplierError] = useState<string | null>(null);
   const [isResettingStock, setIsResettingStock] = useState(false);
   const [productSearch, setProductSearch] = useState('');
+  const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
+  const [paymentDetails, setPaymentDetails] = useState('');
 
   // Filtered suppliers based on search, sorted alphabetically by name
   const filteredSuppliers = useMemo(() => {
@@ -246,6 +270,12 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
     setEditSupplierEmail(existing.contact_email || '');
     setEditSupplierLocation(existing.location || '');
     setEditSupplierNotes(existing.notes || '');
+    setEditSupplierPaymentMethods(
+      existing.preferred_payment_method
+        ? existing.preferred_payment_method.split(',').map((s) => s.trim()).filter(Boolean)
+        : []
+    );
+    setEditSupplierPaymentDetails(existing.payment_details || '');
     setEditSupplierError(null);
     setEditSupplierDialogOpen(true);
   };
@@ -268,6 +298,8 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
         contactEmail: editSupplierEmail.trim() || null,
         location: editSupplierLocation.trim() || null,
         notes: editSupplierNotes.trim() || null,
+        preferredPaymentMethod: editSupplierPaymentMethods.length > 0 ? editSupplierPaymentMethods.join(',') : null,
+        paymentDetails: editSupplierPaymentDetails.trim() || null,
       });
 
       if (result.success) {
@@ -433,6 +465,14 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
     );
   };
 
+  const togglePaymentMethod = (methodId: string) => {
+    setSelectedPaymentMethods((prev) =>
+      prev.includes(methodId)
+        ? prev.filter((m) => m !== methodId)
+        : [...prev, methodId]
+    );
+  };
+
   const toggleLinePackaging = (id: string) => {
     setLineItems((prev) =>
       prev.map((item) =>
@@ -591,6 +631,8 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
         dueDate: dueDateTime,
         notes: notes.trim() || null,
         stockItems: stockItems.length > 0 ? stockItems : undefined,
+        preferredPaymentMethod: selectedPaymentMethods.length > 0 ? selectedPaymentMethods.join(',') : null,
+        paymentDetails: paymentDetails.trim() || null,
       });
 
       if (result.success) {
@@ -1470,7 +1512,111 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
         </div>
       )}
 
-      {/* ═══════════════ STEP 4: NOTES ═══════════════ */}
+      {/* ═══════════════ STEP 4: PAYMENT METHOD ═══════════════ */}
+      {(supplierId || useManualSupplier) && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+              <Banknote className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <div className="flex flex-col">
+              <Label className="text-slate-800 dark:text-slate-200 font-bold text-sm">
+                Payment Method
+              </Label>
+              <span className="text-[11px] text-slate-400">
+                How does this supplier prefer to be paid? (optional)
+              </span>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {PAYMENT_METHODS.map((method) => {
+              const isSelected = selectedPaymentMethods.includes(method.id);
+              const Icon = method.icon;
+              const colorMap: Record<string, { bg: string; border: string; text: string; activeBg: string; activeBorder: string; activeText: string }> = {
+                emerald: { bg: 'bg-emerald-50 dark:bg-emerald-950/20', border: 'border-emerald-200 dark:border-emerald-800/50', text: 'text-emerald-600 dark:text-emerald-400', activeBg: 'bg-emerald-500 dark:bg-emerald-600', activeBorder: 'border-emerald-500 dark:border-emerald-600', activeText: 'text-white' },
+                teal: { bg: 'bg-teal-50 dark:bg-teal-950/20', border: 'border-teal-200 dark:border-teal-800/50', text: 'text-teal-600 dark:text-teal-400', activeBg: 'bg-teal-500 dark:bg-teal-600', activeBorder: 'border-teal-500 dark:border-teal-600', activeText: 'text-white' },
+                cyan: { bg: 'bg-cyan-50 dark:bg-cyan-950/20', border: 'border-cyan-200 dark:border-cyan-800/50', text: 'text-cyan-600 dark:text-cyan-400', activeBg: 'bg-cyan-500 dark:bg-cyan-600', activeBorder: 'border-cyan-500 dark:border-cyan-600', activeText: 'text-white' },
+                green: { bg: 'bg-green-50 dark:bg-green-950/20', border: 'border-green-200 dark:border-green-800/50', text: 'text-green-600 dark:text-green-400', activeBg: 'bg-green-500 dark:bg-green-600', activeBorder: 'border-green-500 dark:border-green-600', activeText: 'text-white' },
+                blue: { bg: 'bg-blue-50 dark:bg-blue-950/20', border: 'border-blue-200 dark:border-blue-800/50', text: 'text-blue-600 dark:text-blue-400', activeBg: 'bg-blue-500 dark:bg-blue-600', activeBorder: 'border-blue-500 dark:border-blue-600', activeText: 'text-white' },
+                purple: { bg: 'bg-purple-50 dark:bg-purple-950/20', border: 'border-purple-200 dark:border-purple-800/50', text: 'text-purple-600 dark:text-purple-400', activeBg: 'bg-purple-500 dark:bg-purple-600', activeBorder: 'border-purple-500 dark:border-purple-600', activeText: 'text-white' },
+                amber: { bg: 'bg-amber-50 dark:bg-amber-950/20', border: 'border-amber-200 dark:border-amber-800/50', text: 'text-amber-600 dark:text-amber-400', activeBg: 'bg-amber-500 dark:bg-amber-600', activeBorder: 'border-amber-500 dark:border-amber-600', activeText: 'text-white' },
+                slate: { bg: 'bg-slate-50 dark:bg-slate-800/30', border: 'border-slate-200 dark:border-slate-700', text: 'text-slate-600 dark:text-slate-400', activeBg: 'bg-slate-600 dark:bg-slate-500', activeBorder: 'border-slate-600 dark:border-slate-500', activeText: 'text-white' },
+              };
+              const c = colorMap[method.color] || colorMap.slate;
+
+              return (
+                <button
+                  key={method.id}
+                  type="button"
+                  onClick={() => togglePaymentMethod(method.id)}
+                  className={`group relative flex items-center gap-2 px-3.5 py-2 rounded-xl border-2 transition-all duration-200 text-sm font-medium ${
+                    isSelected
+                      ? `${c.activeBg} ${c.activeBorder} ${c.activeText} shadow-md scale-[1.02]`
+                      : `${c.bg} ${c.border} ${c.text} hover:shadow-sm hover:scale-[1.01]`
+                  }`}
+                >
+                  <Icon className={`w-4 h-4 transition-transform ${isSelected ? 'scale-110' : 'group-hover:scale-105'}`} />
+                  <span>{method.label}</span>
+                  {isSelected && (
+                    <Check className="w-3.5 h-3.5 ml-0.5" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {selectedPaymentMethods.length > 0 && (
+            <>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <Check className="w-3 h-3 text-emerald-500" />
+                Supplier accepts: {selectedPaymentMethods.map((id) => PAYMENT_METHODS.find((m) => m.id === id)?.label).filter(Boolean).join(', ')}
+              </p>
+
+              {/* Smart contextual payment details input */}
+              <div className="rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 p-3 space-y-2 transition-all">
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const firstMethod = selectedPaymentMethods[0];
+                    const method = PAYMENT_METHODS.find((m) => m.id === firstMethod);
+                    if (!method) return null;
+                    const Icon = method.icon;
+                    return <Icon className="w-3.5 h-3.5 text-slate-400" />;
+                  })()}
+                  <Label className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+                    Payment Details
+                  </Label>
+                  <span className="text-[10px] text-slate-400">(optional)</span>
+                </div>
+                <Textarea
+                  value={paymentDetails}
+                  onChange={(e) => setPaymentDetails(e.target.value)}
+                  placeholder={(() => {
+                    const hints: string[] = [];
+                    if (selectedPaymentMethods.includes('till_number')) hints.push('Till Number: ..., Business name: ...');
+                    if (selectedPaymentMethods.includes('paybill')) hints.push('Paybill: ..., Account: ..., Business name: ...');
+                    if (selectedPaymentMethods.includes('mpesa')) hints.push('Phone number, Name: ...');
+                    if (selectedPaymentMethods.includes('bank_transfer')) hints.push('Bank: ..., Acc: ..., Name: ...');
+                    if (selectedPaymentMethods.includes('cheque')) hints.push('Payable to: ...');
+                    if (selectedPaymentMethods.includes('cash')) hints.push('Cash contact/pickup point');
+                    if (selectedPaymentMethods.includes('credit')) hints.push('Credit terms: ...');
+                    if (selectedPaymentMethods.includes('other')) hints.push('Other payment instructions');
+                    return hints.length > 0 ? hints.join('\n') : 'Enter payment details...';
+                  })()}
+                  rows={2}
+                  className="border-2 border-slate-200 dark:border-slate-700 rounded-lg text-sm bg-white dark:bg-slate-800/50 placeholder:text-slate-300 dark:placeholder:text-slate-600"
+                />
+                {paymentDetails.trim() && (
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                    <Check className="w-2.5 h-2.5" />
+                    Payment info will be saved with this bill
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ═══════════════ STEP 5: NOTES ═══════════════ */}
       {(supplierId || useManualSupplier) && (
         <div className="space-y-2">
           <Label className="text-slate-600 dark:text-slate-400 font-medium text-xs">
@@ -1740,6 +1886,62 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
                 rows={3}
                 className="border-2 border-slate-200 dark:border-slate-700"
               />
+            </div>
+
+            {/* Payment method & details (same options as bill form) */}
+            <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2">
+                <Banknote className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <Label className="text-slate-700 dark:text-slate-300 font-bold text-sm">
+                  Payment methods accepted
+                </Label>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {PAYMENT_METHODS.map((method) => {
+                  const isSelected = editSupplierPaymentMethods.includes(method.id);
+                  const Icon = method.icon;
+                  const colorMap: Record<string, string> = {
+                    emerald: isSelected ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 text-emerald-600 dark:text-emerald-400',
+                    teal: isSelected ? 'bg-teal-500 text-white border-teal-500' : 'bg-teal-50 dark:bg-teal-950/20 border-teal-200 text-teal-600 dark:text-teal-400',
+                    cyan: isSelected ? 'bg-cyan-500 text-white border-cyan-500' : 'bg-cyan-50 dark:bg-cyan-950/20 border-cyan-200 text-cyan-600 dark:text-cyan-400',
+                    green: isSelected ? 'bg-green-500 text-white border-green-500' : 'bg-green-50 dark:bg-green-950/20 border-green-200 text-green-600 dark:text-green-400',
+                    blue: isSelected ? 'bg-blue-500 text-white border-blue-500' : 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 text-blue-600 dark:text-blue-400',
+                    purple: isSelected ? 'bg-purple-500 text-white border-purple-500' : 'bg-purple-50 dark:bg-purple-950/20 border-purple-200 text-purple-600 dark:text-purple-400',
+                    amber: isSelected ? 'bg-amber-500 text-white border-amber-500' : 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 text-amber-600 dark:text-amber-400',
+                    slate: isSelected ? 'bg-slate-600 text-white border-slate-600' : 'bg-slate-50 dark:bg-slate-800/30 border-slate-200 text-slate-600 dark:text-slate-400',
+                  };
+                  return (
+                    <button
+                      key={method.id}
+                      type="button"
+                      onClick={() => {
+                        setEditSupplierPaymentMethods((prev) =>
+                          prev.includes(method.id)
+                            ? prev.filter((m) => m !== method.id)
+                            : [...prev, method.id]
+                        );
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border-2 text-xs font-medium transition-all ${colorMap[method.color] || colorMap.slate}`}
+                    >
+                      <Icon className="w-3 h-3" />
+                      {method.label}
+                      {isSelected && <Check className="w-3 h-3" />}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-slate-600 dark:text-slate-400 font-medium text-xs">
+                  Payment details (Till, Paybill, bank account, etc.)
+                </Label>
+                <Textarea
+                  value={editSupplierPaymentDetails}
+                  onChange={(e) => setEditSupplierPaymentDetails(e.target.value)}
+                  placeholder="e.g. Till: 123456, Paybill: 888888 Acc: 001, Bank: KCB 1234567890"
+                  rows={2}
+                  className="border-2 border-slate-200 dark:border-slate-700 text-sm rounded-lg"
+                />
+              </div>
             </div>
           </div>
 

@@ -55,6 +55,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       contactEmail,
       location,
       notes,
+      preferredPaymentMethod,
+      paymentDetails,
     } = body;
 
     if (!name || !name.trim()) {
@@ -64,9 +66,25 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Ensure payment columns exist before updating (same as GET /api/suppliers)
+    const tableExists = await query<{ name: string }>(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='suppliers'`
+    );
+    if (tableExists.length > 0) {
+      const columnCheck = await query<{ name: string }>(`PRAGMA table_info(suppliers)`);
+      const existingCols = new Set(columnCheck.map((c) => c.name));
+      if (!existingCols.has('preferred_payment_method')) {
+        await execute(`ALTER TABLE suppliers ADD COLUMN preferred_payment_method TEXT`);
+      }
+      if (!existingCols.has('payment_details')) {
+        await execute(`ALTER TABLE suppliers ADD COLUMN payment_details TEXT`);
+      }
+    }
+
     await execute(
       `UPDATE suppliers
-       SET name = ?, contact_phone = ?, contact_email = ?, location = ?, notes = ?
+       SET name = ?, contact_phone = ?, contact_email = ?, location = ?, notes = ?,
+           preferred_payment_method = ?, payment_details = ?
        WHERE id = ? AND business_id = ?`,
       [
         name.trim(),
@@ -74,6 +92,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
         contactEmail?.trim() || null,
         location?.trim() || null,
         notes?.trim() || null,
+        preferredPaymentMethod?.trim() || null,
+        paymentDetails?.trim() || null,
         id,
         auth.businessId,
       ]

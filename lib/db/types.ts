@@ -307,6 +307,8 @@ export interface SupplierBill {
   created_by: string;
   paid_by: string | null;
   notes: string | null;
+  preferred_payment_method: string | null;
+  payment_details: string | null;
   created_at: number;
 }
 

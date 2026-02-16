@@ -8,11 +8,32 @@ export async function OPTIONS() {
   return optionsResponse();
 }
 
+// Ensure suppliers table has payment columns (self-healing if migration not run yet)
+async function ensureSuppliersPaymentColumns() {
+  const tableExists = await query<{ name: string }>(
+    `SELECT name FROM sqlite_master WHERE type='table' AND name='suppliers'`
+  );
+  if (tableExists.length === 0) return;
+
+  const columnCheck = await query<{ name: string }>(
+    `PRAGMA table_info(suppliers)`
+  );
+  const existingCols = new Set(columnCheck.map((col) => col.name));
+  if (!existingCols.has('preferred_payment_method')) {
+    await execute(`ALTER TABLE suppliers ADD COLUMN preferred_payment_method TEXT`);
+  }
+  if (!existingCols.has('payment_details')) {
+    await execute(`ALTER TABLE suppliers ADD COLUMN payment_details TEXT`);
+  }
+}
+
 // GET - List suppliers
 export async function GET() {
   try {
     const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
+
+    await ensureSuppliersPaymentColumns();
 
     const suppliers = await query<{
       id: string;
@@ -24,6 +45,8 @@ export async function GET() {
       notes: string | null;
       active: number;
       created_at: number;
+      preferred_payment_method?: string | null;
+      payment_details?: string | null;
     }>(
       `SELECT * FROM suppliers 
        WHERE business_id = ? AND active = 1

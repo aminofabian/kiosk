@@ -82,28 +82,29 @@ function SupplierBillsPageContent() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen p-4 md:p-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex items-center justify-between gap-3 mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-md shadow-[#259783]/30">
-                <Receipt className="w-5 h-5 text-white" />
+      <div className="min-h-screen px-3 py-4 sm:px-4 md:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center justify-between gap-3 mb-5 sm:mb-6">
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-md shadow-[#259783]/30 shrink-0">
+                <Receipt className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white truncate">
                   Supplier Bills
                 </h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 hidden sm:block">
                   Manage pending payments to suppliers
                 </p>
               </div>
             </div>
             <Button
               onClick={handleOpenNewBill}
-              className="bg-[#259783] hover:bg-[#1e7a6a] text-white"
+              size="sm"
+              className="bg-[#259783] hover:bg-[#1e7a6a] text-white shrink-0 h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              New Bill
+              <Plus className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">New Bill</span>
             </Button>
           </div>
 
@@ -175,10 +176,10 @@ export default function SupplierBillsPage() {
     <Suspense
       fallback={
         <AdminLayout>
-          <div className="min-h-screen p-4 md:p-6 flex items-center justify-center">
-            <div className="text-center space-y-4">
+          <div className="min-h-screen px-3 py-4 sm:px-4 md:px-6 lg:px-8 flex items-center justify-center">
+            <div className="text-center space-y-3">
               <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#259783]" />
-              <p className="text-slate-500">Loading...</p>
+              <p className="text-sm text-slate-500">Loading...</p>
             </div>
           </div>
         </AdminLayout>

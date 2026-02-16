@@ -302,6 +302,13 @@ export async function runMigrations() {
     }
 
     try {
+      const { migrateSupplierBillsPaymentMethod } = await import('./migrate-supplier-bills-payment-method');
+      await migrateSupplierBillsPaymentMethod();
+    } catch (error) {
+      console.error('⚠ supplier_bills preferred_payment_method migration skipped:', error);
+    }
+
+    try {
       const { migrateShiftDenominations } = await import('./migrate-shift-denominations');
       await migrateShiftDenominations();
     } catch (error) {
@@ -334,6 +341,13 @@ export async function runMigrations() {
       await migrateSupplierProducts();
     } catch (error) {
       console.error('⚠ supplier_products migration skipped:', error);
+    }
+
+    try {
+      const { migrateSuppliersPayment } = await import('./migrate-suppliers-payment');
+      await migrateSuppliersPayment();
+    } catch (error) {
+      console.error('⚠ suppliers payment migration skipped:', error);
     }
 
     try {
