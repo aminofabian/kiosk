@@ -103,7 +103,7 @@ const SECTIONS: MenuSection[] = [
     label: 'System',
     items: [
       { href: '/admin/shifts', label: 'Shifts', icon: Clock },
-      { href: '/admin/reports/sales', label: 'Reports', icon: FileText, matchPath: '/admin/reports' },
+      { href: '/admin/reports/daily', label: 'Daily Report', icon: FileText, matchPath: '/admin/reports' },
       { href: '/admin/users', label: 'Users', icon: Users, roles: ['owner'] },
     ],
   },
