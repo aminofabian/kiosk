@@ -21,20 +21,21 @@ export function QuantityInput({
   max,
   min = 0,
 }: QuantityInputProps) {
-  const isWeight = unitType === 'kg' || unitType === 'g' || unitType === 'litre' || unitType === 'ml';
-  const step = isWeight ? 0.1 : 1;
+  // Weight/volume items and portion-sellable items (piece, bunch) support decimals
+  const supportsFractions = ['kg', 'g', 'litre', 'ml', 'piece', 'bunch'].includes(unitType);
+  const step = supportsFractions ? 0.1 : 1;
 
   const handleIncrement = () => {
     const newValue = value + step;
     if (max === undefined || newValue <= max) {
-      onChange(Number(newValue.toFixed(isWeight ? 1 : 0)));
+      onChange(Number(newValue.toFixed(supportsFractions ? 1 : 0)));
     }
   };
 
   const handleDecrement = () => {
     const newValue = value - step;
     if (newValue >= min) {
-      onChange(Number(newValue.toFixed(isWeight ? 1 : 0)));
+      onChange(Number(newValue.toFixed(supportsFractions ? 1 : 0)));
     }
   };
 
@@ -50,7 +51,7 @@ export function QuantityInput({
     }
   };
 
-  if (isWeight) {
+  if (supportsFractions) {
     // Decimal keypad for weight items
     return (
       <div className="space-y-3">

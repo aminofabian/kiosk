@@ -164,8 +164,9 @@ export function AddToCartDialog({
       return;
     }
 
-    // Remove maxQuantity restriction - allow any quantity
-    const fixedValue = isWeight ? parseFloat(numValue.toFixed(2)) : Math.floor(numValue);
+    // Preserve fractional quantities for all items - portion buttons (½, ¼, etc.) allow
+    // selling portions of piece/bunch items (e.g. half cabbage), so we must not floor.
+    const fixedValue = parseFloat(numValue.toFixed(2));
     setQuantity(fixedValue);
     setPortion('custom');
   };

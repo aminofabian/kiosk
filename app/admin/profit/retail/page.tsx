@@ -409,7 +409,8 @@ export default function RetailProfitPage() {
                     <tr className="bg-blue-50 dark:bg-blue-900/10 border-b-2 border-slate-200 dark:border-slate-700">
                       <th className="text-left px-4 py-3 font-black text-slate-700 dark:text-slate-300 text-xs">Item</th>
                       <th className="text-right px-4 py-3 font-black text-slate-700 dark:text-slate-300 text-xs">Qty</th>
-                      <th className="text-right px-4 py-3 font-black text-slate-700 dark:text-slate-300 text-xs">Buy Price</th>
+                      <th className="text-right px-4 py-3 font-black text-slate-700 dark:text-slate-300 text-xs" title="Buy price per unit">Buy/unit</th>
+                      <th className="text-right px-4 py-3 font-black text-slate-700 dark:text-slate-300 text-xs" title="Cost for quantity sold (qty × buy price)">Cost</th>
                       <th className="text-right px-4 py-3 font-black text-slate-700 dark:text-slate-300 text-xs">Sell Price</th>
                       <th className="text-right px-4 py-3 font-black text-slate-700 dark:text-slate-300 text-xs">Profit/Unit</th>
                       <th className="text-right px-4 py-3 font-black text-slate-700 dark:text-slate-300 text-xs">Total Profit</th>
@@ -437,7 +438,7 @@ export default function RetailProfitPage() {
                                 {!hasBuyPrice && <Badge variant="outline" className="text-[9px] border-yellow-400 text-yellow-700">No Buy Price</Badge>}
                               </div>
                             </td>
-                            <td className="px-4 py-3 text-right font-semibold text-slate-600 dark:text-slate-300 text-xs">{item.quantity_sold.toFixed(0)}</td>
+                            <td className="px-4 py-3 text-right font-semibold text-slate-600 dark:text-slate-300 text-xs">{item.quantity_sold.toFixed(2)}</td>
                             <td className="px-4 py-3 text-right text-xs text-slate-500">
                               {editingItemId === item.item_id ? (
                                 <div className="flex items-center justify-end gap-1">
@@ -456,6 +457,7 @@ export default function RetailProfitPage() {
                                 </div>
                               )}
                             </td>
+                            <td className="px-4 py-3 text-right text-xs text-slate-500" title="qty × buy price">{formatPrice(item.total_cost)}</td>
                             <td className="px-4 py-3 text-right text-xs text-slate-600 dark:text-slate-300">{formatPrice(avgSell)}</td>
                             <td className={`px-4 py-3 text-right font-bold text-xs ${isPositive ? 'text-blue-600' : 'text-red-500'}`}>{formatPrice(avgProfit)}</td>
                             <td className={`px-4 py-3 text-right font-black text-xs ${isPositive ? 'text-blue-600' : 'text-red-500'}`}>{formatPrice(item.total_profit)}</td>

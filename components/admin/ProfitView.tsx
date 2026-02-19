@@ -664,7 +664,8 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
                 <tr className="bg-slate-100 dark:bg-slate-900 border-b-2 border-slate-200 dark:border-slate-700">
                   <th className="text-left px-6 py-3 font-black text-slate-700 dark:text-slate-300">Item</th>
                   <th className="text-right px-6 py-3 font-black text-slate-700 dark:text-slate-300">Qty</th>
-                  <th className="text-right px-6 py-3 font-black text-slate-700 dark:text-slate-300">Buy</th>
+                  <th className="text-right px-6 py-3 font-black text-slate-700 dark:text-slate-300" title="Buy price per unit">Buy/unit</th>
+                  <th className="text-right px-6 py-3 font-black text-slate-700 dark:text-slate-300" title="Cost for quantity sold (qty × buy price)">Cost</th>
                   <th className="text-right px-6 py-3 font-black text-slate-700 dark:text-slate-300">Sell</th>
                   <th className="text-right px-6 py-3 font-black text-slate-700 dark:text-slate-300">Profit/Unit</th>
                   <th className="text-right px-6 py-3 font-black text-slate-700 dark:text-slate-300">Total Profit</th>
@@ -702,7 +703,7 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-3 text-right font-semibold text-slate-600 dark:text-slate-300">{item.quantity_sold.toFixed(1)}</td>
+                      <td className="px-6 py-3 text-right font-semibold text-slate-600 dark:text-slate-300">{item.quantity_sold.toFixed(2)}</td>
                       <td className="px-6 py-3 text-right text-slate-500">
                         {editingItemId === item.item_id ? (
                           <div className="flex items-center justify-end gap-2">
@@ -751,12 +752,15 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
                             <button
                               onClick={() => handleStartEdit(item.item_id, avgBuy)}
                               className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
-                              title="Edit buy price"
+                              title="Edit buy price per unit"
                             >
                               <Edit2 className="h-3 w-3 text-slate-400 hover:text-[#1c6a1e]" />
                             </button>
                           </div>
                         )}
+                      </td>
+                      <td className="px-6 py-3 text-right text-slate-500" title="qty × buy price">
+                        {formatPrice(item.total_cost)}
                       </td>
                       <td className="px-6 py-3 text-right text-slate-600 dark:text-slate-300">{formatPrice(avgSell)}</td>
                       <td className={`px-6 py-3 text-right font-bold ${isPositive ? 'text-[#1c6a1e]' : 'text-red-500'}`}>
@@ -833,7 +837,7 @@ function ItemRow({ item, index, type, formatPrice }: {
             </span>
           )}
         </div>
-        <p className="text-[10px] text-slate-500">{item.quantity_sold.toFixed(0)} sold • {margin.toFixed(0)}%</p>
+        <p className="text-[10px] text-slate-500">{item.quantity_sold.toFixed(2)} sold • {margin.toFixed(0)}%</p>
       </div>
       <p className={`text-xs font-black ${textColor}`}>
         {type === 'top' ? '+' : isNegative ? '-' : ''}{formatPrice(Math.abs(item.total_profit))}

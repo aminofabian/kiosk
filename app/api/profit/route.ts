@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
     const itemTypeParams = itemType ? [itemType] : [];
 
     // Buy price fallback: sale snapshot → inventory_batches → purchase_breakdowns → 0
+    // Cost = quantity_sold × buy_price_per_unit (portion cost, supports fractional qty)
     const buyPriceFallbackSummary = `
       COALESCE(
         NULLIF(si.buy_price_per_unit, 0),
