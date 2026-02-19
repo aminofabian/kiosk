@@ -86,7 +86,7 @@ function SupplierBillsPageContent() {
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between gap-3 mb-5 sm:mb-6">
             <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-md shadow-[#259783]/30 shrink-0">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-md shadow-[#1c6a1e]/30 shrink-0">
                 <Receipt className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
               <div className="min-w-0">
@@ -101,7 +101,7 @@ function SupplierBillsPageContent() {
             <Button
               onClick={handleOpenNewBill}
               size="sm"
-              className="bg-[#259783] hover:bg-[#1e7a6a] text-white shrink-0 h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm"
+              className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white shrink-0 h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm"
             >
               <Plus className="w-4 h-4 sm:mr-2" />
               <span className="hidden sm:inline">New Bill</span>
@@ -135,7 +135,7 @@ function SupplierBillsPageContent() {
                   <X className="h-5 w-5" />
                 </Button>
                 <DrawerTitle className="flex items-center gap-2 text-slate-900 dark:text-white pr-8">
-                  <Receipt className="w-5 h-5 text-[#259783]" />
+                  <Receipt className="w-5 h-5 text-[#1c6a1e]" />
                   New Supplier Bill
                   {preSelectedSupplierName && (
                     <span className="text-sm font-normal text-slate-500">
@@ -178,7 +178,7 @@ export default function SupplierBillsPage() {
         <AdminLayout>
           <div className="min-h-screen px-3 py-4 sm:px-4 md:px-6 lg:px-8 flex items-center justify-center">
             <div className="text-center space-y-3">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#259783]" />
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#1c6a1e]" />
               <p className="text-sm text-slate-500">Loading...</p>
             </div>
           </div>

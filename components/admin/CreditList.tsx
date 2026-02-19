@@ -158,9 +158,9 @@ export function CreditList() {
       <div className="flex flex-col items-center justify-center py-20">
         <div className="relative">
           <div className="h-14 w-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-            <Loader2 className="h-7 w-7 text-[#259783] animate-spin" />
+            <Loader2 className="h-7 w-7 text-[#1c6a1e] animate-spin" />
           </div>
-          <div className="absolute -inset-1 rounded-3xl bg-[#259783]/10 animate-pulse" />
+          <div className="absolute -inset-1 rounded-3xl bg-[#1c6a1e]/10 animate-pulse" />
         </div>
         <p className="mt-4 text-sm font-medium text-slate-500 dark:text-slate-400">
           Loading credit accounts…
@@ -272,7 +272,7 @@ export function CreditList() {
             className={cn(
               'w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50',
               'pl-10 pr-4 py-3 text-sm placeholder:text-slate-400',
-              'focus:outline-none focus:ring-2 focus:ring-[#259783]/30 focus:border-[#259783]',
+              'focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]',
               'transition-colors'
             )}
           />
@@ -345,7 +345,7 @@ export function CreditList() {
                   <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
                     {formatPrice(account.total_credit)}
                   </p>
-                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#259783] px-3 py-1.5 text-xs font-medium text-white group-hover:bg-[#1e7a6a] transition-colors">
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#1c6a1e] px-3 py-1.5 text-xs font-medium text-white group-hover:bg-[#2a8a30] transition-colors">
                     Collect
                     <ArrowRight className="h-3.5 w-3.5" />
                   </span>
@@ -370,7 +370,7 @@ export function CreditList() {
               <span className="sr-only">Close</span>
             </Button>
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#259783] text-white">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1c6a1e] text-white">
                 <UserCircle2 className="h-5 w-5" />
               </div>
               <div>
@@ -392,7 +392,7 @@ export function CreditList() {
                 <Card className="border border-slate-200 dark:border-slate-800 overflow-hidden">
                   <CardContent className="p-0">
                     <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
-                      <ShoppingBag className="h-4 w-4 text-[#259783]" />
+                      <ShoppingBag className="h-4 w-4 text-[#1c6a1e]" />
                       <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
                         Items purchased on credit
                       </h3>
@@ -400,7 +400,7 @@ export function CreditList() {
                     <div className="p-4">
                       {loadingDetails ? (
                         <div className="flex items-center justify-center py-10">
-                          <Loader2 className="h-6 w-6 text-[#259783] animate-spin" />
+                          <Loader2 className="h-6 w-6 text-[#1c6a1e] animate-spin" />
                         </div>
                       ) : (
                         (() => {

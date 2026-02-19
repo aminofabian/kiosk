@@ -299,7 +299,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
           <Card className="border-2 border-slate-200 dark:border-slate-700">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <Receipt className="w-5 h-5 text-[#259783]" />
+                <Receipt className="w-5 h-5 text-[#1c6a1e]" />
                 Shift Information
               </CardTitle>
             </CardHeader>
@@ -316,7 +316,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
           <Card className="border-2 border-slate-200 dark:border-slate-700">
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <Receipt className="w-5 h-5 text-[#259783]" />
+                <Receipt className="w-5 h-5 text-[#1c6a1e]" />
                 Shift Summary
               </CardTitle>
             </CardHeader>
@@ -446,7 +446,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
                 <Separator />
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-slate-900 dark:text-white">Expected Cash in Drawer:</span>
-                  <span className="text-xl font-black text-[#259783]">
+                  <span className="text-xl font-black text-[#1c6a1e]">
                     {formatPrice(expectedCashAfterExpenses)}
                   </span>
                 </div>
@@ -462,16 +462,16 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
         <Card className="border-2 border-slate-200 dark:border-slate-700">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
-              <Banknote className="w-5 h-5 text-[#259783]" />
+              <Banknote className="w-5 h-5 text-[#1c6a1e]" />
               Count Cash in Drawer
             </CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Total Display */}
-              <div className="p-4 bg-[#259783]/10 rounded-xl border-2 border-[#259783]/20">
+              <div className="p-4 bg-[#1c6a1e]/10 rounded-xl border-2 border-[#1c6a1e]/20">
                 <p className="text-sm text-muted-foreground mb-1">Actual Cash Count</p>
-                <p className="text-3xl font-black text-[#259783]">{formatPrice(totalCash)}</p>
+                <p className="text-3xl font-black text-[#1c6a1e]">{formatPrice(totalCash)}</p>
               </div>
 
               {/* Denomination Breakdown Toggle */}
@@ -624,7 +624,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
                 className={`w-full font-bold ${
                   requiresApproval 
                     ? 'bg-amber-600 hover:bg-amber-700' 
-                    : 'bg-[#259783] hover:bg-[#1a7a69]'
+                    : 'bg-[#1c6a1e] hover:bg-[#1a7a69]'
                 } text-white`}
               >
                 {isSubmitting ? (

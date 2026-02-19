@@ -223,7 +223,7 @@ export function BalanceApprovals() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#259783]" />
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#1c6a1e]" />
           <p className="text-slate-500">Loading approval requests...</p>
         </div>
       </div>
@@ -261,8 +261,8 @@ export function BalanceApprovals() {
         <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
           <CardContent className="p-6">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center">
-                <Banknote className="w-5 h-5 text-[#259783]" />
+              <div className="w-8 h-8 rounded-lg bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center">
+                <Banknote className="w-5 h-5 text-[#1c6a1e]" />
               </div>
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 Cash in drawers
@@ -281,7 +281,7 @@ export function BalanceApprovals() {
                   {drawers.map((drawer) => (
                     <div
                       key={drawer.shiftId}
-                      className="p-4 rounded-xl border-2 border-[#259783]/30 dark:border-[#259783]/50 bg-slate-50 dark:bg-slate-800/50 space-y-2"
+                      className="p-4 rounded-xl border-2 border-[#1c6a1e]/30 dark:border-[#1c6a1e]/50 bg-slate-50 dark:bg-slate-800/50 space-y-2"
                     >
                       <div className="flex items-center gap-2">
                         <User className="w-4 h-4 text-slate-500" />
@@ -303,7 +303,7 @@ export function BalanceApprovals() {
                         </div>
                         <div>
                           <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide">Expected</p>
-                          <p className="font-bold text-[#259783]">{formatPrice(drawer.expectedCash)}</p>
+                          <p className="font-bold text-[#1c6a1e]">{formatPrice(drawer.expectedCash)}</p>
                         </div>
                       </div>
                     </div>
@@ -346,7 +346,7 @@ export function BalanceApprovals() {
                         </div>
                         <div>
                           <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide">Actual closed</p>
-                          <p className="font-bold text-[#259783]">
+                          <p className="font-bold text-[#1c6a1e]">
                             {drawer.actualClosingCash != null ? formatPrice(drawer.actualClosingCash) : '—'}
                           </p>
                         </div>
@@ -435,8 +435,8 @@ export function BalanceApprovals() {
                     {!isOpening && request.shift_id && (
                       <div className="bg-white dark:bg-[#1c2e18] border-2 border-slate-200 dark:border-slate-700 rounded-xl p-5 space-y-4">
                         <div className="flex items-center gap-2 mb-4">
-                          <div className="w-8 h-8 rounded-lg bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center">
-                            <DollarSign className="w-5 h-5 text-[#259783]" />
+                          <div className="w-8 h-8 rounded-lg bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center">
+                            <DollarSign className="w-5 h-5 text-[#1c6a1e]" />
                           </div>
                           <h4 className="text-lg font-bold text-slate-900 dark:text-white">Shift Summary</h4>
                         </div>
@@ -596,7 +596,7 @@ export function BalanceApprovals() {
                                   <span className="font-bold text-slate-900 dark:text-white">
                                     Expected Cash in Drawer:
                                   </span>
-                                  <span className="text-2xl font-black text-[#259783]">
+                                  <span className="text-2xl font-black text-[#1c6a1e]">
                                     {formatPrice(recalculatedExpected ?? request.expected_amount ?? 0)}
                                   </span>
                                 </div>
@@ -608,9 +608,9 @@ export function BalanceApprovals() {
 
                             {/* Submitted Amount and Difference */}
                             <div className="grid grid-cols-2 gap-4 text-sm">
-                              <div className="p-3 bg-[#259783]/10 dark:bg-[#259783]/20 rounded-lg">
+                              <div className="p-3 bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 rounded-lg">
                                 <p className="text-slate-500 dark:text-slate-400 mb-1">Actual Cash Count</p>
-                                <p className="text-xl font-black text-[#259783]">
+                                <p className="text-xl font-black text-[#1c6a1e]">
                                   {formatPrice(request.amount)}
                                 </p>
                               </div>
@@ -688,9 +688,9 @@ export function BalanceApprovals() {
 
                     {/* For opening requests, show simple amount */}
                     {isOpening && (
-                      <div className="p-4 bg-[#259783]/10 dark:bg-[#259783]/20 rounded-xl">
+                      <div className="p-4 bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 rounded-xl">
                         <p className="text-sm text-muted-foreground mb-1">Submitted Amount</p>
-                        <p className="text-2xl font-black text-[#259783]">{formatPrice(request.amount)}</p>
+                        <p className="text-2xl font-black text-[#1c6a1e]">{formatPrice(request.amount)}</p>
                       </div>
                     )}
 
@@ -723,7 +723,7 @@ export function BalanceApprovals() {
                       <div>
                         <button
                           onClick={() => setExpandedId(isExpanded ? null : request.id)}
-                          className="text-sm text-[#259783] hover:underline flex items-center gap-1"
+                          className="text-sm text-[#1c6a1e] hover:underline flex items-center gap-1"
                         >
                           <Banknote className="w-4 h-4" />
                           {isExpanded ? 'Hide' : 'Show'} denomination breakdown

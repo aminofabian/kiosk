@@ -93,7 +93,7 @@ export function PaymentForm({ account, onSuccess }: PaymentFormProps) {
       {/* Record payment form */}
       <Card className="border-slate-200 dark:border-slate-800 overflow-hidden">
         <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
-          <Wallet className="h-4 w-4 text-[#259783]" />
+          <Wallet className="h-4 w-4 text-[#1c6a1e]" />
           <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Record payment</h3>
         </div>
         <CardContent className="p-4">
@@ -112,7 +112,7 @@ export function PaymentForm({ account, onSuccess }: PaymentFormProps) {
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder={account.total_credit.toString()}
                 required
-                className="h-12 text-base font-medium border-slate-200 dark:border-slate-700 focus-visible:ring-[#259783]"
+                className="h-12 text-base font-medium border-slate-200 dark:border-slate-700 focus-visible:ring-[#1c6a1e]"
               />
               <div className="flex gap-2 pt-1">
                 <Button
@@ -144,7 +144,7 @@ export function PaymentForm({ account, onSuccess }: PaymentFormProps) {
                 value={paymentMethod}
                 onValueChange={(value) => setPaymentMethod(value as CreditPaymentMethod)}
               >
-                <SelectTrigger className="h-12 border-slate-200 dark:border-slate-700 focus:ring-[#259783]">
+                <SelectTrigger className="h-12 border-slate-200 dark:border-slate-700 focus:ring-[#1c6a1e]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -163,7 +163,7 @@ export function PaymentForm({ account, onSuccess }: PaymentFormProps) {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="e.g. partial payment, cheque number"
-                className="border-slate-200 dark:border-slate-700 focus-visible:ring-[#259783]"
+                className="border-slate-200 dark:border-slate-700 focus-visible:ring-[#1c6a1e]"
               />
             </div>
 
@@ -219,7 +219,7 @@ export function PaymentForm({ account, onSuccess }: PaymentFormProps) {
               type="submit"
               size="lg"
               disabled={isSubmitting || paymentAmount <= 0}
-              className="w-full h-12 font-semibold bg-gradient-to-r from-[#259783] to-[#1e7a6a] hover:from-[#1e7a6a] hover:to-[#197566] text-white shadow-lg shadow-[#259783]/20"
+              className="w-full h-12 font-semibold bg-gradient-to-r from-[#1c6a1e] to-[#2a8a30] hover:from-[#2a8a30] hover:to-[#1c6a1e] text-white shadow-lg shadow-[#1c6a1e]/20"
             >
               {isSubmitting ? (
                 <>

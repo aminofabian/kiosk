@@ -86,7 +86,7 @@ export default function OutOfStockRequestsPage() {
 
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-4">
-            <Loader2 className="w-8 h-8 animate-spin text-[#259783]" />
+            <Loader2 className="w-8 h-8 animate-spin text-[#1c6a1e]" />
             <p className="text-slate-500 dark:text-slate-400">Loading requests...</p>
           </div>
         ) : error ? (

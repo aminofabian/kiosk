@@ -188,7 +188,7 @@ export function SalesReport() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center space-y-3">
-          <div className="w-12 h-12 mx-auto border-4 border-[#259783]/20 border-t-[#259783] rounded-full animate-spin"></div>
+          <div className="w-12 h-12 mx-auto border-4 border-[#1c6a1e]/20 border-t-[#1c6a1e] rounded-full animate-spin"></div>
           <p className="text-slate-600 dark:text-slate-400 font-medium">Loading sales...</p>
         </div>
       </div>
@@ -300,7 +300,7 @@ export function SalesReport() {
                 size="sm"
                 onClick={() => applyQuickFilter('today')}
                 className={`h-7 px-2 text-xs ${activeFilter === 'today' 
-                  ? 'bg-[#259783] hover:bg-[#45d827] text-white' 
+                  ? 'bg-[#1c6a1e] hover:bg-[#2a8a30] text-white' 
                   : 'border-slate-300 dark:border-slate-700'}`}
               >
                 Today
@@ -310,7 +310,7 @@ export function SalesReport() {
                 size="sm"
                 onClick={() => applyQuickFilter('3days')}
                 className={`h-7 px-2 text-xs ${activeFilter === '3days' 
-                  ? 'bg-[#259783] hover:bg-[#45d827] text-white' 
+                  ? 'bg-[#1c6a1e] hover:bg-[#2a8a30] text-white' 
                   : 'border-slate-300 dark:border-slate-700'}`}
               >
                 3 Days
@@ -320,7 +320,7 @@ export function SalesReport() {
                 size="sm"
                 onClick={() => applyQuickFilter('1week')}
                 className={`h-7 px-2 text-xs ${activeFilter === '1week' 
-                  ? 'bg-[#259783] hover:bg-[#45d827] text-white' 
+                  ? 'bg-[#1c6a1e] hover:bg-[#2a8a30] text-white' 
                   : 'border-slate-300 dark:border-slate-700'}`}
               >
                 1 Week
@@ -339,7 +339,7 @@ export function SalesReport() {
                     setStartDate(e.target.value);
                     setActiveFilter(null);
                   }}
-                  className="focus-visible:ring-[#259783] text-xs h-8"
+                  className="focus-visible:ring-[#1c6a1e] text-xs h-8"
                 />
               </div>
               <div className="space-y-0.5">
@@ -352,7 +352,7 @@ export function SalesReport() {
                     setEndDate(e.target.value);
                     setActiveFilter(null);
                   }}
-                  className="focus-visible:ring-[#259783] text-xs h-8"
+                  className="focus-visible:ring-[#1c6a1e] text-xs h-8"
                 />
               </div>
               <div className="space-y-0.5">
@@ -377,7 +377,7 @@ export function SalesReport() {
                     placeholder="Customer, cashier..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-7 text-xs h-8 focus-visible:ring-[#259783]"
+                    className="pl-7 text-xs h-8 focus-visible:ring-[#1c6a1e]"
                   />
                 </div>
               </div>
@@ -386,7 +386,7 @@ export function SalesReport() {
                   <Button 
                     onClick={fetchSales} 
                     size="sm"
-                    className="flex-1 h-8 bg-[#259783] hover:bg-[#45d827] text-white font-semibold text-xs px-2"
+                    className="flex-1 h-8 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white font-semibold text-xs px-2"
                   >
                     Apply
                   </Button>
@@ -409,7 +409,7 @@ export function SalesReport() {
 
       {/* Compact Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <Card className="bg-gradient-to-br from-[#259783] to-[#45d827] border-0 shadow-md shadow-[#259783]/20">
+        <Card className="bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] border-0 shadow-md shadow-[#1c6a1e]/20">
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
               <div className="flex-1 min-w-0">
@@ -431,8 +431,8 @@ export function SalesReport() {
                 <p className="text-base font-black text-slate-900 dark:text-white">{sales.length}</p>
                 <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5">Avg: {formatPrice(averageSale)}</p>
               </div>
-              <div className="w-8 h-8 rounded-lg bg-[#259783]/10 flex items-center justify-center flex-shrink-0 ml-2">
-                <ShoppingCart className="w-4 h-4 text-[#259783]" />
+              <div className="w-8 h-8 rounded-lg bg-[#1c6a1e]/10 flex items-center justify-center flex-shrink-0 ml-2">
+                <ShoppingCart className="w-4 h-4 text-[#1c6a1e]" />
               </div>
             </div>
           </CardContent>
@@ -478,7 +478,7 @@ export function SalesReport() {
           <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18] lg:col-span-2">
             <CardContent className="p-3">
               <div className="flex items-center gap-2 mb-3">
-                <BarChart3 className="w-4 h-4 text-[#259783]" />
+                <BarChart3 className="w-4 h-4 text-[#1c6a1e]" />
                 <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Daily Sales Trend</h3>
               </div>
               <div className="flex items-end gap-1.5 h-24">
@@ -492,7 +492,7 @@ export function SalesReport() {
                         <div
                           className={`w-full rounded-t transition-all ${
                             isToday 
-                              ? 'bg-gradient-to-t from-[#259783] to-[#45d827]' 
+                              ? 'bg-gradient-to-t from-[#1c6a1e] to-[#2a8a30]' 
                               : 'bg-gradient-to-t from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-500'
                           }`}
                           style={{ height: `${Math.max(heightPercent, 5)}%` }}
@@ -517,7 +517,7 @@ export function SalesReport() {
         <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18]">
           <CardContent className="p-3">
             <div className="flex items-center gap-2 mb-3">
-              <PieChart className="w-4 h-4 text-[#259783]" />
+              <PieChart className="w-4 h-4 text-[#1c6a1e]" />
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Payment Methods</h3>
             </div>
             <div className="space-y-2">
@@ -560,7 +560,7 @@ export function SalesReport() {
         <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18]">
           <CardContent className="p-3">
             <div className="flex items-center gap-2 mb-3">
-              <Award className="w-4 h-4 text-[#259783]" />
+              <Award className="w-4 h-4 text-[#1c6a1e]" />
               <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Top Cashiers</h3>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
@@ -585,7 +585,7 @@ export function SalesReport() {
                   <p className="text-[10px] text-slate-600 dark:text-slate-400 mb-0.5">
                     {cashier.count} sales
                   </p>
-                  <p className="text-xs font-bold text-[#259783]">
+                  <p className="text-xs font-bold text-[#1c6a1e]">
                     {formatPrice(cashier.total)}
                   </p>
                 </div>
@@ -618,7 +618,7 @@ export function SalesReport() {
                 </p>
               </div>
               <table className="w-full">
-                <thead className="bg-[#259783]">
+                <thead className="bg-[#1c6a1e]">
                   <tr>
                     <th className="text-left p-2.5 text-xs font-semibold text-white">Date</th>
                     <th className="text-left p-2.5 text-xs font-semibold text-white">Cashier</th>
@@ -641,7 +641,7 @@ export function SalesReport() {
                       </td>
                       <td className="p-2.5 text-xs text-slate-900 dark:text-slate-100">
                         <div className="flex items-center gap-1.5">
-                          <Package className="w-3 h-3 text-[#259783]" />
+                          <Package className="w-3 h-3 text-[#1c6a1e]" />
                           <span className="font-medium">{sale.items_count}</span>
                         </div>
                       </td>
@@ -670,7 +670,7 @@ export function SalesReport() {
       {/* Sale Items Drawer */}
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="left">
         <DrawerContent className="!w-full sm:!w-[500px] md:!w-[600px] !max-w-none h-full max-h-screen">
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-[#1c6a1e]/10 to-blue-50 dark:from-[#1c6a1e]/20 dark:to-blue-950/20">
             <div className="flex items-center justify-between pr-8">
               <div>
                 <DrawerTitle className="text-xs font-bold text-slate-900 dark:text-white">
@@ -697,7 +697,7 @@ export function SalesReport() {
             {loadingItems ? (
               <div className="flex items-center justify-center h-64">
                 <div className="text-center space-y-3">
-                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#259783]" />
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-[#1c6a1e]" />
                   <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium">Loading items...</p>
                 </div>
               </div>
@@ -710,8 +710,8 @@ export function SalesReport() {
                   >
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex items-start gap-2 flex-1 min-w-0">
-                        <div className="flex-shrink-0 w-5 h-5 rounded bg-[#259783]/10 flex items-center justify-center">
-                          <span className="text-[10px] font-bold text-[#259783]">{index + 1}</span>
+                        <div className="flex-shrink-0 w-5 h-5 rounded bg-[#1c6a1e]/10 flex items-center justify-center">
+                          <span className="text-[10px] font-bold text-[#1c6a1e]">{index + 1}</span>
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-slate-900 dark:text-white text-[10px] mb-0.5">
@@ -758,7 +758,7 @@ export function SalesReport() {
                       </div>
                       <div className="flex items-center justify-between text-[10px] pt-1.5">
                         <span className="font-semibold text-slate-900 dark:text-white">Total Amount:</span>
-                        <span className="font-black text-[#259783] text-[10px]">
+                        <span className="font-black text-[#1c6a1e] text-[10px]">
                           {formatPrice(selectedSale.sale.total_amount)}
                         </span>
                       </div>

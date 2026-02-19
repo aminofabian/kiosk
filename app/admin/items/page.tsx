@@ -59,6 +59,7 @@ export function ItemsManager() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [shopTypeFilter, setShopTypeFilter] = useState<'all' | 'retail' | 'grocery'>('all');
+  const [showDeletedItems, setShowDeletedItems] = useState(false);
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'stock'>('name');
   const [selectedItem, setSelectedItem] = useState<ItemWithCategory | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -84,8 +85,9 @@ export function ItemsManager() {
   const fetchItems = async (background = false) => {
     try {
       if (!background) setLoading(true);
+      const includeInactive = showDeletedItems ? '&includeInactive=true' : '';
       const [itemsRes, categoriesRes] = await Promise.all([
-        fetch('/api/items?all=true', { cache: 'no-store' }),
+        fetch(`/api/items?all=true${includeInactive}`, { cache: 'no-store' }),
         fetch('/api/categories', { cache: 'no-store' }),
       ]);
 
@@ -163,7 +165,7 @@ export function ItemsManager() {
 
   useEffect(() => {
     fetchItems();
-  }, []);
+  }, [showDeletedItems]);
 
   const formatPrice = (price: number) => {
     return `KES ${price.toFixed(0)}`;
@@ -183,15 +185,17 @@ export function ItemsManager() {
     return items
       .filter((item) => {
         if (searchQuery) {
-          const query = searchQuery.toLowerCase();
+          const query = searchQuery.toLowerCase().trim();
           const matchesQuery = 
             item.name.toLowerCase().includes(query) ||
             item.category_name?.toLowerCase().includes(query) ||
             item.variant_name?.toLowerCase().includes(query) ||
+            (item.barcode && item.barcode.toLowerCase().includes(query)) ||
             // Also check variants for parent items
             item.variants?.some(v => 
               v.name.toLowerCase().includes(query) || 
-              v.variant_name?.toLowerCase().includes(query)
+              v.variant_name?.toLowerCase().includes(query) ||
+              (v.barcode && v.barcode.toLowerCase().includes(query))
             );
           if (!matchesQuery) {
             return false;
@@ -524,7 +528,7 @@ export function ItemsManager() {
                 </div>
               </div>
               <Button
-                className="bg-[#259783] hover:bg-[#45d827] text-white font-semibold shadow-lg shadow-[#259783]/20"
+                className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white font-semibold shadow-lg shadow-[#1c6a1e]/20"
                 onClick={() => {
                   setEditingItem(null);
                   setSelectedItem(null);
@@ -569,10 +573,10 @@ export function ItemsManager() {
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                       <Input
-                        placeholder="Search items..."
+                        placeholder="Search by name, barcode..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9 h-11 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-[#259783]"
+                        className="pl-9 h-11 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-[#1c6a1e]"
                       />
                     </div>
 
@@ -583,7 +587,7 @@ export function ItemsManager() {
                         variant={shopTypeFilter === 'all' ? 'default' : 'outline'}
                         className={`h-10 flex-1 ${
                           shopTypeFilter === 'all'
-                            ? 'bg-[#259783] hover:bg-[#45d827] text-white'
+                            ? 'bg-[#1c6a1e] hover:bg-[#2a8a30] text-white'
                             : 'bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800'
                         }`}
                         onClick={() => setShopTypeFilter('all')}
@@ -595,7 +599,7 @@ export function ItemsManager() {
                         variant={shopTypeFilter === 'grocery' ? 'default' : 'outline'}
                         className={`h-10 flex-1 ${
                           shopTypeFilter === 'grocery'
-                            ? 'bg-[#259783] hover:bg-[#45d827] text-white'
+                            ? 'bg-[#1c6a1e] hover:bg-[#2a8a30] text-white'
                             : 'bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800'
                         }`}
                         onClick={() => setShopTypeFilter('grocery')}
@@ -608,7 +612,7 @@ export function ItemsManager() {
                         variant={shopTypeFilter === 'retail' ? 'default' : 'outline'}
                         className={`h-10 flex-1 ${
                           shopTypeFilter === 'retail'
-                            ? 'bg-[#259783] hover:bg-[#45d827] text-white'
+                            ? 'bg-[#1c6a1e] hover:bg-[#2a8a30] text-white'
                             : 'bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800'
                         }`}
                         onClick={() => setShopTypeFilter('retail')}
@@ -616,6 +620,19 @@ export function ItemsManager() {
                         <Store className="h-4 w-4 mr-1.5" />
                         Retail
                       </Button>
+                    </div>
+
+                    {/* Show deleted items */}
+                    <div className="flex items-center gap-2">
+                      <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-600 dark:text-slate-400">
+                        <input
+                          type="checkbox"
+                          checked={showDeletedItems}
+                          onChange={(e) => setShowDeletedItems(e.target.checked)}
+                          className="rounded border-slate-300 text-[#1c6a1e] focus:ring-[#1c6a1e]"
+                        />
+                        Show deleted items
+                      </label>
                     </div>
 
                     {/* Filters Row */}
@@ -640,7 +657,7 @@ export function ItemsManager() {
                         <Button
                           type="button"
                           variant="outline"
-                          className="h-10 shrink-0 bg-[#259783]/10 hover:bg-[#259783]/20 border-[#259783] text-[#259783] font-medium"
+                          className="h-10 shrink-0 bg-[#1c6a1e]/10 hover:bg-[#1c6a1e]/20 border-[#1c6a1e] text-[#1c6a1e] font-medium"
                           onClick={() => {
                             setEditingCategory(null);
                             setCategoryDrawerOpen(true);
@@ -675,6 +692,11 @@ export function ItemsManager() {
                         <div className="text-center py-8">
                           <Package className="h-10 w-10 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
                           <p className="text-sm text-slate-500">No items found</p>
+                          {(searchQuery || selectedCategory !== 'all' || shopTypeFilter !== 'all') && (
+                            <p className="text-xs text-slate-400 mt-2">
+                              Try &quot;All Items&quot;, &quot;All Categories&quot;, or search by barcode (e.g. 6161100100107)
+                            </p>
+                          )}
                         </div>
                       ) : (
                         filteredItems.map((item) => {
@@ -689,7 +711,7 @@ export function ItemsManager() {
                                 className={`w-full rounded-xl transition-all border-l-4 ${
                                   item.isParent
                                     ? `p-4 ${isSelected ? 'bg-purple-100/80 dark:bg-purple-900/30 ring-2 ring-purple-500' : 'bg-purple-50/80 dark:bg-purple-900/20 hover:bg-purple-100/80 dark:hover:bg-purple-900/30 border-l-purple-500'}`
-                                    : `p-3 ${isSelected ? 'bg-[#259783]/10 ring-2 ring-[#259783]' : 'bg-slate-50 dark:bg-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-800/50'} border-l-transparent`
+                                    : `p-3 ${isSelected ? 'bg-[#1c6a1e]/10 ring-2 ring-[#1c6a1e]' : 'bg-slate-50 dark:bg-slate-800/30 hover:bg-slate-100 dark:hover:bg-slate-800/50'} border-l-transparent`
                                 } ${isLow && !item.isParent ? '!border-l-orange-500' : ''}`}
                               >
                                 <div className="flex items-start justify-between gap-2">
@@ -729,7 +751,7 @@ export function ItemsManager() {
                                       </div>
                                       {!item.isParent && (
                                         <div className="flex items-center gap-2 mt-1">
-                                          <span className="text-xs font-medium text-[#259783]">
+                                          <span className="text-xs font-medium text-[#1c6a1e]">
                                             {formatPrice(item.current_sell_price)}
                                           </span>
                                           <span className="text-xs text-slate-400">•</span>
@@ -746,13 +768,18 @@ export function ItemsManager() {
                                     </div>
                                   </button>
                                   <div className="flex items-center gap-2 shrink-0">
+                                    {item.active === 0 && (
+                                      <Badge variant="outline" className="text-xs border-red-300 text-red-600 dark:border-red-800 dark:text-red-400">
+                                        Deleted
+                                      </Badge>
+                                    )}
                                     {isLow && !item.isParent && (
                                       <Badge variant="destructive" className="text-xs bg-orange-500">
                                         Low
                                       </Badge>
                                     )}
                                     {isSelected && (
-                                      <ChevronRight className="w-4 h-4 text-[#259783]" />
+                                      <ChevronRight className="w-4 h-4 text-[#1c6a1e]" />
                                     )}
                                     {!isCashier && (
                                       <>
@@ -823,7 +850,7 @@ export function ItemsManager() {
                                               {variant.variant_name || variant.name}
                                             </p>
                                             <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                              <span className="text-xs font-medium text-[#259783]">
+                                              <span className="text-xs font-medium text-[#1c6a1e]">
                                                 {formatPrice(variant.current_sell_price)}
                                               </span>
                                               <span className="text-xs text-slate-400">•</span>
@@ -835,6 +862,11 @@ export function ItemsManager() {
                                             </div>
                                           </button>
                                           <div className="flex items-center gap-2 shrink-0">
+                                            {variant.active === 0 && (
+                                              <Badge variant="outline" className="text-xs border-red-300 text-red-600 dark:border-red-800 dark:text-red-400">
+                                                Deleted
+                                              </Badge>
+                                            )}
                                             {variantIsLow && (
                                               <Badge variant="destructive" className="text-xs bg-orange-500">
                                                 Low
@@ -1045,7 +1077,7 @@ export function ItemsManager() {
                                   </Button>
                                   <Button
                                     onClick={handleEditClick}
-                                    className="bg-[#259783] hover:bg-[#45d827] text-white"
+                                    className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
                                   >
                                     <Edit className="h-4 w-4" />
                                   </Button>
@@ -1071,7 +1103,7 @@ export function ItemsManager() {
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                               <div className="bg-slate-50 dark:bg-slate-800/30 rounded-xl p-4">
                                 <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Selling Price</p>
-                                <p className="text-xl font-bold text-[#259783]">
+                                <p className="text-xl font-bold text-[#1c6a1e]">
                                   {formatPrice(selectedItem.current_sell_price)}
                                 </p>
                               </div>
@@ -1100,7 +1132,7 @@ export function ItemsManager() {
                                 ) : isLowStock(selectedItem) ? (
                                   <Badge className="bg-orange-500 hover:bg-orange-600 mt-1">Low Stock</Badge>
                                 ) : (
-                                  <Badge className="bg-[#259783] hover:bg-[#45d827] text-white mt-1">In Stock</Badge>
+                                  <Badge className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white mt-1">In Stock</Badge>
                                 )}
                               </div>
                             </div>
@@ -1133,7 +1165,7 @@ export function ItemsManager() {
                                 <>
                                   <Button
                                     onClick={handleEditClick}
-                                    className="flex-1 min-w-[100px] bg-[#259783] hover:bg-[#45d827] text-white"
+                                    className="flex-1 min-w-[100px] bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
                                   >
                                     <Edit className="h-4 w-4 mr-2" />
                                     Edit Item
@@ -1190,7 +1222,7 @@ export function ItemsManager() {
           }
         }} direction="right">
           <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen">
-            <DrawerHeader className="border-b bg-gradient-to-r from-purple-500/10 to-[#259783]/10">
+            <DrawerHeader className="border-b bg-gradient-to-r from-purple-500/10 to-[#1c6a1e]/10">
               <DrawerTitle className="flex items-center gap-2">
                 {addingVariantToParent ? (
                   <>
@@ -1302,7 +1334,7 @@ export function ItemsManager() {
         {/* Category Form Drawer */}
         <Drawer open={categoryDrawerOpen} onOpenChange={setCategoryDrawerOpen} direction="right">
           <DrawerContent className="!w-full sm:!w-[500px] md:!w-[600px] !max-w-none h-full max-h-screen">
-            <DrawerHeader className="border-b bg-gradient-to-r from-blue-500/10 to-[#259783]/10">
+            <DrawerHeader className="border-b bg-gradient-to-r from-blue-500/10 to-[#1c6a1e]/10">
               <DrawerTitle className="flex items-center gap-2">
                 <FolderTree className="w-5 h-5 text-blue-500" />
                 {editingCategory ? `Edit: ${editingCategory.name}` : 'Add Categories'}

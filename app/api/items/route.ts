@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const categoryId = searchParams.get('categoryId');
     const all = searchParams.get('all') === 'true';
+    const includeInactive = searchParams.get('includeInactive') === 'true';
     const search = searchParams.get('search');
     const parentsOnly = searchParams.get('parentsOnly') === 'true';
     const parentId = searchParams.get('parentId'); // Get variants of a specific parent
@@ -28,6 +29,9 @@ export async function GET(request: NextRequest) {
     const itemType = searchParams.get('itemType'); // 'grocery' | 'retail' - filter by item type
 
     const itemTypeFilter = itemType === 'grocery' || itemType === 'retail' ? ` AND item_type = '${itemType}'` : '';
+    // When includeInactive=true (admin "show deleted"), include soft-deleted items
+    const activeFilter = includeInactive && all ? '' : ' AND active = 1';
+    const iActiveFilter = includeInactive && all ? '' : ' AND i.active = 1';
 
     let items: Item[];
 
@@ -171,18 +175,19 @@ export async function GET(request: NextRequest) {
         // Only parent items (no parent_item_id) - for admin management
         items = await query<Item>(
           `SELECT * FROM items 
-           WHERE business_id = ? AND active = 1 AND parent_item_id IS NULL${itemTypeFilter}
+           WHERE business_id = ?${activeFilter} AND parent_item_id IS NULL${itemTypeFilter}
            ORDER BY name ASC`,
           [auth.businessId]
         );
       } else if (sellableOnly) {
         // Only sellable items (variants OR standalone items without variants)
+        const variantActiveFilter = includeInactive ? '' : ' AND v.active = 1';
         items = await query<Item>(
           `SELECT i.* FROM items i
-           WHERE i.business_id = ? AND i.active = 1${itemTypeFilter.replace(' AND ', ' AND i.')}
+           WHERE i.business_id = ?${iActiveFilter}${itemTypeFilter.replace(' AND ', ' AND i.')}
            AND (
              i.parent_item_id IS NOT NULL  -- variants are sellable
-             OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1)  -- standalone items without variants
+             OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id${variantActiveFilter})  -- standalone items without variants
            )
            ORDER BY i.name ASC`,
           [auth.businessId]
@@ -190,7 +195,7 @@ export async function GET(request: NextRequest) {
       } else {
         items = await query<Item>(
           `SELECT * FROM items 
-           WHERE business_id = ? AND active = 1${itemTypeFilter}
+           WHERE business_id = ?${activeFilter}${itemTypeFilter}
            ORDER BY name ASC`,
           [auth.businessId]
         );

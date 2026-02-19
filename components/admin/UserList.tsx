@@ -96,7 +96,7 @@ export function UserList({ onAddUser, onEditUser }: UserListProps) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center space-y-3">
-          <div className="w-12 h-12 mx-auto border-4 border-[#259783]/20 border-t-[#259783] rounded-full animate-spin"></div>
+          <div className="w-12 h-12 mx-auto border-4 border-[#1c6a1e]/20 border-t-[#1c6a1e] rounded-full animate-spin"></div>
           <p className="text-slate-600 dark:text-slate-400 font-medium">Loading users...</p>
         </div>
       </div>
@@ -122,7 +122,7 @@ export function UserList({ onAddUser, onEditUser }: UserListProps) {
         </div>
         <Button 
           onClick={onAddUser}
-          className="bg-[#259783] hover:bg-[#45d827] text-white font-semibold shadow-md shadow-[#259783]/20"
+          className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white font-semibold shadow-md shadow-[#1c6a1e]/20"
         >
           <Plus className="h-4 w-4 mr-2" />
           Add User
@@ -137,8 +137,8 @@ export function UserList({ onAddUser, onEditUser }: UserListProps) {
           >
             <CardContent className="flex items-center justify-between p-5">
               <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-full bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center">
-                  <User className="h-6 w-6 text-[#259783] dark:text-[#259783]" />
+                <div className="h-12 w-12 rounded-full bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center">
+                  <User className="h-6 w-6 text-[#1c6a1e] dark:text-[#1c6a1e]" />
                 </div>
                 <div>
                   <div className="font-semibold flex items-center gap-2 text-slate-900 dark:text-white">
@@ -165,7 +165,7 @@ export function UserList({ onAddUser, onEditUser }: UserListProps) {
                     variant="outline"
                     size="sm"
                     onClick={() => onEditUser(user)}
-                    className="hover:bg-[#259783]/10 hover:border-[#259783] hover:text-[#259783]"
+                    className="hover:bg-[#1c6a1e]/10 hover:border-[#1c6a1e] hover:text-[#1c6a1e]"
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>
@@ -191,8 +191,8 @@ export function UserList({ onAddUser, onEditUser }: UserListProps) {
         {users.length === 0 && (
           <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18]">
             <CardContent className="text-center py-12">
-              <div className="w-16 h-16 mx-auto rounded-full bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center mb-4">
-                <User className="w-8 h-8 text-[#259783]" />
+              <div className="w-16 h-16 mx-auto rounded-full bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center mb-4">
+                <User className="w-8 h-8 text-[#1c6a1e]" />
               </div>
               <p className="text-slate-600 dark:text-slate-400 font-medium">No users found. Add your first team member!</p>
             </CardContent>

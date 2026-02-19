@@ -141,7 +141,7 @@ export function CreditForm({
                     onClick={() => selectAccount(acc.id)}
                     className={`w-full text-left p-3 rounded-lg border-2 transition-colors touch-target ${
                       creditAccountId === acc.id
-                        ? 'border-[#259783] bg-[#259783]/10'
+                        ? 'border-[#1c6a1e] bg-[#1c6a1e]/10'
                         : 'border-transparent hover:bg-muted'
                     }`}
                   >
@@ -149,7 +149,7 @@ export function CreditForm({
                     {acc.customer_phone && (
                       <div className="text-xs text-muted-foreground">{acc.customer_phone}</div>
                     )}
-                    <div className="text-sm font-semibold text-[#259783] mt-0.5">
+                    <div className="text-sm font-semibold text-[#1c6a1e] mt-0.5">
                       Balance: {formatPrice(acc.total_credit)}
                     </div>
                   </button>

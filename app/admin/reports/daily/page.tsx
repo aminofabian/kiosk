@@ -342,8 +342,8 @@ export default function DailyReportPage() {
     .text-emerald-100 { color: #d1fae5; } .text-emerald-200 { color: #a7f3d0; }
     .text-purple-100 { color: #ede9fe; } .text-purple-200 { color: #ddd6fe; }
     .text-amber-100 { color: #fef3c7; } .text-amber-200 { color: #fde68a; }
-    .text-\\[\\#259783\\] { color: #259783; }
-    .bg-\\[\\#259783\\] { background-color: #259783; }
+    .text-\\[\\#1c6a1e\\] { color: #1c6a1e; }
+    .bg-\\[\\#1c6a1e\\] { background-color: #1c6a1e; }
     .shadow-sm { box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
     .shadow-lg { box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     table { border-collapse: collapse; width: 100%; }
@@ -351,12 +351,12 @@ export default function DailyReportPage() {
     svg { display: inline-block; vertical-align: middle; }
     .sticky { position: static !important; }
     /* Bar chart in print */
-    .bg-\\[\\#259783\\] { background-color: #259783; }
+    .bg-\\[\\#1c6a1e\\] { background-color: #1c6a1e; }
     .bg-indigo-500 { background-color: #6366f1; }
     .bg-gradient-to-r.from-green-400.to-emerald-500 { background: linear-gradient(to right, #4ade80, #10b981); }
     .bg-gradient-to-r.from-blue-400.to-indigo-500 { background: linear-gradient(to right, #60a5fa, #6366f1); }
     .bg-gradient-to-r.from-purple-400.to-indigo-500 { background: linear-gradient(to right, #a78bfa, #6366f1); }
-    .border-\\[\\#259783\\]\\/30 { border-color: rgba(37,151,131,0.3); }
+    .border-\\[\\#1c6a1e\\]\\/30 { border-color: rgba(37,151,131,0.3); }
     /* Page breaks */
     .print\\:break-inside-avoid { break-inside: avoid; }
     /* max-w on category name */
@@ -435,7 +435,7 @@ export default function DailyReportPage() {
       font-size: 12px; color: #1e293b; background: white; line-height: 1.7;
       -webkit-print-color-adjust: exact; print-color-adjust: exact;
     }
-    .header { border-bottom: 2px solid #259783; padding-bottom: 12px; margin-bottom: 20px; }
+    .header { border-bottom: 2px solid #1c6a1e; padding-bottom: 12px; margin-bottom: 20px; }
     .header h1 { font-size: 22px; font-weight: 900; color: #0f172a; margin-bottom: 4px; }
     .header p { font-size: 11px; color: #64748b; }
     .badge { display: inline-block; background: #ecfdf5; color: #059669; padding: 2px 10px; border-radius: 20px; font-size: 10px; font-weight: 600; }
@@ -487,7 +487,7 @@ export default function DailyReportPage() {
       <AdminLayout>
         <div className="flex items-center justify-center h-screen print:hidden">
           <div className="text-center space-y-4">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#259783]" />
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#1c6a1e]" />
             <p className="text-slate-500 dark:text-slate-400">Generating report...</p>
           </div>
         </div>
@@ -743,7 +743,7 @@ export default function DailyReportPage() {
           <Card className="border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm print:shadow-none print:break-inside-avoid">
             <CardContent className="p-3.5 sm:p-5">
               <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                <BarChart3 className="w-4 h-4 text-[#259783]" />
+                <BarChart3 className="w-4 h-4 text-[#1c6a1e]" />
                 <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
                   {data.hourlyData.length > 0 ? 'Hourly Sales' : 'Daily Sales'}
                 </h3>
@@ -752,7 +752,7 @@ export default function DailyReportPage() {
                 <BarChart
                   data={data.hourlyData.map(h => ({ label: `${h.hour}h`, value: h.revenue }))}
                   maxValue={maxHourly}
-                  color="bg-[#259783]"
+                  color="bg-[#1c6a1e]"
                 />
               ) : data.dailyData.length > 0 ? (
                 <BarChart
@@ -771,7 +771,7 @@ export default function DailyReportPage() {
             <Card className="border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm print:shadow-none print:break-inside-avoid">
               <CardContent className="p-3.5 sm:p-5">
                 <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                  <Banknote className="w-4 h-4 text-[#259783]" />
+                  <Banknote className="w-4 h-4 text-[#1c6a1e]" />
                   <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Payment Methods</h3>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
@@ -1042,7 +1042,7 @@ export default function DailyReportPage() {
             <Card className="border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm print:shadow-none print:break-inside-avoid">
               <CardContent className="p-3.5 sm:p-5">
                 <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                  <UserCheck className="w-4 h-4 text-[#259783]" />
+                  <UserCheck className="w-4 h-4 text-[#1c6a1e]" />
                   <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Staff Performance</h3>
                 </div>
                 <div className="overflow-x-auto">
@@ -1131,10 +1131,10 @@ export default function DailyReportPage() {
           </div>
 
           {/* ═══════ 10. NET PROFIT SUMMARY ═══════ */}
-          <Card className="border-2 border-[#259783]/30 dark:border-[#259783]/20 rounded-xl shadow-sm bg-gradient-to-br from-emerald-50/50 via-white to-white dark:from-emerald-950/20 dark:via-[#0f1a0d] dark:to-[#0f1a0d] print:shadow-none print:break-inside-avoid">
+          <Card className="border-2 border-[#1c6a1e]/30 dark:border-[#1c6a1e]/20 rounded-xl shadow-sm bg-gradient-to-br from-emerald-50/50 via-white to-white dark:from-emerald-950/20 dark:via-[#0f1a0d] dark:to-[#0f1a0d] print:shadow-none print:break-inside-avoid">
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-[#259783] flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-[#1c6a1e] flex items-center justify-center">
                   <TrendingUp className="w-4 h-4 text-white" />
                 </div>
                 <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white">Net Profit Summary</h3>
@@ -1152,8 +1152,8 @@ export default function DailyReportPage() {
                   <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">- Expenses</p>
                   <p className="text-base sm:text-xl font-bold text-slate-700 dark:text-slate-300">{fmtPrice(data.expensesSummary.total_expenses)}</p>
                 </div>
-                <div className="border-l-2 border-[#259783]/30 pl-3">
-                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-[#259783] font-semibold mb-0.5">Net Result</p>
+                <div className="border-l-2 border-[#1c6a1e]/30 pl-3">
+                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-[#1c6a1e] font-semibold mb-0.5">Net Result</p>
                   <p className={`text-base sm:text-xl font-black ${
                     s.totalRevenue - data.supplierSummary.total_amount - data.expensesSummary.total_expenses >= 0
                       ? 'text-emerald-700 dark:text-emerald-400'

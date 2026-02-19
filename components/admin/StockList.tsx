@@ -28,10 +28,10 @@ const TREND_CONFIG = {
     label: 'Growing', 
     shortLabel: '↑',
     icon: TrendingUp, 
-    color: 'text-[#259783]', 
-    bg: 'bg-[#259783]/10 dark:bg-[#259783]/20',
-    ring: 'ring-[#259783]/20',
-    gradient: 'from-[#259783] to-[#45d827]',
+    color: 'text-[#1c6a1e]', 
+    bg: 'bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20',
+    ring: 'ring-[#1c6a1e]/20',
+    gradient: 'from-[#1c6a1e] to-[#2a8a30]',
   },
   shrinking: { 
     label: 'Shrinking', 
@@ -46,10 +46,10 @@ const TREND_CONFIG = {
     label: 'Stable', 
     shortLabel: '—',
     icon: Minus, 
-    color: 'text-[#259783]', 
-    bg: 'bg-[#259783]/10',
-    ring: 'ring-[#259783]/20',
-    gradient: 'from-[#259783] to-[#45d827]',
+    color: 'text-[#1c6a1e]', 
+    bg: 'bg-[#1c6a1e]/10',
+    ring: 'ring-[#1c6a1e]/20',
+    gradient: 'from-[#1c6a1e] to-[#2a8a30]',
   },
   new: { 
     label: 'New', 
@@ -167,7 +167,7 @@ export function StockList() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 text-[#259783] animate-spin mx-auto mb-2" />
+          <Loader2 className="h-8 w-8 text-[#1c6a1e] animate-spin mx-auto mb-2" />
           <p className="text-sm text-slate-500">Loading stock...</p>
         </div>
       </div>
@@ -189,7 +189,7 @@ export function StockList() {
     <div className="space-y-4">
       {/* Mobile: Summary Cards */}
       <div className="md:hidden grid grid-cols-2 gap-2 mb-3">
-        <div className="relative bg-gradient-to-br from-[#259783] via-[#259783]/95 to-[#259783]/90 rounded-xl px-2.5 py-2 shadow-md shadow-[#259783]/20 border border-white/10 overflow-hidden">
+        <div className="relative bg-gradient-to-br from-[#1c6a1e] via-[#1c6a1e]/95 to-[#1c6a1e]/90 rounded-xl px-2.5 py-2 shadow-md shadow-[#1c6a1e]/20 border border-white/10 overflow-hidden">
           <div className="absolute top-0 right-0 w-12 h-12 bg-white/5 rounded-full -mr-6 -mt-6"></div>
           <p className="text-[9px] font-semibold text-white/80 uppercase tracking-wider mb-1 relative z-10">Initial Stock</p>
           <div className="flex items-baseline gap-1.5 relative z-10">
@@ -204,7 +204,7 @@ export function StockList() {
             </div>
           </div>
         </div>
-        <div className="relative bg-gradient-to-br from-[#45d827] via-[#45d827]/95 to-[#45d827]/90 rounded-xl px-2.5 py-2 shadow-md shadow-[#45d827]/20 border border-white/10 overflow-hidden">
+        <div className="relative bg-gradient-to-br from-[#2a8a30] via-[#2a8a30]/95 to-[#2a8a30]/90 rounded-xl px-2.5 py-2 shadow-md shadow-[#2a8a30]/20 border border-white/10 overflow-hidden">
           <div className="absolute top-0 right-0 w-12 h-12 bg-white/5 rounded-full -mr-6 -mt-6"></div>
           <p className="text-[9px] font-semibold text-white/80 uppercase tracking-wider mb-1 relative z-10">Current Stock</p>
           <div className="flex items-baseline gap-1.5 relative z-10">
@@ -219,14 +219,14 @@ export function StockList() {
             </div>
           </div>
         </div>
-        <div className="relative bg-gradient-to-br from-[#259783]/85 via-[#259783]/80 to-[#259783]/75 rounded-xl px-2.5 py-2 shadow-md shadow-[#259783]/15 border border-white/10 overflow-hidden">
+        <div className="relative bg-gradient-to-br from-[#1c6a1e]/85 via-[#1c6a1e]/80 to-[#1c6a1e]/75 rounded-xl px-2.5 py-2 shadow-md shadow-[#1c6a1e]/15 border border-white/10 overflow-hidden">
           <div className="absolute top-0 right-0 w-12 h-12 bg-white/5 rounded-full -mr-6 -mt-6"></div>
           <p className="text-[9px] font-semibold text-white/80 uppercase tracking-wider mb-1 relative z-10">Initial Sales</p>
           <p className="text-sm font-bold text-white tabular-nums leading-tight drop-shadow-sm relative z-10">
             {formatCurrency(stats.totalInitialSalesValue)}
           </p>
         </div>
-        <div className="relative bg-gradient-to-br from-[#45d827]/85 via-[#45d827]/80 to-[#45d827]/75 rounded-xl px-2.5 py-2 shadow-md shadow-[#45d827]/15 border border-white/10 overflow-hidden">
+        <div className="relative bg-gradient-to-br from-[#2a8a30]/85 via-[#2a8a30]/80 to-[#2a8a30]/75 rounded-xl px-2.5 py-2 shadow-md shadow-[#2a8a30]/15 border border-white/10 overflow-hidden">
           <div className="absolute top-0 right-0 w-12 h-12 bg-white/5 rounded-full -mr-6 -mt-6"></div>
           <p className="text-[9px] font-semibold text-white/80 uppercase tracking-wider mb-1 relative z-10">Current Sales</p>
           <p className="text-sm font-bold text-white tabular-nums leading-tight drop-shadow-sm relative z-10">
@@ -261,8 +261,8 @@ export function StockList() {
           onClick={() => setStockStatus('all')}
           className={`relative flex flex-col items-center justify-center p-2.5 rounded-xl transition-all duration-200 overflow-hidden ${
             stockStatus === 'all'
-              ? 'bg-gradient-to-br from-[#259783] via-[#259783]/95 to-[#45d827] shadow-md shadow-[#259783]/30 border border-white/20'
-              : 'bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/50 hover:border-[#259783]/30'
+              ? 'bg-gradient-to-br from-[#1c6a1e] via-[#1c6a1e]/95 to-[#2a8a30] shadow-md shadow-[#1c6a1e]/30 border border-white/20'
+              : 'bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/50 hover:border-[#1c6a1e]/30'
           }`}
         >
           {stockStatus === 'all' && (
@@ -283,15 +283,15 @@ export function StockList() {
           onClick={() => setStockStatus('in_stock')}
           className={`relative flex flex-col items-center justify-center p-2.5 rounded-xl transition-all duration-200 overflow-hidden ${
             stockStatus === 'in_stock'
-              ? 'bg-gradient-to-br from-[#259783] via-[#259783]/95 to-[#45d827] shadow-md shadow-[#259783]/30 border border-white/20'
-              : 'bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/50 hover:border-[#259783]/30'
+              ? 'bg-gradient-to-br from-[#1c6a1e] via-[#1c6a1e]/95 to-[#2a8a30] shadow-md shadow-[#1c6a1e]/30 border border-white/20'
+              : 'bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/50 hover:border-[#1c6a1e]/30'
           }`}
         >
           {stockStatus === 'in_stock' && (
             <div className="absolute top-0 right-0 w-16 h-16 bg-white/10 rounded-full -mr-8 -mt-8"></div>
           )}
           <span className={`text-xl font-bold tabular-nums relative z-10 drop-shadow-sm ${
-            stockStatus === 'in_stock' ? 'text-white' : 'text-[#259783]'
+            stockStatus === 'in_stock' ? 'text-white' : 'text-[#1c6a1e]'
           }`}>
             {stats.inStock}
           </span>
@@ -350,7 +350,7 @@ export function StockList() {
 
       {/* Desktop: All Stats in One Row */}
       <div className="hidden md:grid grid-cols-4 gap-3 mb-4">
-        <div className="relative bg-gradient-to-br from-[#259783] via-[#259783]/95 to-[#259783]/90 rounded-xl px-4 py-3 shadow-lg shadow-[#259783]/25 border border-white/10 overflow-hidden transition-all hover:shadow-xl hover:shadow-[#259783]/30 hover:scale-[1.02]">
+        <div className="relative bg-gradient-to-br from-[#1c6a1e] via-[#1c6a1e]/95 to-[#1c6a1e]/90 rounded-xl px-4 py-3 shadow-lg shadow-[#1c6a1e]/25 border border-white/10 overflow-hidden transition-all hover:shadow-xl hover:shadow-[#1c6a1e]/30 hover:scale-[1.02]">
           <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10"></div>
           <p className="text-[10px] font-semibold text-white/80 uppercase tracking-wider mb-1.5 relative z-10">Initial Stock</p>
           <div className="flex items-baseline gap-2 relative z-10">
@@ -365,7 +365,7 @@ export function StockList() {
             </div>
           </div>
         </div>
-        <div className="relative bg-gradient-to-br from-[#45d827] via-[#45d827]/95 to-[#45d827]/90 rounded-xl px-4 py-3 shadow-lg shadow-[#45d827]/25 border border-white/10 overflow-hidden transition-all hover:shadow-xl hover:shadow-[#45d827]/30 hover:scale-[1.02]">
+        <div className="relative bg-gradient-to-br from-[#2a8a30] via-[#2a8a30]/95 to-[#2a8a30]/90 rounded-xl px-4 py-3 shadow-lg shadow-[#2a8a30]/25 border border-white/10 overflow-hidden transition-all hover:shadow-xl hover:shadow-[#2a8a30]/30 hover:scale-[1.02]">
           <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10"></div>
           <p className="text-[10px] font-semibold text-white/80 uppercase tracking-wider mb-1.5 relative z-10">Current Stock</p>
           <div className="flex items-baseline gap-2 relative z-10">
@@ -380,14 +380,14 @@ export function StockList() {
             </div>
           </div>
         </div>
-        <div className="relative bg-gradient-to-br from-[#259783]/85 via-[#259783]/80 to-[#259783]/75 rounded-xl px-4 py-3 shadow-lg shadow-[#259783]/20 border border-white/10 overflow-hidden transition-all hover:shadow-xl hover:shadow-[#259783]/25 hover:scale-[1.02]">
+        <div className="relative bg-gradient-to-br from-[#1c6a1e]/85 via-[#1c6a1e]/80 to-[#1c6a1e]/75 rounded-xl px-4 py-3 shadow-lg shadow-[#1c6a1e]/20 border border-white/10 overflow-hidden transition-all hover:shadow-xl hover:shadow-[#1c6a1e]/25 hover:scale-[1.02]">
           <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10"></div>
           <p className="text-[10px] font-semibold text-white/80 uppercase tracking-wider mb-1.5 relative z-10">Initial Sales</p>
           <p className="text-lg font-bold text-white tabular-nums leading-tight drop-shadow-sm relative z-10">
             {formatCurrency(stats.totalInitialSalesValue)}
           </p>
         </div>
-        <div className="relative bg-gradient-to-br from-[#45d827]/85 via-[#45d827]/80 to-[#45d827]/75 rounded-xl px-4 py-3 shadow-lg shadow-[#45d827]/20 border border-white/10 overflow-hidden transition-all hover:shadow-xl hover:shadow-[#45d827]/25 hover:scale-[1.02]">
+        <div className="relative bg-gradient-to-br from-[#2a8a30]/85 via-[#2a8a30]/80 to-[#2a8a30]/75 rounded-xl px-4 py-3 shadow-lg shadow-[#2a8a30]/20 border border-white/10 overflow-hidden transition-all hover:shadow-xl hover:shadow-[#2a8a30]/25 hover:scale-[1.02]">
           <div className="absolute top-0 right-0 w-20 h-20 bg-white/5 rounded-full -mr-10 -mt-10"></div>
           <p className="text-[10px] font-semibold text-white/80 uppercase tracking-wider mb-1.5 relative z-10">Current Sales</p>
           <p className="text-lg font-bold text-white tabular-nums leading-tight drop-shadow-sm relative z-10">
@@ -434,8 +434,8 @@ export function StockList() {
             onClick={() => setStockStatus('all')}
             className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 overflow-hidden ${
               stockStatus === 'all'
-                ? 'bg-[#259783] bg-gradient-to-r from-[#259783] via-[#259783]/95 to-[#45d827] text-white shadow-lg shadow-[#259783]/25 border border-white/20'
-                : 'bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-[#259783]/40 hover:bg-slate-50 dark:hover:bg-slate-800'
+                ? 'bg-[#1c6a1e] bg-gradient-to-r from-[#1c6a1e] via-[#1c6a1e]/95 to-[#2a8a30] text-white shadow-lg shadow-[#1c6a1e]/25 border border-white/20'
+                : 'bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-[#1c6a1e]/40 hover:bg-slate-50 dark:hover:bg-slate-800'
             }`}
           >
             {stockStatus === 'all' && (
@@ -453,17 +453,17 @@ export function StockList() {
             onClick={() => setStockStatus('in_stock')}
             className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 overflow-hidden ${
               stockStatus === 'in_stock'
-                ? 'bg-[#259783] bg-gradient-to-r from-[#259783] via-[#259783]/95 to-[#45d827] text-white shadow-lg shadow-[#259783]/25 border border-white/20'
-                : 'bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-[#259783] hover:border-[#259783]/40 hover:bg-[#259783]/5'
+                ? 'bg-[#1c6a1e] bg-gradient-to-r from-[#1c6a1e] via-[#1c6a1e]/95 to-[#2a8a30] text-white shadow-lg shadow-[#1c6a1e]/25 border border-white/20'
+                : 'bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 text-[#1c6a1e] hover:border-[#1c6a1e]/40 hover:bg-[#1c6a1e]/5'
             }`}
           >
             {stockStatus === 'in_stock' && (
               <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full -mr-10 -mt-10"></div>
             )}
-            <CheckCircle2 className={`w-4 h-4 relative z-10 ${stockStatus === 'in_stock' ? 'text-white' : 'text-[#259783]'}`} />
+            <CheckCircle2 className={`w-4 h-4 relative z-10 ${stockStatus === 'in_stock' ? 'text-white' : 'text-[#1c6a1e]'}`} />
             <span className="relative z-10">In Stock</span>
             <span className={`relative z-10 font-bold tabular-nums ${
-              stockStatus === 'in_stock' ? 'text-white' : 'text-[#259783]'
+              stockStatus === 'in_stock' ? 'text-white' : 'text-[#1c6a1e]'
             }`}>
               ({stats.inStock})
             </span>
@@ -567,7 +567,7 @@ export function StockList() {
                             ? 'bg-slate-300 dark:bg-slate-600'
                             : low
                             ? 'bg-gradient-to-r from-amber-400 to-amber-500'
-                            : 'bg-gradient-to-r from-[#259783] to-[#45d827]'
+                            : 'bg-gradient-to-r from-[#1c6a1e] to-[#2a8a30]'
                         }`}
                         style={{ width: `${stockPercentage}%` }}
                       />
@@ -585,7 +585,7 @@ export function StockList() {
                       </div>
                       <div>
                         <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Sales Value</p>
-                        <p className="text-sm font-semibold text-[#259783]">
+                        <p className="text-sm font-semibold text-[#1c6a1e]">
                           {formatCurrency(item.sales_value || item.current_value || 0)}
                         </p>
                       </div>
@@ -595,7 +595,7 @@ export function StockList() {
                           item.stock_change_percent === null 
                             ? 'text-slate-400' 
                             : item.stock_change_percent >= 0 
-                            ? 'text-[#259783]' 
+                            ? 'text-[#1c6a1e]' 
                             : 'text-rose-500'
                         }`}>
                           {formatChange(item.stock_change_percent)}
@@ -606,7 +606,7 @@ export function StockList() {
                     {/* Trend Badge */}
                     <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
                       isStable
-                        ? 'bg-gradient-to-r from-[#259783]/10 to-[#45d827]/10'
+                        ? 'bg-gradient-to-r from-[#1c6a1e]/10 to-[#2a8a30]/10'
                         : trendConfig.bg
                     }`}>
                       <TrendIcon className={`w-3.5 h-3.5 ${trendConfig.color}`} />
@@ -648,9 +648,9 @@ export function StockList() {
                     return (
                       <tr
                         key={item.id}
-                        className={`border-b border-slate-100 dark:border-slate-800/50 hover:bg-gradient-to-r hover:from-[#259783]/5 hover:to-transparent dark:hover:from-[#259783]/10 dark:hover:to-transparent transition-all ${
+                        className={`border-b border-slate-100 dark:border-slate-800/50 hover:bg-gradient-to-r hover:from-[#1c6a1e]/5 hover:to-transparent dark:hover:from-[#1c6a1e]/10 dark:hover:to-transparent transition-all ${
                           i % 2 === 0 ? 'bg-white dark:bg-[#1c2e18]' : 'bg-slate-50/30 dark:bg-slate-900/20'
-                        } ${isStable ? 'hover:border-l-2 hover:border-l-[#259783]' : ''}`}
+                        } ${isStable ? 'hover:border-l-2 hover:border-l-[#1c6a1e]' : ''}`}
                       >
                         <td className="p-4">
                           <div className="flex items-center gap-3">
@@ -658,7 +658,7 @@ export function StockList() {
                               outOfStock ? 'bg-slate-100 dark:bg-slate-800' 
                               : low ? 'bg-amber-100 dark:bg-amber-900/30' 
                               : isStable
-                              ? 'bg-gradient-to-br from-[#259783] to-[#45d827]'
+                              ? 'bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30]'
                               : trendConfig.bg
                             }`}>
                               {outOfStock || low ? (
@@ -679,7 +679,7 @@ export function StockList() {
                         </td>
                         <td className="p-4 text-center">
                           <span className={`font-bold text-sm ${
-                            outOfStock ? 'text-slate-400 dark:text-slate-500' : low ? 'text-amber-500' : isStable ? 'text-[#259783]' : 'text-slate-900 dark:text-white'
+                            outOfStock ? 'text-slate-400 dark:text-slate-500' : low ? 'text-amber-500' : isStable ? 'text-[#1c6a1e]' : 'text-slate-900 dark:text-white'
                           }`}>
                             {formatStock(item.current_stock, item.unit_type)}
                           </span>
@@ -691,7 +691,7 @@ export function StockList() {
                           </span>
                         </td>
                         <td className="p-4 text-center text-xs">
-                          <span className={`font-bold ${isStable ? 'text-[#259783]' : trendConfig.color}`}>
+                          <span className={`font-bold ${isStable ? 'text-[#1c6a1e]' : trendConfig.color}`}>
                             {formatCurrency(item.sales_value || item.current_value || 0)}
                           </span>
                         </td>
@@ -707,7 +707,7 @@ export function StockList() {
                                 />
                               )}
                             </div>
-                            <span className={`text-xs font-bold w-12 text-right ${isStable ? 'text-[#259783]' : trendConfig.color}`}>
+                            <span className={`text-xs font-bold w-12 text-right ${isStable ? 'text-[#1c6a1e]' : trendConfig.color}`}>
                               {formatChange(item.stock_change_percent)}
                             </span>
                           </div>
@@ -715,7 +715,7 @@ export function StockList() {
                         <td className="p-4 text-center">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-semibold shadow-sm ${
                             isStable
-                              ? 'bg-[#259783] bg-gradient-to-r from-[#259783] to-[#45d827] text-white'
+                              ? 'bg-[#1c6a1e] bg-gradient-to-r from-[#1c6a1e] to-[#2a8a30] text-white'
                               : `${trendConfig.bg} ${trendConfig.color}`
                           }`}>
                             <TrendIcon className="w-3 h-3" />

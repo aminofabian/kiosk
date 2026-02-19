@@ -424,7 +424,7 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                   placeholder="Search items to add or scan barcode..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-11 text-base border-2 focus:border-[#259783]"
+                  className="pl-10 h-11 text-base border-2 focus:border-[#1c6a1e]"
                   data-barcode-enabled="true"
                   autoComplete="off"
                   autoCorrect="off"
@@ -447,7 +447,7 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                     return (
                       <div
                         key={item.id}
-                        className="w-full p-3 rounded-lg border-2 border-slate-200 dark:border-slate-700 hover:border-[#259783] hover:bg-[#259783]/5 dark:hover:bg-[#259783]/10 transition-all group"
+                        className="w-full p-3 rounded-lg border-2 border-slate-200 dark:border-slate-700 hover:border-[#1c6a1e] hover:bg-[#1c6a1e]/5 dark:hover:bg-[#1c6a1e]/10 transition-all group"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <button
@@ -455,7 +455,7 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                             onClick={() => handleAddItem(item)}
                             className="flex-1 min-w-0 text-left"
                           >
-                            <p className="font-semibold truncate text-sm text-slate-900 dark:text-white group-hover:text-[#259783] transition-colors">
+                            <p className="font-semibold truncate text-sm text-slate-900 dark:text-white group-hover:text-[#1c6a1e] transition-colors">
                               {item.name}
                             </p>
                             <div className="flex items-center gap-2 mt-1.5">
@@ -475,10 +475,10 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                             <button
                               type="button"
                               onClick={() => handleAddItem(item)}
-                              className="w-7 h-7 rounded-md bg-[#259783]/10 group-hover:bg-[#259783] flex items-center justify-center transition-colors"
+                              className="w-7 h-7 rounded-md bg-[#1c6a1e]/10 group-hover:bg-[#1c6a1e] flex items-center justify-center transition-colors"
                               title="Add to stock take"
                             >
-                              <Plus className="h-4 w-4 text-[#259783] group-hover:text-white transition-colors" />
+                              <Plus className="h-4 w-4 text-[#1c6a1e] group-hover:text-white transition-colors" />
                             </button>
                             <button
                               type="button"
@@ -565,7 +565,7 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                 <CardHeader className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border-b">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <CardTitle className="flex items-center gap-3 text-xl font-bold">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-md">
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-md">
                         <Package className="h-5 w-5 text-white" />
                       </div>
                       <div>
@@ -694,7 +694,7 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                                   {/* New Stock - Input */}
                                   <div className="space-y-2">
                                     <Label className="text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wide flex items-center gap-2">
-                                      <div className="w-2 h-2 rounded-full bg-[#259783]"></div>
+                                      <div className="w-2 h-2 rounded-full bg-[#1c6a1e]"></div>
                                       New Stock *
                                     </Label>
                                     <div className="space-y-2">
@@ -721,13 +721,13 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                                         }}
                                         placeholder={isDiscrete ? "Enter count" : "Enter new stock count"}
                                         required
-                                        className="h-14 text-lg font-bold border-2 focus:border-[#259783] focus:ring-2 focus:ring-[#259783]/20"
+                                        className="h-14 text-lg font-bold border-2 focus:border-[#1c6a1e] focus:ring-2 focus:ring-[#1c6a1e]/20"
                                       />
                                       <Button
                                         type="button"
                                         variant="outline"
                                         onClick={() => handleCopySystemStock(item.itemId)}
-                                        className="w-full h-10 border-2 hover:bg-[#259783] hover:text-white hover:border-[#259783] transition-colors text-sm font-medium"
+                                        className="w-full h-10 border-2 hover:bg-[#1c6a1e] hover:text-white hover:border-[#1c6a1e] transition-colors text-sm font-medium"
                                         title=""
                                       >
                                         <Copy className="h-4 w-4 mr-2" />
@@ -786,7 +786,7 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                                       })
                                     }
                                   >
-                                    <SelectTrigger className="h-12 text-base font-medium border-2 focus:ring-2 focus:ring-[#259783]/20">
+                                    <SelectTrigger className="h-12 text-base font-medium border-2 focus:ring-2 focus:ring-[#1c6a1e]/20">
                                       <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -811,7 +811,7 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                                       })
                                     }
                                     placeholder="Add notes..."
-                                    className="h-12 text-base border-2 focus:ring-2 focus:ring-[#259783]/20"
+                                    className="h-12 text-base border-2 focus:ring-2 focus:ring-[#1c6a1e]/20"
                                   />
                                 </div>
                               </div>
@@ -848,7 +848,7 @@ export function StockTakeForm(props: StockTakeFormProps = {}) {
                       <Button
                         type="submit"
                         disabled={isSubmitting}
-                        className="flex-1 h-12 bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] hover:from-[#259783]/90 hover:to-[#3bd522]/90 text-white font-bold shadow-lg shadow-[#259783]/30 disabled:opacity-50"
+                        className="flex-1 h-12 bg-[#1c6a1e] bg-gradient-to-r from-[#1c6a1e] to-[#2a8a30] hover:from-[#1c6a1e]/90 hover:to-[#2a8a30]/90 text-white font-bold shadow-lg shadow-[#1c6a1e]/30 disabled:opacity-50"
                       >
                         {isSubmitting ? (
                           <>

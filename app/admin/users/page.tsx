@@ -58,7 +58,7 @@ export default function UsersPage() {
           <div className="px-4 md:px-6 py-4">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#259783] flex items-center justify-center shadow-lg shadow-[#259783]/20">
+                <div className="w-10 h-10 rounded-xl bg-[#1c6a1e] flex items-center justify-center shadow-lg shadow-[#1c6a1e]/20">
                   <Users className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -77,9 +77,9 @@ export default function UsersPage() {
 
         <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
           <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen">
-            <DrawerHeader className="border-b bg-[#259783]/10 dark:bg-[#259783]/20">
+            <DrawerHeader className="border-b bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20">
               <DrawerTitle className="text-2xl flex items-center gap-2 text-slate-900 dark:text-white">
-                <Users className="w-6 h-6 text-[#259783]" />
+                <Users className="w-6 h-6 text-[#1c6a1e]" />
                 {editingUser ? 'Edit User' : 'Add New User'}
               </DrawerTitle>
               <DrawerDescription>

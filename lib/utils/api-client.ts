@@ -73,7 +73,10 @@ export async function apiFetch<T = unknown>(
   url: string,
   options?: RequestInit
 ): Promise<ApiResponse<T>> {
-  const response = await fetch(url, options);
+  const response = await fetch(url, {
+    cache: 'no-store',
+    ...options,
+  });
   const result: ApiResponse<T> = await response.json();
 
   if (isAuthError(response.status, result.message)) {

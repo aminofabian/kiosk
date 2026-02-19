@@ -240,7 +240,7 @@ export function CategoryForm({ category, existingCategories = [], onClose, onSuc
                 placeholder="Category name"
                 required
                 disabled={isLoading}
-                className="h-11 text-base focus-visible:ring-[#259783]"
+                className="h-11 text-base focus-visible:ring-[#1c6a1e]"
               />
             </div>
 
@@ -263,8 +263,8 @@ export function CategoryForm({ category, existingCategories = [], onClose, onSuc
                         className={`text-3xl p-3 rounded-lg border-2 transition-all duration-200
                           hover:scale-110 hover:shadow-md
                           ${formData.icon === emoji 
-                            ? 'border-[#259783] bg-[#259783]/10 scale-105 shadow-sm' 
-                            : 'border-border bg-background hover:border-[#259783]/50'
+                            ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 scale-105 shadow-sm' 
+                            : 'border-border bg-background hover:border-[#1c6a1e]/50'
                           }`}
                       >
                         {emoji}
@@ -282,7 +282,7 @@ export function CategoryForm({ category, existingCategories = [], onClose, onSuc
                 placeholder="🥬 Type or paste an emoji"
                 maxLength={2}
                 disabled={isLoading}
-                className="h-11 text-lg focus-visible:ring-[#259783]"
+                className="h-11 text-lg focus-visible:ring-[#1c6a1e]"
               />
             </div>
 
@@ -294,7 +294,7 @@ export function CategoryForm({ category, existingCategories = [], onClose, onSuc
                 id="active"
                 checked={formData.active === 1}
                 onChange={(e) => setFormData(prev => ({ ...prev, active: e.target.checked ? 1 : 0 }))}
-                className="h-5 w-5 rounded border-gray-300 text-[#259783] focus:ring-[#259783]"
+                className="h-5 w-5 rounded border-gray-300 text-[#1c6a1e] focus:ring-[#1c6a1e]"
                 disabled={isLoading}
               />
               <Label htmlFor="active" className="text-base font-medium cursor-pointer">
@@ -317,7 +317,7 @@ export function CategoryForm({ category, existingCategories = [], onClose, onSuc
               </Button>
               <Button
                 type="submit"
-                className="flex-1 h-11 bg-[#259783] hover:bg-[#45d827] text-white font-semibold"
+                className="flex-1 h-11 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white font-semibold"
                 disabled={isLoading}
               >
                 {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Updating...</> : 'Update Category'}
@@ -352,14 +352,14 @@ export function CategoryForm({ category, existingCategories = [], onClose, onSuc
                   className={`
                     relative p-4 rounded-lg border-2 transition-all duration-200
                     text-left group hover:shadow-md
-                    border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50
+                    border-border bg-card hover:border-[#1c6a1e]/50 hover:bg-accent/50
                     ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                   `}
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-3xl">{emoji}</span>
                     <span className="font-medium text-sm flex-1">{cat}</span>
-                    <Plus className="h-4 w-4 text-muted-foreground group-hover:text-[#259783]" />
+                    <Plus className="h-4 w-4 text-muted-foreground group-hover:text-[#1c6a1e]" />
                   </div>
                 </button>
               );
@@ -387,14 +387,14 @@ export function CategoryForm({ category, existingCategories = [], onClose, onSuc
               placeholder="📦"
               maxLength={2}
               disabled={isLoading}
-              className="w-16 h-11 text-xl text-center focus-visible:ring-[#259783]"
+              className="w-16 h-11 text-xl text-center focus-visible:ring-[#1c6a1e]"
             />
             <Input
               value={customName}
               onChange={(e) => setCustomName(e.target.value)}
               placeholder="Enter custom category name"
               disabled={isLoading}
-              className="flex-1 h-11 focus-visible:ring-[#259783]"
+              className="flex-1 h-11 focus-visible:ring-[#1c6a1e]"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
@@ -406,7 +406,7 @@ export function CategoryForm({ category, existingCategories = [], onClose, onSuc
               type="button"
               onClick={addCustomCategory}
               disabled={isLoading || !customName.trim()}
-              className="h-11 bg-[#259783] hover:bg-[#45d827] text-white"
+              className="h-11 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
             >
               <Plus className="h-4 w-4" />
             </Button>
@@ -435,17 +435,17 @@ export function CategoryForm({ category, existingCategories = [], onClose, onSuc
               {pendingCategories.map((cat) => (
                 <div
                   key={cat.id}
-                  className="flex items-center gap-3 p-3 rounded-lg bg-[#259783]/5 border border-[#259783]/20"
+                  className="flex items-center gap-3 p-3 rounded-lg bg-[#1c6a1e]/5 border border-[#1c6a1e]/20"
                 >
                   <Input
                     value={cat.icon}
                     onChange={(e) => updatePendingIcon(cat.id, e.target.value)}
                     maxLength={2}
                     disabled={isLoading}
-                    className="w-14 h-10 text-xl text-center border-[#259783]/30"
+                    className="w-14 h-10 text-xl text-center border-[#1c6a1e]/30"
                   />
                   <span className="flex-1 font-medium">{cat.name}</span>
-                  <Check className="h-4 w-4 text-[#259783]" />
+                  <Check className="h-4 w-4 text-[#1c6a1e]" />
                   <Button
                     type="button"
                     variant="ghost"
@@ -469,7 +469,7 @@ export function CategoryForm({ category, existingCategories = [], onClose, onSuc
         )}
 
         {isLoading && successCount > 0 && (
-          <div className="p-4 text-sm text-[#259783] bg-[#259783]/10 border border-[#259783]/20 rounded-lg">
+          <div className="p-4 text-sm text-[#1c6a1e] bg-[#1c6a1e]/10 border border-[#1c6a1e]/20 rounded-lg">
             ✓ Created {successCount} of {pendingCategories.length} categories...
           </div>
         )}
@@ -480,7 +480,7 @@ export function CategoryForm({ category, existingCategories = [], onClose, onSuc
           </Button>
           <Button
             type="submit"
-            className="flex-1 h-11 bg-[#259783] hover:bg-[#45d827] text-white font-semibold shadow-md shadow-[#259783]/20"
+            className="flex-1 h-11 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white font-semibold shadow-md shadow-[#1c6a1e]/20"
             disabled={isLoading || pendingCategories.length === 0}
           >
             {isLoading ? (

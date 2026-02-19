@@ -20,7 +20,7 @@ export default function BannersPage() {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-screen">
-          <Loader2 className="h-8 w-8 animate-spin text-[#259783]" />
+          <Loader2 className="h-8 w-8 animate-spin text-[#1c6a1e]" />
         </div>
       </AdminLayout>
     );
@@ -50,7 +50,7 @@ export default function BannersPage() {
         <div className="sticky top-0 z-10 bg-white/80 dark:bg-[#0f1a0d]/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800">
           <div className="px-4 md:px-6 py-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#259783] flex items-center justify-center shadow-lg shadow-[#259783]/20">
+              <div className="w-10 h-10 rounded-xl bg-[#1c6a1e] flex items-center justify-center shadow-lg shadow-[#1c6a1e]/20">
                 <ImageIcon className="w-5 h-5 text-white" />
               </div>
               <div>

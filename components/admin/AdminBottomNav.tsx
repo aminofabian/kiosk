@@ -35,19 +35,19 @@ export function AdminBottomNav() {
               className="flex-1 flex flex-col items-center justify-center gap-0.5 relative"
             >
               {active && (
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-[#259783] rounded-b-full" />
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-[#1c6a1e] rounded-b-full" />
               )}
               <div
                 className={`flex items-center justify-center w-10 h-10 rounded-xl transition-all ${
                   active
-                    ? 'bg-[#259783]/10'
+                    ? 'bg-[#1c6a1e]/10'
                     : ''
                 }`}
               >
                 <Icon
                   className={`w-5 h-5 transition-all ${
                     active
-                      ? 'text-[#259783] scale-110'
+                      ? 'text-[#1c6a1e] scale-110'
                       : 'text-slate-400 dark:text-slate-500'
                   }`}
                 />
@@ -55,7 +55,7 @@ export function AdminBottomNav() {
               <span
                 className={`text-[10px] font-medium transition-colors ${
                   active
-                    ? 'text-[#259783]'
+                    ? 'text-[#1c6a1e]'
                     : 'text-slate-400 dark:text-slate-500'
                 }`}
               >
@@ -68,12 +68,12 @@ export function AdminBottomNav() {
           href="/pos"
           className="flex-1 flex flex-col items-center justify-center gap-0.5 relative"
         >
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#259783]/10">
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#1c6a1e]/10">
             <ShoppingCart
-              className="w-5 h-5 text-[#259783]"
+              className="w-5 h-5 text-[#1c6a1e]"
             />
           </div>
-          <span className="text-[10px] font-medium text-[#259783]">
+          <span className="text-[10px] font-medium text-[#1c6a1e]">
             POS
           </span>
         </Link>

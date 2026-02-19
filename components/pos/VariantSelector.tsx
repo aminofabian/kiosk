@@ -54,10 +54,10 @@ export function VariantSelector({
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="right">
       <DrawerContent className="!w-full sm:!w-[500px] md:!w-[600px] !max-w-none h-full max-h-screen">
-        <DrawerHeader className="border-b bg-[#259783]/10 dark:bg-[#259783]/20">
+        <DrawerHeader className="border-b bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center">
-              <Layers className="w-6 h-6 text-[#259783]" />
+            <div className="w-12 h-12 rounded-xl bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center">
+              <Layers className="w-6 h-6 text-[#1c6a1e]" />
             </div>
             <div>
               <DrawerTitle className="text-xl text-slate-900 dark:text-white">{parentItem.name}</DrawerTitle>
@@ -89,8 +89,8 @@ export function VariantSelector({
                     }}
                     className={`w-full p-4 rounded-xl border-2 transition-all text-left group ${
                       isOutOfStock
-                        ? 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700 hover:border-[#259783]'
-                        : 'bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-700 hover:border-[#259783]'
+                        ? 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700 hover:border-[#1c6a1e]'
+                        : 'bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-700 hover:border-[#1c6a1e]'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-4">
@@ -116,7 +116,7 @@ export function VariantSelector({
                           <span className={`text-lg font-bold ${
                             isOutOfStock
                               ? 'text-gray-500 dark:text-gray-400'
-                              : 'text-[#259783]'
+                              : 'text-[#1c6a1e]'
                           }`}>
                             {formatPrice(variant.current_sell_price)}
                           </span>
@@ -137,8 +137,8 @@ export function VariantSelector({
                         </div>
                       </div>
                       <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                        <div className="w-10 h-10 rounded-full bg-[#259783]/10 flex items-center justify-center">
-                          <ShoppingCart className="w-5 h-5 text-[#259783]" />
+                        <div className="w-10 h-10 rounded-full bg-[#1c6a1e]/10 flex items-center justify-center">
+                          <ShoppingCart className="w-5 h-5 text-[#1c6a1e]" />
                         </div>
                       </div>
                     </div>

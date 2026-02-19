@@ -230,7 +230,7 @@ export function SupplierProductsDrawer({
             <X className="h-5 w-5" />
           </Button>
           <DrawerTitle className="flex items-center gap-2 text-slate-900 dark:text-white pr-8">
-            <Building2 className="w-5 h-5 text-[#259783]" />
+            <Building2 className="w-5 h-5 text-[#1c6a1e]" />
             {supplier.name}
           </DrawerTitle>
           <DrawerDescription className="text-slate-600 dark:text-slate-400">
@@ -267,7 +267,7 @@ export function SupplierProductsDrawer({
                 <Button
                   onClick={() => onCreateBill(supplier.id, supplier.name)}
                   size="sm"
-                  className="bg-[#259783] hover:bg-[#1e7a6a] text-white"
+                  className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
                 >
                   <Receipt className="w-4 h-4 mr-1.5" />
                   New Bill for {supplier.name}
@@ -296,13 +296,13 @@ export function SupplierProductsDrawer({
             <div className="flex flex-col flex-1 min-w-0 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800">
               <div className="p-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 shrink-0">
                 <div className="flex items-center gap-2">
-                  <Link2 className="w-4 h-4 text-[#259783]" />
+                  <Link2 className="w-4 h-4 text-[#1c6a1e]" />
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                     Linked Products
                   </h3>
                   <Badge
                     variant="outline"
-                    className="text-xs bg-[#259783]/10 text-[#259783] border-[#259783]/30"
+                    className="text-xs bg-[#1c6a1e]/10 text-[#1c6a1e] border-[#1c6a1e]/30"
                   >
                     {linkedProducts.length}
                   </Badge>
@@ -311,7 +311,7 @@ export function SupplierProductsDrawer({
               <div className="flex-1 overflow-y-auto p-3">
                 {loading ? (
                   <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-5 h-5 animate-spin text-[#259783]" />
+                    <Loader2 className="w-5 h-5 animate-spin text-[#1c6a1e]" />
                     <span className="ml-2 text-sm text-slate-500">
                       Loading products...
                     </span>
@@ -331,7 +331,7 @@ export function SupplierProductsDrawer({
                     {linkedProducts.map((product) => (
                       <Card
                         key={product.item_id}
-                        className="border-l-2 border-l-[#259783] bg-white dark:bg-slate-800/50"
+                        className="border-l-2 border-l-[#1c6a1e] bg-white dark:bg-slate-800/50"
                       >
                         <CardContent className="p-3">
                           <div className="flex items-center justify-between gap-2">
@@ -388,7 +388,7 @@ export function SupplierProductsDrawer({
             <div className="flex flex-col flex-1 min-w-0 min-h-[280px] md:min-h-0 bg-slate-50/50 dark:bg-slate-900/30">
               <div className="p-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
                 <div className="flex items-center gap-2 mb-3">
-                  <Plus className="w-4 h-4 text-[#259783]" />
+                  <Plus className="w-4 h-4 text-[#1c6a1e]" />
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">
                     Add Products
                   </h3>
@@ -406,7 +406,7 @@ export function SupplierProductsDrawer({
               <div className="flex-1 overflow-y-auto p-3">
                 {loadingItems ? (
                   <div className="flex items-center justify-center py-6">
-                    <Loader2 className="w-5 h-5 animate-spin text-[#259783]" />
+                    <Loader2 className="w-5 h-5 animate-spin text-[#1c6a1e]" />
                     <span className="ml-2 text-sm text-slate-500">
                       Loading products...
                     </span>
@@ -426,7 +426,7 @@ export function SupplierProductsDrawer({
                       return (
                         <div
                           key={item.id}
-                          className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/30 hover:border-[#259783]/50 transition-colors"
+                          className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/30 hover:border-[#1c6a1e]/50 transition-colors"
                         >
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
@@ -449,7 +449,7 @@ export function SupplierProductsDrawer({
                             size="sm"
                             onClick={() => handleLinkProduct(item.id)}
                             disabled={isAdding}
-                            className="h-7 px-2.5 text-xs border-[#259783]/30 text-[#259783] hover:bg-[#259783]/10 shrink-0"
+                            className="h-7 px-2.5 text-xs border-[#1c6a1e]/30 text-[#1c6a1e] hover:bg-[#1c6a1e]/10 shrink-0"
                           >
                             {isAdding ? (
                               <Loader2 className="w-3 h-3 animate-spin" />

@@ -224,7 +224,7 @@ function TransactionsContent() {
                     onClick={() => setFilter('today')}
                     className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                       filterMode === 'today'
-                        ? 'bg-[#259783] text-white shadow-sm'
+                        ? 'bg-[#1c6a1e] text-white shadow-sm'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
@@ -234,7 +234,7 @@ function TransactionsContent() {
                     onClick={() => setFilter('yesterday')}
                     className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                       filterMode === 'yesterday'
-                        ? 'bg-[#259783] text-white shadow-sm'
+                        ? 'bg-[#1c6a1e] text-white shadow-sm'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
@@ -244,7 +244,7 @@ function TransactionsContent() {
                     onClick={() => setFilter('dayBefore')}
                     className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                       filterMode === 'dayBefore'
-                        ? 'bg-[#259783] text-white shadow-sm'
+                        ? 'bg-[#1c6a1e] text-white shadow-sm'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
@@ -254,7 +254,7 @@ function TransactionsContent() {
                     onClick={() => setFilter('custom')}
                     className={`px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
                       filterMode === 'custom'
-                        ? 'bg-[#259783] text-white shadow-sm'
+                        ? 'bg-[#1c6a1e] text-white shadow-sm'
                         : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >

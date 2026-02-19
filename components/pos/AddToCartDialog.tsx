@@ -212,7 +212,7 @@ export function AddToCartDialog({
             </button>
 
             <div className="flex flex-col items-center pt-8 pb-4">
-              <div className="w-20 h-20 rounded-full bg-[#259783]/20 dark:bg-[#259783]/10 flex items-center justify-center mb-4 overflow-hidden">
+              <div className="w-20 h-20 rounded-full bg-[#1c6a1e]/20 dark:bg-[#1c6a1e]/10 flex items-center justify-center mb-4 overflow-hidden">
                 {getItemImage(item.name) ? (
                   <img
                     src={getItemImage(item.name)!}
@@ -223,12 +223,12 @@ export function AddToCartDialog({
                       const target = e.target as HTMLImageElement;
                       const parent = target.parentElement;
                       if (parent) {
-                        parent.innerHTML = '<svg class="w-10 h-10 text-[#259783]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>';
+                        parent.innerHTML = '<svg class="w-10 h-10 text-[#1c6a1e]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>';
                       }
                     }}
                   />
                 ) : (
-                  <Package className="w-10 h-10 text-[#259783]" />
+                  <Package className="w-10 h-10 text-[#1c6a1e]" />
                 )}
               </div>
               <DialogTitle className="text-2xl font-bold uppercase text-gray-900 dark:text-gray-100 mb-3 text-center">
@@ -253,7 +253,7 @@ export function AddToCartDialog({
                   }}
                   className={`p-1.5 rounded-full transition-colors ${
                     useManualPrice
-                      ? 'bg-[#259783] text-white'
+                      ? 'bg-[#1c6a1e] text-white'
                       : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
                   }`}
                   title={useManualPrice ? 'Using manual price' : 'Edit price'}
@@ -281,17 +281,17 @@ export function AddToCartDialog({
               )}
               <div className={`mt-2 inline-flex items-center px-3 py-1 rounded-full border ${
                 remainingStock > 0 
-                  ? 'bg-[#259783]/10 dark:bg-[#259783]/20 border-[#259783]/30 dark:border-[#259783]/50' 
+                  ? 'bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 border-[#1c6a1e]/30 dark:border-[#1c6a1e]/50' 
                   : 'bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700'
               }`}>
                 <Package className={`w-3.5 h-3.5 mr-1.5 ${
                   remainingStock > 0 
-                    ? 'text-[#259783] dark:text-[#45d827]' 
+                    ? 'text-[#1c6a1e] dark:text-[#2a8a30]' 
                     : 'text-red-600 dark:text-red-400'
                 }`} />
                 <span className={`text-sm font-medium ${
                   remainingStock > 0 
-                    ? 'text-[#259783] dark:text-[#45d827]' 
+                    ? 'text-[#1c6a1e] dark:text-[#2a8a30]' 
                     : 'text-red-700 dark:text-red-300'
                 }`}>
                   {remainingStock > 0 ? (
@@ -410,7 +410,7 @@ export function AddToCartDialog({
                       onBlur={handleQuantityBlur}
                       min="0"
                       step={step}
-                      className="text-4xl font-bold text-gray-900 dark:text-gray-100 bg-transparent border-none outline-none text-center w-32 focus:ring-2 focus:ring-[#259783] rounded-lg px-2 py-1"
+                      className="text-4xl font-bold text-gray-900 dark:text-gray-100 bg-transparent border-none outline-none text-center w-32 focus:ring-2 focus:ring-[#1c6a1e] rounded-lg px-2 py-1"
                     />
                     <span className="text-sm text-gray-600 dark:text-gray-400 uppercase mt-1">
                       {item.unit_type}
@@ -418,7 +418,7 @@ export function AddToCartDialog({
                   </div>
                   <button
                     onClick={handleIncrement}
-                    className="w-12 h-12 rounded-full bg-[#259783] flex items-center justify-center hover:bg-[#45d827] transition-colors"
+                    className="w-12 h-12 rounded-full bg-[#1c6a1e] flex items-center justify-center hover:bg-[#2a8a30] transition-colors"
                   >
                     <Plus className="w-6 h-6 text-white" />
                   </button>
@@ -438,7 +438,7 @@ export function AddToCartDialog({
                       }}
                       className={`w-12 px-0 py-1.5 rounded-full text-[10px] font-semibold flex items-center justify-center transition-all border ${
                         portion === 'twentieth'
-                          ? 'bg-[#259783] text-white border-[#259783] shadow-md'
+                          ? 'bg-[#1c6a1e] text-white border-[#1c6a1e] shadow-md'
                           : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
                       }`}
                     >
@@ -453,7 +453,7 @@ export function AddToCartDialog({
                       }}
                       className={`w-12 px-0 py-1.5 rounded-full text-sm font-semibold flex items-center justify-center transition-all border ${
                         portion === 'eighth'
-                          ? 'bg-[#259783] text-white border-[#259783] shadow-md'
+                          ? 'bg-[#1c6a1e] text-white border-[#1c6a1e] shadow-md'
                           : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
                       }`}
                     >
@@ -468,7 +468,7 @@ export function AddToCartDialog({
                       }}
                       className={`w-12 px-0 py-1.5 rounded-full text-[10px] font-semibold flex items-center justify-center transition-all border ${
                         portion === 'tenth'
-                          ? 'bg-[#259783] text-white border-[#259783] shadow-md'
+                          ? 'bg-[#1c6a1e] text-white border-[#1c6a1e] shadow-md'
                           : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
                       }`}
                     >
@@ -483,7 +483,7 @@ export function AddToCartDialog({
                       }}
                       className={`w-12 px-0 py-1.5 rounded-full text-sm font-semibold flex items-center justify-center transition-all border ${
                         portion === 'quarter'
-                          ? 'bg-[#259783] text-white border-[#259783] shadow-md'
+                          ? 'bg-[#1c6a1e] text-white border-[#1c6a1e] shadow-md'
                           : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
                       }`}
                     >
@@ -498,7 +498,7 @@ export function AddToCartDialog({
                       }}
                       className={`w-12 px-0 py-1.5 rounded-full text-sm font-semibold flex items-center justify-center transition-all border ${
                         portion === 'half'
-                          ? 'bg-[#259783] text-white border-[#259783] shadow-md'
+                          ? 'bg-[#1c6a1e] text-white border-[#1c6a1e] shadow-md'
                           : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
                       }`}
                     >
@@ -513,7 +513,7 @@ export function AddToCartDialog({
                       }}
                       className={`w-12 px-0 py-1.5 rounded-full text-sm font-semibold flex items-center justify-center transition-all border ${
                         portion === 'full'
-                          ? 'bg-[#259783] text-white border-[#259783] shadow-md'
+                          ? 'bg-[#1c6a1e] text-white border-[#1c6a1e] shadow-md'
                           : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-transparent hover:bg-gray-200 dark:hover:bg-gray-700'
                       }`}
                     >

@@ -708,8 +708,8 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-[#259783]/10 flex items-center justify-center">
-              <Building2 className="w-3.5 h-3.5 text-[#259783]" />
+            <div className="w-6 h-6 rounded-lg bg-[#1c6a1e]/10 flex items-center justify-center">
+              <Building2 className="w-3.5 h-3.5 text-[#1c6a1e]" />
             </div>
             <Label className="text-slate-800 dark:text-slate-200 font-bold text-sm">
               Select Supplier
@@ -732,7 +732,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
               variant="outline"
               size="sm"
               onClick={() => setNewSupplierDialogOpen(true)}
-              className="h-7 text-xs border-[#259783]/30 text-[#259783] hover:bg-[#259783]/5"
+              className="h-7 text-xs border-[#1c6a1e]/30 text-[#1c6a1e] hover:bg-[#1c6a1e]/5"
             >
               <Plus className="w-3 h-3 mr-1" />
               New
@@ -776,7 +776,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
                       variant="outline"
                       size="sm"
                       onClick={() => onOpenManageLinkProducts({ ...selected, location: selected.location ?? null, notes: selected.notes ?? null })}
-                      className="h-6 px-2 text-[10px] border-[#259783]/40 text-[#259783] hover:bg-[#259783]/10 rounded-full"
+                      className="h-6 px-2 text-[10px] border-[#1c6a1e]/40 text-[#1c6a1e] hover:bg-[#1c6a1e]/10 rounded-full"
                     >
                       <Link2 className="w-3 h-3 mr-1" />
                       Manage linked products
@@ -931,7 +931,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
                 Bill Items
               </Label>
               {loadingLinkedProducts && (
-                <div className="flex items-center gap-1 text-[#259783]">
+                <div className="flex items-center gap-1 text-[#1c6a1e]">
                   <Loader2 className="w-3 h-3 animate-spin" />
                   <span className="text-[10px]">Loading products...</span>
                 </div>
@@ -1026,7 +1026,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
                   key={item.id}
                   className={`rounded-xl border overflow-hidden transition-all ${
                     item.itemId
-                      ? 'border-[#259783]/30 bg-[#259783]/[0.02] dark:bg-[#259783]/[0.04]'
+                      ? 'border-[#1c6a1e]/30 bg-[#1c6a1e]/[0.02] dark:bg-[#1c6a1e]/[0.04]'
                       : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/40'
                   }`}
                 >
@@ -1109,7 +1109,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
                         step="0.01"
                         className={`h-8 text-sm text-center border rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                           item.amount
-                            ? 'border-[#259783]/40 bg-[#259783]/5 font-semibold'
+                            ? 'border-[#1c6a1e]/40 bg-[#1c6a1e]/5 font-semibold'
                             : 'border-amber-400 bg-amber-50/50 dark:bg-amber-950/20'
                         }`}
                       />
@@ -1369,7 +1369,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
                           step="0.01"
                           className={`h-8 text-sm border rounded-lg ${
                             item.amount
-                              ? 'border-[#259783]/40 bg-[#259783]/5 font-semibold'
+                              ? 'border-[#1c6a1e]/40 bg-[#1c6a1e]/5 font-semibold'
                               : 'border-amber-400 bg-amber-50/50'
                           }`}
                         />
@@ -1391,19 +1391,19 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
           </div>
 
           {/* Grand total */}
-          <div className="p-4 bg-gradient-to-r from-[#259783]/10 via-[#259783]/5 to-[#3bd522]/10 dark:from-[#259783]/20 dark:via-[#259783]/10 dark:to-[#3bd522]/20 border-2 border-[#259783]/30 rounded-xl">
+          <div className="p-4 bg-gradient-to-r from-[#1c6a1e]/10 via-[#1c6a1e]/5 to-[#2a8a30]/10 dark:from-[#1c6a1e]/20 dark:via-[#1c6a1e]/10 dark:to-[#2a8a30]/20 border-2 border-[#1c6a1e]/30 rounded-xl">
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block">
                   Bill Total ({lineItems.filter((i) => i.description.trim() && i.amount).length} item{lineItems.filter((i) => i.description.trim() && i.amount).length !== 1 ? 's' : ''})
                 </span>
                 {linkedCount > 0 && (
-                  <span className="text-[10px] text-[#259783]">
+                  <span className="text-[10px] text-[#1c6a1e]">
                     Stock will be updated for {linkedCount} linked item{linkedCount !== 1 ? 's' : ''}
                   </span>
                 )}
               </div>
-              <span className="text-2xl font-black text-[#259783]">
+              <span className="text-2xl font-black text-[#1c6a1e]">
                 {formatPrice(totalAmount)}
               </span>
             </div>
@@ -1483,7 +1483,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
                       }}
                       className={`h-7 px-2.5 text-xs rounded-lg ${
                         isSelected
-                          ? 'bg-[#259783] hover:bg-[#1e7a6a] text-white shadow-sm'
+                          ? 'bg-[#1c6a1e] hover:bg-[#2a8a30] text-white shadow-sm'
                           : 'border-slate-300 dark:border-slate-700 bg-white/60 dark:bg-slate-900/40 hover:bg-white dark:hover:bg-slate-900/60'
                       }`}
                     >
@@ -1649,7 +1649,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="flex-1 h-12 rounded-xl bg-[#259783] hover:bg-[#1e7a6a] text-white font-bold text-sm shadow-lg shadow-[#259783]/20"
+            className="flex-1 h-12 rounded-xl bg-[#1c6a1e] hover:bg-[#2a8a30] text-white font-bold text-sm shadow-lg shadow-[#1c6a1e]/20"
           >
             {isSubmitting ? (
               <>
@@ -1671,7 +1671,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
         <DialogContent className="sm:max-w-md z-[60]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-[#259783]" />
+              <Building2 className="w-5 h-5 text-[#1c6a1e]" />
               Add New Supplier
             </DialogTitle>
             <DialogDescription>
@@ -1779,7 +1779,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
               type="button"
               onClick={handleCreateSupplier}
               disabled={isCreatingSupplier}
-              className="bg-[#259783] hover:bg-[#1e7a6a] text-white"
+              className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
             >
               {isCreatingSupplier ? (
                 <>
@@ -1802,7 +1802,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
         <DialogContent className="sm:max-w-md z-[60]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Building2 className="w-5 h-5 text-[#259783]" />
+              <Building2 className="w-5 h-5 text-[#1c6a1e]" />
               Edit Supplier
             </DialogTitle>
             <DialogDescription>
@@ -1961,7 +1961,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
               type="button"
               onClick={handleUpdateSupplier}
               disabled={isUpdatingSupplier}
-              className="bg-[#259783] hover:bg-[#1e7a6a] text-white"
+              className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
             >
               {isUpdatingSupplier ? (
                 <>

@@ -185,6 +185,7 @@ export default function POSPage() {
   const [receiptLoading, setReceiptLoading] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [showClearCartToast, setShowClearCartToast] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
@@ -366,26 +367,43 @@ export default function POSPage() {
     fetchCategories();
   }, [fetchCategories]);
 
-  // Load POS insights (popular + low stock) for the home empty state
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadPosInsights() {
-      try {
-        const result = await apiGet<{ topItems: Item[]; lowStockItems: Item[] }>('/api/pos/insights?days=7');
-        if (!result.success || !result.data || cancelled) return;
-        setFeaturedItems(result.data.topItems || []);
-        setLowStockHomeItems(result.data.lowStockItems || []);
-      } catch (err) {
-        console.error('Error fetching POS insights:', err);
-      }
+  // Load POS insights (popular + low stock) for Quick Sell
+  // Re-fetch on mount, tab visible, and when Refresh is clicked
+  const loadPosInsights = useCallback(async () => {
+    try {
+      const result = await apiGet<{ topItems: Item[]; lowStockItems: Item[] }>(
+        `/api/pos/insights?days=7&_=${Date.now()}`
+      );
+      if (!result.success || !result.data) return;
+      setFeaturedItems(result.data.topItems || []);
+      setLowStockHomeItems(result.data.lowStockItems || []);
+    } catch (err) {
+      console.error('Error fetching POS insights:', err);
     }
-
-    loadPosInsights();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    loadPosInsights();
+  }, [loadPosInsights]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') loadPosInsights();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [loadPosInsights]);
+
+  // Soft refresh: re-fetch insights + categories + items without full reload (keeps cart)
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([loadPosInsights(), fetchCategories()]);
+      setRefreshKey((k) => k + 1);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadPosInsights, fetchCategories]);
 
   // Load recent searches on mount
   useEffect(() => {
@@ -448,7 +466,7 @@ export default function POSPage() {
         setLoadingSuggestions(true);
         const response = await fetch(
           `/api/items/suggest?q=${encodeURIComponent(searchQuery)}&limit=10`,
-          { signal: controller.signal }
+          { signal: controller.signal, cache: 'no-store' }
         );
 
         if (controller.signal.aborted) return;
@@ -518,7 +536,7 @@ export default function POSPage() {
     
     // Fetch the full item details and open the dialog
     try {
-      const response = await fetch(`/api/items/${suggestion.id}`);
+      const response = await fetch(`/api/items/${suggestion.id}`, { cache: 'no-store' });
       const result = await response.json();
       if (result.success && result.data) {
         setSelectedItem(result.data);
@@ -529,7 +547,11 @@ export default function POSPage() {
     }
   }, []);
 
-  const handleRefresh = useCallback(() => {
+  const handleClearCache = useCallback(() => {
+    setRefreshing(true);
+    // Clear localStorage caches (recent searches can reference deleted items)
+    clearRecentSearches();
+    // Full page reload guarantees all in-memory caches and stale data are cleared
     window.location.reload();
   }, []);
 
@@ -617,7 +639,7 @@ export default function POSPage() {
 
   // Highlight matching text segments in search results
   // Supports exact substring → word-level → fuzzy character-level matching
-  const MARK_CLASS = "bg-[#259783]/10 dark:bg-[#259783]/15 text-[#259783] dark:text-[#3bd522] font-semibold rounded-[1px] px-[0.5px]";
+  const MARK_CLASS = "bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/15 text-[#1c6a1e] dark:text-[#2a8a30] font-semibold rounded-[1px] px-[0.5px]";
 
   const highlightMatch = useCallback((text: string, query: string) => {
     if (!query || query.length < 1) return <>{text}</>;
@@ -799,14 +821,14 @@ export default function POSPage() {
               : 'px-3 py-[10px]'
           } ${
             isSelected
-              ? 'bg-[#259783]/[0.06] dark:bg-[#259783]/10'
+              ? 'bg-[#1c6a1e]/[0.06] dark:bg-[#1c6a1e]/10'
               : 'hover:bg-gray-50/80 dark:hover:bg-white/[0.03]'
           }`}
         >
           {/* Icon */}
           <div className={`${isVariant ? 'w-7 h-7' : 'w-9 h-9'} rounded-[3px] flex items-center justify-center flex-shrink-0 transition-all duration-100 ${
             isSelected
-              ? 'bg-[#259783] shadow-sm shadow-[#259783]/20'
+              ? 'bg-[#1c6a1e] shadow-sm shadow-[#1c6a1e]/20'
               : isVariant
                 ? 'bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700/40'
                 : 'bg-gray-100 dark:bg-gray-800/70 border border-gray-100 dark:border-gray-700/40'
@@ -822,7 +844,7 @@ export default function POSPage() {
           <div className="flex-1 min-w-0">
             <div className={`${isVariant ? 'text-[12.5px]' : 'text-[13px]'} font-medium truncate leading-snug transition-colors ${
               isSelected
-                ? 'text-[#259783] dark:text-[#3bd522]'
+                ? 'text-[#1c6a1e] dark:text-[#2a8a30]'
                 : 'text-gray-800 dark:text-gray-200'
             }`}>
               {isVariant && suggestion.variant_name
@@ -844,7 +866,7 @@ export default function POSPage() {
               {suggestion.category_name && (
                 <span className={`text-[9.5px] font-medium px-1.5 py-[1px] rounded-[2px] flex-shrink-0 ${
                   isSelected
-                    ? 'text-[#259783]/70 dark:text-[#3bd522]/60 bg-[#259783]/[0.06] dark:bg-[#259783]/10'
+                    ? 'text-[#1c6a1e]/70 dark:text-[#2a8a30]/60 bg-[#1c6a1e]/[0.06] dark:bg-[#1c6a1e]/10'
                     : 'text-gray-400 dark:text-gray-500 bg-gray-100/80 dark:bg-gray-800/60'
                 }`}>
                   {suggestion.category_name}
@@ -857,13 +879,13 @@ export default function POSPage() {
           <div className="flex flex-col items-end flex-shrink-0 ml-auto pl-2">
             <span className={`text-[13px] font-semibold tabular-nums transition-colors leading-tight ${
               isSelected
-                ? 'text-[#259783] dark:text-[#3bd522]'
+                ? 'text-[#1c6a1e] dark:text-[#2a8a30]'
                 : 'text-gray-800 dark:text-gray-200'
             }`}>
               {suggestion.current_sell_price.toFixed(0)}
             </span>
             <span className={`text-[9.5px] tabular-nums transition-colors ${
-              isSelected ? 'text-[#259783]/50 dark:text-[#3bd522]/40' : 'text-gray-400 dark:text-gray-500'
+              isSelected ? 'text-[#1c6a1e]/50 dark:text-[#2a8a30]/40' : 'text-gray-400 dark:text-gray-500'
             }`}>
               KES{suggestion.unit_type ? `/${suggestion.unit_type}` : ''}
             </span>
@@ -925,13 +947,13 @@ export default function POSPage() {
                           <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 truncate">
                             {highlightMatch(group.parentName, searchQuery)}
                           </span>
-                          <span className="text-[9px] font-semibold text-[#259783] dark:text-[#3bd522]/80 bg-[#259783]/[0.07] dark:bg-[#259783]/10 px-1.5 py-[2px] rounded-[2px] flex-shrink-0 leading-tight">
+                          <span className="text-[9px] font-semibold text-[#1c6a1e] dark:text-[#2a8a30]/80 bg-[#1c6a1e]/[0.07] dark:bg-[#1c6a1e]/10 px-1.5 py-[2px] rounded-[2px] flex-shrink-0 leading-tight">
                             {group.items.length} variant{group.items.length !== 1 ? 's' : ''}
                           </span>
                         </div>
 
                         {/* Variant items with subtle left accent */}
-                        <div className="ml-3.5 border-l-[2px] border-[#259783]/15 dark:border-[#259783]/10">
+                        <div className="ml-3.5 border-l-[2px] border-[#1c6a1e]/15 dark:border-[#1c6a1e]/10">
                           {group.items.map((item, idx) => renderItem(item, true, idx === group.items.length - 1))}
                         </div>
                       </div>
@@ -974,7 +996,7 @@ export default function POSPage() {
                 <div className="md:hidden text-gray-400 dark:text-gray-500">
                   Tap to select
                 </div>
-                <span className="font-medium text-[#259783]/80 dark:text-[#3bd522]/70">
+                <span className="font-medium text-[#1c6a1e]/80 dark:text-[#2a8a30]/70">
                   {flatItems.length} found
                 </span>
               </div>
@@ -1001,7 +1023,7 @@ export default function POSPage() {
                   setSearchQuery('');
                   (mobileSearchInputRef.current || searchInputRef.current)?.focus();
                 }}
-                className="text-[11px] font-medium text-[#259783] dark:text-[#3bd522] hover:underline"
+                className="text-[11px] font-medium text-[#1c6a1e] dark:text-[#2a8a30] hover:underline"
               >
                 Clear search
               </button>
@@ -1461,7 +1483,7 @@ export default function POSPage() {
     }
 
     fetchDrawerCategoryItems();
-  }, [drawerCategoryId, categoryDrawerOpen]);
+  }, [drawerCategoryId, categoryDrawerOpen, refreshKey]);
 
   const drawerCategory = drawerCategoryId
     ? filteredCategories.find((c) => c.id === drawerCategoryId)
@@ -1712,7 +1734,7 @@ export default function POSPage() {
     }
 
     fetchCategoryItems();
-  }, [selectedCategoryId]);
+  }, [selectedCategoryId, refreshKey]);
 
   const filteredGroupedCategoryItems = categorySearchQuery
     ? groupedCategoryItems.filter((group) => {
@@ -1777,7 +1799,7 @@ export default function POSPage() {
                     <Menu className="w-[18px] h-[18px] text-slate-600 dark:text-slate-400" />
                   </button>
                   <div>
-                    <h1 className="text-[15px] font-bold text-[#259783] leading-none tracking-tight">
+                    <h1 className="text-[15px] font-bold text-[#1c6a1e] leading-none tracking-tight">
                       Kiosk POS
                     </h1>
                     <ShopTypeSelector 
@@ -1802,9 +1824,20 @@ export default function POSPage() {
                     onClick={handleRefresh}
                     disabled={refreshing}
                     className="pos-icon-btn disabled:opacity-40"
-                    title="Refresh"
+                    title="Refresh products"
                   >
                     <RefreshCw className={`w-4 h-4 text-slate-500 dark:text-slate-400 ${refreshing ? 'animate-spin' : ''}`} />
+                  </button>
+
+                  <button
+                    aria-label="Clear cache"
+                    onClick={handleClearCache}
+                    disabled={refreshing}
+                    className="pos-icon-btn disabled:opacity-40 flex items-center gap-1.5 px-2.5"
+                    title="Clear cache and reload"
+                  >
+                    <Trash2 className={`w-4 h-4 text-amber-600 dark:text-amber-500 ${refreshing ? 'animate-pulse' : ''}`} />
+                    <span className="text-xs font-medium text-amber-600 dark:text-amber-500">Clear cache</span>
                   </button>
 
                   <button
@@ -1844,12 +1877,12 @@ export default function POSPage() {
                   <form onSubmit={handleSearchSubmit}>
                     <div className="relative group/input">
                       {/* Animated focus ring */}
-                      <div className="absolute -inset-[1px] bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-none opacity-0 group-focus-within/input:opacity-100 transition-opacity duration-300 blur-[0.5px]" />
+                      <div className="absolute -inset-[1px] bg-gradient-to-r from-[#1c6a1e] to-[#2a8a30] rounded-none opacity-0 group-focus-within/input:opacity-100 transition-opacity duration-300 blur-[0.5px]" />
                       <div className="relative">
                         {isSearchPending || barcodeScanStatus.scanning || loadingSuggestions ? (
-                          <Loader2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#259783] animate-spin z-10" />
+                          <Loader2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1c6a1e] animate-spin z-10" />
                         ) : (
-                          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within/input:text-[#259783] transition-colors z-10" />
+                          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within/input:text-[#1c6a1e] transition-colors z-10" />
                         )}
                         <Input
                           ref={mobileSearchInputRef}
@@ -1894,13 +1927,13 @@ export default function POSPage() {
                     <span className="text-xs text-gray-500">
                       {isSearchPending ? (
                         <span className="flex items-center gap-1.5">
-                          <span className="inline-block w-1.5 h-1.5 bg-[#259783] rounded-none animate-pulse" />
+                          <span className="inline-block w-1.5 h-1.5 bg-[#1c6a1e] rounded-none animate-pulse" />
                           <span className="text-gray-500 font-medium">Searching...</span>
                         </span>
                       ) : isValidBarcode(searchQuery) ? (
-                        <span className="flex items-center gap-1.5 bg-[#259783]/[0.06] dark:bg-[#259783]/10 px-2.5 py-1 rounded-none">
-                          <QrCode className="w-3.5 h-3.5 text-[#259783]" />
-                          <span className="text-[#259783] font-medium text-[11px]">Press Enter to scan barcode</span>
+                        <span className="flex items-center gap-1.5 bg-[#1c6a1e]/[0.06] dark:bg-[#1c6a1e]/10 px-2.5 py-1 rounded-none">
+                          <QrCode className="w-3.5 h-3.5 text-[#1c6a1e]" />
+                          <span className="text-[#1c6a1e] font-medium text-[11px]">Press Enter to scan barcode</span>
                         </span>
                       ) : debouncedSearchQuery ? (
                         <span className="text-gray-400">
@@ -1910,7 +1943,7 @@ export default function POSPage() {
                     </span>
                     <button
                       onClick={clearSearch}
-                      className="text-xs text-[#259783] font-semibold hover:underline active:scale-95 transition-transform"
+                      className="text-xs text-[#1c6a1e] font-semibold hover:underline active:scale-95 transition-transform"
                     >
                       Clear
                     </button>
@@ -1942,9 +1975,9 @@ export default function POSPage() {
                           onClick={() => {
                             setSearchQuery(query);
                           }}
-                          className="group/recent flex items-center gap-1.5 pl-2.5 pr-2 py-1.5 bg-white dark:bg-[#1c2e18] rounded-none border border-gray-200/80 dark:border-gray-700/50 hover:border-[#259783]/40 hover:bg-[#259783]/[0.04] dark:hover:bg-[#259783]/10 text-[12px] text-gray-600 dark:text-gray-400 hover:text-[#259783] transition-all active:scale-[0.97] shadow-sm"
+                          className="group/recent flex items-center gap-1.5 pl-2.5 pr-2 py-1.5 bg-white dark:bg-[#1c2e18] rounded-none border border-gray-200/80 dark:border-gray-700/50 hover:border-[#1c6a1e]/40 hover:bg-[#1c6a1e]/[0.04] dark:hover:bg-[#1c6a1e]/10 text-[12px] text-gray-600 dark:text-gray-400 hover:text-[#1c6a1e] transition-all active:scale-[0.97] shadow-sm"
                         >
-                          <Clock className="w-3 h-3 text-gray-300 dark:text-gray-600 group-hover/recent:text-[#259783]/50 flex-shrink-0" />
+                          <Clock className="w-3 h-3 text-gray-300 dark:text-gray-600 group-hover/recent:text-[#1c6a1e]/50 flex-shrink-0" />
                           <span className="capitalize truncate max-w-[100px]">{query}</span>
                           <span
                             role="button"
@@ -1966,8 +1999,8 @@ export default function POSPage() {
                 {/* Quick tips when empty */}
                 {!searchQuery && recentSearches.length === 0 && (
                   <div className="mt-3.5 flex items-center gap-2.5 text-gray-400 dark:text-gray-500">
-                    <div className="w-6 h-6 rounded-none bg-[#259783]/10 flex items-center justify-center flex-shrink-0">
-                      <Sparkles className="w-3 h-3 text-[#259783]" />
+                    <div className="w-6 h-6 rounded-none bg-[#1c6a1e]/10 flex items-center justify-center flex-shrink-0">
+                      <Sparkles className="w-3 h-3 text-[#1c6a1e]" />
                     </div>
                     <span className="text-xs">Type to search products or scan a barcode</span>
                   </div>
@@ -1980,7 +2013,7 @@ export default function POSPage() {
                 <>
                   <div className="flex gap-1.5 py-1 overflow-x-auto no-scrollbar w-full mb-1">
                     <button className="pos-pill pos-btn-outline flex shrink-0 items-center gap-1.5 h-8 px-2.5 text-xs shadow-sm">
-                      <DollarSign className="w-3.5 h-3.5 text-[#259783]" />
+                      <DollarSign className="w-3.5 h-3.5 text-[#1c6a1e]" />
                       <span className="whitespace-nowrap text-slate-700 dark:text-slate-300">Custom Amount</span>
                     </button>
                     <button 
@@ -2004,7 +2037,7 @@ export default function POSPage() {
                       <button
                         key={category.id}
                         onClick={() => handleCategoryClick(category.id)}
-                        className="px-3 py-1.5 text-[10px] font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-600/60 hover:border-[#259783]/60 hover:bg-[#259783]/8 dark:hover:bg-[#259783]/12 hover:text-[#259783] active:scale-[0.98] transition-all duration-150 shadow-sm"
+                        className="px-3 py-1.5 text-[10px] font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-600/60 hover:border-[#1c6a1e]/60 hover:bg-[#1c6a1e]/8 dark:hover:bg-[#1c6a1e]/12 hover:text-[#1c6a1e] active:scale-[0.98] transition-all duration-150 shadow-sm"
                       >
                         {category.name}
                       </button>
@@ -2034,6 +2067,7 @@ export default function POSPage() {
                     </div>
                   ) : debouncedSearchQuery ? (
                     <ItemGrid
+                      key={`search-${refreshKey}`}
                       categoryId={null}
                       searchQuery={debouncedSearchQuery}
                       onSelectItem={handleSelectItem}
@@ -2076,9 +2110,20 @@ export default function POSPage() {
                     onClick={handleRefresh}
                     disabled={refreshing}
                     className="pos-icon-btn disabled:opacity-40"
-                    title="Refresh"
+                    title="Refresh products"
                   >
                     <RefreshCw className={`w-4 h-4 text-slate-500 dark:text-slate-400 ${refreshing ? 'animate-spin' : ''}`} />
+                  </button>
+
+                  <button
+                    aria-label="Clear cache"
+                    onClick={handleClearCache}
+                    disabled={refreshing}
+                    className="pos-icon-btn disabled:opacity-40 flex items-center gap-1.5 px-2.5"
+                    title="Clear cache and reload"
+                  >
+                    <Trash2 className={`w-4 h-4 text-amber-600 dark:text-amber-500 ${refreshing ? 'animate-pulse' : ''}`} />
+                    <span className="text-xs font-medium text-amber-600 dark:text-amber-500">Clear cache</span>
                   </button>
 
                   <button
@@ -2116,7 +2161,7 @@ export default function POSPage() {
                   placeholder={`Search ${selectedCategory?.name.toLowerCase()}...`}
                   value={categorySearchQuery}
                   onChange={(e) => setCategorySearchQuery(e.target.value)}
-                  className="pl-9 pr-9 h-10 bg-white dark:bg-[#1c2e18] rounded-none border-gray-200 dark:border-gray-700 focus:border-[#259783] focus:ring-2 focus:ring-[#259783]/20 text-sm"
+                  className="pl-9 pr-9 h-10 bg-white dark:bg-[#1c2e18] rounded-none border-gray-200 dark:border-gray-700 focus:border-[#1c6a1e] focus:ring-2 focus:ring-[#1c6a1e]/20 text-sm"
                 />
               </div>
             </div>
@@ -2124,7 +2169,7 @@ export default function POSPage() {
             <main className="flex-1 overflow-y-auto no-scrollbar pb-32 px-5 sm:px-6">
               {itemsLoading ? (
                 <div className="flex items-center justify-center h-64">
-                  <div className="w-10 h-10 border-4 border-[#259783]/20 border-t-[#259783] rounded-none animate-spin"></div>
+                  <div className="w-10 h-10 border-4 border-[#1c6a1e]/20 border-t-[#1c6a1e] rounded-none animate-spin"></div>
                 </div>
               ) : filteredGroupedCategoryItems.length === 0 ? (
                 <div className="flex items-center justify-center h-64">
@@ -2139,14 +2184,14 @@ export default function POSPage() {
                   {filteredGroupedCategoryItems.map((group, groupIndex) => {
                     if (group.type === 'parent' && group.parent && group.children && group.children.length > 0) {
                       return (
-                        <div key={group.parent.id} className="space-y-4 bg-gradient-to-br from-[#259783]/5 via-transparent to-[#3bd522]/5 dark:from-[#259783]/10 dark:via-transparent dark:to-[#3bd522]/10 rounded-none p-4 sm:p-5 border border-[#259783]/10 dark:border-[#259783]/20">
+                        <div key={group.parent.id} className="space-y-4 bg-gradient-to-br from-[#1c6a1e]/5 via-transparent to-[#2a8a30]/5 dark:from-[#1c6a1e]/10 dark:via-transparent dark:to-[#2a8a30]/10 rounded-none p-4 sm:p-5 border border-[#1c6a1e]/10 dark:border-[#1c6a1e]/20">
                           {/* Parent Label */}
                           <div className="relative">
                             <div className="absolute inset-0 flex items-center">
-                              <div className="w-full border-t border-[#259783]/20 dark:border-[#259783]/30"></div>
+                              <div className="w-full border-t border-[#1c6a1e]/20 dark:border-[#1c6a1e]/30"></div>
                             </div>
                             <div className="relative flex justify-center">
-                              <div className="px-5 py-2.5 bg-[#259783] bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-none shadow-lg shadow-[#259783]/30 border-2 border-white dark:border-[#132210]">
+                              <div className="px-5 py-2.5 bg-[#1c6a1e] bg-gradient-to-r from-[#1c6a1e] to-[#2a8a30] rounded-none shadow-lg shadow-[#1c6a1e]/30 border-2 border-white dark:border-[#132210]">
                                 <h2 className="text-sm font-extrabold text-white uppercase tracking-wider whitespace-nowrap drop-shadow-sm">
                                   {group.parent.name}
                                 </h2>
@@ -2159,7 +2204,7 @@ export default function POSPage() {
                               <button
                                 key={item.id}
                                 onClick={() => handleMobileItemClick(item)}
-                                className="pos-grid-btn bg-gradient-to-b from-[#1c2e18] to-[#152a14] dark:from-[#132210] dark:to-[#0f1d0e] rounded-none border-2 border-[#259783] dark:border-[#3bd522] overflow-hidden relative group"
+                                className="pos-grid-btn bg-gradient-to-b from-[#1c2e18] to-[#152a14] dark:from-[#132210] dark:to-[#0f1d0e] rounded-none border-2 border-[#1c6a1e] dark:border-[#2a8a30] overflow-hidden relative group"
                               >
                                 <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-2xl overflow-hidden relative">
                                   {group.parent && getItemImage(group.parent.name) ? (
@@ -2188,7 +2233,7 @@ export default function POSPage() {
                                   </h3>
                                   <div className="space-y-1">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                      <span className="bg-gradient-to-r from-[#259783] to-[#2ab88a] text-white font-bold text-sm px-3 py-1.5 rounded-none shadow-lg shadow-[#259783]/25">
+                                      <span className="bg-gradient-to-r from-[#1c6a1e] to-[#2ab88a] text-white font-bold text-sm px-3 py-1.5 rounded-none shadow-lg shadow-[#1c6a1e]/25">
                                         {formatPrice(item.current_sell_price)}
                                       </span>
                                       <span className="text-xs text-white/70 font-medium">
@@ -2216,7 +2261,7 @@ export default function POSPage() {
                         <div key={group.item.id} className="flex justify-center">
                           <button
                             onClick={() => handleMobileItemClick(group.item!)}
-                            className="pos-grid-btn bg-gradient-to-b from-[#1c2e18] to-[#152a14] dark:from-[#132210] dark:to-[#0f1d0e] rounded-none border-2 border-[#259783] dark:border-[#3bd522] overflow-hidden relative group w-full max-w-xs"
+                            className="pos-grid-btn bg-gradient-to-b from-[#1c2e18] to-[#152a14] dark:from-[#132210] dark:to-[#0f1d0e] rounded-none border-2 border-[#1c6a1e] dark:border-[#2a8a30] overflow-hidden relative group w-full max-w-xs"
                           >
                           <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-2xl overflow-hidden relative">
                             {getItemImage(group.item.name) ? (
@@ -2245,7 +2290,7 @@ export default function POSPage() {
                             </h3>
                             <div className="space-y-1">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="bg-gradient-to-r from-[#259783] to-[#2ab88a] text-white font-bold text-sm px-3 py-1.5 rounded-none shadow-lg shadow-[#259783]/25">
+                                <span className="bg-gradient-to-r from-[#1c6a1e] to-[#2ab88a] text-white font-bold text-sm px-3 py-1.5 rounded-none shadow-lg shadow-[#1c6a1e]/25">
                                   {formatPrice(group.item.current_sell_price)}
                                 </span>
                                 <span className="text-xs text-white/70 font-medium">
@@ -2287,7 +2332,7 @@ export default function POSPage() {
               <div className="relative w-10 h-10 rounded-none bg-white/20 flex items-center justify-center">
                 <ShoppingCart className="w-5 h-5 text-white" />
                 {cartItemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-white text-[#259783] text-[10px] font-bold rounded-none flex items-center justify-center shadow-sm">
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-white text-[#1c6a1e] text-[10px] font-bold rounded-none flex items-center justify-center shadow-sm">
                     {cartItemCount}
                   </span>
                 )}
@@ -2339,11 +2384,11 @@ export default function POSPage() {
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   {/* Logo/Brand Section */}
                   <div className="flex items-center gap-2.5 flex-shrink-0">
-                    <div className="w-9 h-9 rounded-none bg-gradient-to-br from-[#259783] to-[#1e8a72] shadow-md shadow-[#259783]/20 flex items-center justify-center">
+                    <div className="w-9 h-9 rounded-none bg-gradient-to-br from-[#1c6a1e] to-[#1e8a72] shadow-md shadow-[#1c6a1e]/20 flex items-center justify-center">
                       <ShoppingCart className="w-4.5 h-4.5 text-white" />
                     </div>
                     <div>
-                      <h1 className="text-sm font-bold text-[#259783] hidden sm:block tracking-tight leading-none">
+                      <h1 className="text-sm font-bold text-[#1c6a1e] hidden sm:block tracking-tight leading-none">
                         {user?.businessName || 'POS'}
                       </h1>
                       <ShopTypeSelector 
@@ -2359,14 +2404,14 @@ export default function POSPage() {
                       <form onSubmit={handleSearchSubmit}>
                         <div className="relative flex items-center group/dinput">
                           {/* Gradient focus ring */}
-                          <div className="absolute -inset-[1px] bg-gradient-to-r from-[#259783] to-[#3bd522] rounded-none opacity-0 group-focus-within/dinput:opacity-100 transition-opacity duration-300 blur-[0.5px]" />
+                          <div className="absolute -inset-[1px] bg-gradient-to-r from-[#1c6a1e] to-[#2a8a30] rounded-none opacity-0 group-focus-within/dinput:opacity-100 transition-opacity duration-300 blur-[0.5px]" />
                           <div className="absolute left-3 z-10">
                             {isSearchPending || barcodeScanStatus.scanning || loadingSuggestions ? (
-                              <Loader2 className="w-4 h-4 text-[#259783] animate-spin" />
+                              <Loader2 className="w-4 h-4 text-[#1c6a1e] animate-spin" />
                             ) : isValidBarcode(searchQuery) ? (
-                              <QrCode className="w-4 h-4 text-[#259783]" />
+                              <QrCode className="w-4 h-4 text-[#1c6a1e]" />
                             ) : (
-                              <Search className="w-4 h-4 text-gray-400 group-focus-within/dinput:text-[#259783] transition-colors" />
+                              <Search className="w-4 h-4 text-gray-400 group-focus-within/dinput:text-[#1c6a1e] transition-colors" />
                             )}
                           </div>
                           <Input
@@ -2408,9 +2453,9 @@ export default function POSPage() {
                       {/* Barcode status hint */}
                       {searchQuery && !showSuggestions && !loadingSuggestions && isValidBarcode(searchQuery) && (
                         <div className="absolute top-full left-0 right-0 mt-1.5 text-xs flex items-center gap-1.5 pl-3">
-                          <span className="flex items-center gap-1.5 bg-[#259783]/[0.06] dark:bg-[#259783]/10 px-2.5 py-1 rounded-none">
-                            <QrCode className="w-3 h-3 text-[#259783]" />
-                            <span className="text-[#259783] font-medium text-[11px]">Press Enter to scan barcode</span>
+                          <span className="flex items-center gap-1.5 bg-[#1c6a1e]/[0.06] dark:bg-[#1c6a1e]/10 px-2.5 py-1 rounded-none">
+                            <QrCode className="w-3 h-3 text-[#1c6a1e]" />
+                            <span className="text-[#1c6a1e] font-medium text-[11px]">Press Enter to scan barcode</span>
                           </span>
                         </div>
                       )}
@@ -2422,8 +2467,8 @@ export default function POSPage() {
                       onClick={() => setShowSearch(true)}
                       className="hidden sm:flex items-center gap-2 pos-btn-outline h-9 px-4 rounded-none group"
                     >
-                      <Search className="w-4 h-4 text-slate-500 group-hover:text-[#259783] transition-colors" />
-                      <span className="hidden md:inline text-slate-600 dark:text-slate-400 text-sm group-hover:text-[#259783] transition-colors">Search products...</span>
+                      <Search className="w-4 h-4 text-slate-500 group-hover:text-[#1c6a1e] transition-colors" />
+                      <span className="hidden md:inline text-slate-600 dark:text-slate-400 text-sm group-hover:text-[#1c6a1e] transition-colors">Search products...</span>
                       <kbd className="hidden lg:flex pointer-events-none h-5 items-center rounded-none border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 px-2 font-mono text-[10px] text-slate-500 ml-1">
                         ⌘K
                       </kbd>
@@ -2440,9 +2485,20 @@ export default function POSPage() {
                       onClick={handleRefresh}
                       disabled={refreshing}
                       className="pos-icon-btn-primary h-9 w-9 p-0 disabled:opacity-40"
-                      title="Refresh"
+                      title="Refresh products"
                     >
                       <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleClearCache}
+                      disabled={refreshing}
+                      className="h-9 px-3 gap-1.5 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/50 disabled:opacity-40"
+                      title="Clear cache and reload"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span className="text-xs font-medium">Clear cache</span>
                     </Button>
                     <Button
                       variant="ghost"
@@ -2499,7 +2555,7 @@ export default function POSPage() {
                       className="relative h-10 px-3.5 pos-btn-outline rounded-none group"
                     >
                       <div className="relative">
-                        <ShoppingCart className="w-[18px] h-[18px] text-[#259783]" />
+                        <ShoppingCart className="w-[18px] h-[18px] text-[#1c6a1e]" />
                         {cartItemCount > 0 && (
                           <Badge
                             variant="destructive"
@@ -2518,7 +2574,7 @@ export default function POSPage() {
                       </div>
                     </Button>
                     {cartItemCount > 0 && (
-                      <span className="font-semibold text-[#259783] text-xs whitespace-nowrap">
+                      <span className="font-semibold text-[#1c6a1e] text-xs whitespace-nowrap">
                         KES {cartTotal.toLocaleString()}
                       </span>
                     )}
@@ -2559,6 +2615,7 @@ export default function POSPage() {
               ) : (
                 <div className="min-h-full flex flex-col px-3 sm:px-4 lg:px-6">
                   <ItemGrid
+                    key={`grid-${refreshKey}`}
                     categoryId={debouncedSearchQuery ? null : selectedCategoryId}
                     searchQuery={debouncedSearchQuery || undefined}
                     onSelectItem={handleSelectItem}
@@ -2705,7 +2762,7 @@ export default function POSPage() {
           <DrawerHeader className="border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-slate-900 px-4 sm:px-5 py-4">
             <div className="flex items-center justify-between pr-8">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-none bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm shadow-[#259783]/20 flex-shrink-0 [&>svg]:w-5 [&>svg]:h-5 [&>svg]:text-white">
+                <div className="w-10 h-10 rounded-none bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-sm shadow-[#1c6a1e]/20 flex-shrink-0 [&>svg]:w-5 [&>svg]:h-5 [&>svg]:text-white">
                   {drawerCategory && getCategoryIcon(drawerCategory.name)}
                 </div>
                 <div className="min-w-0">
@@ -2736,7 +2793,7 @@ export default function POSPage() {
                 placeholder={`Search ${drawerCategory?.name.toLowerCase() || 'products'}...`}
                 value={drawerSearchQuery}
                 onChange={(e) => setDrawerSearchQuery(e.target.value)}
-                className="pl-10 pr-10 h-10 bg-gray-50 dark:bg-slate-800 rounded-none border-gray-200/80 dark:border-gray-700/60 focus:border-[#259783] focus:ring-2 focus:ring-[#259783]/20 text-sm"
+                className="pl-10 pr-10 h-10 bg-gray-50 dark:bg-slate-800 rounded-none border-gray-200/80 dark:border-gray-700/60 focus:border-[#1c6a1e] focus:ring-2 focus:ring-[#1c6a1e]/20 text-sm"
               />
               {drawerSearchQuery && (
                 <button
@@ -2789,7 +2846,7 @@ export default function POSPage() {
                     <div key={group.parent.id} className="rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800/40 overflow-hidden">
                       {/* Parent header */}
                       <div className="flex items-center gap-2.5 px-3.5 py-2.5 border-b border-gray-100 dark:border-gray-700/40 bg-gray-50/80 dark:bg-gray-800/30">
-                        <div className="w-7 h-7 rounded-none bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center flex-shrink-0">
+                        <div className="w-7 h-7 rounded-none bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center flex-shrink-0">
                           <Package className="w-3.5 h-3.5 text-white" />
                         </div>
                         <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate flex-1">
@@ -2843,11 +2900,11 @@ export default function POSPage() {
                               </div>
                               {/* Info */}
                               <div className="p-2">
-                                <h3 className="font-semibold text-[11px] sm:text-[12px] text-gray-800 dark:text-gray-100 leading-tight group-hover:text-[#259783] dark:group-hover:text-[#3bd522] transition-colors uppercase tracking-tight break-words">
+                                <h3 className="font-semibold text-[11px] sm:text-[12px] text-gray-800 dark:text-gray-100 leading-tight group-hover:text-[#1c6a1e] dark:group-hover:text-[#2a8a30] transition-colors uppercase tracking-tight break-words">
                                   {item.name}
                                 </h3>
                                 <div className="flex items-baseline gap-1 mt-1">
-                                  <span className="text-sm font-bold text-[#259783]">
+                                  <span className="text-sm font-bold text-[#1c6a1e]">
                                     KES {item.current_sell_price.toFixed(0)}
                                   </span>
                                   <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
@@ -2937,11 +2994,11 @@ export default function POSPage() {
                               )}
                             </div>
                             <div className="p-2">
-                              <h3 className="font-semibold text-[11px] sm:text-[12px] text-gray-800 dark:text-gray-100 leading-tight group-hover:text-[#259783] dark:group-hover:text-[#3bd522] transition-colors uppercase tracking-tight break-words">
+                              <h3 className="font-semibold text-[11px] sm:text-[12px] text-gray-800 dark:text-gray-100 leading-tight group-hover:text-[#1c6a1e] dark:group-hover:text-[#2a8a30] transition-colors uppercase tracking-tight break-words">
                                 {item.name}
                               </h3>
                               <div className="flex items-baseline gap-1 mt-1">
-                                <span className="text-sm font-bold text-[#259783]">
+                                <span className="text-sm font-bold text-[#1c6a1e]">
                                   KES {item.current_sell_price.toFixed(0)}
                                 </span>
                                 <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
@@ -2984,10 +3041,10 @@ export default function POSPage() {
       {/* Cart Drawer */}
       <Drawer open={cartDrawerOpen} onOpenChange={setCartDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[500px] md:!w-[600px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900 print:hidden">
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#1c6a1e]/10 to-blue-50 dark:from-[#1c6a1e]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
             <div className="flex items-center justify-between pr-8">
               <div className="flex items-center gap-3">
-                <div className="relative w-10 h-10 rounded-none bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm flex-shrink-0">
+                <div className="relative w-10 h-10 rounded-none bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-sm flex-shrink-0">
                   <ShoppingCart className="w-5 h-5 text-white" />
                   {carts.length > 1 && (
                     <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-400 text-amber-900 text-xs font-bold rounded-none flex items-center justify-center shadow-md">
@@ -3032,10 +3089,10 @@ export default function POSPage() {
       {/* Checkout Drawer */}
       <Drawer open={checkoutDrawerOpen} onOpenChange={setCheckoutDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900 print:hidden">
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#1c6a1e]/10 to-blue-50 dark:from-[#1c6a1e]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
             <div className="flex items-center justify-between pr-8">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-none bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm flex-shrink-0">
+                <div className="w-10 h-10 rounded-none bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-sm flex-shrink-0">
                   <DollarSign className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -3083,10 +3140,10 @@ export default function POSPage() {
       {/* Receipt Drawer */}
       <Drawer open={receiptDrawerOpen} onOpenChange={setReceiptDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[600px] md:!w-[800px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5 print:hidden">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#1c6a1e]/10 to-blue-50 dark:from-[#1c6a1e]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5 print:hidden">
             <div className="flex items-center justify-between pr-8">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-none bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm flex-shrink-0">
+                <div className="w-10 h-10 rounded-none bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-sm flex-shrink-0">
                   <FileText className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -3123,7 +3180,7 @@ export default function POSPage() {
           <div className="overflow-y-auto flex-1 bg-gradient-to-b from-white via-slate-50/30 to-white dark:from-slate-900 dark:via-slate-900/50 dark:to-slate-900 px-4 sm:px-6 py-6 print:bg-white print:p-0">
             {receiptLoading ? (
               <div className="flex flex-col items-center justify-center h-64 gap-4">
-                <Loader2 className="w-8 h-8 animate-spin text-[#259783]" />
+                <Loader2 className="w-8 h-8 animate-spin text-[#1c6a1e]" />
                 <p className="text-gray-500 dark:text-gray-400">Loading receipt...</p>
               </div>
             ) : receiptError || !receiptData ? (
@@ -3137,7 +3194,7 @@ export default function POSPage() {
                     setReceiptDrawerOpen(false);
                   }}
                   size="touch"
-                  className="bg-[#259783] hover:bg-[#45d827] text-white"
+                  className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
                 >
                   Close
                 </Button>
@@ -3161,7 +3218,7 @@ export default function POSPage() {
                       setCartDrawerOpen(false);
                       setCheckoutDrawerOpen(false);
                     }}
-                    className="flex-1 bg-[#259783] hover:bg-[#45d827] text-white"
+                    className="flex-1 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
                   >
                     New Sale
                   </Button>

@@ -104,9 +104,9 @@ export function DownloadButton({ className, variant = 'default', size = 'default
 
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[500px] md:!w-[600px] !max-w-none h-full max-h-screen">
-          <DrawerHeader className="border-b bg-[#259783]/10 dark:bg-[#259783]/20">
+          <DrawerHeader className="border-b bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20">
             <DrawerTitle className="text-xl flex items-center gap-2 text-slate-900 dark:text-white">
-              <Smartphone className="w-5 h-5 text-[#259783]" />
+              <Smartphone className="w-5 h-5 text-[#1c6a1e]" />
               {isIOS ? 'Install on iOS' : 'Install App'}
             </DrawerTitle>
             <DrawerDescription>
@@ -119,7 +119,7 @@ export function DownloadButton({ className, variant = 'default', size = 'default
             {isIOS ? (
               <div className="space-y-4 py-4">
                 <div className="flex items-start gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center font-bold text-[#259783]">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center font-bold text-[#1c6a1e]">
                     1
                   </div>
                   <div className="flex-1">
@@ -131,7 +131,7 @@ export function DownloadButton({ className, variant = 'default', size = 'default
                 </div>
 
                 <div className="flex items-start gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center font-bold text-[#259783]">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center font-bold text-[#1c6a1e]">
                     2
                   </div>
                   <div className="flex-1">
@@ -143,7 +143,7 @@ export function DownloadButton({ className, variant = 'default', size = 'default
                 </div>
 
                 <div className="flex items-start gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center font-bold text-[#259783]">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center font-bold text-[#1c6a1e]">
                     3
                   </div>
                   <div className="flex-1">
@@ -161,15 +161,15 @@ export function DownloadButton({ className, variant = 'default', size = 'default
                 </p>
                 <ul className="mt-3 space-y-2 text-sm text-slate-600 dark:text-slate-400">
                   <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#259783]"></span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#1c6a1e]"></span>
                     Chrome or Edge on Android
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#259783]"></span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#1c6a1e]"></span>
                     Safari on iOS (see iOS instructions above)
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#259783]"></span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#1c6a1e]"></span>
                     Chrome or Edge on desktop
                   </li>
                 </ul>
@@ -194,7 +194,7 @@ export function DownloadButton({ className, variant = 'default', size = 'default
                       console.error('Error showing install prompt:', error);
                     }
                   }}
-                  className="flex-1 bg-[#259783] hover:bg-[#45d827] text-white font-semibold shadow-md shadow-[#259783]/20"
+                  className="flex-1 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white font-semibold shadow-md shadow-[#1c6a1e]/20"
                 >
                   <Download className="w-4 h-4 mr-2" />
                   Install Now

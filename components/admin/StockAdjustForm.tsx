@@ -300,7 +300,7 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
                 placeholder="Search items..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 h-11 border-slate-200 dark:border-slate-700 focus:border-[#259783] focus:ring-[#259783]/20"
+                className="pl-10 h-11 border-slate-200 dark:border-slate-700 focus:border-[#1c6a1e] focus:ring-[#1c6a1e]/20"
               />
             </div>
 
@@ -320,8 +320,8 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
                       key={item.id}
                       className={`w-full p-3.5 rounded-xl border-2 transition-all ${
                         isSelected
-                          ? 'border-[#259783] bg-[#259783]/5 shadow-sm ring-2 ring-[#259783]/10'
-                          : 'border-slate-200 dark:border-slate-700 hover:border-[#259783]/50 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                          ? 'border-[#1c6a1e] bg-[#1c6a1e]/5 shadow-sm ring-2 ring-[#1c6a1e]/10'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-[#1c6a1e]/50 hover:bg-slate-50 dark:hover:bg-slate-800/50'
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -349,7 +349,7 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
                         </button>
                         <div className="flex items-center gap-2 shrink-0">
                           {isSelected && (
-                            <CheckCircle2 className="h-5 w-5 text-[#259783]" />
+                            <CheckCircle2 className="h-5 w-5 text-[#1c6a1e]" />
                           )}
                           <button
                             type="button"
@@ -474,16 +474,16 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
                       }}
                       placeholder={isDiscreteUnitType(selectedItem.unit_type) ? "0" : "0.00"}
                       required
-                      className="text-lg h-12 border-slate-200 dark:border-slate-700 focus:border-[#259783] focus:ring-[#259783]/20"
+                      className="text-lg h-12 border-slate-200 dark:border-slate-700 focus:border-[#1c6a1e] focus:ring-[#1c6a1e]/20"
                     />
                   </div>
 
                   {calculatedNewStock !== null && (
-                    <div className="p-5 rounded-xl bg-gradient-to-br from-[#259783]/5 to-emerald-50/50 dark:from-[#259783]/10 dark:to-emerald-950/20 border-2 border-[#259783]/20 dark:border-[#259783]/30 space-y-3">
-                      <div className="flex items-center justify-between pb-2 border-b border-[#259783]/20">
+                    <div className="p-5 rounded-xl bg-gradient-to-br from-[#1c6a1e]/5 to-emerald-50/50 dark:from-[#1c6a1e]/10 dark:to-emerald-950/20 border-2 border-[#1c6a1e]/20 dark:border-[#1c6a1e]/30 space-y-3">
+                      <div className="flex items-center justify-between pb-2 border-b border-[#1c6a1e]/20">
                         <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">New Stock After Adjustment</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-2xl font-bold text-[#259783] dark:text-[#45d827]">
+                          <span className="text-2xl font-bold text-[#1c6a1e] dark:text-[#2a8a30]">
                             {isDiscreteUnitType(selectedItem.unit_type) 
                               ? Math.round(calculatedNewStock).toString()
                               : calculatedNewStock.toFixed(2)}
@@ -525,7 +525,7 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
                       value={reason}
                       onValueChange={(v) => setReason(v as AdjustmentReason)}
                     >
-                      <SelectTrigger className="h-12 border-slate-200 dark:border-slate-700 focus:border-[#259783] focus:ring-[#259783]/20">
+                      <SelectTrigger className="h-12 border-slate-200 dark:border-slate-700 focus:border-[#1c6a1e] focus:ring-[#1c6a1e]/20">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -546,7 +546,7 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
                       onChange={(e) => setNotes(e.target.value)}
                       placeholder="Add any additional details..."
                       rows={3}
-                      className="border-slate-200 dark:border-slate-700 focus:border-[#259783] focus:ring-[#259783]/20 resize-none"
+                      className="border-slate-200 dark:border-slate-700 focus:border-[#1c6a1e] focus:ring-[#1c6a1e]/20 resize-none"
                     />
                   </div>
                 </div>
@@ -572,7 +572,7 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
                   <Button
                     type="submit"
                     disabled={isSubmitting || willGoNegative}
-                    className="flex-1 h-11 bg-[#259783] bg-gradient-to-r from-[#259783] to-[#45d827] hover:from-[#45d827] hover:to-[#259783] text-white shadow-md shadow-[#259783]/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 h-11 bg-[#1c6a1e] bg-gradient-to-r from-[#1c6a1e] to-[#2a8a30] hover:from-[#2a8a30] hover:to-[#1c6a1e] text-white shadow-md shadow-[#1c6a1e]/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? (
                       <>

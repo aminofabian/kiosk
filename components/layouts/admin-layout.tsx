@@ -33,7 +33,7 @@ export function AdminLayout({ children, sidebar }: AdminLayoutProps) {
         {/* Brand header */}
         <div className="h-14 flex items-center px-4 border-b border-slate-200/60 dark:border-slate-800/60">
           <Link href="/admin" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#259783] to-[#2ec4a0] flex items-center justify-center shadow-md shadow-[#259783]/20 transition-transform duration-200 group-hover:scale-105">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-md shadow-[#1c6a1e]/20 transition-transform duration-200 group-hover:scale-105">
               <span className="text-sm font-black text-white leading-none">P</span>
             </div>
             <div>
@@ -55,8 +55,8 @@ export function AdminLayout({ children, sidebar }: AdminLayoutProps) {
         {/* User footer */}
         <div className="p-2.5 border-t border-slate-200/60 dark:border-slate-800/60">
           <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors group">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#259783]/20 to-[#2ec4a0]/20 dark:from-[#259783]/30 dark:to-[#2ec4a0]/30 flex items-center justify-center flex-shrink-0 ring-1 ring-[#259783]/20">
-              <span className="text-xs font-semibold text-[#259783] dark:text-[#3bd5a0]">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#1c6a1e]/20 to-[#2a8a30]/20 dark:from-[#1c6a1e]/30 dark:to-[#2a8a30]/30 flex items-center justify-center flex-shrink-0 ring-1 ring-[#1c6a1e]/20">
+              <span className="text-xs font-semibold text-[#1c6a1e] dark:text-[#2a8a30]">
                 {user?.name?.charAt(0).toUpperCase() || 'U'}
               </span>
             </div>

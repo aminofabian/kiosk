@@ -119,7 +119,7 @@ function CategoriesPageContent() {
 
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-10 w-10 animate-spin text-[#259783]" />
+            <Loader2 className="h-10 w-10 animate-spin text-[#1c6a1e]" />
           </div>
         ) : error ? (
           <div className="rounded-none border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-6 py-12 text-center text-red-600 dark:text-red-400 font-medium">

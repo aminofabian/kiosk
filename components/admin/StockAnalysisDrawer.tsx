@@ -198,7 +198,7 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
       case 'declining':
         return { label: 'Declining', color: 'text-red-600', bg: 'bg-red-500', icon: TrendingDown, desc: 'Stock levels have decreased' };
       case 'stable':
-        return { label: 'Stable', color: 'text-[#259783]', bg: 'bg-[#259783]', icon: Minus, desc: 'Stock levels are steady' };
+        return { label: 'Stable', color: 'text-[#1c6a1e]', bg: 'bg-[#1c6a1e]', icon: Minus, desc: 'Stock levels are steady' };
       default:
         return { label: 'New', color: 'text-blue-600', bg: 'bg-blue-500', icon: Sparkles, desc: 'Just getting started!' };
     }
@@ -208,7 +208,7 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
     switch (trend) {
       case 'growing': return { label: 'Growing', color: 'bg-green-500 text-white', icon: TrendingUp, textColor: 'text-green-600' };
       case 'shrinking': return { label: 'Shrinking', color: 'bg-red-500 text-white', icon: TrendingDown, textColor: 'text-red-600' };
-      case 'stable': return { label: 'Stable', color: 'bg-[#259783] text-white', icon: Minus, textColor: 'text-[#259783]' };
+      case 'stable': return { label: 'Stable', color: 'bg-[#1c6a1e] text-white', icon: Minus, textColor: 'text-[#1c6a1e]' };
       case 'new': return { label: 'New', color: 'bg-blue-500 text-white', icon: Sparkles, textColor: 'text-blue-600' };
       default: return { label: 'Unknown', color: 'bg-slate-400 text-white', icon: Minus, textColor: 'text-slate-600' };
     }
@@ -229,21 +229,21 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="right">
       <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen flex flex-col">
-        <DrawerHeader className="border-b bg-gradient-to-br from-[#259783]/10 via-[#259783]/5 to-white dark:from-[#259783]/20 dark:via-[#259783]/10 dark:to-[#0f1a0d] relative pr-12 pb-2">
+        <DrawerHeader className="border-b bg-gradient-to-br from-[#1c6a1e]/10 via-[#1c6a1e]/5 to-white dark:from-[#1c6a1e]/20 dark:via-[#1c6a1e]/10 dark:to-[#0f1a0d] relative pr-12 pb-2">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => onOpenChange(false)}
-            className="absolute right-3 top-3 h-7 w-7 hover:bg-[#259783]/20"
+            className="absolute right-3 top-3 h-7 w-7 hover:bg-[#1c6a1e]/20"
           >
             <X className="h-3.5 w-3.5" />
           </Button>
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-full bg-[#259783] flex items-center justify-center shadow-md shadow-[#259783]/30">
+            <div className="w-9 h-9 rounded-full bg-[#1c6a1e] flex items-center justify-center shadow-md shadow-[#1c6a1e]/30">
               <BarChart3 className="w-4.5 h-4.5 text-white" />
             </div>
             <div>
-              <DrawerTitle className="text-lg text-[#259783] dark:text-[#45d827]">
+              <DrawerTitle className="text-lg text-[#1c6a1e] dark:text-[#2a8a30]">
                 Stock Analysis
               </DrawerTitle>
               <p className="text-xs text-slate-600 dark:text-slate-400">
@@ -260,7 +260,7 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
                 onClick={() => setActiveTab(tab)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                   activeTab === tab
-                    ? 'bg-[#259783] text-white'
+                    ? 'bg-[#1c6a1e] text-white'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
@@ -274,7 +274,7 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
           {loading ? (
             <div className="flex items-center justify-center h-48">
               <div className="text-center space-y-2">
-                <Loader2 className="h-6 w-6 animate-spin mx-auto text-[#259783]" />
+                <Loader2 className="h-6 w-6 animate-spin mx-auto text-[#1c6a1e]" />
                 <p className="text-sm text-muted-foreground">Analyzing stock...</p>
               </div>
             </div>
@@ -292,7 +292,7 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
               {activeTab === 'overview' && (
                 <>
                   {/* Business Trajectory */}
-                  <Card className="border-[#259783]/30 bg-gradient-to-br from-[#259783]/5 to-white dark:from-[#259783]/10 dark:to-[#0f1a0d]">
+                  <Card className="border-[#1c6a1e]/30 bg-gradient-to-br from-[#1c6a1e]/5 to-white dark:from-[#1c6a1e]/10 dark:to-[#0f1a0d]">
                     <CardContent className="p-3">
                       {(() => {
                         const trajectory = getTrajectoryConfig(analysisData.summary.trajectory);
@@ -355,7 +355,7 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
                         ? 'bg-green-50 dark:bg-green-950/20 border-green-300 dark:border-green-700'
                         : analysisData.stockGrowth.stockChange < 0
                           ? 'bg-red-50 dark:bg-red-950/20 border-red-300 dark:border-red-700'
-                          : 'bg-[#259783]/10 dark:bg-[#259783]/20 border-[#259783]/30'
+                          : 'bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 border-[#1c6a1e]/30'
                     }`}>
                       <CardContent className="p-2.5">
                         <div className="flex items-center gap-1.5 mb-1">
@@ -431,9 +431,9 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
                           <p className="text-lg font-bold text-green-600">{analysisData.trendBreakdown.growing}</p>
                           <p className="text-xs text-slate-600">Growing</p>
                         </div>
-                        <div className="text-center p-2 bg-[#259783]/10 dark:bg-[#259783]/20 rounded">
-                          <Minus className="w-4 h-4 text-[#259783] mx-auto mb-1" />
-                          <p className="text-lg font-bold text-[#259783]">{analysisData.trendBreakdown.stable}</p>
+                        <div className="text-center p-2 bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 rounded">
+                          <Minus className="w-4 h-4 text-[#1c6a1e] mx-auto mb-1" />
+                          <p className="text-lg font-bold text-[#1c6a1e]">{analysisData.trendBreakdown.stable}</p>
                           <p className="text-xs text-slate-600">Stable</p>
                         </div>
                         <div className="text-center p-2 bg-red-50 dark:bg-red-950/20 rounded">
@@ -553,7 +553,7 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
                         onClick={() => setFilter(f)}
                         className={`flex-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
                           filter === f
-                            ? 'bg-white dark:bg-slate-700 text-[#259783] shadow-sm'
+                            ? 'bg-white dark:bg-slate-700 text-[#1c6a1e] shadow-sm'
                             : 'text-slate-600 dark:text-slate-400'
                         }`}
                       >
@@ -575,7 +575,7 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
                           item.trend === 'growing' ? 'border-l-green-500' :
                           item.trend === 'shrinking' ? 'border-l-red-500' :
                           item.trend === 'new' ? 'border-l-blue-500' :
-                          'border-l-[#259783]'
+                          'border-l-[#1c6a1e]'
                         }`}>
                           <CardContent className="p-3">
                             <div className="flex items-start justify-between gap-2 mb-2">
@@ -599,7 +599,7 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
                               <div className={`p-1.5 rounded ${
                                 item.stockChange > 0 ? 'bg-green-50 dark:bg-green-950/20' :
                                 item.stockChange < 0 ? 'bg-red-50 dark:bg-red-950/20' :
-                                'bg-[#259783]/10'
+                                'bg-[#1c6a1e]/10'
                               }`}>
                                 <p className="text-slate-500">Current</p>
                                 <p className={`font-semibold ${trendConfig.textColor}`}>

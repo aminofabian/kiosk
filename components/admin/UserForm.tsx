@@ -112,7 +112,7 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
               placeholder="John Doe"
               required
               disabled={isLoading}
-              className="focus-visible:ring-[#259783]"
+              className="focus-visible:ring-[#1c6a1e]"
             />
           </div>
 
@@ -127,7 +127,7 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
               placeholder="john@example.com"
               required
               disabled={isLoading}
-              className="focus-visible:ring-[#259783]"
+              className="focus-visible:ring-[#1c6a1e]"
             />
           </div>
 
@@ -144,7 +144,7 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
               placeholder="••••••••"
               required={!isEditing}
               disabled={isLoading}
-              className="focus-visible:ring-[#259783]"
+              className="focus-visible:ring-[#1c6a1e]"
             />
           </div>
 
@@ -181,7 +181,7 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
               maxLength={4}
               pattern="\d{4}"
               disabled={isLoading}
-              className="focus-visible:ring-[#259783]"
+              className="focus-visible:ring-[#1c6a1e]"
             />
           </div>
 
@@ -222,7 +222,7 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
             </Button>
             <Button
               type="submit"
-              className="flex-1 bg-[#259783] hover:bg-[#45d827] text-white font-semibold shadow-md shadow-[#259783]/20"
+              className="flex-1 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white font-semibold shadow-md shadow-[#1c6a1e]/20"
               disabled={isLoading}
             >
               {isLoading ? (

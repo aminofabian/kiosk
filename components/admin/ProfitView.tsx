@@ -274,7 +274,7 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center space-y-3">
-          <Loader2 className="h-8 w-8 text-[#259783] animate-spin mx-auto" />
+          <Loader2 className="h-8 w-8 text-[#1c6a1e] animate-spin mx-auto" />
           <p className="text-slate-500 dark:text-slate-400 text-sm">Loading...</p>
         </div>
       </div>
@@ -321,7 +321,7 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
               onClick={() => setDatePreset(preset)}
               className={`px-3 py-1.5 text-xs font-bold transition-all rounded-lg ${
                 datePreset === preset
-                  ? 'bg-[#259783] text-white shadow-md'
+                  ? 'bg-[#1c6a1e] text-white shadow-md'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
@@ -359,19 +359,19 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
       {hasExpenses && (
         <div className={`p-4 border-2 ${
           isProfitable 
-            ? 'border-[#259783] bg-[#259783]/5' 
+            ? 'border-[#1c6a1e] bg-[#1c6a1e]/5' 
             : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10'
         }`}>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 flex items-center justify-center border-2 ${
-                isProfitable ? 'border-[#259783] bg-[#259783]' : 'border-red-500 bg-red-500'
+                isProfitable ? 'border-[#1c6a1e] bg-[#1c6a1e]' : 'border-red-500 bg-red-500'
               }`}>
                 {isProfitable ? <CheckCircle2 className="w-5 h-5 text-white" /> : <XCircle className="w-5 h-5 text-white" />}
               </div>
               <div>
                 <p className={`text-[10px] font-black uppercase tracking-wide mb-0.5 ${
-                  isProfitable ? 'text-[#259783]' : 'text-red-600 dark:text-red-400'
+                  isProfitable ? 'text-[#1c6a1e]' : 'text-red-600 dark:text-red-400'
                 }`}>
                   {isProfitable ? '✓ PROFITABLE' : '✗ AT A LOSS'}
                 </p>
@@ -383,7 +383,7 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
             <div className="flex items-center gap-4">
               <div className="text-right border-r-2 border-slate-200 dark:border-slate-700 pr-4">
                 <p className="text-[10px] text-slate-500 uppercase font-bold mb-0.5">Net Profit</p>
-                <p className={`text-lg font-black ${isProfitable ? 'text-[#259783]' : 'text-red-600 dark:text-red-400'}`}>
+                <p className={`text-lg font-black ${isProfitable ? 'text-[#1c6a1e]' : 'text-red-600 dark:text-red-400'}`}>
                   {isProfitable ? '+' : ''}{formatPrice(getNetProfit())}
                 </p>
               </div>
@@ -453,7 +453,7 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
 
       {/* Main Stats - 4 Column Grid */}
       <div className="grid grid-cols-4 gap-3">
-        <div className="border-2 border-[#259783] bg-[#259783] p-3.5">
+        <div className="border-2 border-[#1c6a1e] bg-[#1c6a1e] p-3.5">
           <div className="flex items-center justify-between mb-2">
             <TrendingUp className="w-4 h-4 text-white" />
             <span className="text-white/70 text-[9px] font-bold bg-white/20 px-1 py-0.5">
@@ -467,7 +467,7 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
 
         <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
           <div className="flex items-center justify-between mb-2">
-            <ShoppingCart className="w-4 h-4 text-[#259783]" />
+            <ShoppingCart className="w-4 h-4 text-[#1c6a1e]" />
           </div>
           <p className="text-slate-500 dark:text-slate-400 text-[9px] font-bold uppercase tracking-wide mb-0.5">Sales Volume</p>
           <p className="text-xl font-black text-slate-900 dark:text-white">{formatPrice(profitData.totalSales)}</p>
@@ -475,7 +475,7 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
 
         <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
           <div className="flex items-center justify-between mb-2">
-            <DollarSign className="w-4 h-4 text-[#259783]" />
+            <DollarSign className="w-4 h-4 text-[#1c6a1e]" />
           </div>
           <p className="text-slate-500 dark:text-slate-400 text-[9px] font-bold uppercase tracking-wide mb-0.5">Cost of Goods</p>
           <p className="text-xl font-black text-slate-900 dark:text-white">{formatPrice(profitData.totalCost)}</p>
@@ -483,7 +483,7 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
 
         <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
           <div className="flex items-center justify-between mb-2">
-            <Users className="w-4 h-4 text-[#259783]" />
+            <Users className="w-4 h-4 text-[#1c6a1e]" />
           </div>
           <p className="text-slate-500 dark:text-slate-400 text-[9px] font-bold uppercase tracking-wide mb-0.5">Customers</p>
           <p className="text-xl font-black text-slate-900 dark:text-white">{profitData.totalCustomers}</p>
@@ -494,7 +494,7 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
       {/* Operating Expenses Row */}
       {hasExpenses ? (
         <div className="grid grid-cols-3 gap-3">
-          <div className="border-2 border-[#259783] bg-[#259783] p-3.5">
+          <div className="border-2 border-[#1c6a1e] bg-[#1c6a1e] p-3.5">
             <div className="flex items-center justify-between mb-2">
               <Receipt className="w-4 h-4 text-white" />
               <Link href="/admin/expenses" className="text-white/70 text-[9px] hover:text-white flex items-center gap-0.5">
@@ -508,9 +508,9 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
 
           <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
             <div className="flex items-center justify-between mb-2">
-              <Target className="w-4 h-4 text-[#259783]" />
+              <Target className="w-4 h-4 text-[#1c6a1e]" />
               {profitData.totalSales >= getBreakEvenSales() && (
-                <span className="text-[9px] font-bold text-[#259783] bg-[#259783]/10 px-1 py-0.5">✓</span>
+                <span className="text-[9px] font-bold text-[#1c6a1e] bg-[#1c6a1e]/10 px-1 py-0.5">✓</span>
               )}
             </div>
             <p className="text-slate-500 dark:text-slate-400 text-[9px] font-bold uppercase tracking-wide mb-0.5">Break-even Sales</p>
@@ -520,10 +520,10 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
 
           <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
             <div className="flex items-center justify-between mb-2">
-              <Wallet className="w-4 h-4 text-[#259783]" />
+              <Wallet className="w-4 h-4 text-[#1c6a1e]" />
             </div>
             <p className="text-slate-500 dark:text-slate-400 text-[9px] font-bold uppercase tracking-wide mb-0.5">Safe to Bank</p>
-            <p className={`text-xl font-black ${isProfitable ? 'text-[#259783]' : 'text-red-500'}`}>
+            <p className={`text-xl font-black ${isProfitable ? 'text-[#1c6a1e]' : 'text-red-500'}`}>
               {formatPrice(Math.max(0, getNetProfit()))}
             </p>
             <p className="text-slate-400 text-[9px] mt-0.5">Keep {formatPrice(getDailyExpense())} for expenses</p>
@@ -533,13 +533,13 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
         <Link href="/admin/expenses" className="block">
           <div className="flex items-center justify-between p-4 border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
             <div className="flex items-center gap-3">
-              <Receipt className="w-4 h-4 text-[#259783]" />
+              <Receipt className="w-4 h-4 text-[#1c6a1e]" />
               <div>
                 <p className="font-black text-xs text-slate-900 dark:text-white">Add Operating Expenses</p>
                 <p className="text-[10px] text-slate-500 dark:text-slate-400">See true profit after rent, salaries, etc.</p>
               </div>
             </div>
-            <ChevronRight className="w-4 h-4 text-[#259783]" />
+            <ChevronRight className="w-4 h-4 text-[#1c6a1e]" />
           </div>
         </Link>
       )}
@@ -570,7 +570,7 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
         <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
           <div className="p-4 border-b-2 border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-[#259783]" />
+              <TrendingUp className="w-4 h-4 text-[#1c6a1e]" />
               <h3 className="font-black text-sm text-slate-900 dark:text-white">Top Profit Items</h3>
             </div>
           </div>
@@ -589,7 +589,7 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
         <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
           <div className="p-4 border-b-2 border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-2">
-              <TrendingDown className="w-4 h-4 text-[#259783]" />
+              <TrendingDown className="w-4 h-4 text-[#1c6a1e]" />
               <h3 className="font-black text-sm text-slate-900 dark:text-white">Least Profitable</h3>
             </div>
           </div>
@@ -608,15 +608,15 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
         <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
           <div className="p-4 border-b-2 border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-[#259783]" />
+              <AlertCircle className="w-4 h-4 text-[#1c6a1e]" />
               <h3 className="font-black text-sm text-slate-900 dark:text-white">Low / Negative</h3>
             </div>
           </div>
           <div className="p-3 space-y-2">
             {lowProfitItems.length === 0 ? (
               <div className="text-center py-6">
-                <TrendingUp className="w-6 h-6 text-[#259783] mx-auto mb-2" />
-                <p className="text-[#259783] text-sm font-bold">All items profitable!</p>
+                <TrendingUp className="w-6 h-6 text-[#1c6a1e] mx-auto mb-2" />
+                <p className="text-[#1c6a1e] text-sm font-bold">All items profitable!</p>
               </div>
             ) : (
               lowProfitItems.map((item, index) => (
@@ -632,7 +632,7 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
         <div className="p-4 border-b-2 border-slate-200 dark:border-slate-700">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-2">
-              <Package className="w-4 h-4 text-[#259783]" />
+              <Package className="w-4 h-4 text-[#1c6a1e]" />
               <h3 className="font-black text-sm text-slate-900 dark:text-white">All Items</h3>
               <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-xs">
                 {profitData.itemProfits.filter(item => 
@@ -693,7 +693,7 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
                     >
                       <td className="px-6 py-3">
                         <div className="flex items-center gap-2">
-                          {isPositive ? <TrendingUp className="h-4 w-4 text-[#259783]" /> : <TrendingDown className="h-4 w-4 text-red-500" />}
+                          {isPositive ? <TrendingUp className="h-4 w-4 text-[#1c6a1e]" /> : <TrendingDown className="h-4 w-4 text-red-500" />}
                           <span className="font-bold text-slate-900 dark:text-white">{item.item_name}</span>
                           {isExcluded && (
                             <Badge variant="outline" className="text-xs border-yellow-400 text-yellow-700 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30">
@@ -753,20 +753,20 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
                               className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"
                               title="Edit buy price"
                             >
-                              <Edit2 className="h-3 w-3 text-slate-400 hover:text-[#259783]" />
+                              <Edit2 className="h-3 w-3 text-slate-400 hover:text-[#1c6a1e]" />
                             </button>
                           </div>
                         )}
                       </td>
                       <td className="px-6 py-3 text-right text-slate-600 dark:text-slate-300">{formatPrice(avgSell)}</td>
-                      <td className={`px-6 py-3 text-right font-bold ${isPositive ? 'text-[#259783]' : 'text-red-500'}`}>
+                      <td className={`px-6 py-3 text-right font-bold ${isPositive ? 'text-[#1c6a1e]' : 'text-red-500'}`}>
                         {formatPrice(avgProfit)}
                       </td>
-                      <td className={`px-6 py-3 text-right font-black ${isPositive ? 'text-[#259783]' : 'text-red-500'}`}>
+                      <td className={`px-6 py-3 text-right font-black ${isPositive ? 'text-[#1c6a1e]' : 'text-red-500'}`}>
                         {formatPrice(item.total_profit)}
                       </td>
                       <td className="px-6 py-3 text-right">
-                        <span className={`text-xs font-bold px-1.5 py-0.5 ${isPositive ? 'bg-[#259783]/10 text-[#259783] border border-[#259783]/20' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800'}`}>
+                        <span className={`text-xs font-bold px-1.5 py-0.5 ${isPositive ? 'bg-[#1c6a1e]/10 text-[#1c6a1e] border border-[#1c6a1e]/20' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800'}`}>
                           {formatPercent(margin)}
                         </span>
                       </td>
@@ -798,7 +798,7 @@ function ItemRow({ item, index, type, formatPrice }: {
   const bgColor = isExcluded
     ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-300 dark:border-yellow-700'
     : type === 'top' 
-    ? 'bg-[#259783]/5 border-[#259783]/20' 
+    ? 'bg-[#1c6a1e]/5 border-[#1c6a1e]/20' 
     : isNegative 
     ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800' 
     : 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800';
@@ -806,7 +806,7 @@ function ItemRow({ item, index, type, formatPrice }: {
   const textColor = isExcluded
     ? 'text-yellow-700 dark:text-yellow-400'
     : type === 'top' 
-    ? 'text-[#259783]' 
+    ? 'text-[#1c6a1e]' 
     : isNegative 
     ? 'text-red-600 dark:text-red-400' 
     : 'text-orange-600 dark:text-orange-400';
@@ -817,7 +817,7 @@ function ItemRow({ item, index, type, formatPrice }: {
         isExcluded 
           ? 'border-yellow-500 bg-yellow-500' 
           : type === 'top' 
-          ? 'border-[#259783] bg-[#259783]' 
+          ? 'border-[#1c6a1e] bg-[#1c6a1e]' 
           : isNegative 
           ? 'border-red-500 bg-red-500' 
           : 'border-orange-500 bg-orange-500'

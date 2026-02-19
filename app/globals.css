@@ -69,7 +69,7 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --primary: #1c6a1e;
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
@@ -81,14 +81,14 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-1: #1c6a1e;
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary: #1c6a1e;
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
@@ -103,8 +103,8 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
+  --primary: #1c6a1e;
+  --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
@@ -122,7 +122,7 @@
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary: #1c6a1e;
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
@@ -178,7 +178,7 @@
   
   /* Creative gradient backgrounds */
   .gradient-primary {
-    background: linear-gradient(135deg, oklch(0.646 0.222 41.116) 0%, oklch(0.6 0.118 184.704) 100%);
+    background: linear-gradient(135deg, #1c6a1e 0%, #2a8a30 100%);
   }
   
   .gradient-secondary {
@@ -259,8 +259,8 @@
   }
 
   .icon-glow-emerald {
-    color: rgb(5 150 105);
-    filter: drop-shadow(0 0 8px rgb(5 150 105 / 0.5));
+    color: rgb(28 106 30);
+    filter: drop-shadow(0 0 8px rgb(28 106 30 / 0.5));
   }
 
   .icon-glow-orange {
@@ -272,7 +272,7 @@
   .icon-container-creative {
     position: relative;
     background: linear-gradient(white, white) padding-box,
-      linear-gradient(135deg, rgb(5 150 105 / 0.4), rgb(20 184 166 / 0.6), rgb(16 185 129 / 0.4)) border-box;
+      linear-gradient(135deg, rgb(28 106 30 / 0.4), rgb(28 106 30 / 0.6), rgb(42 138 48 / 0.4)) border-box;
     border: 2px solid transparent;
     border-radius: 1.5rem;
   }
@@ -318,9 +318,9 @@
   .text-shimmer {
     background: linear-gradient(
       90deg,
-      rgb(5 150 105),
-      rgb(20 184 166),
-      rgb(5 150 105)
+      rgb(28 106 30),
+      rgb(42 138 48),
+      rgb(28 106 30)
     );
     background-size: 200% auto;
     animation: shimmer 3s linear infinite;
@@ -332,8 +332,8 @@
   /* Blob background mesh */
   .bg-mesh-blobs {
     background: 
-      radial-gradient(ellipse 80% 50% at 20% 40%, rgb(52 211 153 / 0.15) 0%, transparent 50%),
-      radial-gradient(ellipse 60% 40% at 80% 60%, rgb(20 184 166 / 0.12) 0%, transparent 50%),
+      radial-gradient(ellipse 80% 50% at 20% 40%, rgb(28 106 30 / 0.15) 0%, transparent 50%),
+      radial-gradient(ellipse 60% 40% at 80% 60%, rgb(28 106 30 / 0.12) 0%, transparent 50%),
       radial-gradient(ellipse 50% 30% at 50% 90%, rgb(251 191 36 / 0.08) 0%, transparent 50%),
       linear-gradient(180deg, rgb(240 253 244), rgb(236 253 245));
   }
@@ -350,7 +350,7 @@
     inset: -2px;
     border-radius: inherit;
     padding: 2px;
-    background: linear-gradient(135deg, rgb(5 150 105 / 0.5), rgb(20 184 166 / 0.3), rgb(251 191 36 / 0.2));
+    background: linear-gradient(135deg, rgb(28 106 30 / 0.5), rgb(28 106 30 / 0.3), rgb(251 191 36 / 0.2));
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
@@ -453,8 +453,8 @@
   }
 
   .pos-icon-btn-primary:hover {
-    background-color: rgb(5 150 105 / 0.15);
-    color: rgb(5 150 105);
+    background-color: rgb(28 106 30 / 0.15);
+    color: rgb(28 106 30);
   }
 
   .pos-icon-btn-primary:active {
@@ -492,16 +492,16 @@
 
   /* Primary action button - POS brand */
   .pos-btn-primary {
-    background: linear-gradient(to right, rgb(5 150 105), rgb(30 138 114));
+    background: linear-gradient(to right, rgb(28 106 30), rgb(42 138 48));
     color: white;
     font-weight: 600;
-    box-shadow: 0 10px 15px -3px rgb(5 150 105 / 0.25);
+    box-shadow: 0 10px 15px -3px rgb(28 106 30 / 0.25);
     transition: all 0.2s;
   }
 
   .pos-btn-primary:hover {
-    box-shadow: 0 20px 25px -5px rgb(5 150 105 / 0.3);
-    background: linear-gradient(to right, rgb(30 138 114), rgb(5 150 105));
+    box-shadow: 0 20px 25px -5px rgb(28 106 30 / 0.3);
+    background: linear-gradient(to right, rgb(42 138 48), rgb(28 106 30));
   }
 
   .pos-btn-primary:active {
@@ -521,12 +521,12 @@
   }
 
   .pos-btn-outline:hover {
-    border-color: rgb(5 150 105 / 0.5);
-    background-color: rgb(5 150 105 / 0.05);
+    border-color: rgb(28 106 30 / 0.5);
+    background-color: rgb(28 106 30 / 0.05);
   }
 
   .dark .pos-btn-outline:hover {
-    background-color: rgb(5 150 105 / 0.1);
+    background-color: rgb(28 106 30 / 0.1);
   }
 
   .pos-btn-outline:active {
@@ -582,7 +582,7 @@
 .pos-grid-btn:hover {
   -webkit-transform: translateY(-2px);
   transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.04), 0 12px 24px -8px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(37, 151, 131, 0.12);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.04), 0 12px 24px -8px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(28, 106, 30, 0.12);
 }
 
 .pos-grid-btn:active {

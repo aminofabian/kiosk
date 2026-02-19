@@ -176,7 +176,7 @@ export function ProfitCalendar({ compact = false, itemType }: ProfitCalendarProp
     return (
       <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-lg p-6">
         <div className="flex items-center justify-center h-32">
-          <Loader2 className="h-6 w-6 text-[#259783] animate-spin" />
+          <Loader2 className="h-6 w-6 text-[#1c6a1e] animate-spin" />
         </div>
       </div>
     );
@@ -195,7 +195,7 @@ export function ProfitCalendar({ compact = false, itemType }: ProfitCalendarProp
       <div className={`${compact ? 'p-3' : 'px-5 py-4'} border-b border-slate-100 dark:border-slate-700/50`}>
         <div className={`flex items-center ${compact ? 'flex-col gap-2' : 'justify-between'}`}>
           <div className="flex items-center gap-2">
-            <Calendar className={`${compact ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-[#259783]`} />
+            <Calendar className={`${compact ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-[#1c6a1e]`} />
             <h3 className={`font-black ${compact ? 'text-xs' : 'text-sm'} text-slate-900 dark:text-white`}>
               {isNet ? 'Daily Net Profit' : 'Daily Gross Profit'}
             </h3>
@@ -287,7 +287,7 @@ export function ProfitCalendar({ compact = false, itemType }: ProfitCalendarProp
                         key={di}
                         className={`${cellSize} rounded-sm transition-all cursor-pointer
                           ${isFuture ? 'bg-transparent' : getProfitColor(day.data?.profit ?? null)}
-                          ${isToday ? 'ring-2 ring-[#259783] ring-offset-1 dark:ring-offset-slate-800' : ''}
+                          ${isToday ? 'ring-2 ring-[#1c6a1e] ring-offset-1 dark:ring-offset-slate-800' : ''}
                           ${!isFuture && !isToday ? 'hover:ring-1 hover:ring-slate-400 hover:ring-offset-1 dark:hover:ring-offset-slate-800' : ''}
                         `}
                         onMouseEnter={(e) => handleMouseEnter(day.data, e)}

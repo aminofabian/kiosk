@@ -164,7 +164,7 @@ export default function CustomersPage() {
       <AdminLayout>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
-            <Loader2 className="h-8 w-8 text-[#259783] animate-spin mx-auto mb-3" />
+            <Loader2 className="h-8 w-8 text-[#1c6a1e] animate-spin mx-auto mb-3" />
             <p className="text-slate-500 text-sm">Analyzing customer data...</p>
           </div>
         </div>
@@ -199,7 +199,7 @@ export default function CustomersPage() {
         {/* Header */}
         <div className="flex items-center justify-between border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-xl px-5 py-4 shadow-sm">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-[#259783] flex items-center justify-center">
+            <div className="w-12 h-12 bg-[#1c6a1e] flex items-center justify-center">
               <Users className="w-6 h-6 text-white" />
             </div>
             <div>
@@ -215,7 +215,7 @@ export default function CustomersPage() {
                   onClick={() => setDatePreset(preset)}
                   className={`px-4 py-2 text-xs font-bold transition-all rounded-lg ${
                     datePreset === preset
-                      ? 'bg-[#259783] text-white shadow-md'
+                      ? 'bg-[#1c6a1e] text-white shadow-md'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                 >
@@ -237,7 +237,7 @@ export default function CustomersPage() {
 
         {/* Hero Metrics */}
         <div className="grid grid-cols-4 gap-4">
-          <div className="border-2 border-[#259783] bg-[#259783] p-5 rounded-xl shadow-sm">
+          <div className="border-2 border-[#1c6a1e] bg-[#1c6a1e] p-5 rounded-xl shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <Users className="w-5 h-5 text-white" />
               <span className="text-white/70 text-[10px] font-bold uppercase">{summary.avgCustomersPerHour.toFixed(1)}/hr</span>
@@ -248,7 +248,7 @@ export default function CustomersPage() {
 
           <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm">
             <div className="flex items-center justify-between mb-3">
-              <DollarSign className="w-5 h-5 text-[#259783]" />
+              <DollarSign className="w-5 h-5 text-[#1c6a1e]" />
             </div>
             <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-1">Avg Spend</p>
             <p className="text-3xl font-black text-slate-900 dark:text-white">{formatPrice(summary.avgSpend)}</p>
@@ -256,7 +256,7 @@ export default function CustomersPage() {
 
           <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm">
             <div className="flex items-center justify-between mb-3">
-              <TrendingUp className="w-5 h-5 text-[#259783]" />
+              <TrendingUp className="w-5 h-5 text-[#1c6a1e]" />
             </div>
             <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-1">Avg Profit/Customer</p>
             <p className="text-3xl font-black text-slate-900 dark:text-white">{formatPrice(summary.avgProfit)}</p>
@@ -264,7 +264,7 @@ export default function CustomersPage() {
 
           <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 rounded-xl shadow-sm">
             <div className="flex items-center justify-between mb-3">
-              <Package className="w-5 h-5 text-[#259783]" />
+              <Package className="w-5 h-5 text-[#1c6a1e]" />
             </div>
             <p className="text-slate-500 dark:text-slate-400 text-[10px] font-bold uppercase tracking-wide mb-1">Items/Customer</p>
             <p className="text-3xl font-black text-slate-900 dark:text-white">{summary.avgItems.toFixed(1)}</p>
@@ -286,7 +286,7 @@ export default function CustomersPage() {
             <div className="p-5 border-b-2 border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#259783] flex items-center justify-center">
+                  <div className="w-10 h-10 bg-[#1c6a1e] flex items-center justify-center">
                     <Calendar className="w-5 h-5 text-white" />
                   </div>
                   <div>
@@ -295,7 +295,7 @@ export default function CustomersPage() {
                   </div>
                 </div>
                 {peakDays?.bySales && (
-                  <Badge className="bg-[#259783] text-white border-0">
+                  <Badge className="bg-[#1c6a1e] text-white border-0">
                     Best: {peakDays.bySales.dayName}
                   </Badge>
                 )}
@@ -317,10 +317,10 @@ export default function CustomersPage() {
                         <div 
                           className={`w-full transition-all ${
                             isBest 
-                              ? 'bg-[#259783] border-2 border-[#259783]' 
+                              ? 'bg-[#1c6a1e] border-2 border-[#1c6a1e]' 
                               : isWorst
                               ? 'bg-slate-400'
-                              : 'bg-[#259783]/70'
+                              : 'bg-[#1c6a1e]/70'
                           }`}
                           style={{ height: `${heightPercent}%`, minHeight: dayStat.sales > 0 ? '4px' : '0' }}
                         />
@@ -331,7 +331,7 @@ export default function CustomersPage() {
                         )}
                       </div>
                       <div className="text-center">
-                        <p className={`text-xs font-bold ${isBest ? 'text-[#259783]' : 'text-slate-600 dark:text-slate-400'}`}>
+                        <p className={`text-xs font-bold ${isBest ? 'text-[#1c6a1e]' : 'text-slate-600 dark:text-slate-400'}`}>
                           {day}
                         </p>
                         <p className="text-[10px] text-slate-500">{formatPrice(dayStat.sales)}</p>
@@ -363,21 +363,21 @@ export default function CustomersPage() {
                         <tr 
                           key={day.day} 
                           className={`border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
-                            isBest ? 'bg-[#259783]/5' : ''
+                            isBest ? 'bg-[#1c6a1e]/5' : ''
                           }`}
                         >
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
-                              {isBest && <Zap className="w-4 h-4 text-[#259783]" />}
+                              {isBest && <Zap className="w-4 h-4 text-[#1c6a1e]" />}
                               {isWorst && <TrendingDown className="w-4 h-4 text-slate-400" />}
-                              <span className={`font-bold ${isBest ? 'text-[#259783]' : 'text-slate-900 dark:text-white'}`}>
+                              <span className={`font-bold ${isBest ? 'text-[#1c6a1e]' : 'text-slate-900 dark:text-white'}`}>
                                 {day.dayName}
                               </span>
                             </div>
                           </td>
                           <td className="px-4 py-3 text-right font-semibold text-slate-900 dark:text-white">{day.customers}</td>
                           <td className="px-4 py-3 text-right font-bold text-slate-900 dark:text-white">{formatPrice(day.sales)}</td>
-                          <td className={`px-4 py-3 text-right font-bold ${day.profit > 0 ? 'text-[#259783]' : 'text-red-500'}`}>
+                          <td className={`px-4 py-3 text-right font-bold ${day.profit > 0 ? 'text-[#1c6a1e]' : 'text-red-500'}`}>
                             {day.profit > 0 ? '+' : ''}{formatPrice(day.profit)}
                           </td>
                           <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-400">{formatPrice(avgPerCustomer)}</td>
@@ -397,7 +397,7 @@ export default function CustomersPage() {
           <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl shadow-sm">
             <div className="p-5 border-b-2 border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#259783] flex items-center justify-center">
+                <div className="w-10 h-10 bg-[#1c6a1e] flex items-center justify-center">
                   <Zap className="w-5 h-5 text-white" />
                 </div>
                 <h3 className="font-black text-lg text-slate-900 dark:text-white">Peak Hours</h3>
@@ -436,7 +436,7 @@ export default function CustomersPage() {
             <div className="p-5 border-b-2 border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#259783] flex items-center justify-center">
+                  <div className="w-10 h-10 bg-[#1c6a1e] flex items-center justify-center">
                     <BarChart3 className="w-5 h-5 text-white" />
                   </div>
                   <h3 className="font-black text-lg text-slate-900 dark:text-white">Hourly Traffic</h3>
@@ -469,19 +469,19 @@ export default function CustomersPage() {
                             <div 
                               className={`w-full transition-all ${
                                 isPeak 
-                                  ? 'bg-[#259783] border-2 border-[#259783]' 
-                                  : 'bg-[#259783]/80'
+                                  ? 'bg-[#1c6a1e] border-2 border-[#1c6a1e]' 
+                                  : 'bg-[#1c6a1e]/80'
                               }`}
                               style={{ height: `${heightPercent}%`, minHeight: h.customers > 0 ? '4px' : '0' }}
                               title={`${formatHour(h.hour)}: ${h.customers} customers, ${formatPrice(h.sales)}`}
                             />
                             {isPeak && (
                               <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                                <Zap className="w-3 h-3 text-[#259783]" />
+                                <Zap className="w-3 h-3 text-[#1c6a1e]" />
                               </div>
                             )}
                           </div>
-                          <span className={`text-[10px] font-bold ${isPeak ? 'text-[#259783]' : 'text-slate-400'}`}>
+                          <span className={`text-[10px] font-bold ${isPeak ? 'text-[#1c6a1e]' : 'text-slate-400'}`}>
                             {h.hour}
                           </span>
                         </div>
@@ -490,7 +490,7 @@ export default function CustomersPage() {
                   </div>
                   <div className="flex items-center justify-center gap-4 text-xs text-slate-500">
                     <div className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 bg-[#259783]"></div>
+                      <div className="w-3 h-3 bg-[#1c6a1e]"></div>
                       <span>Customers</span>
                     </div>
                     <div className="flex items-center gap-1.5">
@@ -510,7 +510,7 @@ export default function CustomersPage() {
           <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl shadow-sm">
             <div className="p-5 border-b-2 border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#259783] flex items-center justify-center">
+                <div className="w-10 h-10 bg-[#1c6a1e] flex items-center justify-center">
                   <ShoppingBag className="w-5 h-5 text-white" />
                 </div>
                 <h3 className="font-black text-lg text-slate-900 dark:text-white">Basket Size</h3>
@@ -542,7 +542,7 @@ export default function CustomersPage() {
           <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl shadow-sm">
             <div className="p-5 border-b-2 border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#259783] flex items-center justify-center">
+                <div className="w-10 h-10 bg-[#1c6a1e] flex items-center justify-center">
                   <CreditCard className="w-5 h-5 text-white" />
                 </div>
                 <h3 className="font-black text-lg text-slate-900 dark:text-white">Payment Methods</h3>
@@ -563,7 +563,7 @@ export default function CustomersPage() {
           <div className="border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-xl shadow-sm">
             <div className="p-5 border-b-2 border-slate-200 dark:border-slate-700">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-[#259783] flex items-center justify-center">
+                <div className="w-10 h-10 bg-[#1c6a1e] flex items-center justify-center">
                   <Lightbulb className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -579,7 +579,7 @@ export default function CustomersPage() {
                     key={i} 
                     className="flex items-start gap-3 p-4 border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
                   >
-                    <div className="w-6 h-6 bg-[#259783] flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="w-6 h-6 bg-[#1c6a1e] flex items-center justify-center flex-shrink-0 mt-0.5">
                       <Lightbulb className="w-3.5 h-3.5 text-white" />
                     </div>
                     <p className="text-sm font-medium text-slate-900 dark:text-white leading-relaxed">{insight}</p>
@@ -596,7 +596,7 @@ export default function CustomersPage() {
             <div className="p-5 border-b-2 border-slate-200 dark:border-slate-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#259783] flex items-center justify-center">
+                  <div className="w-10 h-10 bg-[#1c6a1e] flex items-center justify-center">
                     <Clock className="w-5 h-5 text-white" />
                   </div>
                   <div>
@@ -630,20 +630,20 @@ export default function CustomersPage() {
                       <tr 
                         key={h.hour} 
                         className={`border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
-                          isPeak ? 'bg-[#259783]/5' : ''
+                          isPeak ? 'bg-[#1c6a1e]/5' : ''
                         }`}
                       >
                         <td className="px-6 py-3">
                           <div className="flex items-center gap-2">
-                            {isPeak && <Zap className="w-4 h-4 text-[#259783]" />}
-                            <span className={`font-bold ${isPeak ? 'text-[#259783]' : 'text-slate-900 dark:text-white'}`}>
+                            {isPeak && <Zap className="w-4 h-4 text-[#1c6a1e]" />}
+                            <span className={`font-bold ${isPeak ? 'text-[#1c6a1e]' : 'text-slate-900 dark:text-white'}`}>
                               {formatHour(h.hour)}
                             </span>
                           </div>
                         </td>
                         <td className="px-6 py-3 text-right font-semibold text-slate-900 dark:text-white">{h.customers}</td>
                         <td className="px-6 py-3 text-right text-slate-700 dark:text-slate-300">{formatPrice(h.sales)}</td>
-                        <td className={`px-6 py-3 text-right font-bold ${isProfitable ? 'text-[#259783]' : 'text-red-500'}`}>
+                        <td className={`px-6 py-3 text-right font-bold ${isProfitable ? 'text-[#1c6a1e]' : 'text-red-500'}`}>
                           <div className="flex items-center justify-end gap-1">
                             {isProfitable ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
                             {isProfitable ? '+' : ''}{formatPrice(h.profit)}
@@ -695,7 +695,7 @@ export default function CustomersPage() {
                 onClick={() => setDatePreset(preset)}
                 className={`flex-1 py-2.5 text-xs font-bold transition-all rounded-lg ${
                   datePreset === preset 
-                    ? 'bg-[#259783] text-white shadow-md' 
+                    ? 'bg-[#1c6a1e] text-white shadow-md' 
                     : 'text-slate-500'
                 }`}
               >
@@ -710,7 +710,7 @@ export default function CustomersPage() {
 
         {/* Hero Metrics */}
         <div className="px-4 pb-4">
-          <div className="border-2 border-[#259783] bg-[#259783] p-4 mb-3 rounded-xl shadow-sm">
+          <div className="border-2 border-[#1c6a1e] bg-[#1c6a1e] p-4 mb-3 rounded-xl shadow-sm">
             <p className="text-white/70 text-[10px] uppercase font-bold mb-3">{getPeriodLabel()}&apos;s Story</p>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -738,7 +738,7 @@ export default function CustomersPage() {
         {datePreset !== 'today' && dayOfWeek && dayOfWeek.length > 0 && (
           <div className="px-4 pb-4">
             <h2 className="text-sm font-black text-slate-900 dark:text-white mb-3 flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-[#259783]" />
+              <Calendar className="w-4 h-4 text-[#1c6a1e]" />
               Day of Week
             </h2>
             <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
@@ -750,16 +750,16 @@ export default function CustomersPage() {
                     <div key={day.day} className="flex-1 flex flex-col items-center gap-1">
                       <div className="w-full flex flex-col items-end h-24 border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 relative">
                         <div 
-                          className={`w-full ${isBest ? 'bg-[#259783] border-2 border-[#259783]' : 'bg-[#259783]/70'}`}
+                          className={`w-full ${isBest ? 'bg-[#1c6a1e] border-2 border-[#1c6a1e]' : 'bg-[#1c6a1e]/70'}`}
                           style={{ height: `${heightPercent}%`, minHeight: day.sales > 0 ? '4px' : '0' }}
                         />
                         {isBest && (
                           <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                            <Zap className="w-3 h-3 text-[#259783]" />
+                            <Zap className="w-3 h-3 text-[#1c6a1e]" />
                           </div>
                         )}
                       </div>
-                      <p className={`text-[10px] font-bold ${isBest ? 'text-[#259783]' : 'text-slate-500'}`}>
+                      <p className={`text-[10px] font-bold ${isBest ? 'text-[#1c6a1e]' : 'text-slate-500'}`}>
                         {day.dayName.slice(0, 3)}
                       </p>
                     </div>
@@ -767,8 +767,8 @@ export default function CustomersPage() {
                 })}
               </div>
               {peakDays?.bySales && (
-                <div className="border-2 border-[#259783] bg-[#259783]/5 p-3">
-                  <p className="text-xs font-bold text-[#259783] mb-1">Best Day: {peakDays.bySales.dayName}</p>
+                <div className="border-2 border-[#1c6a1e] bg-[#1c6a1e]/5 p-3">
+                  <p className="text-xs font-bold text-[#1c6a1e] mb-1">Best Day: {peakDays.bySales.dayName}</p>
                   <p className="text-sm font-black text-slate-900 dark:text-white">{formatPrice(peakDays.bySales.sales)}</p>
                   <p className="text-[10px] text-slate-500">{peakDays.bySales.customers} customers</p>
                 </div>
@@ -781,12 +781,12 @@ export default function CustomersPage() {
         {(peakHours.bySales || peakHours.byCustomers) && (
           <div className="px-4 pb-4">
             <h2 className="text-sm font-black text-slate-900 dark:text-white mb-3 flex items-center gap-2">
-              <Zap className="w-4 h-4 text-[#259783]" />
+              <Zap className="w-4 h-4 text-[#1c6a1e]" />
               Peak Hours
             </h2>
             <div className="space-y-2.5">
               {peakHours.bySales && (
-                <div className="flex items-center justify-between p-4 border-2 border-[#259783] bg-[#259783]">
+                <div className="flex items-center justify-between p-4 border-2 border-[#1c6a1e] bg-[#1c6a1e]">
                   <div>
                     <p className="text-white/70 text-[10px] uppercase font-bold mb-1">Best Sales</p>
                     <p className="font-black text-white text-lg">{formatHour(peakHours.bySales.hour)}</p>
@@ -833,13 +833,13 @@ export default function CustomersPage() {
         {insights.length > 0 && (
           <div className="px-4 pb-4">
             <h2 className="text-sm font-black text-slate-900 dark:text-white mb-3 flex items-center gap-2">
-              <Lightbulb className="w-4 h-4 text-[#259783]" />
+              <Lightbulb className="w-4 h-4 text-[#1c6a1e]" />
               Insights
             </h2>
             <div className="border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-4 space-y-2.5">
               {insights.map((insight, i) => (
                 <div key={i} className="flex items-start gap-2.5 p-3 border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-                  <div className="w-5 h-5 bg-[#259783] flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-5 h-5 bg-[#1c6a1e] flex items-center justify-center flex-shrink-0 mt-0.5">
                     <Lightbulb className="w-3 h-3 text-white" />
                   </div>
                   <p className="text-sm font-medium text-slate-900 dark:text-white leading-relaxed">{insight}</p>
@@ -862,13 +862,13 @@ export default function CustomersPage() {
                     key={h.hour} 
                     className={`flex items-center gap-3 p-3.5 border-2 ${
                       isPeak 
-                        ? 'border-[#259783] bg-[#259783]/5' 
+                        ? 'border-[#1c6a1e] bg-[#1c6a1e]/5' 
                         : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
                     }`}
                   >
                     <div className={`w-12 h-12 flex items-center justify-center border-2 ${
                       isPeak 
-                        ? 'border-[#259783] bg-[#259783]' 
+                        ? 'border-[#1c6a1e] bg-[#1c6a1e]' 
                         : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900'
                     }`}>
                       {isPeak ? (
@@ -882,12 +882,12 @@ export default function CustomersPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="font-bold text-sm text-slate-900 dark:text-white">{h.customers} customers</p>
-                        {isPeak && <Zap className="w-3.5 h-3.5 text-[#259783]" />}
+                        {isPeak && <Zap className="w-3.5 h-3.5 text-[#1c6a1e]" />}
                       </div>
                       <p className="text-[10px] text-slate-500">{formatPrice(h.sales)} • {formatPrice(avgPerCustomer)}/customer</p>
                     </div>
                     <div className="text-right">
-                      <p className={`text-sm font-black ${h.profit > 0 ? 'text-[#259783]' : 'text-red-500'}`}>
+                      <p className={`text-sm font-black ${h.profit > 0 ? 'text-[#1c6a1e]' : 'text-red-500'}`}>
                         {h.profit > 0 ? '+' : ''}{formatPrice(h.profit)}
                       </p>
                     </div>
@@ -906,7 +906,7 @@ export default function CustomersPage() {
 function StatCard({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: string }) {
   return (
     <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
-      <Icon className="w-4 h-4 text-[#259783] mb-2" />
+      <Icon className="w-4 h-4 text-[#1c6a1e] mb-2" />
       <p className="text-xl font-black text-slate-900 dark:text-white mb-1">{value}</p>
       <p className="text-[10px] text-slate-500 uppercase font-bold">{label}</p>
     </div>
@@ -923,10 +923,10 @@ function PeakHourCard({ label, hour, value, customers }: {
     <div className="border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-4">
       <div className="flex items-center justify-between mb-2">
         <p className="text-[10px] uppercase font-bold text-slate-500">{label}</p>
-        <Zap className="w-4 h-4 text-[#259783]" />
+        <Zap className="w-4 h-4 text-[#1c6a1e]" />
       </div>
       <p className="text-xl font-black text-slate-900 dark:text-white mb-1">{hour}</p>
-      <p className="text-sm font-bold text-[#259783]">{value}</p>
+      <p className="text-sm font-bold text-[#1c6a1e]">{value}</p>
       <p className="text-[10px] text-slate-500 mt-1">{customers} customers</p>
     </div>
   );
@@ -951,7 +951,7 @@ function DistributionCard({ label, sublabel, percent, count }: {
         </div>
       </div>
       <div className="h-2 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600">
-        <div className="h-full bg-[#259783] transition-all" style={{ width: `${percent}%` }} />
+        <div className="h-full bg-[#1c6a1e] transition-all" style={{ width: `${percent}%` }} />
       </div>
     </div>
   );
@@ -965,7 +965,7 @@ function PaymentCard({ icon: Icon, label, percent, count }: {
 }) {
   return (
     <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 text-center">
-      <div className="w-12 h-12 bg-[#259783] flex items-center justify-center mx-auto mb-3">
+      <div className="w-12 h-12 bg-[#1c6a1e] flex items-center justify-center mx-auto mb-3">
         <Icon className="w-6 h-6 text-white" />
       </div>
       <p className="text-2xl font-black text-slate-900 dark:text-white mb-1">{percent.toFixed(0)}%</p>
@@ -983,7 +983,7 @@ function MobileStatCard({ icon: Icon, label, value }: {
 }) {
   return (
     <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
-      <Icon className="w-4 h-4 text-[#259783] mb-2" />
+      <Icon className="w-4 h-4 text-[#1c6a1e] mb-2" />
       <p className="text-lg font-black text-slate-900 dark:text-white mb-0.5">{value}</p>
       <p className="text-[10px] text-slate-500 uppercase font-bold">{label}</p>
     </div>
@@ -1007,7 +1007,7 @@ function MobileBasketCard({ label, sublabel, percent, count }: {
           <p className="text-lg font-black text-slate-900 dark:text-white">{percent.toFixed(0)}%</p>
         </div>
         <div className="h-2 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600">
-          <div className="h-full bg-[#259783]" style={{ width: `${percent}%` }} />
+          <div className="h-full bg-[#1c6a1e]" style={{ width: `${percent}%` }} />
         </div>
         <p className="text-[10px] text-slate-500 mt-1.5">{count} customers</p>
       </div>
@@ -1022,7 +1022,7 @@ function MobilePaymentCard({ icon: Icon, label, percent }: {
 }) {
   return (
     <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 text-center">
-      <div className="w-10 h-10 bg-[#259783] flex items-center justify-center mx-auto mb-2">
+      <div className="w-10 h-10 bg-[#1c6a1e] flex items-center justify-center mx-auto mb-2">
         <Icon className="w-5 h-5 text-white" />
       </div>
       <p className="text-xl font-black text-slate-900 dark:text-white mb-0.5">{percent.toFixed(0)}%</p>

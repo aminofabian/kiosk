@@ -25,7 +25,7 @@ export function PaymentMethodSelector({
       value: 'cash',
       label: 'Cash',
       icon: <Wallet className="h-6 w-6" />,
-      color: 'bg-[#259783]',
+      color: 'bg-[#1c6a1e]',
     },
     {
       value: 'mpesa',

@@ -314,7 +314,7 @@ export default function ExpensesPage() {
           <div className="px-4 md:px-6 py-4">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-[#259783] flex items-center justify-center">
+                <div className="w-10 h-10 bg-[#1c6a1e] flex items-center justify-center">
                   <Receipt className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -324,7 +324,7 @@ export default function ExpensesPage() {
               </div>
               <Button
                 onClick={openCreateDrawer}
-                className="bg-[#259783] hover:bg-[#1e7a6a] text-white rounded-lg"
+                className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white rounded-lg"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Expense
@@ -389,7 +389,7 @@ export default function ExpensesPage() {
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-center space-y-4">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#259783]" />
+                <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#1c6a1e]" />
                 <p className="text-slate-500 dark:text-slate-400 font-medium">Loading expenses...</p>
               </div>
             </div>
@@ -407,7 +407,7 @@ export default function ExpensesPage() {
               {!isCashier && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Daily Operating Cost - THE KEY NUMBER */}
-                  <div className="border-2 border-[#259783] bg-[#259783] p-3.5 md:col-span-1">
+                  <div className="border-2 border-[#1c6a1e] bg-[#1c6a1e] p-3.5 md:col-span-1">
                     <div className="flex items-center justify-between mb-3">
                       <div className="w-10 h-10 bg-white/20 flex items-center justify-center">
                         <Target className="w-5 h-5 text-white" />
@@ -427,7 +427,7 @@ export default function ExpensesPage() {
                   <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
                     <div className="flex items-center gap-3 mb-3 pb-3 border-b-2 border-slate-200 dark:border-slate-700">
                       <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                        <Building2 className="w-4 h-4 text-[#259783]" />
+                        <Building2 className="w-4 h-4 text-[#1c6a1e]" />
                       </div>
                       <div>
                         <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Fixed Costs</p>
@@ -436,7 +436,7 @@ export default function ExpensesPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                        <Zap className="w-4 h-4 text-[#259783]" />
+                        <Zap className="w-4 h-4 text-[#1c6a1e]" />
                       </div>
                       <div>
                         <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Variable Costs</p>
@@ -449,7 +449,7 @@ export default function ExpensesPage() {
                   <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
                     <div className="flex items-center gap-3 mb-3 pb-3 border-b-2 border-slate-200 dark:border-slate-700">
                       <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                        <Calendar className="w-4 h-4 text-[#259783]" />
+                        <Calendar className="w-4 h-4 text-[#1c6a1e]" />
                       </div>
                       <div>
                         <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Monthly Total</p>
@@ -458,7 +458,7 @@ export default function ExpensesPage() {
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                        <Wallet className="w-4 h-4 text-[#259783]" />
+                        <Wallet className="w-4 h-4 text-[#1c6a1e]" />
                       </div>
                       <div>
                         <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Weekly Total</p>
@@ -473,7 +473,7 @@ export default function ExpensesPage() {
               {fixedExpenses.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 pb-3 border-b-2 border-slate-200 dark:border-slate-800">
-                    <Building2 className="w-5 h-5 text-[#259783]" />
+                    <Building2 className="w-5 h-5 text-[#1c6a1e]" />
                     <h2 className="text-lg font-black text-slate-900 dark:text-white">Fixed Expenses</h2>
                     <Badge variant="outline" className="border-slate-300 dark:border-slate-600">
                       {fixedExpenses.length}
@@ -501,7 +501,7 @@ export default function ExpensesPage() {
               {variableExpenses.length > 0 && (
                 <div className="space-y-3">
                   <div className="flex items-center gap-3 pb-3 border-b-2 border-slate-200 dark:border-slate-800">
-                    <Zap className="w-5 h-5 text-[#259783]" />
+                    <Zap className="w-5 h-5 text-[#1c6a1e]" />
                     <h2 className="text-lg font-black text-slate-900 dark:text-white">Variable Expenses</h2>
                     <Badge variant="outline" className="border-slate-300 dark:border-slate-600">
                       {variableExpenses.length}
@@ -563,7 +563,7 @@ export default function ExpensesPage() {
                   <p className="text-slate-500 dark:text-slate-400 mb-6 max-w-md mx-auto">
                     Add your operating expenses like rent, salaries, utilities to understand your true daily cost of running the business.
                   </p>
-                  <Button onClick={openCreateDrawer} className="bg-[#259783] hover:bg-[#1e7a6a] text-white rounded-lg">
+                  <Button onClick={openCreateDrawer} className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white rounded-lg">
                     <Plus className="w-4 h-4 mr-2" />
                     Add Your First Expense
                   </Button>
@@ -586,7 +586,7 @@ export default function ExpensesPage() {
                 <X className="h-5 w-5" />
               </Button>
               <DrawerTitle className="flex items-center gap-2 text-slate-900 dark:text-white pr-8">
-                <Receipt className="w-5 h-5 text-[#259783]" />
+                <Receipt className="w-5 h-5 text-[#1c6a1e]" />
                 {drawerMode === 'create' ? 'Add Expense' : 'Edit Expense'}
               </DrawerTitle>
               <DrawerDescription className="text-slate-600 dark:text-slate-400">
@@ -621,13 +621,13 @@ export default function ExpensesPage() {
                       <SelectContent>
                         <SelectItem value="fixed">
                           <div className="flex items-center gap-2">
-                            <Building2 className="w-4 h-4 text-[#259783]" />
+                            <Building2 className="w-4 h-4 text-[#1c6a1e]" />
                             Fixed
                           </div>
                         </SelectItem>
                         <SelectItem value="variable">
                           <div className="flex items-center gap-2">
-                            <Zap className="w-4 h-4 text-[#259783]" />
+                            <Zap className="w-4 h-4 text-[#1c6a1e]" />
                             Variable
                           </div>
                         </SelectItem>
@@ -673,8 +673,8 @@ export default function ExpensesPage() {
                     className="h-12 text-lg border-2 border-slate-200 dark:border-slate-700"
                   />
                   {formData.amount && parseFloat(formData.amount) > 0 && formData.frequency !== 'one-time' && (
-                    <div className="border-2 border-[#259783] bg-[#259783]/5 p-3">
-                      <p className="text-sm font-bold text-[#259783]">
+                    <div className="border-2 border-[#1c6a1e] bg-[#1c6a1e]/5 p-3">
+                      <p className="text-sm font-bold text-[#1c6a1e]">
                         = {formatPrice(parseFloat(formData.amount) / (
                           formData.frequency === 'daily' ? 1 :
                           formData.frequency === 'weekly' ? 7 :
@@ -730,7 +730,7 @@ export default function ExpensesPage() {
                   </Button>
                   <Button
                     type="submit"
-                    className="flex-1 bg-[#259783] hover:bg-[#1e7a6a] text-white rounded-lg"
+                    className="flex-1 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white rounded-lg"
                     disabled={submitting}
                   >
                     {submitting ? (
@@ -789,9 +789,9 @@ function ExpenseCard({
               : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700'
           }`}>
             {expense.category === 'fixed' ? (
-              <Building2 className="w-4 h-4 text-[#259783]" />
+              <Building2 className="w-4 h-4 text-[#1c6a1e]" />
             ) : (
-              <Zap className="w-4 h-4 text-[#259783]" />
+              <Zap className="w-4 h-4 text-[#1c6a1e]" />
             )}
           </div>
           <div className="flex-1 min-w-0">
@@ -819,7 +819,7 @@ function ExpenseCard({
               </>
             ) : (
               <>
-                <p className="text-lg font-black text-[#259783]">
+                <p className="text-lg font-black text-[#1c6a1e]">
                   {formatPrice(expense.daily_cost)}
                 </p>
                 <p className="text-[9px] text-slate-400 uppercase font-bold">/day</p>

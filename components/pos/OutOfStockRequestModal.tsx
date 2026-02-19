@@ -73,7 +73,7 @@ export function OutOfStockRequestModal({
       <DialogContent className="sm:max-w-md z-[60]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Package className="w-5 h-5 text-[#259783]" />
+            <Package className="w-5 h-5 text-[#1c6a1e]" />
             Requested but Not Sold
           </DialogTitle>
           <DialogDescription>
@@ -123,7 +123,7 @@ export function OutOfStockRequestModal({
             <Button
               type="submit"
               disabled={submitting}
-              className="bg-[#259783] hover:bg-[#208c7a] text-white"
+              className="bg-[#1c6a1e] hover:bg-[#208c7a] text-white"
             >
               {submitting ? (
                 <>

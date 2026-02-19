@@ -185,7 +185,7 @@ export default function ProfitHubPage() {
       <AdminLayout>
         <div className="flex items-center justify-center h-screen">
           <div className="text-center space-y-4">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#259783]" />
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#1c6a1e]" />
             <p className="text-slate-500 dark:text-slate-400">Loading profit overview...</p>
           </div>
         </div>
@@ -215,7 +215,7 @@ export default function ProfitHubPage() {
           <div className="px-4 md:px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-[#259783] flex items-center justify-center rounded-lg">
+                <div className="w-10 h-10 bg-[#1c6a1e] flex items-center justify-center rounded-lg">
                   <TrendingUp className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -244,7 +244,7 @@ export default function ProfitHubPage() {
                   onClick={() => setDatePreset(preset)}
                   className={`px-3 py-1.5 text-xs font-bold transition-all rounded-lg ${
                     datePreset === preset
-                      ? 'bg-[#259783] text-white shadow-md'
+                      ? 'bg-[#1c6a1e] text-white shadow-md'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                   }`}
                 >
@@ -332,7 +332,7 @@ export default function ProfitHubPage() {
               <Card className="border-2 border-slate-200 dark:border-slate-700">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base font-bold flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4 text-[#259783]" />
+                    <BarChart3 className="w-4 h-4 text-[#1c6a1e]" />
                     Profit &amp; Loss Breakdown
                   </CardTitle>
                 </CardHeader>
@@ -411,7 +411,7 @@ export default function ProfitHubPage() {
                 <div className="pt-3 border-t-2 border-slate-100 dark:border-slate-800">
                   <div className="flex items-center justify-between">
                     <span className="font-black text-sm text-slate-900 dark:text-white">Net Profit</span>
-                    <span className={`text-lg font-black ${isProfitable ? 'text-[#259783]' : 'text-red-600'}`}>
+                    <span className={`text-lg font-black ${isProfitable ? 'text-[#1c6a1e]' : 'text-red-600'}`}>
                       {formatPriceSigned(netProfit)}
                     </span>
                   </div>
@@ -428,8 +428,8 @@ export default function ProfitHubPage() {
               <Card className="border-2 border-slate-200 dark:border-slate-700">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-2">
-                    <Receipt className="w-5 h-5 text-[#259783]" />
-                    <Link href="/admin/expenses" className="text-[10px] text-[#259783] hover:underline flex items-center gap-0.5">
+                    <Receipt className="w-5 h-5 text-[#1c6a1e]" />
+                    <Link href="/admin/expenses" className="text-[10px] text-[#1c6a1e] hover:underline flex items-center gap-0.5">
                       Manage <ChevronRight className="w-3 h-3" />
                     </Link>
                   </div>
@@ -448,9 +448,9 @@ export default function ProfitHubPage() {
               </Card>
               <Card className={`border-2 ${isProfitable ? 'border-green-200 dark:border-green-800' : 'border-red-200 dark:border-red-800'}`}>
                 <CardContent className="p-4">
-                  <Wallet className={`w-5 h-5 mb-2 ${isProfitable ? 'text-[#259783]' : 'text-red-500'}`} />
+                  <Wallet className={`w-5 h-5 mb-2 ${isProfitable ? 'text-[#1c6a1e]' : 'text-red-500'}`} />
                   <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Safe to Bank</p>
-                  <p className={`text-lg font-black ${isProfitable ? 'text-[#259783]' : 'text-red-600'}`}>
+                  <p className={`text-lg font-black ${isProfitable ? 'text-[#1c6a1e]' : 'text-red-600'}`}>
                     {formatPrice(Math.max(0, netProfit))}
                   </p>
                   <p className="text-xs text-slate-400 mt-0.5">
@@ -461,16 +461,16 @@ export default function ProfitHubPage() {
             </div>
           ) : (
             <Link href="/admin/expenses" className="block">
-              <Card className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-[#259783] transition-all group">
+              <Card className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-[#1c6a1e] transition-all group">
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Receipt className="w-5 h-5 text-[#259783]" />
+                    <Receipt className="w-5 h-5 text-[#1c6a1e]" />
                     <div>
                       <p className="font-bold text-sm text-slate-900 dark:text-white">Add Operating Expenses</p>
                       <p className="text-xs text-slate-500">Track rent, salaries, and more to see your true net profit</p>
                     </div>
                   </div>
-                  <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-[#259783] group-hover:translate-x-1 transition-all" />
+                  <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-[#1c6a1e] group-hover:translate-x-1 transition-all" />
                 </CardContent>
               </Card>
             </Link>
@@ -560,7 +560,7 @@ export default function ProfitHubPage() {
             <Card className="border-2 border-slate-200 dark:border-slate-700">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-[#259783]" />
+                  <BarChart3 className="w-4 h-4 text-[#1c6a1e]" />
                   Department Comparison
                 </CardTitle>
               </CardHeader>
@@ -694,7 +694,7 @@ export default function ProfitHubPage() {
           <Card className="border-2 border-slate-200 dark:border-slate-700">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-bold flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-[#259783]" />
+                <BarChart3 className="w-4 h-4 text-[#1c6a1e]" />
                 Daily Net Profit Calendar
               </CardTitle>
             </CardHeader>
@@ -708,7 +708,7 @@ export default function ProfitHubPage() {
             <CardHeader className="pb-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <Package className="w-4 h-4 text-[#259783]" />
+                  <Package className="w-4 h-4 text-[#1c6a1e]" />
                   All Items
                   <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-xs ml-1">
                     {filteredItems.length}
@@ -764,7 +764,7 @@ export default function ProfitHubPage() {
                               <td className="px-4 py-2.5">
                                 <div className="flex items-center gap-2">
                                   {isPositive
-                                    ? <TrendingUp className="h-3.5 w-3.5 text-[#259783] flex-shrink-0" />
+                                    ? <TrendingUp className="h-3.5 w-3.5 text-[#1c6a1e] flex-shrink-0" />
                                     : <TrendingDown className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
                                   }
                                   <span className="font-bold text-xs text-slate-900 dark:text-white">{item.item_name}</span>
@@ -778,9 +778,9 @@ export default function ProfitHubPage() {
                               <td className="px-4 py-2.5 text-right font-semibold text-slate-600 dark:text-slate-300 text-xs">{item.quantity_sold.toFixed(0)}</td>
                               <td className="px-4 py-2.5 text-right text-xs text-slate-600 dark:text-slate-300">{formatPrice(item.total_sales)}</td>
                               <td className="px-4 py-2.5 text-right text-xs text-slate-500">{formatPrice(item.total_cost)}</td>
-                              <td className={`px-4 py-2.5 text-right font-black text-xs ${isPositive ? 'text-[#259783]' : 'text-red-500'}`}>{formatPriceSigned(item.total_profit)}</td>
+                              <td className={`px-4 py-2.5 text-right font-black text-xs ${isPositive ? 'text-[#1c6a1e]' : 'text-red-500'}`}>{formatPriceSigned(item.total_profit)}</td>
                               <td className="px-4 py-2.5 text-right">
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isPositive ? 'bg-[#259783]/10 text-[#259783]' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isPositive ? 'bg-[#1c6a1e]/10 text-[#1c6a1e]' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
                                   {formatPercent(margin)}
                                 </span>
                               </td>
@@ -791,7 +791,7 @@ export default function ProfitHubPage() {
                   </table>
                   {!showAllItems && filteredItems.length > 20 && (
                     <div className="p-3 text-center border-t border-slate-100 dark:border-slate-800">
-                      <button onClick={() => setShowAllItems(true)} className="text-xs font-bold text-[#259783] hover:text-[#1a7a69]">
+                      <button onClick={() => setShowAllItems(true)} className="text-xs font-bold text-[#1c6a1e] hover:text-[#1a7a69]">
                         Show all {filteredItems.length} items
                       </button>
                     </div>

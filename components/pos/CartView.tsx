@@ -74,7 +74,7 @@ export function CartView({ onContinueShopping, onCheckout }: CartViewProps = {})
                 relative flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium
                 transition-all duration-200 whitespace-nowrap min-w-fit
                 ${cart.id === activeCartId
-                  ? 'bg-gradient-to-r from-[#259783] to-[#1e8a72] text-white shadow-lg shadow-[#259783]/25'
+                  ? 'bg-gradient-to-r from-[#1c6a1e] to-[#1e8a72] text-white shadow-lg shadow-[#1c6a1e]/25'
                   : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-600'
                 }
               `}
@@ -87,7 +87,7 @@ export function CartView({ onContinueShopping, onCheckout }: CartViewProps = {})
                     h-5 min-w-5 px-1.5 text-xs
                     ${cart.id === activeCartId
                       ? 'bg-white/20 text-white'
-                      : 'bg-[#259783]/10 text-[#259783]'
+                      : 'bg-[#1c6a1e]/10 text-[#1c6a1e]'
                     }
                   `}
                 >
@@ -114,7 +114,7 @@ export function CartView({ onContinueShopping, onCheckout }: CartViewProps = {})
             variant="outline"
             size="sm"
             onClick={handleNewCart}
-            className="h-9 px-3 gap-2 rounded-xl text-[#259783] border-[#259783]/40 hover:bg-[#259783]/10 hover:border-[#259783]/50 whitespace-nowrap font-medium transition-all"
+            className="h-9 px-3 gap-2 rounded-xl text-[#1c6a1e] border-[#1c6a1e]/40 hover:bg-[#1c6a1e]/10 hover:border-[#1c6a1e]/50 whitespace-nowrap font-medium transition-all"
           >
             <PlusCircle className="w-4 h-4" />
             <span className="hidden sm:inline">New Cart</span>
@@ -126,8 +126,8 @@ export function CartView({ onContinueShopping, onCheckout }: CartViewProps = {})
       {cartItems.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center p-6">
           <div className="text-center space-y-4">
-            <div className="w-24 h-24 mx-auto bg-[#259783]/10 rounded-2xl flex items-center justify-center">
-              <ShoppingCart className="w-12 h-12 text-[#259783]" />
+            <div className="w-24 h-24 mx-auto bg-[#1c6a1e]/10 rounded-2xl flex items-center justify-center">
+              <ShoppingCart className="w-12 h-12 text-[#1c6a1e]" />
             </div>
             <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200">
               {activeCart?.name || 'Cart'} is empty
@@ -247,7 +247,7 @@ export function CartView({ onContinueShopping, onCheckout }: CartViewProps = {})
             <div className="max-w-4xl mx-auto space-y-2">
               <div className="flex justify-between items-center">
                 <span className="font-semibold text-sm">Total ({activeCart?.name}):</span>
-                <span className="text-xl font-bold text-[#259783]">
+                <span className="text-xl font-bold text-[#1c6a1e]">
                   {formatPrice(cartTotal)}
                 </span>
               </div>

@@ -51,9 +51,9 @@ const accentStyles = {
     dot: 'bg-blue-500',
   },
   teal: {
-    icon: 'text-[#259783]',
-    amount: 'text-[#259783]',
-    dot: 'bg-[#259783]',
+    icon: 'text-[#1c6a1e]',
+    amount: 'text-[#1c6a1e]',
+    dot: 'bg-[#1c6a1e]',
   },
 };
 

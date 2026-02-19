@@ -83,7 +83,7 @@ export function CategoryList({
         {selectedCategoryId && (
           <button
             onClick={() => onSelectCategory(null)}
-            className="px-2.5 py-1 text-[9px] font-medium text-slate-500 dark:text-slate-400 hover:text-[#259783] transition-colors"
+            className="px-2.5 py-1 text-[9px] font-medium text-slate-500 dark:text-slate-400 hover:text-[#1c6a1e] transition-colors"
           >
             All
           </button>
@@ -95,8 +95,8 @@ export function CategoryList({
               key={category.id}
               className={`px-2.5 py-1.5 text-[10px] font-medium whitespace-nowrap transition-all duration-150 ${
                 isSelected
-                  ? 'text-[#259783] bg-[#259783]/10 dark:bg-[#259783]/15 border border-[#259783]/30'
-                  : 'text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-600/50 hover:border-[#259783]/40 hover:bg-[#259783]/5 dark:hover:bg-[#259783]/10 hover:text-[#259783]'
+                  ? 'text-[#1c6a1e] bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/15 border border-[#1c6a1e]/30'
+                  : 'text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-600/50 hover:border-[#1c6a1e]/40 hover:bg-[#1c6a1e]/5 dark:hover:bg-[#1c6a1e]/10 hover:text-[#1c6a1e]'
               }`}
               onClick={() =>
                 onSelectCategory(isSelected ? null : category.id)

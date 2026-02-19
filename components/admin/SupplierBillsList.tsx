@@ -469,7 +469,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#259783]" />
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#1c6a1e]" />
           <p className="text-slate-500">Loading supplier bills...</p>
         </div>
       </div>
@@ -755,8 +755,8 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
       <Card className="overflow-hidden border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-white via-emerald-50/30 to-white dark:from-[#1c2e18] dark:via-emerald-950/20 dark:to-[#1c2e18] rounded-xl shadow-sm">
         <CardContent className="p-3.5 sm:p-5">
           <div className="flex items-center gap-2 mb-3 sm:mb-4">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center shrink-0">
-              <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#259783]" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center shrink-0">
+              <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#1c6a1e]" />
             </div>
             <div className="min-w-0">
               <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Financial Pulse</h3>
@@ -848,7 +848,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                           ? 'bg-red-500'
                           : costRatio > 60
                           ? 'bg-amber-500'
-                          : 'bg-[#259783]'
+                          : 'bg-[#1c6a1e]'
                       }`}
                       style={{ width: `${Math.min(100, costRatio)}%` }}
                     />
@@ -1030,7 +1030,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                                 onSupplierClick(supplier);
                               }
                             }}
-                            className="font-medium text-slate-900 dark:text-white truncate max-w-[130px] hover:text-[#259783] dark:hover:text-[#3bd522] hover:underline underline-offset-2 transition-colors text-left"
+                            className="font-medium text-slate-900 dark:text-white truncate max-w-[130px] hover:text-[#1c6a1e] dark:hover:text-[#2a8a30] hover:underline underline-offset-2 transition-colors text-left"
                             title={`${s.name} — Click to manage products`}
                           >
                             {s.name}
@@ -1053,7 +1053,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                         <div className="flex items-center justify-end gap-2">
                           <div className="w-12 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
                             <div
-                              className="h-full rounded-full bg-[#259783]"
+                              className="h-full rounded-full bg-[#1c6a1e]"
                               style={{ width: `${Math.min(100, s.shareOfTotal)}%` }}
                             />
                           </div>
@@ -1347,7 +1347,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                               );
                               if (supplier && onSupplierClick) onSupplierClick(supplier);
                             }}
-                            className="font-bold text-sm text-slate-900 dark:text-white truncate block max-w-full hover:text-[#259783] dark:hover:text-[#3bd522] transition-colors text-left"
+                            className="font-bold text-sm text-slate-900 dark:text-white truncate block max-w-full hover:text-[#1c6a1e] dark:hover:text-[#2a8a30] transition-colors text-left"
                           >
                             {bill.supplier_name}
                           </button>
@@ -1501,7 +1501,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                               );
                               if (supplier && onSupplierClick) onSupplierClick(supplier);
                             }}
-                            className="font-medium text-slate-900 dark:text-white hover:text-[#259783] dark:hover:text-[#3bd522] hover:underline underline-offset-2 transition-colors text-left text-[13px]"
+                            className="font-medium text-slate-900 dark:text-white hover:text-[#1c6a1e] dark:hover:text-[#2a8a30] hover:underline underline-offset-2 transition-colors text-left text-[13px]"
                           >
                             {bill.supplier_name}
                           </button>
@@ -1629,7 +1629,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
               <X className="h-5 w-5" />
             </Button>
             <DrawerTitle className="flex items-center gap-2 text-slate-900 dark:text-white pr-8">
-              <Pencil className="w-5 h-5 text-[#259783]" />
+              <Pencil className="w-5 h-5 text-[#1c6a1e]" />
               Edit supplier bill
             </DrawerTitle>
             <DrawerDescription className="text-slate-600 dark:text-slate-400">

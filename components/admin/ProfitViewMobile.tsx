@@ -164,7 +164,7 @@ export function ProfitViewMobile({ itemType }: ProfitViewMobileProps = {}) {
     return (
       <div className="flex items-center justify-center h-screen bg-slate-50 dark:bg-[#0f1a0d]">
         <div className="text-center">
-          <div className="w-10 h-10 mx-auto border-3 border-[#259783]/20 border-t-[#259783] animate-spin mb-3"></div>
+          <div className="w-10 h-10 mx-auto border-3 border-[#1c6a1e]/20 border-t-[#1c6a1e] animate-spin mb-3"></div>
           <p className="text-slate-500 text-sm">Loading...</p>
         </div>
       </div>
@@ -226,7 +226,7 @@ export function ProfitViewMobile({ itemType }: ProfitViewMobileProps = {}) {
               onClick={() => setDatePreset(preset)}
               className={`flex-1 py-2.5 text-xs font-bold transition-all rounded-lg ${
                 datePreset === preset
-                  ? 'bg-[#259783] text-white shadow-md'
+                  ? 'bg-[#1c6a1e] text-white shadow-md'
                   : 'text-slate-500'
               }`}
             >
@@ -246,7 +246,7 @@ export function ProfitViewMobile({ itemType }: ProfitViewMobileProps = {}) {
         <div className="px-4 pb-4">
           <div className={`p-3 border-2 ${
             isProfitable 
-              ? 'border-[#259783] bg-[#259783]' 
+              ? 'border-[#1c6a1e] bg-[#1c6a1e]' 
               : 'border-red-500 bg-red-500'
           }`}>
             <div className="flex items-center justify-between mb-2">
@@ -315,7 +315,7 @@ export function ProfitViewMobile({ itemType }: ProfitViewMobileProps = {}) {
           {/* Sales */}
           <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
             <div className="flex items-center gap-1.5 mb-1.5">
-              <ShoppingBag className="w-3.5 h-3.5 text-[#259783]" />
+              <ShoppingBag className="w-3.5 h-3.5 text-[#1c6a1e]" />
               <span className="text-[9px] font-black text-slate-500 uppercase">Sales</span>
             </div>
             <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(profitData?.totalSales || 0)}</p>
@@ -324,14 +324,14 @@ export function ProfitViewMobile({ itemType }: ProfitViewMobileProps = {}) {
           {/* COGS */}
           <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
             <div className="flex items-center gap-1.5 mb-1.5">
-              <Receipt className="w-3.5 h-3.5 text-[#259783]" />
+              <Receipt className="w-3.5 h-3.5 text-[#1c6a1e]" />
               <span className="text-[9px] font-black text-slate-500 uppercase">Cost</span>
             </div>
             <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(profitData?.totalCost || 0)}</p>
           </div>
 
           {/* Gross Profit */}
-          <div className="border-2 border-[#259783] bg-[#259783] p-3">
+          <div className="border-2 border-[#1c6a1e] bg-[#1c6a1e] p-3">
             <div className="flex items-center gap-1.5 mb-1.5">
               <TrendingUp className="w-3.5 h-3.5 text-white/70" />
               <span className="text-[9px] font-black text-white/70 uppercase">Gross Profit</span>
@@ -342,7 +342,7 @@ export function ProfitViewMobile({ itemType }: ProfitViewMobileProps = {}) {
           {/* Margin */}
           <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
             <div className="flex items-center gap-1.5 mb-1.5">
-              <PieChart className="w-3.5 h-3.5 text-[#259783]" />
+              <PieChart className="w-3.5 h-3.5 text-[#1c6a1e]" />
               <span className="text-[9px] font-black text-slate-500 uppercase">Margin</span>
             </div>
             <p className="text-xl font-black text-slate-900 dark:text-white">
@@ -358,12 +358,12 @@ export function ProfitViewMobile({ itemType }: ProfitViewMobileProps = {}) {
         <div className="px-4 pb-4">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-xs font-black text-slate-900 dark:text-white">Operating Costs</h2>
-            <Link href="/admin/expenses" className="text-[9px] font-bold text-[#259783] flex items-center gap-0.5">
+            <Link href="/admin/expenses" className="text-[9px] font-bold text-[#1c6a1e] flex items-center gap-0.5">
               Manage <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-2.5">
-            <div className="border-2 border-[#259783] bg-[#259783] p-3">
+            <div className="border-2 border-[#1c6a1e] bg-[#1c6a1e] p-3">
               <div className="flex items-center gap-1.5 mb-1.5">
                 <Receipt className="w-3.5 h-3.5 text-white/70" />
                 <span className="text-[9px] font-black text-white/70 uppercase">Expenses</span>
@@ -373,7 +373,7 @@ export function ProfitViewMobile({ itemType }: ProfitViewMobileProps = {}) {
             </div>
             <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
               <div className="flex items-center gap-1.5 mb-1.5">
-                <Target className="w-3.5 h-3.5 text-[#259783]" />
+                <Target className="w-3.5 h-3.5 text-[#1c6a1e]" />
                 <span className="text-[9px] font-black text-slate-500 uppercase">Break-even</span>
               </div>
               <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(getBreakEvenSales())}</p>
@@ -385,12 +385,12 @@ export function ProfitViewMobile({ itemType }: ProfitViewMobileProps = {}) {
         <div className="px-4 pb-4">
           <Link href="/admin/expenses">
             <div className="flex items-center gap-3 p-3 border-2 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-              <Receipt className="w-4 h-4 text-[#259783]" />
+              <Receipt className="w-4 h-4 text-[#1c6a1e]" />
               <div className="flex-1">
                 <p className="font-black text-xs text-slate-900 dark:text-white">Add Expenses</p>
                 <p className="text-[9px] text-slate-500">See true profit</p>
               </div>
-              <ChevronRight className="w-4 h-4 text-[#259783]" />
+              <ChevronRight className="w-4 h-4 text-[#1c6a1e]" />
             </div>
           </Link>
         </div>
@@ -400,22 +400,22 @@ export function ProfitViewMobile({ itemType }: ProfitViewMobileProps = {}) {
       {topItems.length > 0 && (
         <div className="px-4 pb-4">
           <h2 className="text-sm font-black text-slate-900 dark:text-white mb-3 flex items-center gap-2 pb-2 border-b-2 border-slate-200 dark:border-slate-800">
-            <TrendingUp className="w-4 h-4 text-[#259783]" />
+            <TrendingUp className="w-4 h-4 text-[#1c6a1e]" />
             Top Profit
           </h2>
           <div className="space-y-2.5">
             {topItems.map((item, i) => {
               const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
               return (
-                <div key={item.item_id} className="flex items-center gap-3 p-3 border-2 border-[#259783]/20 bg-[#259783]/5">
-                  <div className="w-8 h-8 border-2 border-[#259783] bg-[#259783] flex items-center justify-center">
+                <div key={item.item_id} className="flex items-center gap-3 p-3 border-2 border-[#1c6a1e]/20 bg-[#1c6a1e]/5">
+                  <div className="w-8 h-8 border-2 border-[#1c6a1e] bg-[#1c6a1e] flex items-center justify-center">
                     <span className="text-xs font-black text-white">{i + 1}</span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-black text-sm text-slate-900 dark:text-white truncate">{item.item_name}</p>
                     <p className="text-[10px] text-slate-500">{item.quantity_sold.toFixed(0)} sold • {margin.toFixed(0)}%</p>
                   </div>
-                  <p className="text-sm font-black text-[#259783]">+{formatPrice(item.total_profit)}</p>
+                  <p className="text-sm font-black text-[#1c6a1e]">+{formatPrice(item.total_profit)}</p>
                 </div>
               );
             })}
@@ -427,7 +427,7 @@ export function ProfitViewMobile({ itemType }: ProfitViewMobileProps = {}) {
       {leastItems.length > 0 && (
         <div className="px-4 pb-4">
           <h2 className="text-sm font-black text-slate-900 dark:text-white mb-3 flex items-center gap-2 pb-2 border-b-2 border-slate-200 dark:border-slate-800">
-            <TrendingDown className="w-4 h-4 text-[#259783]" />
+            <TrendingDown className="w-4 h-4 text-[#1c6a1e]" />
             Least Profitable
           </h2>
           <div className="space-y-2.5">
@@ -461,7 +461,7 @@ export function ProfitViewMobile({ itemType }: ProfitViewMobileProps = {}) {
       {profitData && profitData.itemProfits.length > 0 && (
         <div className="px-4 pb-4">
           <h2 className="text-sm font-black text-slate-900 dark:text-white mb-3 flex items-center gap-2 pb-2 border-b-2 border-slate-200 dark:border-slate-800">
-            <Package className="w-4 h-4 text-[#259783]" />
+            <Package className="w-4 h-4 text-[#1c6a1e]" />
             All Items ({profitData.itemProfits.filter(item => item.item_name.toLowerCase().includes(itemSearch.toLowerCase())).length})
           </h2>
           {/* Search Bar */}
@@ -472,7 +472,7 @@ export function ProfitViewMobile({ itemType }: ProfitViewMobileProps = {}) {
               placeholder="Search items..."
               value={itemSearch}
               onChange={(e) => setItemSearch(e.target.value)}
-              className="w-full pl-9 pr-9 py-2.5 text-sm border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#259783]"
+              className="w-full pl-9 pr-9 py-2.5 text-sm border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-[#1c6a1e]"
             />
             {itemSearch && (
               <button
@@ -493,7 +493,7 @@ export function ProfitViewMobile({ itemType }: ProfitViewMobileProps = {}) {
               return (
                 <div key={item.item_id} className="flex items-center gap-3 p-3 border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
                   <div className={`w-8 h-8 border-2 flex items-center justify-center ${
-                    isPos ? 'border-[#259783] bg-[#259783]' : 'border-red-500 bg-red-500'
+                    isPos ? 'border-[#1c6a1e] bg-[#1c6a1e]' : 'border-red-500 bg-red-500'
                   }`}>
                     {isPos ? <TrendingUp className="w-4 h-4 text-white" /> : <TrendingDown className="w-4 h-4 text-white" />}
                   </div>
@@ -501,7 +501,7 @@ export function ProfitViewMobile({ itemType }: ProfitViewMobileProps = {}) {
                     <p className="font-black text-sm text-slate-900 dark:text-white truncate">{item.item_name}</p>
                     <p className="text-[10px] text-slate-500">{item.quantity_sold.toFixed(0)} sold • {margin.toFixed(0)}% margin</p>
                   </div>
-                  <p className={`text-sm font-black ${isPos ? 'text-[#259783]' : 'text-red-500'}`}>
+                  <p className={`text-sm font-black ${isPos ? 'text-[#1c6a1e]' : 'text-red-500'}`}>
                     {isPos ? '+' : ''}{formatPrice(item.total_profit)}
                   </p>
                 </div>
@@ -516,10 +516,10 @@ export function ProfitViewMobile({ itemType }: ProfitViewMobileProps = {}) {
         <div className="px-4 pb-6">
           <div className="flex items-center justify-between mb-3 pb-2 border-b-2 border-slate-200 dark:border-slate-800">
             <h2 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <Package className="w-4 h-4 text-[#259783]" />
+              <Package className="w-4 h-4 text-[#1c6a1e]" />
               Restock Alerts
             </h2>
-            <Link href="/admin/stock" className="text-[10px] font-bold text-[#259783]">View All</Link>
+            <Link href="/admin/stock" className="text-[10px] font-bold text-[#1c6a1e]">View All</Link>
           </div>
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 no-scrollbar">
             {lowStockItems.map((item) => {
@@ -541,7 +541,7 @@ export function ProfitViewMobile({ itemType }: ProfitViewMobileProps = {}) {
 
       {/* Export Button */}
       <div className="fixed bottom-20 left-0 w-full px-4 flex justify-center z-40">
-        <button className="shadow-lg shadow-[#259783]/30 flex items-center gap-2 bg-[#259783] active:scale-95 transition-transform text-white font-bold text-sm px-5 py-2.5 rounded-lg">
+        <button className="shadow-lg shadow-[#1c6a1e]/30 flex items-center gap-2 bg-[#1c6a1e] active:scale-95 transition-transform text-white font-bold text-sm px-5 py-2.5 rounded-lg">
           <Download className="w-4 h-4" />
           Export CSV
         </button>

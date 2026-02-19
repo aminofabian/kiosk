@@ -32,7 +32,7 @@ export function ShopTypeSelector({ onShopTypeChange, className = '' }: ShopTypeS
         onClick={() => handleShopTypeChange('grocery')}
         className={`flex items-center gap-2 transition-all ${
           currentShopType === 'grocery'
-            ? 'bg-[#259783] text-white hover:bg-[#259783]/90'
+            ? 'bg-[#1c6a1e] text-white hover:bg-[#1c6a1e]/90'
             : 'bg-white hover:bg-gray-50'
         }`}
       >
@@ -45,7 +45,7 @@ export function ShopTypeSelector({ onShopTypeChange, className = '' }: ShopTypeS
         onClick={() => handleShopTypeChange('retail')}
         className={`flex items-center gap-2 transition-all ${
           currentShopType === 'retail'
-            ? 'bg-[#259783] text-white hover:bg-[#259783]/90'
+            ? 'bg-[#1c6a1e] text-white hover:bg-[#1c6a1e]/90'
             : 'bg-white hover:bg-gray-50'
         }`}
       >

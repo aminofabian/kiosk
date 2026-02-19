@@ -285,7 +285,7 @@ export function BannerManager() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-[#259783]" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#1c6a1e]" />
       </div>
     );
   }
@@ -301,7 +301,7 @@ export function BannerManager() {
             Upload banners for your storefront
           </p>
         </div>
-        <Button onClick={() => setDrawerOpen(true)} className="bg-[#259783] hover:bg-[#3bd522]">
+        <Button onClick={() => setDrawerOpen(true)} className="bg-[#1c6a1e] hover:bg-[#2a8a30]">
           <Plus className="w-4 h-4 mr-2" />
           Add Banner
         </Button>
@@ -544,7 +544,7 @@ export function BannerManager() {
                 <Button
                   type="submit"
                   disabled={uploading}
-                  className="flex-1 bg-[#259783] hover:bg-[#3bd522]"
+                  className="flex-1 bg-[#1c6a1e] hover:bg-[#2a8a30]"
                 >
                   {uploading ? (
                     <>

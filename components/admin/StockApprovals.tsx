@@ -131,7 +131,7 @@ export function StockApprovals() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#259783]" />
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#1c6a1e]" />
           <p className="text-slate-500">Loading approval requests...</p>
         </div>
       </div>
@@ -185,8 +185,8 @@ export function StockApprovals() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 space-y-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center">
-                        <Package className="w-5 h-5 text-[#259783]" />
+                      <div className="w-10 h-10 rounded-lg bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center">
+                        <Package className="w-5 h-5 text-[#1c6a1e]" />
                       </div>
                       <div>
                         <h3 className="font-bold text-slate-900 dark:text-white">

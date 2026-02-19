@@ -198,27 +198,27 @@ export function AdminSidebar() {
                     <div className="relative group flex items-center">
                       {/* Active glow bar */}
                       {active && (
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-gradient-to-b from-[#259783] to-[#2ec4a0] shadow-[0_0_8px_rgba(37,151,131,0.4)]" />
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-gradient-to-b from-[#1c6a1e] to-[#2a8a30] shadow-[0_0_8px_rgba(28,106,30,0.4)]" />
                       )}
 
                       <div
                         className={`flex items-center gap-2.5 w-full px-3 py-[7px] rounded-lg transition-all duration-150 ${
                           active
-                            ? 'bg-[#259783]/[0.07] dark:bg-[#259783]/[0.12]'
+                            ? 'bg-[#1c6a1e]/[0.07] dark:bg-[#1c6a1e]/[0.12]'
                             : 'hover:bg-slate-100/80 dark:hover:bg-white/[0.04] active:scale-[0.98]'
                         }`}
                       >
                         <div
                           className={`flex items-center justify-center w-7 h-7 rounded-md transition-all duration-150 ${
                             active
-                              ? 'bg-[#259783]/[0.12] dark:bg-[#259783]/[0.18]'
+                              ? 'bg-[#1c6a1e]/[0.12] dark:bg-[#1c6a1e]/[0.18]'
                               : 'bg-transparent group-hover:bg-slate-200/60 dark:group-hover:bg-white/[0.06]'
                           }`}
                         >
                           <Icon
                             className={`w-[16px] h-[16px] transition-colors duration-150 ${
                               active
-                                ? 'text-[#259783] dark:text-[#3bd5a0]'
+                                ? 'text-[#1c6a1e] dark:text-[#2a8a30]'
                                 : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-500 dark:group-hover:text-slate-400'
                             }`}
                           />
@@ -227,7 +227,7 @@ export function AdminSidebar() {
                         <span
                           className={`text-[13px] flex-1 truncate transition-colors duration-150 ${
                             active
-                              ? 'font-semibold text-[#259783] dark:text-[#3bd5a0]'
+                              ? 'font-semibold text-[#1c6a1e] dark:text-[#2a8a30]'
                               : 'font-medium text-slate-600 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-300'
                           }`}
                         >
@@ -246,7 +246,7 @@ export function AdminSidebar() {
                               expanded ? 'rotate-0' : '-rotate-90'
                             } ${
                               active
-                                ? 'text-[#259783]/50 dark:text-[#3bd5a0]/50'
+                                ? 'text-[#1c6a1e]/50 dark:text-[#2a8a30]/50'
                                 : 'text-slate-300 dark:text-slate-600'
                             }`}
                           />
@@ -275,7 +275,7 @@ export function AdminSidebar() {
                                 <div
                                   className={`group/sub relative flex items-center gap-2 px-2.5 py-[5px] rounded-md transition-all duration-150 ${
                                     subActive
-                                      ? 'bg-[#259783]/[0.07] dark:bg-[#259783]/[0.12]'
+                                      ? 'bg-[#1c6a1e]/[0.07] dark:bg-[#1c6a1e]/[0.12]'
                                       : 'hover:bg-slate-100/60 dark:hover:bg-white/[0.03]'
                                   }`}
                                 >
@@ -283,7 +283,7 @@ export function AdminSidebar() {
                                   <div
                                     className={`absolute -left-[calc(0.75rem+1px)] top-1/2 -translate-y-1/2 w-[6px] h-[6px] rounded-full border-[1.5px] transition-colors ${
                                       subActive
-                                        ? 'bg-[#259783] border-[#259783]'
+                                        ? 'bg-[#1c6a1e] border-[#1c6a1e]'
                                         : 'bg-white dark:bg-[#1c2e18] border-slate-300 dark:border-slate-600 group-hover/sub:border-slate-400'
                                     }`}
                                   />
@@ -291,14 +291,14 @@ export function AdminSidebar() {
                                   <SubIcon
                                     className={`w-3.5 h-3.5 ${
                                       subActive
-                                        ? 'text-[#259783] dark:text-[#3bd5a0]'
+                                        ? 'text-[#1c6a1e] dark:text-[#2a8a30]'
                                         : 'text-slate-400 dark:text-slate-600 group-hover/sub:text-slate-500'
                                     }`}
                                   />
                                   <span
                                     className={`text-[12px] ${
                                       subActive
-                                        ? 'font-semibold text-[#259783] dark:text-[#3bd5a0]'
+                                        ? 'font-semibold text-[#1c6a1e] dark:text-[#2a8a30]'
                                         : 'font-medium text-slate-500 dark:text-slate-500 group-hover/sub:text-slate-700 dark:group-hover/sub:text-slate-400'
                                     }`}
                                   >

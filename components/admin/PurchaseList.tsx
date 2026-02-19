@@ -61,7 +61,7 @@ export function PurchaseList({ onViewBreakdown }: PurchaseListProps = {}) {
   const getStatusConfig = (status: PurchaseStatus) => {
     switch (status) {
       case 'complete':
-        return { variant: 'default' as const, className: 'bg-[#259783] hover:bg-[#45d827] text-white' };
+        return { variant: 'default' as const, className: 'bg-[#1c6a1e] hover:bg-[#2a8a30] text-white' };
       case 'partial':
         return { variant: 'secondary' as const, className: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' };
       case 'pending':
@@ -196,7 +196,7 @@ export function PurchaseList({ onViewBreakdown }: PurchaseListProps = {}) {
                       </div>
                     </div>
                     <div className="text-right flex flex-col items-end gap-2">
-                      <p className="text-lg font-bold text-[#259783]">
+                      <p className="text-lg font-bold text-[#1c6a1e]">
                         {formatPrice(purchase.total_amount)}
                       </p>
                       {onViewBreakdown ? (

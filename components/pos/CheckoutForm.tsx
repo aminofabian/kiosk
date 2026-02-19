@@ -371,7 +371,7 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
               </div>
 
               <div className="pt-4">
-                <p className="text-2xl font-bold text-[#259783]">{formatPrice(total)}</p>
+                <p className="text-2xl font-bold text-[#1c6a1e]">{formatPrice(total)}</p>
               </div>
 
               <div className="space-y-2">
@@ -481,7 +481,7 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
               <Separator />
               <div className="flex justify-between items-center text-lg font-bold">
                 <span>Total:</span>
-                <span className="text-2xl text-[#259783]">
+                <span className="text-2xl text-[#1c6a1e]">
                   {formatPrice(total)}
                 </span>
               </div>
@@ -531,7 +531,7 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
                         <span
                           className={
                             change >= 0
-                              ? 'text-[#259783]'
+                              ? 'text-[#1c6a1e]'
                               : 'text-destructive'
                           }
                         >

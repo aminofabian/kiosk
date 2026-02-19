@@ -30,7 +30,7 @@ export default function StockPage() {
         <div className="md:hidden sticky top-0 z-20 bg-white dark:bg-[#0f1a0d] safe-area-top">
           <div className="px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#259783] to-[#45d827] flex items-center justify-center shadow-lg shadow-[#259783]/25">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-lg shadow-[#1c6a1e]/25">
                 <PackageCheck className="w-4.5 h-4.5 text-white" />
               </div>
               <div>
@@ -43,7 +43,7 @@ export default function StockPage() {
                 onClick={() => setAnalysisDrawerOpen(true)}
                 className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               >
-                <BarChart3 className="w-5 h-5 text-[#259783]" />
+                <BarChart3 className="w-5 h-5 text-[#1c6a1e]" />
               </button>
               <button
                 onClick={() => setRestockDrawerOpen(true)}
@@ -60,7 +60,7 @@ export default function StockPage() {
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#259783] to-[#45d827] flex items-center justify-center shadow-lg shadow-[#259783]/20">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-lg shadow-[#1c6a1e]/20">
                   <PackageCheck className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -72,13 +72,13 @@ export default function StockPage() {
                 <Button
                   onClick={() => setAddStockDrawerOpen(true)}
                   size="sm"
-                  className="h-9 px-3 bg-[#259783] bg-gradient-to-r from-[#259783] to-[#45d827] hover:from-[#45d827] hover:to-[#259783] text-white shadow-md shadow-[#259783]/20"
+                  className="h-9 px-3 bg-[#1c6a1e] bg-gradient-to-r from-[#1c6a1e] to-[#2a8a30] hover:from-[#2a8a30] hover:to-[#1c6a1e] text-white shadow-md shadow-[#1c6a1e]/20"
                 >
                   <Plus className="w-4 h-4 mr-1.5" />
                   Add Stock
                 </Button>
                 <Link href="/admin/stock/take">
-                  <Button size="sm" className="h-9 px-3 bg-[#259783] hover:bg-[#45d827] text-white shadow-sm">
+                  <Button size="sm" className="h-9 px-3 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white shadow-sm">
                     <ClipboardList className="w-4 h-4 mr-1.5" />
                     Stock Take
                   </Button>
@@ -88,7 +88,7 @@ export default function StockPage() {
                     <ShoppingCart className="w-4 h-4" />
                     <span className="ml-1.5 text-xs">Restock</span>
                   </Button>
-                  <Button onClick={() => setAnalysisDrawerOpen(true)} size="sm" variant="ghost" className="h-9 px-2.5 text-[#259783] hover:bg-[#259783]/10">
+                  <Button onClick={() => setAnalysisDrawerOpen(true)} size="sm" variant="ghost" className="h-9 px-2.5 text-[#1c6a1e] hover:bg-[#1c6a1e]/10">
                     <BarChart3 className="w-4 h-4" />
                     <span className="ml-1.5 text-xs">Analysis</span>
                   </Button>
@@ -118,7 +118,7 @@ export default function StockPage() {
                 onClick={() => { setFabOpen(false); setAddStockDrawerOpen(true); }}
                 className="flex items-center gap-2 pl-4 pr-5 py-2.5 bg-white dark:bg-slate-800 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 animate-in slide-in-from-bottom-2 fade-in duration-200"
               >
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#259783] to-[#45d827] flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center">
                   <Plus className="w-4 h-4 text-white" />
                 </div>
                 <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Add Stock</span>
@@ -128,7 +128,7 @@ export default function StockPage() {
                 onClick={() => setFabOpen(false)}
                 className="flex items-center gap-2 pl-4 pr-5 py-2.5 bg-white dark:bg-slate-800 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 animate-in slide-in-from-bottom-2 fade-in duration-150"
               >
-                <div className="w-8 h-8 rounded-full bg-[#259783] flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-[#1c6a1e] flex items-center justify-center">
                   <ClipboardList className="w-4 h-4 text-white" />
                 </div>
                 <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Stock Take</span>
@@ -152,7 +152,7 @@ export default function StockPage() {
             className={`w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 ${
               fabOpen
                 ? 'bg-slate-800 dark:bg-slate-200 rotate-45'
-                : 'bg-gradient-to-br from-[#259783] to-[#45d827] shadow-[#259783]/30'
+                : 'bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] shadow-[#1c6a1e]/30'
             }`}
           >
             {fabOpen ? (
@@ -182,7 +182,7 @@ export default function StockPage() {
             <DrawerHeader className="border-b border-slate-200 dark:border-slate-800 bg-gradient-to-br from-slate-50 via-white to-slate-50/50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800/50 px-6 py-5 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#259783] to-[#45d827] flex items-center justify-center shadow-lg shadow-[#259783]/25 ring-2 ring-[#259783]/10">
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-lg shadow-[#1c6a1e]/25 ring-2 ring-[#1c6a1e]/10">
                     <Scale className="w-5 h-5 text-white" />
                   </div>
                   <div>

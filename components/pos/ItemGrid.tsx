@@ -57,7 +57,7 @@ const RANK_STYLES = [
   'bg-gradient-to-br from-amber-400 to-yellow-500 text-white shadow-amber-400/30',
   'bg-gradient-to-br from-slate-300 to-slate-400 text-white shadow-slate-300/30',
   'bg-gradient-to-br from-amber-600 to-orange-700 text-white shadow-amber-600/30',
-  'bg-[#259783]/15 text-[#259783] dark:bg-[#259783]/20 dark:text-[#3bd522]',
+  'bg-[#1c6a1e]/15 text-[#1c6a1e] dark:bg-[#1c6a1e]/20 dark:text-[#2a8a30]',
 ];
 
 // Memoized item card component for better performance
@@ -79,9 +79,9 @@ const ItemCard = memo(function ItemCard({
     <Card
       role="button"
       tabIndex={0}
-      className={`pos-grid-btn group cursor-pointer touch-target relative overflow-hidden rounded-none outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 transition-all duration-200 ${isOutOfStock
+      className={`pos-grid-btn group cursor-pointer touch-target relative overflow-hidden rounded-none outline-none focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 transition-all duration-200 ${isOutOfStock
         ? 'bg-gradient-to-b from-slate-50 to-slate-100/80 dark:from-slate-800/60 dark:to-slate-800/40 border-2 border-slate-300 dark:border-slate-500 opacity-75 hover:opacity-100'
-        : 'bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-800/95 dark:to-slate-800/70 border-2 border-slate-300 dark:border-slate-500 hover:border-[#259783] dark:hover:border-[#259783]'
+        : 'bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-800/95 dark:to-slate-800/70 border-2 border-slate-300 dark:border-slate-500 hover:border-[#1c6a1e] dark:hover:border-[#1c6a1e]'
         }`}
       onClick={() => onSelect(item)}
       onKeyDown={(e) => {
@@ -96,7 +96,7 @@ const ItemCard = memo(function ItemCard({
         ? 'bg-gray-300 dark:bg-gray-600'
         : stockStatus === 'low'
           ? 'bg-amber-400'
-          : 'bg-gradient-to-b from-[#259783] to-[#3bd522] opacity-0 group-hover:opacity-100'
+          : 'bg-gradient-to-b from-[#1c6a1e] to-[#2a8a30] opacity-0 group-hover:opacity-100'
         }`} />
 
       <CardContent className="p-2.5 sm:p-3 flex flex-col h-full">
@@ -105,7 +105,7 @@ const ItemCard = memo(function ItemCard({
           <div className="flex-1 min-w-0">
             <h3 className={`font-semibold text-[14px] sm:text-[16px] leading-tight transition-colors uppercase tracking-tight break-words ${isOutOfStock
               ? 'text-gray-400 dark:text-gray-500'
-              : 'text-gray-800 dark:text-gray-100 group-hover:text-[#259783] dark:group-hover:text-[#3bd522]'
+              : 'text-gray-800 dark:text-gray-100 group-hover:text-[#1c6a1e] dark:group-hover:text-[#2a8a30]'
               }`}>
               {item.name}
             </h3>
@@ -120,7 +120,7 @@ const ItemCard = memo(function ItemCard({
             <Button
               size="sm"
               variant="default"
-              className="h-8 px-2 flex items-center justify-center gap-1.5 flex-shrink-0 transition-all duration-200 rounded-none bg-gradient-to-b from-[#259783] to-[#1e8a72] hover:from-[#1e8a72] hover:to-[#178266] text-white text-xs font-semibold shadow-md shadow-[#259783]/25 hover:shadow-lg hover:shadow-[#259783]/30 active:scale-95 -mt-0.5 -mr-1 focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+              className="h-8 px-2 flex items-center justify-center gap-1.5 flex-shrink-0 transition-all duration-200 rounded-none bg-gradient-to-b from-[#1c6a1e] to-[#1e8a72] hover:from-[#1e8a72] hover:to-[#178266] text-white text-xs font-semibold shadow-md shadow-[#1c6a1e]/25 hover:shadow-lg hover:shadow-[#1c6a1e]/30 active:scale-95 -mt-0.5 -mr-1 focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
               onClick={(e) => {
                 e.stopPropagation();
                 onQuickAdd(item, quickQty);
@@ -141,7 +141,7 @@ const ItemCard = memo(function ItemCard({
           <div className="flex items-baseline gap-1.5">
             <span className={`text-lg sm:text-xl font-bold tracking-tight ${isOutOfStock
               ? 'text-gray-400 dark:text-gray-500'
-              : 'text-[#259783]'
+              : 'text-[#1c6a1e]'
               }`}>
               {formatPrice(item.current_sell_price)}
             </span>
@@ -284,7 +284,7 @@ export function ItemGrid({
 
     async function fetchCategories() {
       try {
-        const response = await fetch('/api/categories');
+        const response = await fetch('/api/categories', { cache: 'no-store' });
         const result = await response.json();
         if (result.success) {
           setLocalCategories(result.data);
@@ -332,7 +332,7 @@ export function ItemGrid({
           // Request limited results with sellableOnly for faster response
           const response = await fetch(
             `/api/items?search=${encodeURIComponent(searchQuery || '')}&sellableOnly=true&limit=50`,
-            { signal: controller.signal }
+            { signal: controller.signal, cache: 'no-store' }
           );
 
           if (controller.signal.aborted) return;
@@ -418,7 +418,7 @@ export function ItemGrid({
 
         const response = await fetch(
           `/api/items?categoryId=${categoryId}`,
-          { signal: controller.signal }
+          { signal: controller.signal, cache: 'no-store' }
         );
 
         if (controller.signal.aborted) return;
@@ -474,8 +474,8 @@ export function ItemGrid({
       return (
         <div className="mx-4 sm:mx-6 lg:mx-8 p-4 sm:p-6 flex items-center justify-center h-full">
           <div className="text-center space-y-4 max-w-md animate-in fade-in duration-500">
-            <div className="w-20 h-20 mx-auto bg-gradient-to-br from-[#259783]/15 to-[#3bd522]/10 rounded-none flex items-center justify-center shadow-lg">
-              <ShoppingBag className="w-9 h-9 text-[#259783]" />
+            <div className="w-20 h-20 mx-auto bg-gradient-to-br from-[#1c6a1e]/15 to-[#2a8a30]/10 rounded-none flex items-center justify-center shadow-lg">
+              <ShoppingBag className="w-9 h-9 text-[#1c6a1e]" />
             </div>
             <p className="text-lg font-semibold text-gray-700 dark:text-gray-200">
               Ready to sell
@@ -496,7 +496,7 @@ export function ItemGrid({
           <section className="min-h-0 flex flex-col flex-1 rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-sm p-1 sm:p-1.5 overflow-hidden flex-shrink-0 justify-center">
             {/* Section header - compact */}
             <div className="flex items-center gap-1.5 mb-0.5 flex-shrink-0">
-              <div className="w-6 h-6 rounded-none bg-[#259783] flex items-center justify-center shadow-sm">
+              <div className="w-6 h-6 rounded-none bg-[#1c6a1e] flex items-center justify-center shadow-sm">
                 <Flame className="w-3 h-3 text-white" />
               </div>
               <div className="flex-1 min-w-0">
@@ -504,11 +504,11 @@ export function ItemGrid({
                   Quick Sell
                 </h2>
                 <p className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">
-                  Tap <span className="text-[#259783] font-semibold">⚡</span> to add
+                  Tap <span className="text-[#1c6a1e] font-semibold">⚡</span> to add
                 </p>
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] font-semibold text-[#259783] dark:text-[#3bd522] bg-[#259783]/10 dark:bg-[#259783]/15 px-2 py-1 rounded-none border border-[#259783]/20 dark:border-[#259783]/25 shadow-sm">
+                <span className="text-[10px] font-semibold text-[#1c6a1e] dark:text-[#2a8a30] bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/15 px-2 py-1 rounded-none border border-[#1c6a1e]/20 dark:border-[#1c6a1e]/25 shadow-sm">
                   {featuredItems!.length} popular
                 </span>
                 {(() => {
@@ -575,7 +575,7 @@ export function ItemGrid({
                         onSelectItem(item);
                       }
                     }}
-                    className={`pos-grid-btn group relative rounded-none overflow-hidden cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 flex flex-col min-h-0 ${isOut
+                    className={`pos-grid-btn group relative rounded-none overflow-hidden cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 flex flex-col min-h-0 ${isOut
                       ? 'bg-slate-100 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-500 opacity-60'
                       : 'bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-500'
                       }`}
@@ -602,7 +602,7 @@ export function ItemGrid({
                       <h3 className={`font-semibold text-[11px] sm:text-[12px] leading-tight transition-colors uppercase tracking-tight break-words ${rank != null ? 'pl-4' : ''
                         } ${isOut
                           ? 'text-gray-400 dark:text-gray-500'
-                          : 'text-gray-800 dark:text-gray-100 group-hover:text-[#259783] dark:group-hover:text-[#3bd522]'
+                          : 'text-gray-800 dark:text-gray-100 group-hover:text-[#1c6a1e] dark:group-hover:text-[#2a8a30]'
                         }`}>
                         {item.name}
                       </h3>
@@ -616,7 +616,7 @@ export function ItemGrid({
                     {/* Bottom bar: price + quick add - compact */}
                     <div className="px-1.5 sm:px-2 pb-1 sm:pb-1.5 flex items-end justify-between gap-0.5 flex-shrink-0">
                       <div className="min-w-0">
-                        <span className={`text-[13px] sm:text-[14px] font-bold tracking-tight ${isOut ? 'text-gray-400' : 'text-[#259783]'}`}>
+                        <span className={`text-[13px] sm:text-[14px] font-bold tracking-tight ${isOut ? 'text-gray-400' : 'text-[#1c6a1e]'}`}>
                           {formatPrice(item.current_sell_price)}
                         </span>
                         <span className="text-[8px] text-gray-400 font-medium ml-0.5">/{item.unit_type}</span>
@@ -643,7 +643,7 @@ export function ItemGrid({
                             e.stopPropagation();
                             onQuickAdd(item, quickQty);
                           }}
-                          className="flex items-center justify-center gap-0.5 h-7 sm:h-8 px-2 rounded-none bg-[#259783] hover:bg-[#1e8a72] text-white text-[11px] font-bold shadow-md transition-all duration-200 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#259783] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+                          className="flex items-center justify-center gap-0.5 h-7 sm:h-8 px-2 rounded-none bg-[#1c6a1e] hover:bg-[#1e8a72] text-white text-[11px] font-bold shadow-md transition-all duration-200 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
                           title={`Quick add ${quickQty} ${item.unit_type}`}
                         >
                           <Zap className="w-3 h-3" />
@@ -750,7 +750,7 @@ if (items.length === 0 && !loading) {
     <div className="mx-4 sm:mx-6 lg:mx-8 p-6 flex items-center justify-center h-full min-h-[300px]">
       <div className="text-center space-y-5 max-w-sm">
         <div className="relative mx-auto w-20 h-20">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#259783]/10 to-[#3bd522]/10 rounded-none rotate-6" />
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1c6a1e]/10 to-[#2a8a30]/10 rounded-none rotate-6" />
           <div className="relative w-20 h-20 bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50 rounded-none flex items-center justify-center border-2 border-slate-300 dark:border-slate-500 shadow-sm">
             <svg className="w-9 h-9 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -797,7 +797,7 @@ return (
         <div className="mb-6 space-y-2.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-none bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm shadow-[#259783]/20">
+              <div className="w-8 h-8 rounded-none bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-sm shadow-[#1c6a1e]/20">
                 <span className="text-white text-xs font-bold">{items.length}</span>
               </div>
               <div>
@@ -827,10 +827,10 @@ return (
         {groupedItems.filter(g => g.type === 'parent').map((group) => {
           if (!group.parent || !group.children || group.children.length === 0) return null;
           return (
-            <div key={group.parent.id} className="rounded-none border-2 border-slate-300 dark:border-slate-600 bg-gradient-to-br from-white via-white to-[#259783]/[0.02] dark:from-slate-800/60 dark:via-slate-800/40 dark:to-[#259783]/[0.05] overflow-hidden">
+            <div key={group.parent.id} className="rounded-none border-2 border-slate-300 dark:border-slate-600 bg-gradient-to-br from-white via-white to-[#1c6a1e]/[0.02] dark:from-slate-800/60 dark:via-slate-800/40 dark:to-[#1c6a1e]/[0.05] overflow-hidden">
               {/* Parent header */}
               <div className="flex items-center gap-3 px-4 sm:px-5 py-3 border-b border-gray-100 dark:border-gray-700/40 bg-gray-50/50 dark:bg-gray-800/30">
-                <div className="w-8 h-8 rounded-none bg-gradient-to-br from-[#259783] to-[#3bd522] flex items-center justify-center shadow-sm shadow-[#259783]/20 flex-shrink-0">
+                <div className="w-8 h-8 rounded-none bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-sm shadow-[#1c6a1e]/20 flex-shrink-0">
                   <Package className="w-4 h-4 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">

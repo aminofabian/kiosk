@@ -1142,7 +1142,7 @@ export function ItemForm({
         isParent: mode === 'parent',
         parentItemId: mode === 'variant' ? selectedParentId : null,
         variantName: mode === 'variant' ? variantName.trim() : null,
-        barcode: barcode.trim() || null,
+        barcode: mode === 'parent' ? null : (barcode.trim() || null),
         expiryDate: expiryDate ? Math.floor(new Date(expiryDate).getTime() / 1000) : null,
         // Bundle pricing (only for non-parent items)
         bundleQuantity: mode === 'parent' ? null : bundleQty,
@@ -1240,8 +1240,8 @@ export function ItemForm({
                   relative p-4 rounded-lg border-2 transition-all duration-200 text-left
                   hover:shadow-md group
                   ${mode === 'standalone'
-                    ? 'border-[#259783] bg-[#259783]/5 dark:bg-[#259783]/10 shadow-sm'
-                    : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
+                    ? 'border-[#1c6a1e] bg-[#1c6a1e]/5 dark:bg-[#1c6a1e]/10 shadow-sm'
+                    : 'border-border bg-card hover:border-[#1c6a1e]/50 hover:bg-accent/50'
                   }
                   ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                 `}
@@ -1259,7 +1259,7 @@ export function ItemForm({
                 </div>
                 {mode === 'standalone' && (
                   <div className="absolute top-2 right-2">
-                    <div className="h-2 w-2 rounded-full bg-[#259783] animate-pulse" />
+                    <div className="h-2 w-2 rounded-full bg-[#1c6a1e] animate-pulse" />
                   </div>
                 )}
               </button>
@@ -1344,7 +1344,7 @@ export function ItemForm({
               size="sm"
               onClick={() => setItemType('grocery')}
               disabled={isSubmitting}
-              className={itemType === 'grocery' ? 'bg-[#259783] hover:bg-[#259783]/90' : ''}
+              className={itemType === 'grocery' ? 'bg-[#1c6a1e] hover:bg-[#1c6a1e]/90' : ''}
             >
               🥬 Grocery
             </Button>
@@ -1354,7 +1354,7 @@ export function ItemForm({
               size="sm"
               onClick={() => setItemType('retail')}
               disabled={isSubmitting}
-              className={itemType === 'retail' ? 'bg-[#259783] hover:bg-[#259783]/90' : ''}
+              className={itemType === 'retail' ? 'bg-[#1c6a1e] hover:bg-[#1c6a1e]/90' : ''}
             >
               🏪 Retail
             </Button>
@@ -1377,7 +1377,7 @@ export function ItemForm({
                   placeholder="Search products..."
                   value={parentSearchQuery}
                   onChange={(e) => setParentSearchQuery(e.target.value)}
-                  className="pl-9 h-11 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-[#259783]"
+                  className="pl-9 h-11 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-[#1c6a1e]"
                 />
               </div>
 
@@ -1399,22 +1399,22 @@ export function ItemForm({
                           setCategoryId(item.category_id);
                         }}
                         className={`w-full text-left p-3.5 rounded-xl border-2 transition-all ${isSelected
-                            ? 'border-[#259783] bg-[#259783]/5 ring-2 ring-[#259783]/10 shadow-sm'
-                            : 'border-slate-100 dark:border-slate-800 bg-white/50 dark:bg-slate-800/30 hover:border-[#259783]/50 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                            ? 'border-[#1c6a1e] bg-[#1c6a1e]/5 ring-2 ring-[#1c6a1e]/10 shadow-sm'
+                            : 'border-slate-100 dark:border-slate-800 bg-white/50 dark:bg-slate-800/30 hover:border-[#1c6a1e]/50 hover:bg-slate-50 dark:hover:bg-slate-800/50'
                           }`}
                       >
                         <div className="flex items-center justify-between gap-3">
                           <div className="flex items-center gap-3 min-w-0">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isSelected ? 'bg-[#259783]/20' : 'bg-slate-100 dark:bg-slate-800'
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isSelected ? 'bg-[#1c6a1e]/20' : 'bg-slate-100 dark:bg-slate-800'
                               }`}>
-                              <Package className={`h-4 w-4 ${isSelected ? 'text-[#259783]' : 'text-slate-500'}`} />
+                              <Package className={`h-4 w-4 ${isSelected ? 'text-[#1c6a1e]' : 'text-slate-500'}`} />
                             </div>
-                            <span className={`font-semibold text-sm truncate ${isSelected ? 'text-[#259783]' : 'text-slate-700 dark:text-slate-300'}`}>
+                            <span className={`font-semibold text-sm truncate ${isSelected ? 'text-[#1c6a1e]' : 'text-slate-700 dark:text-slate-300'}`}>
                               {item.name}
                             </span>
                           </div>
                           {isSelected && (
-                            <CheckCircle2 className="h-5 w-5 text-[#259783] shrink-0" />
+                            <CheckCircle2 className="h-5 w-5 text-[#1c6a1e] shrink-0" />
                           )}
                         </div>
                       </button>
@@ -1476,8 +1476,8 @@ export function ItemForm({
                           className={`
                             px-3 py-2 rounded-lg border text-sm transition-all
                             ${isSelected
-                              ? 'border-[#259783] bg-[#259783]/10 text-[#259783] font-medium'
-                              : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
+                              ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 text-[#1c6a1e] font-medium'
+                              : 'border-border bg-card hover:border-[#1c6a1e]/50 hover:bg-accent/50'
                             }
                             ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                           `}
@@ -1497,8 +1497,8 @@ export function ItemForm({
                       className={`
                         px-3 py-2 rounded-lg border-2 border-dashed text-sm transition-all
                         ${isCustomVariantName
-                          ? 'border-[#259783] bg-[#259783]/10 text-[#259783] font-medium'
-                          : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
+                          ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 text-[#1c6a1e] font-medium'
+                          : 'border-border bg-card hover:border-[#1c6a1e]/50 hover:bg-accent/50'
                         }
                         ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                       `}
@@ -1541,7 +1541,7 @@ export function ItemForm({
                     placeholder={parentName ? `Enter variant type for ${parentName}...` : 'Select a product first'}
                     required
                     disabled={isSubmitting || !selectedParentId}
-                    className="h-12 text-base focus-visible:ring-[#259783]"
+                    className="h-12 text-base focus-visible:ring-[#1c6a1e]"
                   />
                   {isCustomVariantName && parentName && (
                     <p className="text-xs text-muted-foreground">
@@ -1585,7 +1585,7 @@ export function ItemForm({
                     placeholder="Search categories..."
                     value={categorySearchQuery}
                     onChange={(e) => setCategorySearchQuery(e.target.value)}
-                    className="pl-9 h-11 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-[#259783]"
+                    className="pl-9 h-11 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-[#1c6a1e]"
                   />
                 </div>
               )}
@@ -1613,8 +1613,8 @@ export function ItemForm({
                           relative p-3 rounded-lg border-2 transition-all duration-200
                           text-left hover:shadow-sm
                           ${isSelected
-                            ? 'border-[#259783] bg-[#259783]/5 dark:bg-[#259783]/10 shadow-sm'
-                            : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
+                            ? 'border-[#1c6a1e] bg-[#1c6a1e]/5 dark:bg-[#1c6a1e]/10 shadow-sm'
+                            : 'border-border bg-card hover:border-[#1c6a1e]/50 hover:bg-accent/50'
                           }
                           ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                         `}
@@ -1625,7 +1625,7 @@ export function ItemForm({
                         </div>
                         {isSelected && (
                           <div className="absolute top-1.5 right-1.5">
-                            <div className="h-1.5 w-1.5 rounded-full bg-[#259783] animate-pulse" />
+                            <div className="h-1.5 w-1.5 rounded-full bg-[#1c6a1e] animate-pulse" />
                           </div>
                         )}
                       </button>
@@ -1644,8 +1644,8 @@ export function ItemForm({
                       relative p-3 rounded-lg border-2 border-dashed transition-all duration-200
                       text-left hover:shadow-sm
                       ${isCustomCategory
-                        ? 'border-[#259783] bg-[#259783]/5 dark:bg-[#259783]/10 shadow-sm'
-                        : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
+                        ? 'border-[#1c6a1e] bg-[#1c6a1e]/5 dark:bg-[#1c6a1e]/10 shadow-sm'
+                        : 'border-border bg-card hover:border-[#1c6a1e]/50 hover:bg-accent/50'
                       }
                       ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                     `}
@@ -1656,7 +1656,7 @@ export function ItemForm({
                     </div>
                     {isCustomCategory && (
                       <div className="absolute top-1.5 right-1.5">
-                        <div className="h-1.5 w-1.5 rounded-full bg-[#259783] animate-pulse" />
+                        <div className="h-1.5 w-1.5 rounded-full bg-[#1c6a1e] animate-pulse" />
                       </div>
                     )}
                   </button>
@@ -1672,7 +1672,7 @@ export function ItemForm({
                       setCategoryId('');
                       setCustomCategoryName('');
                     }}
-                    className="mt-3 text-sm text-[#259783] hover:underline"
+                    className="mt-3 text-sm text-[#1c6a1e] hover:underline"
                   >
                     Create new category instead
                   </button>
@@ -1688,7 +1688,7 @@ export function ItemForm({
                       setCategoryId('');
                       setCustomCategoryName('');
                     }}
-                    className="mt-3 text-sm text-[#259783] hover:underline"
+                    className="mt-3 text-sm text-[#1c6a1e] hover:underline"
                   >
                     Create a new category
                   </button>
@@ -1706,7 +1706,7 @@ export function ItemForm({
                     onChange={(e) => setCustomCategoryName(e.target.value)}
                     placeholder="e.g., Electronics, Stationery"
                     disabled={isSubmitting}
-                    className="h-11 focus-visible:ring-[#259783]"
+                    className="h-11 focus-visible:ring-[#1c6a1e]"
                   />
                   <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
                     <Info className="h-3 w-3" />
@@ -1754,8 +1754,8 @@ export function ItemForm({
                           className={`
                           px-3 py-1.5 rounded-lg border text-sm transition-all
                           ${isSelected
-                              ? 'border-[#259783] bg-[#259783]/10 text-[#259783] font-medium'
-                              : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
+                              ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 text-[#1c6a1e] font-medium'
+                              : 'border-border bg-card hover:border-[#1c6a1e]/50 hover:bg-accent/50'
                             }
                           ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                         `}
@@ -1775,8 +1775,8 @@ export function ItemForm({
                       className={`
                       px-3 py-1.5 rounded-lg border-2 border-dashed text-sm transition-all
                       ${isCustomItemName
-                          ? 'border-[#259783] bg-[#259783]/10 text-[#259783] font-medium'
-                          : 'border-border bg-card hover:border-[#259783]/50 hover:bg-accent/50'
+                          ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 text-[#1c6a1e] font-medium'
+                          : 'border-border bg-card hover:border-[#1c6a1e]/50 hover:bg-accent/50'
                         }
                       ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                     `}
@@ -1818,7 +1818,7 @@ export function ItemForm({
                 placeholder={mode === 'parent' ? 'e.g., Beans, Rice, Flour' : 'e.g., Tomatoes, Milk, Bread'}
                 required
                 disabled={isSubmitting}
-                className="h-12 text-base focus-visible:ring-[#259783]"
+                className="h-12 text-base focus-visible:ring-[#1c6a1e]"
               />
             )}
           </div>
@@ -1872,7 +1872,7 @@ export function ItemForm({
                 id="unitSalesOnly"
                 checked={unitSalesOnly}
                 onChange={(e) => setUnitSalesOnly(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-[#259783] focus:ring-[#259783] cursor-pointer"
+                className="h-4 w-4 rounded border-gray-300 text-[#1c6a1e] focus:ring-[#1c6a1e] cursor-pointer"
                 disabled={isSubmitting}
               />
               <Label htmlFor="unitSalesOnly" className="text-sm font-medium cursor-pointer flex-1">
@@ -1914,7 +1914,7 @@ export function ItemForm({
                       placeholder="0.00"
                       required
                       disabled={isSubmitting}
-                      className="h-12 pl-12 text-base focus-visible:ring-[#259783]"
+                      className="h-12 pl-12 text-base focus-visible:ring-[#1c6a1e]"
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -1939,7 +1939,7 @@ export function ItemForm({
                       onChange={(e) => setBuyPrice(e.target.value)}
                       placeholder="0.00"
                       disabled={isSubmitting}
-                      className="h-12 pl-12 text-base focus-visible:ring-[#259783]"
+                      className="h-12 pl-12 text-base focus-visible:ring-[#1c6a1e]"
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -1965,7 +1965,7 @@ export function ItemForm({
                       onChange={(e) => setInitialStock(e.target.value)}
                       placeholder="0"
                       disabled={isSubmitting}
-                      className="h-12 text-base focus-visible:ring-[#259783]"
+                      className="h-12 text-base focus-visible:ring-[#1c6a1e]"
                     />
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Info className="h-3 w-3" />
@@ -2003,7 +2003,7 @@ export function ItemForm({
                       }}
                       placeholder="0"
                       disabled={isSubmitting}
-                      className="h-12 text-base focus-visible:ring-[#259783]"
+                      className="h-12 text-base focus-visible:ring-[#1c6a1e]"
                     />
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Info className="h-3 w-3" />
@@ -2029,7 +2029,7 @@ export function ItemForm({
                     onChange={(e) => setMinStockLevel(e.target.value)}
                     placeholder="Leave empty for no alert"
                     disabled={isSubmitting}
-                    className="h-12 text-base focus-visible:ring-[#259783]"
+                    className="h-12 text-base focus-visible:ring-[#1c6a1e]"
                   />
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <Info className="h-3 w-3" />
@@ -2045,7 +2045,7 @@ export function ItemForm({
                   <p className="text-sm font-medium text-muted-foreground">Optional Details</p>
                 </div>
 
-                {/* Barcode */}
+                {/* Barcode - only shown for non-parent (this block is inside mode !== 'parent') */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <Label htmlFor="barcode" className="text-sm font-medium">
@@ -2053,7 +2053,7 @@ export function ItemForm({
                       <span className="text-xs font-normal text-muted-foreground ml-1">(Optional)</span>
                     </Label>
                     {barcodeInputFocused && (
-                      <Badge variant="outline" className="text-xs bg-[#259783]/10 border-[#259783]/30 text-[#259783]">
+                      <Badge variant="outline" className="text-xs bg-[#1c6a1e]/10 border-[#1c6a1e]/30 text-[#1c6a1e]">
                         <QrCode className="w-3 h-3 mr-1" />
                         Ready to scan
                       </Badge>
@@ -2075,7 +2075,7 @@ export function ItemForm({
                         onBlur={() => setBarcodeInputFocused(false)}
                         placeholder="e.g., 1234567890123 or scan barcode"
                         disabled={isSubmitting}
-                        className="h-12 text-base focus-visible:ring-[#259783] font-mono pr-12"
+                        className="h-12 text-base focus-visible:ring-[#1c6a1e] font-mono pr-12"
                         data-barcode-enabled="true"
                         autoComplete="off"
                         autoCorrect="off"
@@ -2083,8 +2083,8 @@ export function ItemForm({
                       />
                       <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                         {barcodeScanStatus.scanning && (
-                          <div className="flex items-center gap-1.5 text-[#259783]">
-                            <div className="w-2 h-2 rounded-full bg-[#259783] animate-pulse"></div>
+                          <div className="flex items-center gap-1.5 text-[#1c6a1e]">
+                            <div className="w-2 h-2 rounded-full bg-[#1c6a1e] animate-pulse"></div>
                             <span className="text-xs font-medium">Scanning...</span>
                           </div>
                         )}
@@ -2093,7 +2093,7 @@ export function ItemForm({
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="h-7 w-7 p-0 hover:bg-[#259783]/10"
+                            className="h-7 w-7 p-0 hover:bg-[#1c6a1e]/10"
                             onClick={() => {
                               setBarcode('');
                               setBarcodeCheckStatus({ checking: false, exists: false, existingItem: null, error: null, checked: false });
@@ -2178,7 +2178,7 @@ export function ItemForm({
                     value={expiryDate}
                     onChange={(e) => setExpiryDate(e.target.value)}
                     disabled={isSubmitting}
-                    className="h-12 text-base focus-visible:ring-[#259783]"
+                    className="h-12 text-base focus-visible:ring-[#1c6a1e]"
                   />
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <Info className="h-3 w-3" />
@@ -2403,6 +2403,12 @@ export function ItemForm({
         {mode === 'parent' && (
           <>
             <Separator />
+            {initialData?.barcode && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-sm mb-4">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>Barcode will be removed when saved — barcode belongs on variants, not parent products.</span>
+              </div>
+            )}
             <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800/30">
               <div className="flex items-start gap-3">
                 <Info className="h-5 w-5 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" />
@@ -2447,7 +2453,7 @@ export function ItemForm({
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="flex-1 h-11 bg-[#259783] hover:bg-[#45d827] text-white font-semibold shadow-md shadow-[#259783]/20"
+            className="flex-1 h-11 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white font-semibold shadow-md shadow-[#1c6a1e]/20"
           >
             {isSubmitting ? (
               <>

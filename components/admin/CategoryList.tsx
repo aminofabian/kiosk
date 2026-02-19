@@ -35,7 +35,7 @@ export function CategoryList({
         </div>
         <Button
           onClick={onAddCategory}
-          className="bg-[#259783] hover:bg-[#1e8a72] text-white shadow-md shadow-[#259783]/20"
+          className="bg-[#1c6a1e] hover:bg-[#1e8a72] text-white shadow-md shadow-[#1c6a1e]/20"
         >
           <Plus className="h-4 w-4 mr-2" />
           Add Category
@@ -48,18 +48,18 @@ export function CategoryList({
           return (
             <Card
               key={category.id}
-              className={`rounded-none border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900/95 overflow-hidden transition-all hover:shadow-md hover:border-[#259783]/30 dark:hover:border-[#259783]/40 ${
+              className={`rounded-none border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900/95 overflow-hidden transition-all hover:shadow-md hover:border-[#1c6a1e]/30 dark:hover:border-[#1c6a1e]/40 ${
                 category.active === 0 ? 'opacity-60' : ''
               }`}
             >
               <CardContent className="p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 min-w-0 flex-1">
-                    <div className="h-11 w-11 rounded-none bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center flex-shrink-0">
+                    <div className="h-11 w-11 rounded-none bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center flex-shrink-0">
                       {category.icon ? (
                         <span className="text-xl">{category.icon}</span>
                       ) : (
-                        <Folder className="h-5 w-5 text-[#259783]" />
+                        <Folder className="h-5 w-5 text-[#1c6a1e]" />
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -86,7 +86,7 @@ export function CategoryList({
                       variant="outline"
                       size="sm"
                       onClick={() => onEditCategory(category)}
-                      className="h-8 w-8 p-0 rounded-none border-slate-200 dark:border-slate-600 hover:border-[#259783] hover:bg-[#259783]/5 hover:text-[#259783]"
+                      className="h-8 w-8 p-0 rounded-none border-slate-200 dark:border-slate-600 hover:border-[#1c6a1e] hover:bg-[#1c6a1e]/5 hover:text-[#1c6a1e]"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -124,7 +124,7 @@ export function CategoryList({
               </p>
               <Button
                 onClick={onAddCategory}
-                className="bg-[#259783] hover:bg-[#1e8a72] text-white"
+                className="bg-[#1c6a1e] hover:bg-[#1e8a72] text-white"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Category

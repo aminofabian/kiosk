@@ -189,7 +189,7 @@ export function SupplierBillEditForm({
             Cancel
           </Button>
         )}
-        <Button type="submit" disabled={isSubmitting} className="flex-1 bg-[#259783] hover:bg-[#45d827] text-white">
+        <Button type="submit" disabled={isSubmitting} className="flex-1 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white">
           {isSubmitting ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />

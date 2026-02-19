@@ -215,7 +215,7 @@ export function ShiftOpenForm() {
     return (
       <div className="flex flex-col items-center justify-center h-full p-6">
         <div className="text-center space-y-4 max-w-md">
-          <div className="w-20 h-20 mx-auto bg-[#259783]/10 rounded-2xl flex items-center justify-center">
+          <div className="w-20 h-20 mx-auto bg-[#1c6a1e]/10 rounded-2xl flex items-center justify-center">
             <span className="text-4xl">✅</span>
           </div>
           <h2 className="text-2xl font-bold">Shift Already Open</h2>
@@ -234,8 +234,8 @@ export function ShiftOpenForm() {
     return (
       <div className="flex flex-col items-center justify-center min-h-full p-6">
         <div className="text-center space-y-4 max-w-md">
-          <div className="w-20 h-20 mx-auto bg-[#259783]/10 rounded-2xl flex items-center justify-center">
-            <CheckCircle2 className="w-12 h-12 text-[#259783]" />
+          <div className="w-20 h-20 mx-auto bg-[#1c6a1e]/10 rounded-2xl flex items-center justify-center">
+            <CheckCircle2 className="w-12 h-12 text-[#1c6a1e]" />
           </div>
           <h2 className="text-2xl font-bold">Shift Submitted Successfully</h2>
           <p className="text-muted-foreground">
@@ -260,7 +260,7 @@ export function ShiftOpenForm() {
             >
               Open a new one
             </Button>
-            <Button onClick={() => router.push('/pos')} size="touch" className="flex-1 bg-[#259783] hover:bg-[#1a7a69]">
+            <Button onClick={() => router.push('/pos')} size="touch" className="flex-1 bg-[#1c6a1e] hover:bg-[#1a7a69]">
               Back to POS
             </Button>
           </div>
@@ -274,7 +274,7 @@ export function ShiftOpenForm() {
       <Card className="w-full max-w-lg">
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2">
-            <Banknote className="w-5 h-5 text-[#259783]" />
+            <Banknote className="w-5 h-5 text-[#1c6a1e]" />
             Open New Shift
           </CardTitle>
           <p className="text-sm text-muted-foreground">
@@ -293,9 +293,9 @@ export function ShiftOpenForm() {
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Total Display */}
-            <div className="p-4 bg-[#259783]/10 rounded-xl border-2 border-[#259783]/20">
+            <div className="p-4 bg-[#1c6a1e]/10 rounded-xl border-2 border-[#1c6a1e]/20">
               <p className="text-sm text-muted-foreground mb-1">Total Opening Cash</p>
-              <p className="text-3xl font-black text-[#259783]">{formatPrice(totalCash)}</p>
+              <p className="text-3xl font-black text-[#1c6a1e]">{formatPrice(totalCash)}</p>
             </div>
 
             {/* Denomination Breakdown Toggle */}
@@ -402,7 +402,7 @@ export function ShiftOpenForm() {
               className={`w-full font-bold ${
                 requiresApproval 
                   ? 'bg-amber-600 hover:bg-amber-700' 
-                  : 'bg-[#259783] hover:bg-[#1a7a69]'
+                  : 'bg-[#1c6a1e] hover:bg-[#1a7a69]'
               } text-white`}
             >
               {isSubmitting ? (

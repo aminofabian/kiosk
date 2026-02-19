@@ -13,7 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
     title: businessName,
     description: `Simple, intuitive point-of-sale system for ${businessName}`,
     manifest: "/manifest.json",
-    themeColor: "#259783",
+    themeColor: "#1c6a1e",
     appleWebApp: {
       capable: true,
       statusBarStyle: "default",
@@ -35,7 +35,7 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#259783" />
+        <meta name="theme-color" content="#1c6a1e" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="mobile-web-app-capable" content="yes" />

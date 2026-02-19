@@ -60,7 +60,7 @@ import {
 type ButtonTheme = 'brand' | 'blue' | 'amber' | 'rose' | 'violet' | 'slate';
 
 const THEME_STYLES: Record<ButtonTheme, { iconBg: string; iconText: string }> = {
-  brand: { iconBg: 'bg-[#259783]/10 dark:bg-[#259783]/20', iconText: 'text-[#259783] dark:text-[#3bd5a0]' },
+  brand: { iconBg: 'bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20', iconText: 'text-[#1c6a1e] dark:text-[#2a8a30]' },
   blue: { iconBg: 'bg-blue-50 dark:bg-blue-900/30', iconText: 'text-blue-600 dark:text-blue-400' },
   amber: { iconBg: 'bg-amber-50 dark:bg-amber-900/30', iconText: 'text-amber-600 dark:text-amber-400' },
   rose: { iconBg: 'bg-rose-50 dark:bg-rose-900/30', iconText: 'text-rose-500 dark:text-rose-400' },
@@ -397,7 +397,7 @@ function CloseShiftDrawerContent() {
                   size="sm"
                   disabled={approvingId === req.id}
                   onClick={() => handleApprove(req.id)}
-                  className="bg-[#259783] hover:bg-[#1a7a69]"
+                  className="bg-[#1c6a1e] hover:bg-[#1a7a69]"
                 >
                   {approvingId === req.id ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -539,7 +539,7 @@ function WithdrawalForm({ onSuccess }: WithdrawalFormProps) {
       )}
       <Button
         type="submit"
-        className="w-full bg-[#259783] hover:bg-[#1a7a69] text-white font-semibold"
+        className="w-full bg-[#1c6a1e] hover:bg-[#1a7a69] text-white font-semibold"
         disabled={submitting}
       >
         {submitting ? (
@@ -868,7 +868,7 @@ export default function AdminDashboardPage() {
             </div>
           </div>
           <Link href="/pos">
-            <div className="group relative w-full overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-r from-[#259783] to-[#1fa87a] px-4 py-3 sm:px-6 sm:py-5 transition-all duration-200 hover:shadow-xl hover:shadow-[#259783]/25 active:scale-[0.99] cursor-pointer">
+            <div className="group relative w-full overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-r from-[#1c6a1e] to-[#1fa87a] px-4 py-3 sm:px-6 sm:py-5 transition-all duration-200 hover:shadow-xl hover:shadow-[#1c6a1e]/25 active:scale-[0.99] cursor-pointer">
               {/* Subtle decorative circles */}
               <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-white/[0.06]" />
               <div className="absolute -right-2 -bottom-8 w-20 h-20 rounded-full bg-white/[0.04]" />
@@ -899,8 +899,8 @@ export default function AdminDashboardPage() {
             className="w-full bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 rounded-lg sm:rounded-xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow text-left group"
           >
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#259783]/20 dark:group-hover:bg-[#259783]/30 transition-colors">
-                <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 text-[#259783]" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#1c6a1e]/20 dark:group-hover:bg-[#1c6a1e]/30 transition-colors">
+                <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 text-[#1c6a1e]" />
               </div>
               <div className="flex-1">
                 <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-1">
@@ -910,7 +910,7 @@ export default function AdminDashboardPage() {
                   Click here to see a simple guide on how to get started
                 </p>
               </div>
-              <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-[#259783] group-hover:translate-x-1 transition-all" />
+              <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-[#1c6a1e] group-hover:translate-x-1 transition-all" />
             </div>
           </button>
         </div>
@@ -949,37 +949,37 @@ export default function AdminDashboardPage() {
         <div className="w-full max-w-5xl mt-4 sm:mt-6">
           {statsLoading ? (
             <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-4 h-4 animate-spin text-[#259783]" />
+              <Loader2 className="w-4 h-4 animate-spin text-[#1c6a1e]" />
             </div>
           ) : stats ? (
-            <div className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18] border-t-2 border-t-[#259783]">
+            <div className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18] border-t-2 border-t-[#1c6a1e]">
               <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-800">
                 <Link href="/admin/items">
-                  <div className="p-3 sm:p-4 text-center hover:bg-[#259783]/5 dark:hover:bg-[#259783]/10 transition-colors cursor-pointer">
+                  <div className="p-3 sm:p-4 text-center hover:bg-[#1c6a1e]/5 dark:hover:bg-[#1c6a1e]/10 transition-colors cursor-pointer">
                     <div className="flex items-center justify-center mb-1.5">
-                      <Package className="w-4 h-4 sm:w-5 sm:h-5 text-[#259783]" />
+                      <Package className="w-4 h-4 sm:w-5 sm:h-5 text-[#1c6a1e]" />
                     </div>
                     <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Products</p>
-                    <p className="text-xs sm:text-sm font-bold text-[#259783]">
+                    <p className="text-xs sm:text-sm font-bold text-[#1c6a1e]">
                       {stats.totalProducts}
                     </p>
                   </div>
                 </Link>
                 <div className="p-3 sm:p-4 text-center">
                   <div className="flex items-center justify-center mb-1.5">
-                    <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 text-[#259783]" />
+                    <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 text-[#1c6a1e]" />
                   </div>
                   <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Sales</p>
-                  <p className="text-xs sm:text-sm font-bold text-[#259783]">
+                  <p className="text-xs sm:text-sm font-bold text-[#1c6a1e]">
                     KES {Math.round(stats.totalSales).toLocaleString()}
                   </p>
                 </div>
                 <div className="p-3 sm:p-4 text-center">
                   <div className="flex items-center justify-center mb-1.5">
-                    <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-[#259783]" />
+                    <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-[#1c6a1e]" />
                   </div>
                   <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Orders</p>
-                  <p className="text-xs sm:text-sm font-bold text-[#259783]">
+                  <p className="text-xs sm:text-sm font-bold text-[#1c6a1e]">
                     {stats.salesCount}
                   </p>
                 </div>
@@ -996,19 +996,19 @@ export default function AdminDashboardPage() {
                 </div>
                 <div className="p-3 sm:p-4 text-center">
                   <div className="flex items-center justify-center mb-1.5">
-                    <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-[#259783]" />
+                    <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-[#1c6a1e]" />
                   </div>
                   <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Profit</p>
-                  <p className="text-xs sm:text-sm font-bold text-[#259783]">
+                  <p className="text-xs sm:text-sm font-bold text-[#1c6a1e]">
                     KES {Math.round(stats.totalProfit).toLocaleString()}
                   </p>
                 </div>
                 <div className="p-3 sm:p-4 text-center">
                   <div className="flex items-center justify-center mb-1.5">
-                    <Percent className="w-4 h-4 sm:w-5 sm:h-5 text-[#259783]" />
+                    <Percent className="w-4 h-4 sm:w-5 sm:h-5 text-[#1c6a1e]" />
                   </div>
                   <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Margin</p>
-                  <p className="text-xs sm:text-sm font-bold text-[#259783]">
+                  <p className="text-xs sm:text-sm font-bold text-[#1c6a1e]">
                     {(stats.profitMargin * 100).toFixed(1)}%
                   </p>
                 </div>
@@ -1022,7 +1022,7 @@ export default function AdminDashboardPage() {
               <div className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18] rounded-lg sm:rounded-xl p-4 sm:p-5 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4 text-[#259783]" />
+                    <BarChart3 className="w-4 h-4 text-[#1c6a1e]" />
                     Sales by Type
                   </h3>
                   <span className="text-xs text-slate-500 dark:text-slate-400">View details</span>
@@ -1038,7 +1038,7 @@ export default function AdminDashboardPage() {
                         className="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3 border border-slate-100 dark:border-slate-700"
                       >
                         <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{typeLabel}</p>
-                        <p className="text-sm font-bold text-[#259783]">
+                        <p className="text-sm font-bold text-[#1c6a1e]">
                           KES {Math.round(row.revenue).toLocaleString()}
                         </p>
                         <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
@@ -1088,8 +1088,8 @@ export default function AdminDashboardPage() {
         <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
           <DrawerHeader className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 px-5 py-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center flex-shrink-0">
-                <Package className="w-5 h-5 text-[#259783] dark:text-[#3bd5a0]" />
+              <div className="w-10 h-10 rounded-xl bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center flex-shrink-0">
+                <Package className="w-5 h-5 text-[#1c6a1e] dark:text-[#2a8a30]" />
               </div>
               <div>
                 <DrawerTitle className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
@@ -1168,8 +1168,8 @@ export default function AdminDashboardPage() {
         <DrawerContent className="!w-full sm:!w-[480px] md:!w-[520px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
           <DrawerHeader className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 px-5 py-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#259783]/10 dark:bg-[#259783]/20 flex items-center justify-center flex-shrink-0">
-                <Banknote className="w-5 h-5 text-[#259783] dark:text-[#3bd5a0]" />
+              <div className="w-10 h-10 rounded-xl bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center flex-shrink-0">
+                <Banknote className="w-5 h-5 text-[#1c6a1e] dark:text-[#2a8a30]" />
               </div>
               <div>
                 <DrawerTitle className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
@@ -1293,9 +1293,9 @@ export default function AdminDashboardPage() {
 
       <Drawer open={guideDrawerOpen} onOpenChange={setGuideDrawerOpen} direction="right">
         <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
-          <DrawerHeader className="relative border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#259783]/10 to-blue-50 dark:from-[#259783]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
+          <DrawerHeader className="relative border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#1c6a1e]/10 to-blue-50 dark:from-[#1c6a1e]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
             <DrawerTitle className="flex items-center gap-3 pr-12 sm:pr-14 text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-[#259783] to-blue-500 flex items-center justify-center shadow-sm flex-shrink-0">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-[#1c6a1e] to-blue-500 flex items-center justify-center shadow-sm flex-shrink-0">
                 <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
               <span className="leading-tight">How to Use This System</span>
@@ -1323,12 +1323,12 @@ export default function AdminDashboardPage() {
 
               {/* Step 1 */}
               <div className="flex items-start gap-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#259783] text-white flex items-center justify-center font-bold text-sm">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#1c6a1e] text-white flex items-center justify-center font-bold text-sm">
                   1
                 </div>
                 <div className="flex-1 pt-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <FolderTree className="w-5 h-5 text-[#259783]" />
+                    <FolderTree className="w-5 h-5 text-[#1c6a1e]" />
                     <h3 className="text-base font-semibold text-slate-900 dark:text-white">
                       Create Categories (Group Your Products!)
                     </h3>
@@ -1344,12 +1344,12 @@ export default function AdminDashboardPage() {
 
               {/* Step 2 */}
               <div className="flex items-start gap-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#259783] text-white flex items-center justify-center font-bold text-sm">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#1c6a1e] text-white flex items-center justify-center font-bold text-sm">
                   2
                 </div>
                 <div className="flex-1 pt-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <Package className="w-5 h-5 text-[#259783]" />
+                    <Package className="w-5 h-5 text-[#1c6a1e]" />
                     <h3 className="text-base font-semibold text-slate-900 dark:text-white">
                       Add Your Products
                     </h3>
@@ -1431,12 +1431,12 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="flex items-start gap-4">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#259783] text-white flex items-center justify-center font-bold text-sm">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#1c6a1e] text-white flex items-center justify-center font-bold text-sm">
                   3
                 </div>
                 <div className="flex-1 pt-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <ShoppingCart className="w-5 h-5 text-[#259783]" />
+                    <ShoppingCart className="w-5 h-5 text-[#1c6a1e]" />
                     <h3 className="text-base font-semibold text-slate-900 dark:text-white">
                       Open POS - Your Cashier Screen
                     </h3>
@@ -1615,7 +1615,7 @@ export default function AdminDashboardPage() {
               }}
               className="flex items-center gap-2 pl-4 pr-5 py-2.5 bg-white dark:bg-slate-800 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 animate-in slide-in-from-bottom-2 fade-in duration-200"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#259783] to-[#45d827] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center">
                 <Scale className="w-4 h-4 text-white" />
               </div>
               <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Add Stock</span>
@@ -1625,7 +1625,7 @@ export default function AdminDashboardPage() {
               onClick={() => setFabOpen(false)}
               className="flex items-center gap-2 pl-4 pr-5 py-2.5 bg-white dark:bg-slate-800 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 animate-in slide-in-from-bottom-2 fade-in duration-150"
             >
-              <div className="w-8 h-8 rounded-full bg-[#259783] flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-[#1c6a1e] flex items-center justify-center">
                 <ClipboardList className="w-4 h-4 text-white" />
               </div>
               <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Stock Take</span>
@@ -1649,9 +1649,9 @@ export default function AdminDashboardPage() {
           className={`w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all duration-300 ${
             fabOpen
               ? 'bg-slate-800 dark:bg-slate-200 rotate-45'
-              : 'bg-[#259783] bg-gradient-to-br from-[#259783] to-[#45d827] shadow-[#259783]/30'
+              : 'bg-[#1c6a1e] bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] shadow-[#1c6a1e]/30'
           }`}
-          style={fabOpen ? {} : { backgroundColor: '#259783', color: '#ffffff' }}
+          style={fabOpen ? {} : { backgroundColor: '#1c6a1e', color: '#ffffff' }}
         >
           {fabOpen ? (
             <X className="w-6 h-6 text-white dark:text-slate-900" style={{ color: '#ffffff' }} />

@@ -80,7 +80,7 @@ export default function PurchasesPage() {
               </div>
               <Button
                 onClick={() => setDrawerOpen(true)}
-                className="bg-[#259783] hover:bg-[#45d827] text-white font-semibold shadow-lg shadow-[#259783]/20"
+                className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white font-semibold shadow-lg shadow-[#1c6a1e]/20"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 <span className="hidden sm:inline">New Purchase</span>

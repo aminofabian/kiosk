@@ -121,7 +121,7 @@ export default function SalesHubPage() {
       <AdminLayout>
         <div className="flex items-center justify-center h-screen">
           <div className="text-center space-y-4">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#259783]" />
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#1c6a1e]" />
             <p className="text-slate-500 dark:text-slate-400">Loading sales overview...</p>
           </div>
         </div>
@@ -156,7 +156,7 @@ export default function SalesHubPage() {
           <div className="px-4 md:px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-[#259783] flex items-center justify-center rounded-lg">
+                <div className="w-10 h-10 bg-[#1c6a1e] flex items-center justify-center rounded-lg">
                   <BarChart3 className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -312,7 +312,7 @@ export default function SalesHubPage() {
             <Card className="border-2 border-slate-200 dark:border-slate-700">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <Wallet className="w-4 h-4 text-[#259783]" />
+                  <Wallet className="w-4 h-4 text-[#1c6a1e]" />
                   Sales by Payment Method
                 </CardTitle>
               </CardHeader>
@@ -323,7 +323,7 @@ export default function SalesHubPage() {
                     return (
                       <div key={pm.payment_method} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
                         <div className="flex items-center gap-2 mb-2">
-                          <Icon className="w-4 h-4 text-[#259783]" />
+                          <Icon className="w-4 h-4 text-[#1c6a1e]" />
                           <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                             {PAYMENT_METHOD_LABELS[pm.payment_method] || pm.payment_method}
                           </span>
@@ -343,7 +343,7 @@ export default function SalesHubPage() {
             <Card className="border-2 border-slate-200 dark:border-slate-700">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-[#259783]" />
+                  <BarChart3 className="w-4 h-4 text-[#1c6a1e]" />
                   Department Comparison
                 </CardTitle>
               </CardHeader>

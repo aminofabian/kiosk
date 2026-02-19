@@ -218,7 +218,7 @@ export async function PUT(
     console.log('Item type check:', { isParentItem, itemId, buyPriceNum });
 
     if (isParentItem) {
-      // Update parent item (name, category, packaging units, and optionally item_type)
+      // Update parent item (name, category, packaging units, barcode=null - barcode belongs on variants)
       const itemTypeVal = itemType && ['grocery', 'retail'].includes(itemType) ? itemType : null;
       const updateResult = itemTypeVal
         ? await execute(
@@ -227,7 +227,8 @@ export async function PUT(
                  category_id = ?,
                  item_type = ?,
                  packaging_unit_name = ?,
-                 packaging_unit_qty = ?
+                 packaging_unit_qty = ?,
+                 barcode = NULL
              WHERE id = ? AND business_id = ?`,
             [name.trim(), categoryId, itemTypeVal, packagingUnitName?.trim() || null, packagingUnitQty || null, itemId, auth.businessId]
           )
@@ -236,7 +237,8 @@ export async function PUT(
              SET name = ?,
                  category_id = ?,
                  packaging_unit_name = ?,
-                 packaging_unit_qty = ?
+                 packaging_unit_qty = ?,
+                 barcode = NULL
              WHERE id = ? AND business_id = ?`,
             [name.trim(), categoryId, packagingUnitName?.trim() || null, packagingUnitQty || null, itemId, auth.businessId]
           );

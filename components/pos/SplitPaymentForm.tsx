@@ -21,7 +21,7 @@ interface SplitPaymentFormProps {
 }
 
 const paymentMethods = [
-  { value: 'cash' as const, label: 'Cash', icon: Wallet, color: 'bg-[#259783]' },
+  { value: 'cash' as const, label: 'Cash', icon: Wallet, color: 'bg-[#1c6a1e]' },
   { value: 'mpesa' as const, label: 'M-Pesa', icon: Smartphone, color: 'bg-orange-500' },
   { value: 'credit' as const, label: 'Credit', icon: CreditCard, color: 'bg-blue-500' },
 ];
@@ -169,7 +169,7 @@ export function SplitPaymentForm({ total, onPaymentsChange }: SplitPaymentFormPr
                         className="h-12"
                       />
                       {cashReceived && (
-                        <div className={`text-sm font-medium ${cashChange >= 0 ? 'text-[#259783]' : 'text-destructive'}`}>
+                        <div className={`text-sm font-medium ${cashChange >= 0 ? 'text-[#1c6a1e]' : 'text-destructive'}`}>
                           Change: {formatPrice(Math.abs(cashChange))}
                           {cashChange < 0 && ' (insufficient)'}
                         </div>
@@ -251,7 +251,7 @@ export function SplitPaymentForm({ total, onPaymentsChange }: SplitPaymentFormPr
         <Separator />
         <div className="flex justify-between text-lg font-bold">
           <span>Remaining:</span>
-          <span className={remaining <= 0.01 ? 'text-[#259783]' : 'text-destructive'}>
+          <span className={remaining <= 0.01 ? 'text-[#1c6a1e]' : 'text-destructive'}>
             {remaining <= 0.01 ? (
               <span className="flex items-center gap-1">
                 <CheckCircle2 className="h-5 w-5" />
