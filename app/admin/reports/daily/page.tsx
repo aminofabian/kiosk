@@ -31,7 +31,6 @@ import {
   Wallet,
   Smartphone,
   CreditCard,
-  BarChart3,
   Download,
   RefreshCw,
   Clock,
