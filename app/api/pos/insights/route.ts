@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
            AND EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1)
          )
        ORDER BY sold.quantity_sold DESC
-       LIMIT 30`,
+       LIMIT 40`,
       [auth.businessId, sinceSeconds, auth.businessId]
     );
 
