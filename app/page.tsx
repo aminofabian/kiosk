@@ -438,9 +438,7 @@ export default async function HomePage() {
       </section>
 
       {/* Product Store Section */}
-      <div id="product-store">
-        <ProductStore />
-      </div>
+    
 
       {/* Content Section */}
       <main className="container mx-auto px-4 py-12 md:py-20">

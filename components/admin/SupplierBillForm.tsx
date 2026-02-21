@@ -1390,6 +1390,42 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
             )}
           </div>
 
+          {/* Add Item at bottom - so you don't have to scroll up after adding a row */}
+          <div className="flex items-center justify-end gap-2 pt-1">
+            {linkedCount > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleResetStockToZero}
+                disabled={isResettingStock}
+                className="h-7 text-xs border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
+              >
+                {isResettingStock ? (
+                  <>
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    Reset stock
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3 h-3 mr-1" />
+                    Reset stock
+                  </>
+                )}
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={addLineItem}
+              className="h-7 text-xs border-slate-300 dark:border-slate-600"
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              Add Item
+            </Button>
+          </div>
+
           {/* Grand total */}
           <div className="p-4 bg-gradient-to-r from-[#1c6a1e]/10 via-[#1c6a1e]/5 to-[#2a8a30]/10 dark:from-[#1c6a1e]/20 dark:via-[#1c6a1e]/10 dark:to-[#2a8a30]/20 border-2 border-[#1c6a1e]/30 rounded-xl">
             <div className="flex items-center justify-between">

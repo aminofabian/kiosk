@@ -493,7 +493,7 @@ export function ItemGrid({
 
         {/* ── 🔥 Quick Sell – First screen only ── */}
         {hasFeatured && (
-          <section className="min-h-0 flex flex-col flex-1 rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-sm p-1 sm:p-1.5 overflow-hidden flex-shrink-0 justify-center">
+          <section className="min-h-0 flex flex-col flex-1 rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-sm pt-3 px-1 sm:px-1.5 pb-1 overflow-visible flex-shrink-0 justify-center">
             {/* Section header - compact */}
             <div className="flex items-center gap-1.5 mb-0.5 flex-shrink-0">
               <div className="w-6 h-6 rounded-none bg-[#1c6a1e] flex items-center justify-center shadow-sm">
@@ -542,7 +542,7 @@ export function ItemGrid({
             </div>
 
             {/* Products grid – sorted alphabetically so related items appear together */}
-            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-1.5 sm:gap-2 auto-rows-[minmax(0,auto)] overflow-hidden flex-1 min-h-0">
+            <div className="mx-auto max-w-6xl grid grid-cols-4 sm:grid-cols-6 md:grid-cols-10 lg:grid-cols-10 xl:grid-cols-10 gap-x-5 gap-y-6 sm:gap-x-6 sm:gap-y-7 overflow-visible pt-3 flex-1 min-h-0" style={{ gridAutoRows: '110px' }}>
               {(() => {
                 const top3Ranks = new Map(
                   [...featuredItems!]
@@ -575,65 +575,77 @@ export function ItemGrid({
                         onSelectItem(item);
                       }
                     }}
-                    className={`pos-grid-btn group relative rounded-none overflow-hidden cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 flex flex-col min-h-0 ${isOut
-                      ? 'bg-slate-100 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-500 opacity-60'
-                      : 'bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-500'
-                      }`}
+                    className={`pos-grid-btn group relative rounded-none overflow-visible cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 flex flex-col ${
+                      isOut
+                        ? 'bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-500 opacity-60'
+                        : 'bg-white dark:bg-slate-800 border border-[#1c6a1e] dark:border-[#1c6a1e]'
+                    }`}
                   >
-                    {/* Rank badge for top 3 by sales */}
+                    {/* Price label layered on top border */}
+                    <div className="absolute left-1.5 top-0 -translate-y-1/2 z-20 px-1 py-px rounded-none bg-white dark:bg-slate-900 border border-[#1c6a1e] text-[#1c6a1e] text-[8px] sm:text-[9px] font-semibold tabular-nums leading-none">
+                      {formatPrice(item.current_sell_price)}
+                    </div>
+
+                    {/* Rank badge for top 3 */}
                     {rank != null && (
-                      <div className={`absolute top-1 left-1 z-10 w-5 h-5 rounded-none flex items-center justify-center text-[9px] font-black shadow ${RANK_STYLES[rank - 1]}`}>
+                      <div
+                        className={`absolute top-0.5 right-0.5 z-10 w-4 h-4 rounded-none flex items-center justify-center text-[8px] font-black shadow ${
+                          RANK_STYLES[rank - 1]
+                        }`}
+                      >
                         {rank}
                       </div>
                     )}
 
                     {/* Bundle deal badge */}
-                    {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
-                      <div className="absolute top-1 right-1 z-10">
-                        <span className="inline-flex items-center gap-0.5 bg-amber-400/90 text-white text-[7px] font-bold px-1 py-0.5 rounded-none shadow-sm">
-                          <Tag className="w-1.5 h-1.5" />
-                          Deal
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Product name area - compact, full title */}
-                    <div className="w-full text-left p-1.5 sm:p-2 pb-1 flex-1 min-h-0 flex flex-col justify-center overflow-hidden">
-                      <h3 className={`font-semibold text-[11px] sm:text-[12px] leading-tight transition-colors uppercase tracking-tight break-words ${rank != null ? 'pl-4' : ''
-                        } ${isOut
-                          ? 'text-gray-400 dark:text-gray-500'
-                          : 'text-gray-800 dark:text-gray-100 group-hover:text-[#1c6a1e] dark:group-hover:text-[#2a8a30]'
-                        }`}>
-                        {item.name}
-                      </h3>
-                      {item.variant_name && (
-                        <p className={`text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-500 mt-0.5 break-words ${rank != null ? 'pl-4' : ''}`}>
-                          {item.variant_name}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Bottom bar: price + quick add - compact */}
-                    <div className="px-1.5 sm:px-2 pb-1 sm:pb-1.5 flex items-end justify-between gap-0.5 flex-shrink-0">
-                      <div className="min-w-0">
-                        <span className={`text-[13px] sm:text-[14px] font-bold tracking-tight ${isOut ? 'text-gray-400' : 'text-[#1c6a1e]'}`}>
-                          {formatPrice(item.current_sell_price)}
-                        </span>
-                        <span className="text-[8px] text-gray-400 font-medium ml-0.5">/{item.unit_type}</span>
-
-                        {/* Stock indicator inline */}
-                        <div className="flex items-center gap-0.5 mt-0.5">
-                          <span className={`w-1 h-1 rounded-none flex-shrink-0 ${isOut ? 'bg-gray-300 dark:bg-gray-600'
-                            : stock === 'low' ? 'bg-amber-400'
-                              : 'bg-emerald-400'
-                            }`} />
-                          <span className={`text-[8px] sm:text-[9px] font-medium ${isOut ? 'text-gray-400'
-                            : stock === 'low' ? 'text-amber-600 dark:text-amber-400'
-                              : 'text-gray-400'
-                            }`}>
-                            {isOut ? 'Out' : formatStock(item.current_stock, item.unit_type)}
+                    {item.bundle_quantity &&
+                      item.bundle_price &&
+                      item.bundle_quantity > 0 &&
+                      item.bundle_price > 0 && (
+                        <div className="absolute top-0.5 right-0.5 z-10">
+                          <span className="inline-flex items-center gap-0.5 bg-amber-400/90 text-white text-[6px] font-bold px-0.5 py-px rounded-none shadow-sm">
+                            <Tag className="w-1.5 h-1.5" />
+                            Deal
                           </span>
                         </div>
+                      )}
+
+                    {/* Product name */}
+                    <div className="px-1.5 pt-3 flex-1 min-h-0 overflow-hidden">
+                      <h3
+                        className={`font-semibold text-[9px] sm:text-[10px] leading-tight transition-colors uppercase tracking-tight break-words ${
+                          isOut
+                            ? 'text-gray-400 dark:text-gray-500'
+                            : 'text-gray-800 dark:text-gray-100 group-hover:text-[#1c6a1e] dark:group-hover:text-[#2a8a30]'
+                        }`}
+                      >
+                        {item.name}
+                      </h3>
+                    </div>
+
+                    {/* Bottom row: stock + quick add */}
+                    <div className="px-1.5 pb-1 pt-0.5 flex items-center justify-between gap-0.5 flex-shrink-0 mt-auto">
+                      <div className="flex items-center gap-0.5 min-w-0">
+                        <span
+                          className={`w-1 h-1 rounded-none flex-shrink-0 ${
+                            isOut
+                              ? 'bg-gray-300 dark:bg-gray-600'
+                              : stock === 'low'
+                              ? 'bg-amber-400'
+                              : 'bg-emerald-400'
+                          }`}
+                        />
+                        <span
+                          className={`text-[7px] sm:text-[8px] font-medium truncate ${
+                            isOut
+                              ? 'text-gray-400'
+                              : stock === 'low'
+                              ? 'text-amber-600 dark:text-amber-400'
+                              : 'text-gray-400'
+                          }`}
+                        >
+                          {isOut ? 'Out' : formatStock(item.current_stock, item.unit_type)}
+                        </span>
                       </div>
 
                       {/* Quick-add button – instantly adds to cart */}
@@ -643,10 +655,10 @@ export function ItemGrid({
                             e.stopPropagation();
                             onQuickAdd(item, quickQty);
                           }}
-                          className="flex items-center justify-center gap-0.5 h-7 sm:h-8 px-2 rounded-none bg-[#1c6a1e] hover:bg-[#1e8a72] text-white text-[11px] font-bold shadow-md transition-all duration-200 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
+                          className="flex items-center justify-center gap-0.5 h-4 sm:h-5 px-1 rounded-none bg-[#1c6a1e] hover:bg-[#1e8a72] text-white text-[8px] sm:text-[9px] font-bold shadow-sm transition-all duration-200 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
                           title={`Quick add ${quickQty} ${item.unit_type}`}
                         >
-                          <Zap className="w-3 h-3" />
+                          <Zap className="w-2 h-2" />
                           <span>+{quickQty}</span>
                         </button>
                       )}
