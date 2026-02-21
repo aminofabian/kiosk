@@ -75,7 +75,7 @@ export interface Item {
   name: string;
   variant_name: string | null; // e.g., "Big", "Small", "Red Kidney" (null for parent items)
   unit_type: UnitType;
-  item_type: ItemType; // 'grocery' or 'retail'
+  item_type: ItemType;
   current_stock: number; // REAL in SQLite
   min_stock_level: number | null;
   current_sell_price: number;

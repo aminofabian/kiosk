@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { apiGet } from '@/lib/utils/api-client';
 import type { UserRole } from '@/lib/constants';
 import {
@@ -22,10 +23,9 @@ import {
   UserCheck,
   Scale,
   BarChart3,
-  Leaf,
-  Store,
   ListOrdered,
   PackageX,
+  Settings,
 } from 'lucide-react';
 
 interface SubItem {
@@ -48,7 +48,7 @@ interface MenuSection {
   items: MenuItem[];
 }
 
-const SECTIONS: MenuSection[] = [
+const BASE_SECTIONS: MenuSection[] = [
   {
     label: null,
     items: [
@@ -62,20 +62,14 @@ const SECTIONS: MenuSection[] = [
         href: '/admin/sales',
         label: 'Sales',
         icon: BarChart3,
-        subItems: [
-          { href: '/admin/sales/grocery', label: 'Grocery', icon: Leaf },
-          { href: '/admin/sales/retail', label: 'Retail', icon: Store },
-        ],
+        subItems: [], // filled from product types
       },
       { href: '/admin/transactions', label: 'Transactions', icon: ListOrdered },
       {
         href: '/admin/profit',
         label: 'Profit',
         icon: TrendingUp,
-        subItems: [
-          { href: '/admin/profit/grocery', label: 'Grocery', icon: Leaf },
-          { href: '/admin/profit/retail', label: 'Retail', icon: Store },
-        ],
+        subItems: [], // filled from product types
       },
       { href: '/admin/customers', label: 'Customers', icon: UserCheck },
     ],
@@ -102,6 +96,7 @@ const SECTIONS: MenuSection[] = [
   {
     label: 'System',
     items: [
+      { href: '/admin/settings', label: 'Settings', icon: Settings, roles: ['owner', 'admin'] },
       { href: '/admin/shifts', label: 'Shifts', icon: Clock },
       { href: '/admin/reports/daily', label: 'Daily Report', icon: FileText, matchPath: '/admin/reports' },
       { href: '/admin/users', label: 'Users', icon: Users, roles: ['owner'] },
@@ -112,7 +107,29 @@ const SECTIONS: MenuSection[] = [
 export function AdminSidebar() {
   const pathname = usePathname();
   const { user } = useCurrentUser();
+  const { productTypes } = useItemTypes();
   const [billNotificationCount, setBillNotificationCount] = useState(0);
+
+  const SECTIONS: MenuSection[] = useMemo(() => {
+    const subItemsFromTypes: SubItem[] = productTypes.map((t) => ({
+      href: `/admin/sales/${t.key}`,
+      label: `${t.emoji} ${t.label}`,
+      icon: BarChart3,
+    }));
+    const profitSubItems: SubItem[] = productTypes.map((t) => ({
+      href: `/admin/profit/${t.key}`,
+      label: `${t.emoji} ${t.label}`,
+      icon: BarChart3,
+    }));
+    return BASE_SECTIONS.map((section) => ({
+      ...section,
+      items: section.items.map((item) => {
+        if (item.href === '/admin/sales') return { ...item, subItems: subItemsFromTypes };
+        if (item.href === '/admin/profit') return { ...item, subItems: profitSubItems };
+        return item;
+      }),
+    }));
+  }, [productTypes]);
 
   // Fetch bill notifications for admin/owner
   useEffect(() => {

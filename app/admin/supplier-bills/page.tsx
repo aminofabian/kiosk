@@ -23,6 +23,7 @@ interface SupplierForDrawer {
   contact_email: string | null;
   location: string | null;
   notes: string | null;
+  supplier_type?: string | null;
 }
 
 function SupplierBillsPageContent() {
@@ -120,6 +121,7 @@ function SupplierBillsPageContent() {
             supplier={selectedSupplier}
             onCreateBill={handleCreateBillFromSupplier}
             onSupplierDeleted={handleSupplierDeleted}
+            onSupplierUpdated={(updated) => setSelectedSupplier(updated)}
           />
 
           {/* New Supplier Bill Drawer */}

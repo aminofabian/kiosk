@@ -52,7 +52,8 @@ import {
   Store,
   ScanBarcode,
 } from 'lucide-react';
-import { apiGet, apiPost, apiDelete } from '@/lib/utils/api-client';
+import { apiGet, apiPost, apiDelete, apiPatch } from '@/lib/utils/api-client';
+import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { toast } from 'sonner';
 import { SupplierBillEditForm } from '@/components/admin/SupplierBillEditForm';
 import type { SupplierBill } from '@/lib/db/types';
@@ -73,6 +74,7 @@ interface SupplierFromTable {
   contact_email: string | null;
   location: string | null;
   notes: string | null;
+  supplier_type?: string | null;
   preferred_payment_method?: string | null;
   payment_details?: string | null;
 }
@@ -86,22 +88,16 @@ const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 // ── Component ──────────────────────────────────────────
 
 interface SupplierBillsListProps {
-  onSupplierClick?: (supplier: {
-    id: string;
-    name: string;
-    contact_phone: string | null;
-    contact_email: string | null;
-    location: string | null;
-    notes: string | null;
-  }) => void;
+  onSupplierClick?: (supplier: SupplierFromTable) => void;
 }
 
 export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
-  // ── State ────────────────────────────────────────────
+  const { productTypes } = useItemTypes();
   const { user } = useCurrentUser();
   const canDeleteBills = user?.role === 'admin' || user?.role === 'owner';
   const [bills, setBills] = useState<SupplierBillWithDetails[]>([]);
   const [suppliersFromTable, setSuppliersFromTable] = useState<SupplierFromTable[]>([]);
+  const [settingTypeForId, setSettingTypeForId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -116,12 +112,15 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [isMarkingAsPaid, setIsMarkingAsPaid] = useState(false);
+  const [typeFilter, setTypeFilter] = useState<string>('all');
   const [salesSummary, setSalesSummary] = useState<{
     totalRevenue: number;
     totalTransactions: number;
   } | null>(null);
   const [salesLoading, setSalesLoading] = useState(false);
   const [deletingBillId, setDeletingBillId] = useState<string | null>(null);
+  const [typeSalesData, setTypeSalesData] = useState<Record<string, { revenue: number; transactions: number }>>({});
+  const [typeProfitData, setTypeProfitData] = useState<Record<string, { profit: number; cost: number; sales: number; margin: number }>>({});
 
   // ── Helpers ──────────────────────────────────────────
 
@@ -356,8 +355,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
     fetchBills();
   }, [fetchBills]);
 
-  // Fetch supplier table for dropdown
-  useEffect(() => {
+  const fetchSuppliers = useCallback(() => {
     apiGet<SupplierFromTable[]>('/api/suppliers')
       .then((res) => {
         if (res.success && res.data) setSuppliersFromTable(res.data);
@@ -365,29 +363,74 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
       .catch(() => {});
   }, []);
 
-  // Always fetch sales data for comparison (not just when date range is selected)
+  useEffect(() => {
+    fetchSuppliers();
+  }, [fetchSuppliers]);
+
+  // Fetch sales + per-type sales/profit data for comparison
   useEffect(() => {
     const range = getDateRangeForFilter(dateFilter);
     const start = range ? range[0] : 0;
     const end = range ? range[1] : Math.floor(Date.now() / 1000);
 
     setSalesLoading(true);
-    apiGet<{ totalRevenue: number; totalTransactions: number }>(
-      `/api/sales/summary?start=${start}&end=${end}`
-    )
-      .then((res) => {
-        if (res.success && res.data) {
-          setSalesSummary({
-            totalRevenue: res.data.totalRevenue,
-            totalTransactions: res.data.totalTransactions,
-          });
+
+    const fetchAll = async () => {
+      try {
+        const summaryUrl = typeFilter !== 'all'
+          ? `/api/sales/summary?start=${start}&end=${end}&itemType=${encodeURIComponent(typeFilter)}`
+          : `/api/sales/summary?start=${start}&end=${end}`;
+
+        const [summaryRes, ...typeResults] = await Promise.all([
+          apiGet<{ totalRevenue: number; totalTransactions: number }>(summaryUrl),
+          ...productTypes.map((t) =>
+            Promise.all([
+              apiGet<{ totalRevenue: number; totalTransactions: number }>(
+                `/api/sales/summary?start=${start}&end=${end}&itemType=${encodeURIComponent(t.key)}`
+              ),
+              apiGet<{ totalSales: number; totalCost: number; totalProfit: number; profitMargin: number }>(
+                `/api/profit?start=${start}&end=${end}&itemType=${encodeURIComponent(t.key)}`
+              ),
+            ])
+          ),
+        ]);
+
+        if (summaryRes.success && summaryRes.data) {
+          setSalesSummary({ totalRevenue: summaryRes.data.totalRevenue, totalTransactions: summaryRes.data.totalTransactions });
         } else {
           setSalesSummary(null);
         }
-      })
-      .catch(() => setSalesSummary(null))
-      .finally(() => setSalesLoading(false));
-  }, [dateFilter, getDateRangeForFilter]);
+
+        const nextSales: Record<string, { revenue: number; transactions: number }> = {};
+        const nextProfit: Record<string, { profit: number; cost: number; sales: number; margin: number }> = {};
+        productTypes.forEach((t, i) => {
+          const [salesRes, profitRes] = typeResults[i] as [
+            Awaited<ReturnType<typeof apiGet<{ totalRevenue: number; totalTransactions: number }>>>,
+            Awaited<ReturnType<typeof apiGet<{ totalSales: number; totalCost: number; totalProfit: number; profitMargin: number }>>>
+          ];
+          if (salesRes.success && salesRes.data) {
+            nextSales[t.key] = { revenue: salesRes.data.totalRevenue, transactions: salesRes.data.totalTransactions };
+          }
+          if (profitRes.success && profitRes.data) {
+            nextProfit[t.key] = {
+              profit: profitRes.data.totalProfit,
+              cost: profitRes.data.totalCost,
+              sales: profitRes.data.totalSales,
+              margin: profitRes.data.profitMargin,
+            };
+          }
+        });
+        setTypeSalesData(nextSales);
+        setTypeProfitData(nextProfit);
+      } catch {
+        setSalesSummary(null);
+      } finally {
+        setSalesLoading(false);
+      }
+    };
+
+    fetchAll();
+  }, [dateFilter, typeFilter, getDateRangeForFilter, productTypes]);
 
   // ── Handlers ─────────────────────────────────────────
 
@@ -491,6 +534,12 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
 
   const filteredBills = bills
     .filter((bill) => {
+      if (typeFilter !== 'all') {
+        const supplier = suppliersFromTable.find(
+          (s) => bill.supplier_id === s.id || s.name === bill.supplier_name
+        );
+        if (!supplier || supplier.supplier_type !== typeFilter) return false;
+      }
       if (supplierFilter !== 'all') {
         if ((bill.supplier_name || 'Unknown') !== supplierFilter) return false;
       }
@@ -684,6 +733,12 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
           <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {filteredBills.length} bill{filteredBills.length !== 1 ? 's' : ''}
             {dateRangeLabel && <span> &middot; {dateRangeLabel}</span>}
+            {typeFilter !== 'all' && (() => {
+              const tc = productTypes.find((t) => t.key === typeFilter);
+              return (
+                <span className="text-slate-700 dark:text-slate-300"> &middot; {tc?.emoji} {tc?.label ?? typeFilter}</span>
+              );
+            })()}
             {supplierFilter !== 'all' && (
               <span className="text-slate-700 dark:text-slate-300"> &middot; {supplierFilter}</span>
             )}
@@ -695,6 +750,21 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
           </p>
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+          {productTypes.length > 1 && (
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="min-w-[110px] sm:w-36 h-9 text-xs sm:text-sm shrink-0">
+                <SelectValue placeholder="All types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                {productTypes.map((t) => (
+                  <SelectItem key={t.key} value={t.key}>
+                    {t.emoji} {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={supplierFilter} onValueChange={setSupplierFilter}>
             <SelectTrigger className="min-w-[130px] sm:w-44 h-9 text-xs sm:text-sm shrink-0">
               <SelectValue placeholder="All suppliers" />
@@ -905,6 +975,179 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
         </CardContent>
       </Card>
 
+      {/* ═══════════ TYPE BREAKDOWN ═══════════ */}
+      {productTypes.length > 1 && !salesLoading && (
+        <Card className="overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1c2e18] rounded-xl shadow-sm">
+          <CardContent className="p-0">
+            <div className="px-3.5 sm:px-5 pt-3.5 sm:pt-5 pb-2.5 sm:pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
+                  <Store className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-violet-600 dark:text-violet-400" />
+                </div>
+                <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
+                  Breakdown by Type
+                </h3>
+              </div>
+              <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 ml-8 sm:ml-9">
+                {dateRangeLabel || 'All time'} &middot; Sales, profit &amp; supplier costs per department
+              </p>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm min-w-[580px]">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
+                    <th className="text-left px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Type</th>
+                    <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sales Revenue</th>
+                    <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">COGS</th>
+                    <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Gross Profit</th>
+                    <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Margin</th>
+                    <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Supplier Bills</th>
+                    <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Net</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {productTypes.map((t, i) => {
+                    const sd = typeSalesData[t.key];
+                    const pd = typeProfitData[t.key];
+                    const typeSupplierCost = bills
+                      .filter((b) => {
+                        const sup = suppliersFromTable.find((s) => b.supplier_id === s.id || s.name === b.supplier_name);
+                        return sup?.supplier_type === t.key && isDateInRange(b.created_at, dateFilter);
+                      })
+                      .reduce((sum, b) => sum + b.amount, 0);
+                    const rev = sd?.revenue ?? 0;
+                    const profit = pd?.profit ?? 0;
+                    const cost = pd?.cost ?? 0;
+                    const margin = pd?.margin ?? 0;
+                    const netAfterSupplier = rev - typeSupplierCost;
+
+                    return (
+                      <tr
+                        key={t.key}
+                        className={`border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors ${
+                          i % 2 !== 0 ? 'bg-slate-50/30 dark:bg-slate-900/10' : ''
+                        }`}
+                      >
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="w-2 h-8 rounded-full shrink-0"
+                              style={{ backgroundColor: t.color, opacity: 0.7 }}
+                            />
+                            <span className="font-medium text-slate-900 dark:text-white">
+                              {t.emoji} {t.label}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="text-right px-3 py-2.5 font-semibold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+                          {formatPrice(rev)}
+                        </td>
+                        <td className="text-right px-3 py-2.5 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                          {formatPrice(cost)}
+                        </td>
+                        <td className="text-right px-3 py-2.5 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                          {formatPrice(profit)}
+                        </td>
+                        <td className="text-right px-3 py-2.5">
+                          <span className={`text-xs font-semibold ${
+                            margin > 0.3 ? 'text-emerald-600 dark:text-emerald-400'
+                              : margin > 0.15 ? 'text-amber-600 dark:text-amber-400'
+                              : 'text-red-600 dark:text-red-400'
+                          }`}>
+                            {rev > 0 ? `${Math.round(margin * 100)}%` : '—'}
+                          </span>
+                        </td>
+                        <td className="text-right px-3 py-2.5 text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                          {formatPrice(typeSupplierCost)}
+                        </td>
+                        <td className="text-right px-3 py-2.5">
+                          <span className={`font-semibold whitespace-nowrap ${
+                            netAfterSupplier >= 0
+                              ? 'text-emerald-700 dark:text-emerald-400'
+                              : 'text-red-600 dark:text-red-400'
+                          }`}>
+                            {netAfterSupplier >= 0 ? '+' : ''}{formatPrice(netAfterSupplier)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-slate-100 dark:bg-slate-900/50 border-t-2 border-slate-300 dark:border-slate-700">
+                    <td className="px-4 py-2.5 font-bold text-slate-900 dark:text-white">Total</td>
+                    <td className="text-right px-3 py-2.5 font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+                      {formatPrice(salesRevenue)}
+                    </td>
+                    <td className="text-right px-3 py-2.5 font-semibold text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                      {formatPrice(Object.values(typeProfitData).reduce((s, d) => s + d.cost, 0))}
+                    </td>
+                    <td className="text-right px-3 py-2.5 font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                      {formatPrice(Object.values(typeProfitData).reduce((s, d) => s + d.profit, 0))}
+                    </td>
+                    <td className="text-right px-3 py-2.5">
+                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        {salesRevenue > 0 ? `${Math.round((Object.values(typeProfitData).reduce((s, d) => s + d.profit, 0) / salesRevenue) * 100)}%` : '—'}
+                      </span>
+                    </td>
+                    <td className="text-right px-3 py-2.5 font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                      {formatPrice(totalAmount)}
+                    </td>
+                    <td className="text-right px-3 py-2.5">
+                      <span className={`font-bold whitespace-nowrap ${
+                        netMargin >= 0
+                          ? 'text-emerald-700 dark:text-emerald-400'
+                          : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {netMargin >= 0 ? '+' : ''}{formatPrice(netMargin)}
+                      </span>
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* Per-type visual bars */}
+            <div className="px-3.5 sm:px-5 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 space-y-2.5">
+              {productTypes.map((t) => {
+                const sd = typeSalesData[t.key];
+                const rev = sd?.revenue ?? 0;
+                const typeSupplierCost = bills
+                  .filter((b) => {
+                    const sup = suppliersFromTable.find((s) => b.supplier_id === s.id || s.name === b.supplier_name);
+                    return sup?.supplier_type === t.key && isDateInRange(b.created_at, dateFilter);
+                  })
+                  .reduce((sum, b) => sum + b.amount, 0);
+                const typeRatio = rev > 0 ? (typeSupplierCost / rev) * 100 : 0;
+
+                return (
+                  <div key={t.key}>
+                    <div className="flex items-center justify-between text-[10px] mb-0.5">
+                      <span className="text-slate-600 dark:text-slate-400 font-medium">
+                        {t.emoji} {t.label}
+                      </span>
+                      <span className="text-slate-500 dark:text-slate-400">
+                        {rev > 0 ? `${Math.round(typeRatio)}% of sales → suppliers` : 'No sales data'}
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${Math.min(100, typeRatio)}%`,
+                          backgroundColor: t.color,
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* ═══════════ 2. QUICK STATS ═══════════ */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
         <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
@@ -981,6 +1224,11 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                     <th className="text-left px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Supplier
                     </th>
+                    {productTypes.length > 0 && (
+                      <th className="text-left px-2 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 w-[100px]">
+                        Type
+                      </th>
+                    )}
                     <th className="text-center px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                       Bills
                     </th>
@@ -1037,6 +1285,53 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                           </button>
                         </div>
                       </td>
+                      {productTypes.length > 0 && (
+                        <td className="px-2 py-2.5 align-middle">
+                          {(() => {
+                            const supplier = suppliersFromTable.find((sup) => sup.name === s.name);
+                            if (!supplier) return <span className="text-slate-400 text-[10px]">—</span>;
+                            const currentType = supplier.supplier_type;
+                            const updating = settingTypeForId === supplier.id;
+                            return (
+                              <div className="flex flex-wrap items-center gap-0.5">
+                                {productTypes.map((t) => {
+                                  const isCurrent = currentType === t.key;
+                                  return (
+                                    <button
+                                      key={t.key}
+                                      type="button"
+                                      title={`Set to ${t.label}`}
+                                      disabled={!!settingTypeForId}
+                                      onClick={async () => {
+                                        setSettingTypeForId(supplier.id);
+                                        try {
+                                          const res = await apiPatch<{ success: boolean }>(`/api/suppliers/${supplier.id}`, { supplierType: t.key });
+                                          if (res.success) {
+                                            fetchSuppliers();
+                                            toast.success(`${supplier.name} → ${t.label}`);
+                                          }
+                                        } catch {
+                                          toast.error('Failed to update type');
+                                        } finally {
+                                          setSettingTypeForId(null);
+                                        }
+                                      }}
+                                      className={`inline-flex items-center justify-center w-7 h-7 rounded-md border text-xs transition-all ${
+                                        isCurrent
+                                          ? 'ring-1 ring-offset-1'
+                                          : 'border-slate-200 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 opacity-70 hover:opacity-100'
+                                      }`}
+                                      style={isCurrent ? { backgroundColor: `${t.color}20`, borderColor: t.color, color: t.color } : undefined}
+                                    >
+                                      {updating ? '…' : t.emoji}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            );
+                          })()}
+                        </td>
+                      )}
                       <td className="text-center px-3 py-2.5 text-slate-600 dark:text-slate-400">
                         {s.count}
                       </td>
@@ -1083,6 +1378,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                 <tfoot>
                   <tr className="bg-slate-100 dark:bg-slate-900/50 border-t-2 border-slate-300 dark:border-slate-700">
                     <td className="px-4 py-2.5 font-bold text-slate-900 dark:text-white">Total</td>
+                    {productTypes.length > 0 && <td />}
                     <td className="text-center px-3 py-2.5 font-semibold text-slate-700 dark:text-slate-300">
                       {filteredBills.length}
                     </td>

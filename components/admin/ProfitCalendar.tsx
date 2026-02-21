@@ -33,7 +33,7 @@ interface CalendarData {
 
 interface ProfitCalendarProps {
   compact?: boolean;
-  itemType?: 'grocery' | 'retail';
+  itemType?: string;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -61,7 +61,7 @@ export function ProfitCalendar({ compact = false, itemType }: ProfitCalendarProp
   const [hoveredDay, setHoveredDay] = useState<DailyProfit | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [itemType]);
 
   async function fetchData() {
     try {

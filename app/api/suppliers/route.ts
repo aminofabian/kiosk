@@ -8,8 +8,8 @@ export async function OPTIONS() {
   return optionsResponse();
 }
 
-// Ensure suppliers table has payment columns (self-healing if migration not run yet)
-async function ensureSuppliersPaymentColumns() {
+// Ensure suppliers table has all expected columns (self-healing if migration not run yet)
+async function ensureSupplierColumns() {
   const tableExists = await query<{ name: string }>(
     `SELECT name FROM sqlite_master WHERE type='table' AND name='suppliers'`
   );
@@ -25,15 +25,29 @@ async function ensureSuppliersPaymentColumns() {
   if (!existingCols.has('payment_details')) {
     await execute(`ALTER TABLE suppliers ADD COLUMN payment_details TEXT`);
   }
+  if (!existingCols.has('supplier_type')) {
+    await execute(`ALTER TABLE suppliers ADD COLUMN supplier_type TEXT`);
+  }
 }
 
-// GET - List suppliers
-export async function GET() {
+// GET - List suppliers (optional ?supplierType= filter)
+export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
 
-    await ensureSuppliersPaymentColumns();
+    await ensureSupplierColumns();
+
+    const { searchParams } = new URL(request.url);
+    const supplierType = searchParams.get('supplierType')?.trim() || null;
+
+    let sql = `SELECT * FROM suppliers WHERE business_id = ? AND active = 1`;
+    const params: (string | null)[] = [auth.businessId];
+    if (supplierType) {
+      sql += ` AND supplier_type = ?`;
+      params.push(supplierType);
+    }
+    sql += ` ORDER BY name ASC`;
 
     const suppliers = await query<{
       id: string;
@@ -43,16 +57,12 @@ export async function GET() {
       contact_email: string | null;
       location: string | null;
       notes: string | null;
+      supplier_type: string | null;
       active: number;
       created_at: number;
       preferred_payment_method?: string | null;
       payment_details?: string | null;
-    }>(
-      `SELECT * FROM suppliers 
-       WHERE business_id = ? AND active = 1
-       ORDER BY name ASC`,
-      [auth.businessId]
-    );
+    }>(sql, params);
 
     return jsonResponse({
       success: true,
@@ -86,7 +96,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, contactPhone, contactEmail, location, notes } = body;
+    const { name, contactPhone, contactEmail, location, notes, supplierType } = body;
 
     if (!name) {
       return jsonResponse(
@@ -98,10 +108,12 @@ export async function POST(request: NextRequest) {
     const now = Math.floor(Date.now() / 1000);
     const supplierId = generateUUID();
 
+    await ensureSupplierColumns();
+
     await execute(
       `INSERT INTO suppliers (
-        id, business_id, name, contact_phone, contact_email, location, notes, active, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+        id, business_id, name, contact_phone, contact_email, location, notes, supplier_type, active, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
       [
         supplierId,
         auth.businessId,
@@ -110,6 +122,7 @@ export async function POST(request: NextRequest) {
         contactEmail?.trim() || null,
         location?.trim() || null,
         notes?.trim() || null,
+        supplierType?.trim() || null,
         now,
       ]
     );

@@ -219,7 +219,7 @@ export async function PUT(
 
     if (isParentItem) {
       // Update parent item (name, category, packaging units, barcode=null - barcode belongs on variants)
-      const itemTypeVal = itemType && ['grocery', 'retail'].includes(itemType) ? itemType : null;
+      const itemTypeVal = itemType && typeof itemType === 'string' && itemType.trim() ? itemType.trim() : null;
       const updateResult = itemTypeVal
         ? await execute(
             `UPDATE items 
@@ -254,7 +254,7 @@ export async function PUT(
       // This allows setting buy prices for parent items that might have stock
     } else {
       // Update regular item or variant
-      const itemTypeVal = itemType && ['grocery', 'retail'].includes(itemType) ? itemType : 'retail';
+      const itemTypeVal = itemType && typeof itemType === 'string' && itemType.trim() ? itemType.trim() : 'retail';
       const updateResult = await execute(
         `UPDATE items 
          SET name = ?,

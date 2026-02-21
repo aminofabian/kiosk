@@ -2,57 +2,55 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Store, ShoppingBag } from 'lucide-react';
-import { getShopType, setShopType, type ShopType } from '@/lib/utils/shop-type';
+import { getShopType, setShopType } from '@/lib/utils/shop-type';
+import { useItemTypes } from '@/lib/hooks/use-item-types';
 
 interface ShopTypeSelectorProps {
-  onShopTypeChange?: (shopType: ShopType) => void;
+  onShopTypeChange?: (shopType: string) => void;
   className?: string;
 }
 
 export function ShopTypeSelector({ onShopTypeChange, className = '' }: ShopTypeSelectorProps) {
-  const [currentShopType, setCurrentShopType] = useState<ShopType>(() => getShopType());
+  const { productTypes, itemTypeKeys } = useItemTypes();
+  const [currentShopType, setCurrentShopType] = useState<string>(() =>
+    getShopType(itemTypeKeys.length ? itemTypeKeys : undefined)
+  );
 
   useEffect(() => {
-    const stored = getShopType();
-    setCurrentShopType(stored);
-  }, []);
+    const keys = itemTypeKeys.length ? itemTypeKeys : ['grocery', 'retail'];
+    const resolved = getShopType(keys);
+    setCurrentShopType(resolved);
+  }, [itemTypeKeys]);
 
-  const handleShopTypeChange = (shopType: ShopType) => {
+  const handleShopTypeChange = (shopType: string) => {
     setShopType(shopType);
     setCurrentShopType(shopType);
     onShopTypeChange?.(shopType);
   };
 
+  if (productTypes.length === 0) return null;
+
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
-      <Button
-        variant={currentShopType === 'grocery' ? 'default' : 'outline'}
-        size="sm"
-        onClick={() => handleShopTypeChange('grocery')}
-        className={`flex items-center gap-2 transition-all ${
-          currentShopType === 'grocery'
-            ? 'bg-[#1c6a1e] text-white hover:bg-[#1c6a1e]/90'
-            : 'bg-white hover:bg-gray-50'
-        }`}
-      >
-        <Store className="w-4 h-4" />
-        <span className="hidden sm:inline">Grocery</span>
-      </Button>
-      <Button
-        variant={currentShopType === 'retail' ? 'default' : 'outline'}
-        size="sm"
-        onClick={() => handleShopTypeChange('retail')}
-        className={`flex items-center gap-2 transition-all ${
-          currentShopType === 'retail'
-            ? 'bg-[#1c6a1e] text-white hover:bg-[#1c6a1e]/90'
-            : 'bg-white hover:bg-gray-50'
-        }`}
-      >
-        <ShoppingBag className="w-4 h-4" />
-        <span className="hidden sm:inline">Retail</span>
-      </Button>
+    <div className={`flex items-center gap-2 flex-wrap ${className}`}>
+      {productTypes.map((type) => (
+        <Button
+          key={type.key}
+          variant={currentShopType === type.key ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => handleShopTypeChange(type.key)}
+          className={`flex items-center gap-2 transition-all ${
+            currentShopType === type.key
+              ? 'bg-[#1c6a1e] text-white hover:bg-[#1c6a1e]/90'
+              : 'bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700'
+          }`}
+          style={currentShopType === type.key ? { borderColor: type.color } : undefined}
+        >
+          <span className="text-lg leading-none" aria-hidden>
+            {type.emoji}
+          </span>
+          <span className="hidden sm:inline">{type.label}</span>
+        </Button>
+      ))}
     </div>
   );
 }
-

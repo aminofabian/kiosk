@@ -224,14 +224,15 @@ export async function GET(request: NextRequest) {
       [bid, startDate, endDate]
     );
 
-    // 5) Top grocery items specifically
-    const topGrocery = await query<{
+    // 5) Top items by type — one query, grouped by item_type_snapshot
+    const topItemsByType = await query<{
       item_id: string;
       parent_item_id: string | null;
       parent_name: string | null;
       item_name: string;
       variant_name: string | null;
       category_name: string;
+      item_type: string;
       total_quantity: number;
       total_revenue: number;
       total_profit: number;
@@ -243,6 +244,7 @@ export async function GET(request: NextRequest) {
         i.name as item_name,
         i.variant_name,
         COALESCE(c.name, 'Uncategorized') as category_name,
+        COALESCE(si.item_type_snapshot, i.item_type) as item_type,
         COALESCE(SUM(si.quantity_sold), 0) as total_quantity,
         COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
         COALESCE(SUM(si.profit), 0) as total_profit
@@ -253,48 +255,14 @@ export async function GET(request: NextRequest) {
       LEFT JOIN items parent ON i.parent_item_id = parent.id
       WHERE s.business_id = ? AND s.status = 'completed'
         AND s.sale_date >= ? AND s.sale_date <= ?
-        AND COALESCE(si.item_type_snapshot, 'retail') = 'grocery'
-      GROUP BY i.id, i.parent_item_id, parent.name, i.name, i.variant_name, c.name
+      GROUP BY i.id, i.parent_item_id, parent.name, i.name, i.variant_name, c.name, item_type
       ORDER BY total_revenue DESC
-      LIMIT 30`,
+      LIMIT 100`,
       [bid, startDate, endDate]
     );
 
-    // 6) Top retail items
-    const topRetail = await query<{
-      item_id: string;
-      parent_item_id: string | null;
-      parent_name: string | null;
-      item_name: string;
-      variant_name: string | null;
-      category_name: string;
-      total_quantity: number;
-      total_revenue: number;
-      total_profit: number;
-    }>(
-      `SELECT 
-        i.id as item_id,
-        i.parent_item_id,
-        parent.name as parent_name,
-        i.name as item_name,
-        i.variant_name,
-        COALESCE(c.name, 'Uncategorized') as category_name,
-        COALESCE(SUM(si.quantity_sold), 0) as total_quantity,
-        COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
-        COALESCE(SUM(si.profit), 0) as total_profit
-      FROM sale_items si
-      JOIN sales s ON si.sale_id = s.id
-      JOIN items i ON si.item_id = i.id
-      LEFT JOIN categories c ON i.category_id = c.id
-      LEFT JOIN items parent ON i.parent_item_id = parent.id
-      WHERE s.business_id = ? AND s.status = 'completed'
-        AND s.sale_date >= ? AND s.sale_date <= ?
-        AND COALESCE(si.item_type_snapshot, 'retail') = 'retail'
-      GROUP BY i.id, i.parent_item_id, parent.name, i.name, i.variant_name, c.name
-      ORDER BY total_revenue DESC
-      LIMIT 30`,
-      [bid, startDate, endDate]
-    );
+    const topGrocery = topItemsByType.filter((i) => i.item_type === 'grocery').slice(0, 30);
+    const topRetail = topItemsByType.filter((i) => i.item_type === 'retail').slice(0, 30);
 
     // 7) Sales by payment method
     const paymentMethods = await query<{
@@ -314,7 +282,7 @@ export async function GET(request: NextRequest) {
       [bid, startDate, endDate]
     );
 
-    // 8) Sales by item type (grocery vs retail)
+    // 8) Sales by item type (dynamic — all product types)
     const itemTypeBreakdown = await query<{
       item_type: string;
       transaction_count: number;
@@ -324,7 +292,7 @@ export async function GET(request: NextRequest) {
       profit: number;
     }>(
       `SELECT 
-        COALESCE(si.item_type_snapshot, 'retail') as item_type,
+        COALESCE(si.item_type_snapshot, i.item_type) as item_type,
         COUNT(DISTINCT s.id) as transaction_count,
         COALESCE(SUM(si.quantity_sold), 0) as items_sold,
         COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as revenue,
@@ -332,9 +300,10 @@ export async function GET(request: NextRequest) {
         COALESCE(SUM(si.profit), 0) as profit
       FROM sale_items si
       JOIN sales s ON si.sale_id = s.id
+      JOIN items i ON si.item_id = i.id
       WHERE s.business_id = ? AND s.status = 'completed'
         AND s.sale_date >= ? AND s.sale_date <= ?
-      GROUP BY si.item_type_snapshot
+      GROUP BY item_type
       ORDER BY revenue DESC`,
       [bid, startDate, endDate]
     );

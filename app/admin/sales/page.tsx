@@ -17,11 +17,10 @@ import {
   Smartphone,
   CreditCard,
   DollarSign,
-  Leaf,
-  Store,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/utils/api-client';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { useItemTypes } from '@/lib/hooks/use-item-types';
 import Link from 'next/link';
 
 interface TypeBreakdown {
@@ -73,6 +72,7 @@ const formatNumber = (num: number) =>
 
 export default function SalesHubPage() {
   const { user, isLoading: userLoading } = useCurrentUser();
+  const { productTypes } = useItemTypes();
   const [data, setData] = useState<SalesOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -145,8 +145,7 @@ export default function SalesHubPage() {
 
   if (!data) return null;
 
-  const groceryData = data.salesByItemType?.find(t => t.item_type === 'grocery');
-  const retailData = data.salesByItemType?.find(t => t.item_type === 'retail');
+  const getTypeData = (key: string) => data.salesByItemType?.find(t => t.item_type === key);
 
   return (
     <AdminLayout>
@@ -228,83 +227,58 @@ export default function SalesHubPage() {
             </Card>
           </div>
 
-          {/* Department Cards - Links to Grocery and Retail */}
+          {/* Department Cards - one per product type */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Grocery Card */}
-            <Link href="/admin/sales/grocery" className="block group">
-              <Card className="border-2 border-green-200 dark:border-green-800 hover:border-green-400 dark:hover:border-green-600 transition-all hover:shadow-xl hover:shadow-green-500/10 h-full">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/20">
-                      <Leaf className="w-7 h-7 text-white" />
-                    </div>
-                    <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-green-500 group-hover:translate-x-1 transition-all" />
-                  </div>
-                  <h2 className="text-xl font-black text-slate-900 dark:text-white mb-1">Grocery Sales</h2>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                    Daily breakdowns, product performance, category insights
-                  </p>
-                  {groceryData ? (
-                    <div className="grid grid-cols-3 gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                      <div>
-                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Revenue</p>
-                        <p className="text-lg font-black text-green-600">{formatPrice(groceryData.revenue)}</p>
+            {productTypes.map((t) => {
+              const typeData = getTypeData(t.key);
+              const color = t.color ?? '#22c55e';
+              return (
+                <Link key={t.key} href={`/admin/sales/${t.key}`} className="block group">
+                  <Card
+                    className="border-2 transition-all hover:shadow-xl h-full"
+                    style={{
+                      borderColor: `${color}40`,
+                    }}
+                  >
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div
+                          className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shadow-lg"
+                          style={{ background: `linear-gradient(135deg, ${color}, ${color}dd)`, boxShadow: `0 4px 14px ${color}40` }}
+                        >
+                          {t.emoji}
+                        </div>
+                        <ArrowRight className="w-5 h-5 text-slate-300 group-hover:translate-x-1 transition-all" style={{ color: typeData ? color : undefined }} />
                       </div>
-                      <div>
-                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Profit</p>
-                        <p className="text-lg font-black text-slate-700 dark:text-slate-300">{formatPrice(groceryData.profit)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Items</p>
-                        <p className="text-lg font-black text-slate-700 dark:text-slate-300">{formatNumber(groceryData.items_sold)}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                      <p className="text-sm text-slate-400">No grocery sales today</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </Link>
-
-            {/* Retail Card */}
-            <Link href="/admin/sales/retail" className="block group">
-              <Card className="border-2 border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 transition-all hover:shadow-xl hover:shadow-blue-500/10 h-full">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                      <Store className="w-7 h-7 text-white" />
-                    </div>
-                    <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
-                  </div>
-                  <h2 className="text-xl font-black text-slate-900 dark:text-white mb-1">Retail Sales</h2>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                    Product analytics, stock levels, performance tracking
-                  </p>
-                  {retailData ? (
-                    <div className="grid grid-cols-3 gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                      <div>
-                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Revenue</p>
-                        <p className="text-lg font-black text-blue-600">{formatPrice(retailData.revenue)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Profit</p>
-                        <p className="text-lg font-black text-slate-700 dark:text-slate-300">{formatPrice(retailData.profit)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Items</p>
-                        <p className="text-lg font-black text-slate-700 dark:text-slate-300">{formatNumber(retailData.items_sold)}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                      <p className="text-sm text-slate-400">No retail sales today</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </Link>
+                      <h2 className="text-xl font-black text-slate-900 dark:text-white mb-1">{t.label} Sales</h2>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                        Daily breakdowns, product performance, category insights
+                      </p>
+                      {typeData ? (
+                        <div className="grid grid-cols-3 gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                          <div>
+                            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Revenue</p>
+                            <p className="text-lg font-black" style={{ color }}>{formatPrice(typeData.revenue)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Profit</p>
+                            <p className="text-lg font-black text-slate-700 dark:text-slate-300">{formatPrice(typeData.profit)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Items</p>
+                            <p className="text-lg font-black text-slate-700 dark:text-slate-300">{formatNumber(typeData.items_sold)}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                          <p className="text-sm text-slate-400">No {t.label.toLowerCase()} sales today</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
 
           {/* Payment Methods Breakdown */}
@@ -352,41 +326,35 @@ export default function SalesHubPage() {
                   const totalRevenue = data.salesByItemType.reduce((sum, t) => sum + t.revenue, 0);
                   return (
                     <div className="space-y-4">
-                      {data.salesByItemType.map((type) => {
-                        const pct = totalRevenue > 0 ? (type.revenue / totalRevenue) * 100 : 0;
-                        const isGrocery = type.item_type === 'grocery';
+                      {data.salesByItemType.map((typeRow) => {
+                        const pct = totalRevenue > 0 ? (typeRow.revenue / totalRevenue) * 100 : 0;
+                        const typeConfig = productTypes.find((t) => t.key === typeRow.item_type);
+                        const label = typeConfig?.label ?? typeRow.item_type;
+                        const color = typeConfig?.color ?? '#22c55e';
                         return (
-                          <div key={type.item_type} className="space-y-2">
+                          <div key={typeRow.item_type} className="space-y-2">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
-                                {isGrocery ? (
-                                  <Leaf className="w-4 h-4 text-green-500" />
-                                ) : (
-                                  <Store className="w-4 h-4 text-blue-500" />
-                                )}
-                                <span className="font-bold text-sm text-slate-700 dark:text-slate-300 capitalize">
-                                  {type.item_type}
+                                <span className="text-lg" aria-hidden>{typeConfig?.emoji ?? '📦'}</span>
+                                <span className="font-bold text-sm text-slate-700 dark:text-slate-300">
+                                  {label}
                                 </span>
                               </div>
                               <div className="flex items-center gap-4 text-sm">
-                                <span className="font-black text-slate-900 dark:text-white">{formatPrice(type.revenue)}</span>
+                                <span className="font-black text-slate-900 dark:text-white">{formatPrice(typeRow.revenue)}</span>
                                 <span className="text-slate-400">{pct.toFixed(0)}%</span>
                               </div>
                             </div>
                             <div className="relative h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                               <div
-                                className={`absolute inset-y-0 left-0 rounded-full transition-all duration-700 ${
-                                  isGrocery
-                                    ? 'bg-gradient-to-r from-green-400 to-emerald-500'
-                                    : 'bg-gradient-to-r from-blue-400 to-indigo-500'
-                                }`}
-                                style={{ width: `${pct}%` }}
+                                className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
+                                style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${color}, ${color}dd)` }}
                               />
                             </div>
                             <div className="flex gap-6 text-xs text-slate-500">
-                              <span>Profit: {formatPrice(type.profit)}</span>
-                              <span>{formatNumber(type.items_sold)} items</span>
-                              <span>{type.transaction_count} orders</span>
+                              <span>Profit: {formatPrice(typeRow.profit)}</span>
+                              <span>{formatNumber(typeRow.items_sold)} items</span>
+                              <span>{typeRow.transaction_count} orders</span>
                             </div>
                           </div>
                         );

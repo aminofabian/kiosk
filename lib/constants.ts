@@ -1,6 +1,7 @@
-// Item types (grocery vs retail classification)
+// Item types — dynamic, configured in Admin > Settings > Product Types.
+// These defaults are only used as fallbacks when settings haven't loaded.
 export const ITEM_TYPES = ['grocery', 'retail'] as const;
-export type ItemType = (typeof ITEM_TYPES)[number];
+export type ItemType = string;
 
 // Unit types
 export const UNIT_TYPES = ['kg', 'g', 'piece', 'bunch', 'tray', 'litre', 'ml'] as const;

@@ -34,8 +34,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       contact_email: string | null;
       location: string | null;
       notes: string | null;
+      supplier_type: string | null;
     }>(
-      `SELECT id, name, contact_phone, contact_email, location, notes
+      `SELECT id, name, contact_phone, contact_email, location, notes, supplier_type
        FROM suppliers
        WHERE id = ? AND business_id = ?`,
       [id, auth.businessId]
@@ -57,16 +58,10 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       notes,
       preferredPaymentMethod,
       paymentDetails,
+      supplierType,
     } = body;
 
-    if (!name || !name.trim()) {
-      return jsonResponse(
-        { success: false, message: 'Supplier name is required' },
-        400
-      );
-    }
-
-    // Ensure payment columns exist before updating (same as GET /api/suppliers)
+    // Ensure payment and supplier_type columns exist
     const tableExists = await query<{ name: string }>(
       `SELECT name FROM sqlite_master WHERE type='table' AND name='suppliers'`
     );
@@ -79,25 +74,48 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       if (!existingCols.has('payment_details')) {
         await execute(`ALTER TABLE suppliers ADD COLUMN payment_details TEXT`);
       }
+      if (!existingCols.has('supplier_type')) {
+        await execute(`ALTER TABLE suppliers ADD COLUMN supplier_type TEXT`);
+      }
     }
 
-    await execute(
-      `UPDATE suppliers
-       SET name = ?, contact_phone = ?, contact_email = ?, location = ?, notes = ?,
-           preferred_payment_method = ?, payment_details = ?
-       WHERE id = ? AND business_id = ?`,
-      [
-        name.trim(),
-        contactPhone?.trim() || null,
-        contactEmail?.trim() || null,
-        location?.trim() || null,
-        notes?.trim() || null,
-        preferredPaymentMethod?.trim() || null,
-        paymentDetails?.trim() || null,
-        id,
-        auth.businessId,
-      ]
-    );
+    // Partial update: only supplierType (quick-type) or full profile
+    const onlySupplierType = supplierType !== undefined && name === undefined && contactPhone === undefined
+      && contactEmail === undefined && location === undefined && notes === undefined
+      && preferredPaymentMethod === undefined && paymentDetails === undefined;
+
+    if (onlySupplierType) {
+      await execute(
+        `UPDATE suppliers SET supplier_type = ? WHERE id = ? AND business_id = ?`,
+        [supplierType === null || supplierType === '' ? null : String(supplierType).trim(), id, auth.businessId]
+      );
+    } else {
+      if (name === undefined || !String(name).trim()) {
+        return jsonResponse(
+          { success: false, message: 'Supplier name is required' },
+          400
+        );
+      }
+      await execute(
+        `UPDATE suppliers
+         SET name = ?, contact_phone = ?, contact_email = ?, location = ?, notes = ?,
+             preferred_payment_method = ?, payment_details = ?,
+             supplier_type = ?
+         WHERE id = ? AND business_id = ?`,
+        [
+          String(name).trim(),
+          contactPhone?.trim() || null,
+          contactEmail?.trim() || null,
+          location?.trim() || null,
+          notes?.trim() || null,
+          preferredPaymentMethod?.trim() || null,
+          paymentDetails?.trim() || null,
+          supplierType !== undefined ? (supplierType === null || supplierType === '' ? null : String(supplierType).trim()) : existing[0].supplier_type,
+          id,
+          auth.businessId,
+        ]
+      );
+    }
 
     return jsonResponse({
       success: true,

@@ -1,22 +1,24 @@
-import type { ItemType } from '@/lib/constants';
-
-export type ShopType = 'grocery' | 'retail';
+/** Shop type = product type key (e.g. grocery, retail, cereals). Dynamic from settings. */
+export type ShopType = string;
 
 const SHOP_TYPE_STORAGE_KEY = 'pos-shop-type';
 
-/** Get item type from item record (preferred over category inference) */
-export function getItemShopType(item: { item_type?: ItemType | null }): ShopType {
-  return item?.item_type === 'grocery' ? 'grocery' : 'retail';
+/** Get item type from item record. */
+export function getItemShopType(item: { item_type?: string | null }): string {
+  return item?.item_type && typeof item.item_type === 'string' ? item.item_type : 'retail';
 }
 
-export function getShopType(): ShopType {
-  if (typeof window === 'undefined') return 'grocery';
-  
+/** Get current shop type from storage. If validKeys provided, return stored only when in list else first key. */
+export function getShopType(validKeys?: string[]): string {
+  if (typeof window === 'undefined') return validKeys?.[0] ?? 'grocery';
   const stored = localStorage.getItem(SHOP_TYPE_STORAGE_KEY);
-  return (stored === 'grocery' || stored === 'retail') ? stored : 'grocery';
+  if (validKeys?.length) {
+    return validKeys.includes(stored ?? '') ? (stored as string) : validKeys[0];
+  }
+  return stored || 'grocery';
 }
 
-export function setShopType(shopType: ShopType): void {
+export function setShopType(shopType: string): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(SHOP_TYPE_STORAGE_KEY, shopType);
 }
@@ -54,7 +56,7 @@ const OLD_RETAIL_CATEGORIES = [
   'Toilet Paper', 'Paper Towels'
 ];
 
-export function getCategoryShopType(categoryName: string): ShopType | null {
+export function getCategoryShopType(categoryName: string): string | null {
   const normalized = categoryName.trim().toLowerCase();
   
   if (RETAIL_CATEGORIES.some(cat => cat.toLowerCase() === normalized)) {
@@ -72,7 +74,7 @@ export function getCategoryShopType(categoryName: string): ShopType | null {
   return null;
 }
 
-export function shouldShowCategory(categoryName: string, shopType: ShopType): boolean {
+export function shouldShowCategory(categoryName: string, shopType: string): boolean {
   const categoryShopType = getCategoryShopType(categoryName);
   
   if (categoryShopType === null) {

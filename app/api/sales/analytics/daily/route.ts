@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     if (isAuthResponse(auth)) return auth;
 
     const { searchParams } = new URL(request.url);
-    const itemType = searchParams.get('itemType') || 'grocery';
+    const itemType = searchParams.get('itemType') || '';
     const days = parseInt(searchParams.get('days') || '7', 10);
     const selectedDate = searchParams.get('date'); // specific date in YYYY-MM-DD format
 

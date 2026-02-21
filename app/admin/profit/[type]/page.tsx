@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,6 @@ import {
   Package,
   Download,
   Search,
-  Leaf,
   ArrowLeft,
   AlertTriangle,
   BarChart3,
@@ -26,6 +26,7 @@ import {
   Percent,
   Users,
 } from 'lucide-react';
+import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { ProfitCalendar } from '@/components/admin/ProfitCalendar';
 import { LatestSalesCard } from '@/components/admin/LatestSalesCard';
 import { apiPut, apiGet } from '@/lib/utils/api-client';
@@ -72,7 +73,16 @@ const formatPercent = (value: number) => `${(value * 100).toFixed(1)}%`;
 
 // ─── Page ────────────────────────────────────────────────────────
 
-export default function GroceryProfitPage() {
+export default function ProfitByTypePage() {
+  const params = useParams();
+  const router = useRouter();
+  const type = (params?.type as string) ?? '';
+  const { productTypes, itemTypeKeys, loading: typesLoading } = useItemTypes();
+  const typeConfig = productTypes.find((t) => t.key === type);
+  const typeLabel = typeConfig?.label ?? type;
+  const typeEmoji = typeConfig?.emoji ?? '📦';
+  const typeColor = typeConfig?.color ?? '#22c55e';
+
   const [profitData, setProfitData] = useState<ProfitData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -89,8 +99,13 @@ export default function GroceryProfitPage() {
   const [itemSearch, setItemSearch] = useState('');
   const [showAllItems, setShowAllItems] = useState(false);
 
+  useEffect(() => {
+    if (!typesLoading && itemTypeKeys.length > 0 && type && !itemTypeKeys.includes(type)) {
+      router.replace('/admin/profit');
+    }
+  }, [type, itemTypeKeys, typesLoading, router]);
+
   useEffect(() => { updateDateRange(datePreset); }, [datePreset]);
-  useEffect(() => { fetchProfitData(); }, [dateRange]);
 
   function updateDateRange(preset: DatePreset) {
     if (preset === 'custom') return;
@@ -103,20 +118,23 @@ export default function GroceryProfitPage() {
     setDateRange({ start: fmt(start), end: fmt(todayStart) });
   }
 
-  async function fetchProfitData() {
+  const fetchProfitData = useCallback(async () => {
+    if (!type) return;
     try {
       setLoading(true); setError(null);
       const [sY, sM, sD] = dateRange.start.split('-').map(Number);
       const [eY, eM, eD] = dateRange.end.split('-').map(Number);
       const startTs = Math.floor(new Date(sY, sM - 1, sD, 0, 0, 0).getTime() / 1000);
       const endTs = Math.floor(new Date(eY, eM - 1, eD, 23, 59, 59).getTime() / 1000);
-      const res = await fetch(`/api/profit?start=${startTs}&end=${endTs}&itemType=grocery`);
+      const res = await fetch(`/api/profit?start=${startTs}&end=${endTs}&itemType=${encodeURIComponent(type)}`);
       const result = await res.json();
       if (result.success) setProfitData(result.data);
       else setError(result.message || 'Failed to load');
     } catch { setError('Failed to load profit data'); }
     finally { setLoading(false); }
-  }
+  }, [type, dateRange]);
+
+  useEffect(() => { if (type) fetchProfitData(); }, [fetchProfitData]);
 
   const handleStartEdit = (itemId: string, price: number) => { setEditingItemId(itemId); setEditBuyPrice(price.toString()); };
   const handleCancelEdit = () => { setEditingItemId(null); setEditBuyPrice(''); };
@@ -135,13 +153,26 @@ export default function GroceryProfitPage() {
     finally { setUpdatingPrice(null); }
   };
 
+  if (!typeConfig && itemTypeKeys.length > 0) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center space-y-3">
+            <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto" />
+            <p className="text-slate-600 dark:text-slate-400">Unknown product type. Redirecting...</p>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
   if (loading) {
     return (
       <AdminLayout>
         <div className="flex items-center justify-center h-screen">
           <div className="text-center space-y-3">
             <Loader2 className="h-8 w-8 text-green-600 animate-spin mx-auto" />
-            <p className="text-slate-500 text-sm">Loading grocery profit...</p>
+            <p className="text-slate-500 text-sm">Loading {typeLabel} profit...</p>
           </div>
         </div>
       </AdminLayout>
@@ -181,11 +212,14 @@ export default function GroceryProfitPage() {
                 <Link href="/admin/profit" className="p-2 -ml-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
                   <ArrowLeft className="w-5 h-5 text-slate-500" />
                 </Link>
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/20">
-                  <Leaf className="w-4.5 h-4.5 text-white" />
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-xl shadow-lg"
+                  style={{ background: `linear-gradient(135deg, ${typeColor}, ${typeColor}dd)`, boxShadow: `0 4px 14px ${typeColor}40` }}
+                >
+                  {typeEmoji}
                 </div>
                 <div>
-                  <h1 className="text-lg md:text-xl font-black text-slate-900 dark:text-white">Grocery Items</h1>
+                  <h1 className="text-lg md:text-xl font-black text-slate-900 dark:text-white">{typeLabel} Items</h1>
                   <p className="text-xs text-slate-500 dark:text-slate-400">Item margins, performance, and pricing</p>
                 </div>
               </div>
@@ -266,7 +300,7 @@ export default function GroceryProfitPage() {
               const startTs = Math.floor(new Date(sY, sM - 1, sD, 0, 0, 0).getTime() / 1000);
               const endTs = Math.floor(new Date(eY, eM - 1, eD, 23, 59, 59).getTime() / 1000);
               return (
-                <LatestSalesCard startTs={startTs} endTs={endTs} itemType="grocery" accentColor="green" />
+                <LatestSalesCard startTs={startTs} endTs={endTs} itemType={type} accentColor="green" />
               );
             })()}
             {/* Top Earners */}
@@ -371,9 +405,9 @@ export default function GroceryProfitPage() {
           {/* ─── Profit Calendar ────────────────────────────────────── */}
           <div>
             <h2 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <BarChart3 className="w-3.5 h-3.5" /> Grocery Profit Calendar
+              <BarChart3 className="w-3.5 h-3.5" /> {typeLabel} Profit Calendar
             </h2>
-            <ProfitCalendar itemType="grocery" />
+            <ProfitCalendar itemType={type} />
           </div>
 
           {/* ─── All Items Table ────────────────────────────────────── */}
@@ -382,7 +416,7 @@ export default function GroceryProfitPage() {
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
                   <Package className="w-4 h-4 text-green-600" />
-                  <h3 className="font-black text-sm text-slate-900 dark:text-white">All Grocery Items</h3>
+                  <h3 className="font-black text-sm text-slate-900 dark:text-white">All {typeLabel} Items</h3>
                   <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-xs">
                     {profitData.itemProfits.filter(i => i.item_name.toLowerCase().includes(itemSearch.toLowerCase())).length} items
                   </Badge>
@@ -402,7 +436,7 @@ export default function GroceryProfitPage() {
             {profitData.itemProfits.length === 0 ? (
               <div className="text-center py-12">
                 <ShoppingCart className="h-8 w-8 mx-auto text-slate-300 mb-2" />
-                <p className="text-slate-500 text-sm">No grocery sales in this period</p>
+                <p className="text-slate-500 text-sm">No {typeLabel} sales in this period</p>
               </div>
             ) : (
               <div className="overflow-x-auto">

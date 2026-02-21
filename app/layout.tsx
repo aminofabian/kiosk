@@ -1,9 +1,13 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 import { DynamicMetaTags } from "@/components/DynamicMetaTags";
 import { Toaster } from "sonner";
 import { getCurrentUser } from "@/lib/auth";
 import "./globals.css";
+
+export const viewport: Viewport = {
+  themeColor: "#1c6a1e",
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const user = await getCurrentUser();
@@ -13,7 +17,6 @@ export async function generateMetadata(): Promise<Metadata> {
     title: businessName,
     description: `Simple, intuitive point-of-sale system for ${businessName}`,
     manifest: "/manifest.json",
-    themeColor: "#1c6a1e",
     appleWebApp: {
       capable: true,
       statusBarStyle: "default",

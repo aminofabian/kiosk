@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const months = parseInt(searchParams.get('months') || '12');
-    const itemType = searchParams.get('itemType'); // 'grocery' or 'retail' or null for all
+    const itemType = searchParams.get('itemType');
     // Get timezone offset in minutes from client (e.g., -180 for UTC+3)
     const tzOffset = parseInt(searchParams.get('tz') || '0');
     // Convert to seconds for SQL calculation

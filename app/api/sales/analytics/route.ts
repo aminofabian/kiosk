@@ -14,7 +14,7 @@ interface ItemSalesData {
   category_name: string;
   parent_name: string | null;
   parent_item_id: string | null;
-  item_type: string; // 'grocery' or 'retail'
+  item_type: string;
   total_quantity_sold: number;
   total_revenue: number;
   total_cost: number;
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     const period = searchParams.get('period') || 'all';
     const categoryId = searchParams.get('categoryId');
     const parentId = searchParams.get('parentId');
-    const itemType = searchParams.get('itemType'); // 'grocery' or 'retail' or null for all
+    const itemType = searchParams.get('itemType');
 
     // Calculate date range
     const now = Math.floor(Date.now() / 1000);

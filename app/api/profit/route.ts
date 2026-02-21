@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const startTimestamp = parseInt(searchParams.get('start') || '0');
     const endTimestamp = parseInt(searchParams.get('end') || '0');
-    const itemType = searchParams.get('itemType'); // 'grocery' or 'retail' or null for all
+    const itemType = searchParams.get('itemType');
 
     if (!startTimestamp || !endTimestamp) {
       return jsonResponse(

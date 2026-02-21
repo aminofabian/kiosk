@@ -22,7 +22,7 @@ interface LatestSale {
 interface LatestSalesCardProps {
   startTs: number;
   endTs: number;
-  itemType?: 'grocery' | 'retail';
+  itemType?: string;
   accentColor?: 'green' | 'blue' | 'teal';
 }
 

@@ -31,8 +31,7 @@ import {
   Wallet,
   Smartphone,
   CreditCard,
-  Leaf,
-  Store,
+  BarChart3,
   Download,
   RefreshCw,
   Clock,
@@ -54,6 +53,7 @@ import {
 } from 'lucide-react';
 import { apiGet, apiPost } from '@/lib/utils/api-client';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { useItemTypes } from '@/lib/hooks/use-item-types';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -216,6 +216,7 @@ function BarChart({ data, maxValue, color }: { data: { label: string; value: num
 
 export default function DailyReportPage() {
   const { user, isLoading: userLoading } = useCurrentUser();
+  const { productTypes } = useItemTypes();
   const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -518,9 +519,7 @@ export default function DailyReportPage() {
   const maxCatRevenue = data.categoryBreakdown.length > 0 ? Math.max(...data.categoryBreakdown.map(c => c.total_revenue)) : 1;
   const totalPaymentAmount = data.paymentMethods.reduce((sum, pm) => sum + pm.total, 0);
 
-  const groceryRevenue = data.itemTypeBreakdown.find(t => t.item_type === 'grocery')?.revenue ?? 0;
-  const retailRevenue = data.itemTypeBreakdown.find(t => t.item_type === 'retail')?.revenue ?? 0;
-  const totalDeptRevenue = groceryRevenue + retailRevenue;
+  const totalDeptRevenue = data.itemTypeBreakdown.reduce((sum, t) => sum + t.revenue, 0);
 
   return (
     <AdminLayout>
@@ -669,13 +668,14 @@ export default function DailyReportPage() {
                   <div className="space-y-3">
                     {data.itemTypeBreakdown.map((dept) => {
                       const pct = totalDeptRevenue > 0 ? (dept.revenue / totalDeptRevenue) * 100 : 0;
-                      const isGrocery = dept.item_type === 'grocery';
+                      const tc = productTypes.find((t) => t.key === dept.item_type);
+                      const color = tc?.color ?? '#22c55e';
                       return (
                         <div key={dept.item_type} className="space-y-1.5">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              {isGrocery ? <Leaf className="w-3.5 h-3.5 text-green-500" /> : <Store className="w-3.5 h-3.5 text-blue-500" />}
-                              <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300 capitalize">{dept.item_type}</span>
+                              <span className="text-base" aria-hidden>{tc?.emoji ?? '📦'}</span>
+                              <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300">{tc?.label ?? dept.item_type}</span>
                             </div>
                             <div className="flex items-center gap-3 text-xs sm:text-sm">
                               <span className="font-black text-slate-900 dark:text-white">{fmtPrice(dept.revenue)}</span>
@@ -684,8 +684,8 @@ export default function DailyReportPage() {
                           </div>
                           <div className="h-2.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                             <div
-                              className={`h-full rounded-full transition-all duration-700 ${isGrocery ? 'bg-gradient-to-r from-green-400 to-emerald-500' : 'bg-gradient-to-r from-blue-400 to-indigo-500'}`}
-                              style={{ width: `${pct}%` }}
+                              className="h-full rounded-full transition-all duration-700"
+                              style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${color}, ${color}dd)` }}
                             />
                           </div>
                           <div className="flex gap-4 text-[10px] sm:text-xs text-slate-500">
@@ -894,113 +894,69 @@ export default function DailyReportPage() {
             </Card>
           </div>
 
-          {/* ═══════ 6. GROCERY & RETAIL TOP ITEMS (grouped by parent) ═══════ */}
+          {/* ═══════ 6. TOP ITEMS BY DEPARTMENT ═══════ */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 print:break-inside-avoid">
-            {/* Top Grocery */}
-            <Card className="border-2 border-green-200 dark:border-green-900/50 rounded-xl shadow-sm print:shadow-none">
-              <CardContent className="p-3.5 sm:p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-6 h-6 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                    <Leaf className="w-3 h-3 text-green-600" />
-                  </div>
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Top Grocery Items</h3>
-                  {groceryRevenue > 0 && (
-                    <Badge className="ml-auto bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-[9px]">
-                      {fmtPrice(groceryRevenue)}
-                    </Badge>
-                  )}
-                </div>
-                {data.topGrocery.length > 0 ? (
-                  <div className="space-y-2">
-                    {groupItemsByParent(data.topGrocery, 'revenue').map((group, i) => (
-                      <div key={i} className="py-1.5 border-b border-slate-100 dark:border-slate-800/50 last:border-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-[9px] font-bold text-green-600 w-4 text-center">{i + 1}</span>
-                            <div className="min-w-0">
-                              <p className="text-[11px] sm:text-xs font-medium text-slate-800 dark:text-slate-200 truncate">
-                                {group.displayName}
-                              </p>
-                              {group.variants.length > 1 && (
-                                <p className="text-[9px] text-slate-400 mt-0.5">
-                                  {fmtNum(group.totalQuantity)} total · {group.variants.map((v) => v.variant_name ?? v.item_name).join(', ')}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          <span className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white shrink-0">{fmtPrice(group.totalRevenue)}</span>
-                        </div>
-                        {group.variants.length > 1 && (
-                          <div className="ml-5 mt-1 space-y-0.5">
-                            {group.variants.map((v, vi) => (
-                              <div key={vi} className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400">
-                                <span>{v.variant_name ?? v.item_name}</span>
-                                <span>{fmtNum(v.total_quantity)} · {fmtPrice(v.total_revenue)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+            {/* Dynamically render a card per department that has data */}
+            {(['topGrocery', 'topRetail'] as const).map((field) => {
+              const items = data[field];
+              const typeKey = field === 'topGrocery' ? 'grocery' : 'retail';
+              const tc = productTypes.find((t) => t.key === typeKey);
+              const color = tc?.color ?? (typeKey === 'grocery' ? '#22c55e' : '#3b82f6');
+              const typeRevenue = data.itemTypeBreakdown.find((t) => t.item_type === typeKey)?.revenue ?? 0;
+              return (
+                <Card key={typeKey} className="border-2 rounded-xl shadow-sm print:shadow-none" style={{ borderColor: `${color}40` }}>
+                  <CardContent className="p-3.5 sm:p-5">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-6 h-6 rounded-lg flex items-center justify-center text-sm" style={{ backgroundColor: `${color}20` }}>
+                        {tc?.emoji ?? '📦'}
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-400 py-4 text-center">No grocery sales</p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Top Retail */}
-            <Card className="border-2 border-blue-200 dark:border-blue-900/50 rounded-xl shadow-sm print:shadow-none">
-              <CardContent className="p-3.5 sm:p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-6 h-6 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
-                    <Store className="w-3 h-3 text-blue-600" />
-                  </div>
-                  <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Top Retail Items</h3>
-                  {retailRevenue > 0 && (
-                    <Badge className="ml-auto bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 text-[9px]">
-                      {fmtPrice(retailRevenue)}
-                    </Badge>
-                  )}
-                </div>
-                {data.topRetail.length > 0 ? (
-                  <div className="space-y-2">
-                    {groupItemsByParent(data.topRetail, 'revenue').map((group, i) => (
-                      <div key={i} className="py-1.5 border-b border-slate-100 dark:border-slate-800/50 last:border-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className="text-[9px] font-bold text-blue-600 w-4 text-center">{i + 1}</span>
-                            <div className="min-w-0">
-                              <p className="text-[11px] sm:text-xs font-medium text-slate-800 dark:text-slate-200 truncate">
-                                {group.displayName}
-                              </p>
-                              {group.variants.length > 1 && (
-                                <p className="text-[9px] text-slate-400 mt-0.5">
-                                  {fmtNum(group.totalQuantity)} total · {group.variants.map((v) => v.variant_name ?? v.item_name).join(', ')}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          <span className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white shrink-0">{fmtPrice(group.totalRevenue)}</span>
-                        </div>
-                        {group.variants.length > 1 && (
-                          <div className="ml-5 mt-1 space-y-0.5">
-                            {group.variants.map((v, vi) => (
-                              <div key={vi} className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400">
-                                <span>{v.variant_name ?? v.item_name}</span>
-                                <span>{fmtNum(v.total_quantity)} · {fmtPrice(v.total_revenue)}</span>
+                      <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Top {tc?.label ?? typeKey} Items</h3>
+                      {typeRevenue > 0 && (
+                        <Badge className="ml-auto text-[9px]" style={{ backgroundColor: `${color}20`, color }}>
+                          {fmtPrice(typeRevenue)}
+                        </Badge>
+                      )}
+                    </div>
+                    {items.length > 0 ? (
+                      <div className="space-y-2">
+                        {groupItemsByParent(items, 'revenue').map((group, i) => (
+                          <div key={i} className="py-1.5 border-b border-slate-100 dark:border-slate-800/50 last:border-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="text-[9px] font-bold w-4 text-center" style={{ color }}>{i + 1}</span>
+                                <div className="min-w-0">
+                                  <p className="text-[11px] sm:text-xs font-medium text-slate-800 dark:text-slate-200 truncate">
+                                    {group.displayName}
+                                  </p>
+                                  {group.variants.length > 1 && (
+                                    <p className="text-[9px] text-slate-400 mt-0.5">
+                                      {fmtNum(group.totalQuantity)} total · {group.variants.map((v) => v.variant_name ?? v.item_name).join(', ')}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
-                            ))}
+                              <span className="text-[11px] sm:text-xs font-bold text-slate-900 dark:text-white shrink-0">{fmtPrice(group.totalRevenue)}</span>
+                            </div>
+                            {group.variants.length > 1 && (
+                              <div className="ml-5 mt-1 space-y-0.5">
+                                {group.variants.map((v, vi) => (
+                                  <div key={vi} className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400">
+                                    <span>{v.variant_name ?? v.item_name}</span>
+                                    <span>{fmtNum(v.total_quantity)} · {fmtPrice(v.total_revenue)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
-                        )}
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-400 py-4 text-center">No retail sales</p>
-                )}
-              </CardContent>
-            </Card>
+                    ) : (
+                      <p className="text-xs text-slate-400 py-4 text-center">No {tc?.label ?? typeKey} sales</p>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
           {/* ═══════ 7. CATEGORY BREAKDOWN ═══════ */}

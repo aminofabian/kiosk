@@ -74,7 +74,8 @@ import { Settings } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { apiGet } from '@/lib/utils/api-client';
 import { ShopTypeSelector } from '@/components/pos/ShopTypeSelector';
-import { getShopType, shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
+import { getShopType, shouldShowCategory } from '@/lib/utils/shop-type';
+import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { storeUserRole, clearUserRole } from '@/lib/utils/user-role-storage';
 import { useDebounce } from '@/lib/hooks/use-debounce';
 import { useBarcodeScanner, isValidBarcode } from '@/lib/hooks/use-barcode-scanner';
@@ -169,7 +170,15 @@ export default function POSPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [shopType, setShopType] = useState<ShopType>(() => getShopType());
+  const { itemTypeKeys } = useItemTypes();
+  const [shopType, setShopType] = useState<string>(() => getShopType());
+
+  useEffect(() => {
+    if (itemTypeKeys.length > 0) {
+      setShopType((prev) => getShopType(itemTypeKeys) || prev);
+    }
+  }, [itemTypeKeys]);
+
   const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
   const [drawerCategoryId, setDrawerCategoryId] = useState<string | null>(null);
   const [drawerCategoryItems, setDrawerCategoryItems] = useState<ItemWithVariants[]>([]);
@@ -1359,7 +1368,7 @@ export default function POSPage() {
     ? filteredCategories.find((c) => c.id === selectedCategoryId)
     : null;
 
-  const handleShopTypeChange = (newShopType: ShopType) => {
+  const handleShopTypeChange = (newShopType: string) => {
     setShopType(newShopType);
     setSelectedCategoryId(null);
   };
@@ -2074,6 +2083,7 @@ export default function POSPage() {
                       onSelectParent={handleSelectParent}
                       onQuickAdd={handleQuickAdd}
                       shopType={shopType}
+                      itemTypeKeys={itemTypeKeys}
                       categories={categories}
                       featuredItems={featuredItems}
                       lowStockItems={lowStockHomeItems}
@@ -2622,6 +2632,7 @@ export default function POSPage() {
                     onSelectParent={handleSelectParent}
                     onQuickAdd={handleQuickAdd}
                     shopType={shopType}
+                    itemTypeKeys={itemTypeKeys}
                     categories={categories}
                     featuredItems={featuredItems}
                     lowStockItems={lowStockHomeItems}

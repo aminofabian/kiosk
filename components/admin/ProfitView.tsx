@@ -77,7 +77,7 @@ interface ExpenseSummary {
 type DatePreset = 'today' | 'week' | 'month' | 'custom';
 
 interface ProfitViewProps {
-  itemType?: 'grocery' | 'retail';
+  itemType?: string;
 }
 
 export function ProfitView({ itemType }: ProfitViewProps = {}) {

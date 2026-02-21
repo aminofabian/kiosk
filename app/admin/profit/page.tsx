@@ -12,8 +12,6 @@ import {
   Loader2,
   AlertTriangle,
   ArrowRight,
-  Leaf,
-  Store,
   DollarSign,
   ShoppingCart,
   Receipt,
@@ -27,6 +25,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import Link from 'next/link';
+import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { ProfitCalendar } from '@/components/admin/ProfitCalendar';
 import { LatestSalesCard } from '@/components/admin/LatestSalesCard';
 
@@ -80,9 +79,9 @@ const formatNumber = (num: number) =>
 // ─── Page ────────────────────────────────────────────────────────
 
 export default function ProfitHubPage() {
+  const { productTypes, itemTypeKeys } = useItemTypes();
   const [allData, setAllData] = useState<ProfitData | null>(null);
-  const [groceryData, setGroceryData] = useState<ProfitData | null>(null);
-  const [retailData, setRetailData] = useState<ProfitData | null>(null);
+  const [typeData, setTypeData] = useState<Record<string, ProfitData | null>>({});
   const [expenseData, setExpenseData] = useState<ExpenseSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +96,6 @@ export default function ProfitHubPage() {
   const [showAllItems, setShowAllItems] = useState(false);
 
   useEffect(() => { updateDateRange(datePreset); }, [datePreset]);
-  useEffect(() => { fetchData(); fetchExpenseData(); }, [dateRange]);
 
   function updateDateRange(preset: DatePreset) {
     if (preset === 'custom') return;
@@ -127,21 +125,30 @@ export default function ProfitHubPage() {
       const endOfDayMs = new Date(eY, eM - 1, eD, 23, 59, 59, 999).getTime();
       const endTs = Math.floor(endOfDayMs / 1000);
 
-      const [allRes, groceryRes, retailRes] = await Promise.all([
-        fetch(`/api/profit?start=${startTs}&end=${endTs}`).then(r => r.json()),
-        fetch(`/api/profit?start=${startTs}&end=${endTs}&itemType=grocery`).then(r => r.json()),
-        fetch(`/api/profit?start=${startTs}&end=${endTs}&itemType=retail`).then(r => r.json()),
-      ]);
-
+      const allRes = await fetch(`/api/profit?start=${startTs}&end=${endTs}`).then((r) => r.json());
       if (allRes.success) setAllData(allRes.data);
-      if (groceryRes.success) setGroceryData(groceryRes.data);
-      if (retailRes.success) setRetailData(retailRes.data);
+
+      const typeResList = await Promise.all(
+        itemTypeKeys.map((key) =>
+          fetch(`/api/profit?start=${startTs}&end=${endTs}&itemType=${encodeURIComponent(key)}`).then((r) => r.json())
+        )
+      );
+      const next: Record<string, ProfitData | null> = {};
+      itemTypeKeys.forEach((key, i) => {
+        next[key] = typeResList[i]?.success ? typeResList[i].data : null;
+      });
+      setTypeData(next);
     } catch {
       setError('Failed to load profit data');
     } finally {
       setLoading(false);
     }
-  }, [dateRange]);
+  }, [dateRange, itemTypeKeys]);
+
+  useEffect(() => {
+    fetchData();
+    fetchExpenseData();
+  }, [fetchData]);
 
   const getPeriodDays = () => {
     const [sY, sM, sD] = dateRange.start.split('-').map(Number);
@@ -159,19 +166,33 @@ export default function ProfitHubPage() {
   const totalExpenses = getTotalExpenses();
   const periodDays = getPeriodDays();
 
-  // Department data
-  const totalSalesCombined = (groceryData?.totalSales ?? 0) + (retailData?.totalSales ?? 0);
-  const groceryPct = totalSalesCombined > 0 ? ((groceryData?.totalSales ?? 0) / totalSalesCombined) * 100 : 0;
-  const retailPct = totalSalesCombined > 0 ? ((retailData?.totalSales ?? 0) / totalSalesCombined) * 100 : 0;
+  // Department data (dynamic by product types)
+  const totalSalesCombined = useMemo(
+    () => itemTypeKeys.reduce((sum, key) => sum + (typeData[key]?.totalSales ?? 0), 0),
+    [itemTypeKeys, typeData]
+  );
+  const getTypePct = (key: string) =>
+    totalSalesCombined > 0 ? ((typeData[key]?.totalSales ?? 0) / totalSalesCombined) * 100 : 0;
 
-  // Items
-  const allItems: (ItemProfit & { department: 'grocery' | 'retail' })[] = useMemo(() => [
-    ...(groceryData?.itemProfits ?? []).map(i => ({ ...i, department: 'grocery' as const })),
-    ...(retailData?.itemProfits ?? []).map(i => ({ ...i, department: 'retail' as const })),
-  ], [groceryData, retailData]);
+  // Items (department = type key)
+  const allItems: (ItemProfit & { department: string })[] = useMemo(
+    () =>
+      itemTypeKeys.flatMap((key) =>
+        (typeData[key]?.itemProfits ?? []).map((i) => ({ ...i, department: key }))
+      ),
+    [itemTypeKeys, typeData]
+  );
 
-  const groceryTopItems = useMemo(() => [...(groceryData?.itemProfits ?? [])].sort((a, b) => b.total_profit - a.total_profit).slice(0, 5), [groceryData]);
-  const retailTopItems = useMemo(() => [...(retailData?.itemProfits ?? [])].sort((a, b) => b.total_profit - a.total_profit).slice(0, 5), [retailData]);
+  const topItemsByType = useMemo(
+    () =>
+      Object.fromEntries(
+        itemTypeKeys.map((key) => [
+          key,
+          [...(typeData[key]?.itemProfits ?? [])].sort((a, b) => b.total_profit - a.total_profit).slice(0, 5),
+        ])
+      ),
+    [itemTypeKeys, typeData]
+  );
 
   const filteredItems = useMemo(() =>
     allItems
@@ -223,7 +244,7 @@ export default function ProfitHubPage() {
                     Profit Overview
                   </h1>
                   <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Combined grocery &amp; retail profit analysis
+                    Profit by department
                   </p>
                 </div>
               </div>
@@ -476,83 +497,56 @@ export default function ProfitHubPage() {
             </Link>
           )}
 
-          {/* Department Cards */}
+          {/* Department Cards - one per product type */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {/* Grocery */}
-            <Link href="/admin/profit/grocery" className="block group">
-              <Card className="border-2 border-green-200 dark:border-green-800 hover:border-green-400 dark:hover:border-green-600 transition-all hover:shadow-xl hover:shadow-green-500/10 h-full">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-green-500/20">
-                      <Leaf className="w-7 h-7 text-white" />
-                    </div>
-                    <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-green-500 group-hover:translate-x-1 transition-all" />
-                  </div>
-                  <h2 className="text-xl font-black text-slate-900 dark:text-white mb-1">Grocery Profit</h2>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                    Daily breakdowns, product performance, margin insights
-                  </p>
-                  {groceryData && groceryData.totalSales > 0 ? (
-                    <div className="grid grid-cols-3 gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                      <div>
-                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Sales</p>
-                        <p className="text-lg font-black text-green-600">{formatPrice(groceryData.totalSales)}</p>
+            {productTypes.map((t) => {
+              const data = typeData[t.key];
+              const color = t.color ?? '#22c55e';
+              return (
+                <Link key={t.key} href={`/admin/profit/${t.key}`} className="block group">
+                  <Card
+                    className="border-2 transition-all hover:shadow-xl h-full"
+                    style={{ borderColor: `${color}40` }}
+                  >
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div
+                          className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shadow-lg"
+                          style={{ background: `linear-gradient(135deg, ${color}, ${color}dd)`, boxShadow: `0 4px 14px ${color}40` }}
+                        >
+                          {t.emoji}
+                        </div>
+                        <ArrowRight className="w-5 h-5 text-slate-300 group-hover:translate-x-1 transition-all" style={{ color: data?.totalSales ? color : undefined }} />
                       </div>
-                      <div>
-                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Profit</p>
-                        <p className="text-lg font-black text-slate-700 dark:text-slate-300">{formatPrice(groceryData.totalProfit)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Margin</p>
-                        <p className="text-lg font-black text-slate-700 dark:text-slate-300">{formatPercent(groceryData.grossMargin ?? groceryData.profitMargin)}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                      <p className="text-sm text-slate-400">No grocery sales this period</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </Link>
-
-            {/* Retail */}
-            <Link href="/admin/profit/retail" className="block group">
-              <Card className="border-2 border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600 transition-all hover:shadow-xl hover:shadow-blue-500/10 h-full">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                      <Store className="w-7 h-7 text-white" />
-                    </div>
-                    <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
-                  </div>
-                  <h2 className="text-xl font-black text-slate-900 dark:text-white mb-1">Retail Profit</h2>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                    Product analytics, stock performance, tracking
-                  </p>
-                  {retailData && retailData.totalSales > 0 ? (
-                    <div className="grid grid-cols-3 gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                      <div>
-                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Sales</p>
-                        <p className="text-lg font-black text-blue-600">{formatPrice(retailData.totalSales)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Profit</p>
-                        <p className="text-lg font-black text-slate-700 dark:text-slate-300">{formatPrice(retailData.totalProfit)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Margin</p>
-                        <p className="text-lg font-black text-slate-700 dark:text-slate-300">{formatPercent(retailData.grossMargin ?? retailData.profitMargin)}</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                      <p className="text-sm text-slate-400">No retail sales this period</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </Link>
+                      <h2 className="text-xl font-black text-slate-900 dark:text-white mb-1">{t.label} Profit</h2>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                        Daily breakdowns, product performance, margin insights
+                      </p>
+                      {data && data.totalSales > 0 ? (
+                        <div className="grid grid-cols-3 gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+                          <div>
+                            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Sales</p>
+                            <p className="text-lg font-black" style={{ color }}>{formatPrice(data.totalSales)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Profit</p>
+                            <p className="text-lg font-black text-slate-700 dark:text-slate-300">{formatPrice(data.totalProfit)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Margin</p>
+                            <p className="text-lg font-black text-slate-700 dark:text-slate-300">{formatPercent(data.grossMargin ?? data.profitMargin)}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                          <p className="text-sm text-slate-400">No {t.label.toLowerCase()} sales this period</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
 
           {/* Department Comparison */}
@@ -566,128 +560,84 @@ export default function ProfitHubPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {/* Grocery */}
-                  {groceryData && groceryData.totalSales > 0 && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Leaf className="w-4 h-4 text-green-500" />
-                          <span className="font-bold text-sm text-slate-700 dark:text-slate-300">Grocery</span>
+                  {productTypes.map((t) => {
+                    const d = typeData[t.key];
+                    if (!d || d.totalSales <= 0) return null;
+                    const pct = getTypePct(t.key);
+                    const color = t.color ?? '#22c55e';
+                    return (
+                      <div key={t.key} className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg" aria-hidden>{t.emoji}</span>
+                            <span className="font-bold text-sm text-slate-700 dark:text-slate-300">{t.label}</span>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm">
+                            <span className="font-black text-slate-900 dark:text-white">{formatPrice(d.totalSales)}</span>
+                            <span className="text-slate-400">{pct.toFixed(0)}%</span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-4 text-sm">
-                          <span className="font-black text-slate-900 dark:text-white">{formatPrice(groceryData.totalSales)}</span>
-                          <span className="text-slate-400">{groceryPct.toFixed(0)}%</span>
+                        <div className="relative h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
+                            style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${color}, ${color}dd)` }}
+                          />
                         </div>
-                      </div>
-                      <div className="relative h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all duration-700"
-                          style={{ width: `${groceryPct}%` }}
-                        />
-                      </div>
-                      <div className="flex gap-6 text-xs text-slate-500">
-                        <span>Profit: {formatPrice(groceryData.totalProfit)}</span>
-                        <span>{formatNumber(groceryData.totalQuantitySold)} items</span>
-                        <span>{groceryData.totalTransactions} orders</span>
-                      </div>
-                    </div>
-                  )}
-                  {/* Retail */}
-                  {retailData && retailData.totalSales > 0 && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <Store className="w-4 h-4 text-blue-500" />
-                          <span className="font-bold text-sm text-slate-700 dark:text-slate-300">Retail</span>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm">
-                          <span className="font-black text-slate-900 dark:text-white">{formatPrice(retailData.totalSales)}</span>
-                          <span className="text-slate-400">{retailPct.toFixed(0)}%</span>
+                        <div className="flex gap-6 text-xs text-slate-500">
+                          <span>Profit: {formatPrice(d.totalProfit)}</span>
+                          <span>{formatNumber(d.totalQuantitySold)} items</span>
+                          <span>{d.totalTransactions} orders</span>
                         </div>
                       </div>
-                      <div className="relative h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-blue-400 to-indigo-500 transition-all duration-700"
-                          style={{ width: `${retailPct}%` }}
-                        />
-                      </div>
-                      <div className="flex gap-6 text-xs text-slate-500">
-                        <span>Profit: {formatPrice(retailData.totalProfit)}</span>
-                        <span>{formatNumber(retailData.totalQuantitySold)} items</span>
-                        <span>{retailData.totalTransactions} orders</span>
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Top Earners */}
+          {/* Top Earners by type */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <Card className="border-2 border-slate-200 dark:border-slate-700">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <Leaf className="w-4 h-4 text-green-500" />
-                  Top Grocery Earners
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {groceryTopItems.length === 0 ? (
-                  <p className="text-center text-slate-400 py-4 text-sm">No data</p>
-                ) : (
-                  <div className="space-y-3">
-                    {groceryTopItems.map((item, i) => {
-                      const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
-                      return (
-                        <div key={item.item_id} className="flex items-center gap-3">
-                          <div className="w-6 h-6 flex items-center justify-center rounded-md bg-green-100 dark:bg-green-900/30 text-green-600 text-[10px] font-black shrink-0">
-                            {i + 1}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-bold text-sm text-slate-900 dark:text-white truncate">{item.item_name}</p>
-                            <p className="text-xs text-slate-500">{item.quantity_sold.toFixed(0)} sold &bull; {margin.toFixed(0)}% margin</p>
-                          </div>
-                          <p className="text-sm font-black text-green-600 shrink-0">+{formatPrice(item.total_profit)}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="border-2 border-slate-200 dark:border-slate-700">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <Store className="w-4 h-4 text-blue-500" />
-                  Top Retail Earners
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {retailTopItems.length === 0 ? (
-                  <p className="text-center text-slate-400 py-4 text-sm">No data</p>
-                ) : (
-                  <div className="space-y-3">
-                    {retailTopItems.map((item, i) => {
-                      const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
-                      return (
-                        <div key={item.item_id} className="flex items-center gap-3">
-                          <div className="w-6 h-6 flex items-center justify-center rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-600 text-[10px] font-black shrink-0">
-                            {i + 1}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-bold text-sm text-slate-900 dark:text-white truncate">{item.item_name}</p>
-                            <p className="text-xs text-slate-500">{item.quantity_sold.toFixed(0)} sold &bull; {margin.toFixed(0)}% margin</p>
-                          </div>
-                          <p className="text-sm font-black text-blue-600 shrink-0">+{formatPrice(item.total_profit)}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            {productTypes.map((t) => {
+              const topItems = topItemsByType[t.key] ?? [];
+              const color = t.color ?? '#22c55e';
+              return (
+                <Card key={t.key} className="border-2 border-slate-200 dark:border-slate-700">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                      <span className="text-lg" aria-hidden>{t.emoji}</span>
+                      Top {t.label} Earners
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {topItems.length === 0 ? (
+                      <p className="text-center text-slate-400 py-4 text-sm">No data</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {topItems.map((item, i) => {
+                          const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
+                          return (
+                            <div key={item.item_id} className="flex items-center gap-3">
+                              <div
+                                className="w-6 h-6 flex items-center justify-center rounded-md text-[10px] font-black shrink-0"
+                                style={{ backgroundColor: `${color}20`, color }}
+                              >
+                                {i + 1}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-bold text-sm text-slate-900 dark:text-white truncate">{item.item_name}</p>
+                                <p className="text-xs text-slate-500">{item.quantity_sold.toFixed(0)} sold &bull; {margin.toFixed(0)}% margin</p>
+                              </div>
+                              <p className="text-sm font-black shrink-0" style={{ color }}>+{formatPrice(item.total_profit)}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
 
           {/* Profit Calendar */}
@@ -758,7 +708,9 @@ export default function ProfitHubPage() {
                         .map((item) => {
                           const margin = item.total_sales > 0 ? item.total_profit / item.total_sales : 0;
                           const isPositive = item.total_profit >= 0;
-                          const isGrocery = item.department === 'grocery';
+                          const deptConfig = productTypes.find((x) => x.key === item.department);
+                          const deptLabel = deptConfig?.label ?? item.department;
+                          const deptColor = deptConfig?.color ?? '#22c55e';
                           return (
                             <tr key={`${item.department}-${item.item_id}`} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30">
                               <td className="px-4 py-2.5">
@@ -771,8 +723,8 @@ export default function ProfitHubPage() {
                                 </div>
                               </td>
                               <td className="px-4 py-2.5 text-center">
-                                <Badge className={`text-[9px] border-0 ${isGrocery ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
-                                  {isGrocery ? 'Grocery' : 'Retail'}
+                                <Badge className="text-[9px] border-0" style={{ backgroundColor: `${deptColor}20`, color: deptColor }}>
+                                  {deptLabel}
                                 </Badge>
                               </td>
                               <td className="px-4 py-2.5 text-right font-semibold text-slate-600 dark:text-slate-300 text-xs">{item.quantity_sold.toFixed(0)}</td>

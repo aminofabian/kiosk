@@ -1,15 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Leaf,
   TrendingUp,
-
   ShoppingCart,
   Package,
   AlertTriangle,
@@ -30,6 +29,7 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '@/lib/utils/api-client';
 import Link from 'next/link';
+import { useItemTypes } from '@/lib/hooks/use-item-types';
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -135,7 +135,16 @@ const UNIT_LABELS: Record<string, string> = {
 
 // ─── Component ───────────────────────────────────────────────────
 
-export default function GrocerySalesPage() {
+export default function SalesByTypePage() {
+  const params = useParams();
+  const router = useRouter();
+  const type = (params?.type as string) ?? '';
+  const { productTypes, itemTypeKeys, loading: typesLoading } = useItemTypes();
+  const typeConfig = productTypes.find((t) => t.key === type);
+  const typeLabel = typeConfig?.label ?? type;
+  const typeEmoji = typeConfig?.emoji ?? '📦';
+  const typeColor = typeConfig?.color ?? '#22c55e';
+
   const [data, setData] = useState<GroceryAnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -146,33 +155,40 @@ export default function GrocerySalesPage() {
   const [dayProducts, setDayProducts] = useState<Record<string, DailyProduct[]>>({});
   const [loadingDayProducts, setLoadingDayProducts] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!typesLoading && itemTypeKeys.length > 0 && type && !itemTypeKeys.includes(type)) {
+      router.replace('/admin/sales');
+    }
+  }, [type, itemTypeKeys, typesLoading, router]);
+
   const fetchData = useCallback(async () => {
+    if (!type) return;
     try {
       setLoading(true);
       setError(null);
-      let url = `/api/sales/analytics/daily?itemType=grocery&days=${days}`;
+      let url = `/api/sales/analytics/daily?itemType=${encodeURIComponent(type)}&days=${days}`;
       if (selectedDate) url += `&date=${selectedDate}`;
       const result = await apiFetch<GroceryAnalyticsData>(url, { cache: 'no-store' });
       if (result.success && result.data) {
         setData(result.data);
       } else {
-        setError(result.message || 'Failed to load grocery data');
+        setError(result.message || 'Failed to load sales data');
       }
     } catch {
-      setError('Failed to load grocery sales data');
+      setError('Failed to load sales data');
     } finally {
       setLoading(false);
     }
-  }, [days, selectedDate]);
+  }, [type, days, selectedDate]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const fetchDayProducts = useCallback(async (dateKey: string) => {
-    if (dayProducts[dateKey]) return;
+    if (dayProducts[dateKey] || !type) return;
     try {
       setLoadingDayProducts(dateKey);
       const result = await apiFetch<GroceryAnalyticsData>(
-        `/api/sales/analytics/daily?itemType=grocery&days=1&date=${dateKey}`,
+        `/api/sales/analytics/daily?itemType=${encodeURIComponent(type)}&days=1&date=${dateKey}`,
         { cache: 'no-store' }
       );
       if (result.success && result.data) {
@@ -183,7 +199,7 @@ export default function GrocerySalesPage() {
     } finally {
       setLoadingDayProducts(null);
     }
-  }, [dayProducts]);
+  }, [dayProducts, type]);
 
   const toggleDay = (dateKey: string) => {
     if (expandedDay === dateKey) {
@@ -194,6 +210,19 @@ export default function GrocerySalesPage() {
     }
   };
 
+  if (!typeConfig && itemTypeKeys.length > 0) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center space-y-3">
+            <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto" />
+            <p className="text-slate-600 dark:text-slate-400">Unknown product type. Redirecting...</p>
+          </div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
   // ─── Loading / Error States ───
   if (loading) {
     return (
@@ -201,7 +230,7 @@ export default function GrocerySalesPage() {
         <div className="flex items-center justify-center h-screen">
           <div className="text-center space-y-4">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-green-600" />
-            <p className="text-slate-500 dark:text-slate-400">Loading grocery analytics...</p>
+            <p className="text-slate-500 dark:text-slate-400">Loading {typeLabel} analytics...</p>
           </div>
         </div>
       </AdminLayout>
@@ -256,12 +285,15 @@ export default function GrocerySalesPage() {
                 <Link href="/admin/sales" className="p-2 -ml-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                   <ArrowLeft className="w-5 h-5 text-slate-500" />
                 </Link>
-                <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-emerald-600 flex items-center justify-center rounded-lg shadow-lg shadow-green-500/20">
-                  <Leaf className="w-5 h-5 text-white" />
+                <div
+                  className="w-10 h-10 flex items-center justify-center rounded-lg shadow-lg text-2xl"
+                  style={{ background: `linear-gradient(135deg, ${typeColor}, ${typeColor}dd)`, boxShadow: `0 4px 14px ${typeColor}40` }}
+                >
+                  {typeEmoji}
                 </div>
                 <div>
                   <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white">
-                    Grocery Sales
+                    {typeLabel} Sales
                   </h1>
                   <p className="text-sm text-slate-500 dark:text-slate-400">
                     Last {days} days &bull; {formatNumber(summary.totalTransactions)} transactions
@@ -620,7 +652,7 @@ export default function GrocerySalesPage() {
                 <div className="flex flex-col items-center justify-center py-12">
                   <PackageX className="w-8 h-8 text-slate-300 mb-2" />
                   <p className="text-sm text-slate-400">
-                    {searchQuery ? 'No products match your search' : 'No grocery products sold today'}
+                    {searchQuery ? 'No products match your search' : `No ${typeLabel.toLowerCase()} products sold today`}
                   </p>
                 </div>
               ) : (
@@ -783,7 +815,7 @@ export default function GrocerySalesPage() {
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-bold flex items-center gap-2 text-orange-600">
                   <AlertTriangle className="w-4 h-4" />
-                  Grocery Stock Alerts ({stockAlerts.length})
+                  {typeLabel} Stock Alerts ({stockAlerts.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>

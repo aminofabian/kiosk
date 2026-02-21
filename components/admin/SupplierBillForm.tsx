@@ -39,8 +39,10 @@ import {
   Repeat,
   Store,
   ScanBarcode,
+  RotateCcw,
 } from 'lucide-react';
 import { apiGet, apiPost, apiPatch } from '@/lib/utils/api-client';
+import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -59,6 +61,7 @@ interface Supplier {
   contact_email: string | null;
   location?: string | null;
   notes?: string | null;
+  supplier_type?: string | null;
   preferred_payment_method?: string | null;
   payment_details?: string | null;
 }
@@ -99,6 +102,7 @@ interface LinkedProduct {
 }
 
 export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, onOpenManageLinkProducts }: SupplierBillFormProps) {
+  const { productTypes } = useItemTypes();
   const PACKAGING_PRESETS = ['Carton', 'Sack', 'Net', 'Crate', 'Box', 'Bag', 'Bale', 'Bundle', 'Tray'];
   const PAYMENT_METHODS = [
     { id: 'cash', label: 'Cash', icon: Banknote, color: 'emerald' },
@@ -129,6 +133,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
   const [newSupplierEmail, setNewSupplierEmail] = useState('');
   const [newSupplierLocation, setNewSupplierLocation] = useState('');
   const [newSupplierNotes, setNewSupplierNotes] = useState('');
+  const [newSupplierType, setNewSupplierType] = useState<string>('');
   const [isCreatingSupplier, setIsCreatingSupplier] = useState(false);
   const [supplierError, setSupplierError] = useState<string | null>(null);
   const [loadingLinkedProducts, setLoadingLinkedProducts] = useState(false);
@@ -139,11 +144,13 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
   const [editSupplierEmail, setEditSupplierEmail] = useState('');
   const [editSupplierLocation, setEditSupplierLocation] = useState('');
   const [editSupplierNotes, setEditSupplierNotes] = useState('');
+  const [editSupplierType, setEditSupplierType] = useState<string>('');
   const [editSupplierPaymentMethods, setEditSupplierPaymentMethods] = useState<string[]>([]);
   const [editSupplierPaymentDetails, setEditSupplierPaymentDetails] = useState('');
   const [isUpdatingSupplier, setIsUpdatingSupplier] = useState(false);
   const [editSupplierError, setEditSupplierError] = useState<string | null>(null);
-  const [isResettingStock, setIsResettingStock] = useState(false);
+  const [supplierTypeFilter, setSupplierTypeFilter] = useState<string>('all');
+  const [resettingStockItemIds, setResettingStockItemIds] = useState<Set<string>>(new Set());
   const [productSearch, setProductSearch] = useState('');
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
   const [paymentDetails, setPaymentDetails] = useState('');
@@ -164,7 +171,10 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
     async function fetchSuppliers() {
       try {
         setLoadingSuppliers(true);
-        const result = await apiGet<Supplier[]>('/api/suppliers');
+        const url = supplierTypeFilter && supplierTypeFilter !== 'all'
+          ? `/api/suppliers?supplierType=${encodeURIComponent(supplierTypeFilter)}`
+          : '/api/suppliers';
+        const result = await apiGet<Supplier[]>(url);
         if (result.success) {
           setSuppliers(result.data || []);
           if (preSelectedSupplierId) {
@@ -186,7 +196,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
     }
     fetchSuppliers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [supplierTypeFilter]);
 
   // Fetch linked products when supplier changes
   useEffect(() => {
@@ -270,6 +280,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
     setEditSupplierEmail(existing.contact_email || '');
     setEditSupplierLocation(existing.location || '');
     setEditSupplierNotes(existing.notes || '');
+    setEditSupplierType(existing.supplier_type || '');
     setEditSupplierPaymentMethods(
       existing.preferred_payment_method
         ? existing.preferred_payment_method.split(',').map((s) => s.trim()).filter(Boolean)
@@ -298,6 +309,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
         contactEmail: editSupplierEmail.trim() || null,
         location: editSupplierLocation.trim() || null,
         notes: editSupplierNotes.trim() || null,
+        supplierType: editSupplierType?.trim() || null,
         preferredPaymentMethod: editSupplierPaymentMethods.length > 0 ? editSupplierPaymentMethods.join(',') : null,
         paymentDetails: editSupplierPaymentDetails.trim() || null,
       });
@@ -350,6 +362,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
         contactEmail: newSupplierEmail.trim() || null,
         location: newSupplierLocation.trim() || null,
         notes: newSupplierNotes.trim() || null,
+        supplierType: newSupplierType?.trim() || null,
       });
 
       if (result.success) {
@@ -374,6 +387,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
         setNewSupplierEmail('');
         setNewSupplierLocation('');
         setNewSupplierNotes('');
+        setNewSupplierType('');
         setNewSupplierDialogOpen(false);
       } else {
         setSupplierError(result.message || 'Failed to create supplier');
@@ -481,85 +495,53 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
     );
   };
 
-  const handleResetStockToZero = async () => {
-    if (isResettingStock) return;
-
-    const itemsToReset = lineItems.filter(
-      (item) =>
-        item.itemId &&
-        item.currentStock != null &&
-        item.currentStock !== 0
-    );
-
-    if (itemsToReset.length === 0) {
-      toast.info('No linked products with stock to reset.');
+  const handleResetStockForItem = async (item: BillLineItem) => {
+    if (
+      !item.itemId ||
+      item.currentStock == null ||
+      item.currentStock === 0
+    ) {
+      toast.info('No stock to reset for this product.');
       return;
     }
-
+    const lineId = item.id;
     toast(
-      `This will reset current stock to 0 for ${itemsToReset.length} linked product${
-        itemsToReset.length !== 1 ? 's' : ''
-      } (including negatives). This cannot be undone.`,
+      `Reset current stock to 0 for "${item.description}"? This cannot be undone.`,
       {
         action: {
           label: 'Continue',
           onClick: async () => {
-            setIsResettingStock(true);
+            setResettingStockItemIds((prev) => new Set(prev).add(lineId));
             try {
-              const results = await Promise.allSettled(
-                itemsToReset.map((item) => {
-                  const current = item.currentStock!;
-                  const adjustmentType = current > 0 ? 'decrease' : 'increase';
-                  const quantity = Math.abs(current);
-
-                  return apiPost('/api/stock/adjust', {
-                    itemId: item.itemId!,
-                    adjustmentType,
-                    quantity,
-                    reason: 'counting_error',
-                    notes: 'Reset from Supplier Bill',
-                  });
-                })
-              );
-
-              const succeededItemIds = new Set(
-                itemsToReset
-                  .map((item, index) => {
-                    const res = results[index];
-                    if (
-                      res.status === 'fulfilled' &&
-                      (res.value as { success?: boolean })?.success
-                    ) {
-                      return item.itemId!;
-                    }
-                    return null;
-                  })
-                  .filter((id): id is string => Boolean(id))
-              );
-
-              if (succeededItemIds.size === 0) {
+              const current = item.currentStock!;
+              const adjustmentType = current > 0 ? 'decrease' : 'increase';
+              const quantity = Math.abs(current);
+              const result = await apiPost('/api/stock/adjust', {
+                itemId: item.itemId!,
+                adjustmentType,
+                quantity,
+                reason: 'counting_error',
+                notes: 'Reset from Supplier Bill',
+              });
+              if ((result as { success?: boolean })?.success) {
+                setLineItems((prev) =>
+                  prev.map((i) =>
+                    i.id === lineId ? { ...i, currentStock: 0 } : i
+                  )
+                );
+                toast.success(`Stock reset to zero for "${item.description}".`);
+              } else {
                 toast.error('Failed to reset stock. Please try again.');
-                return;
               }
-
-              setLineItems((prev) =>
-                prev.map((item) =>
-                  item.itemId && succeededItemIds.has(item.itemId)
-                    ? { ...item, currentStock: 0 }
-                    : item
-                )
-              );
-
-              toast.success(
-                `Stock reset to zero for ${succeededItemIds.size} product${
-                  succeededItemIds.size !== 1 ? 's' : ''
-                }.`
-              );
             } catch (err) {
               console.error('Error resetting stock:', err);
               toast.error('Failed to reset stock. Please try again.');
             } finally {
-              setIsResettingStock(false);
+              setResettingStockItemIds((prev) => {
+                const next = new Set(prev);
+                next.delete(lineId);
+                return next;
+              });
             }
           },
         },
@@ -849,18 +831,36 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
               </div>
             ) : (
               <>
-                {/* Search */}
-                {suppliers.length > 4 && (
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <Input
-                      value={supplierSearch}
-                      onChange={(e) => setSupplierSearch(e.target.value)}
-                      placeholder="Search suppliers..."
-                      className="pl-9 h-10 border-2 border-slate-200 dark:border-slate-700 rounded-xl"
-                    />
-                  </div>
-                )}
+                {/* Type filter + Search */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {productTypes.length > 0 && (
+                    <Select value={supplierTypeFilter} onValueChange={setSupplierTypeFilter}>
+                      <SelectTrigger className="w-[140px] h-10 border-2 border-slate-200 dark:border-slate-700 rounded-xl text-sm">
+                        <Tag className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
+                        <SelectValue placeholder="Type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All types</SelectItem>
+                        {productTypes.map((t) => (
+                          <SelectItem key={t.key} value={t.key}>
+                            {t.emoji} {t.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  {suppliers.length > 4 && (
+                    <div className="relative flex-1 min-w-[160px]">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                      <Input
+                        value={supplierSearch}
+                        onChange={(e) => setSupplierSearch(e.target.value)}
+                        placeholder="Search suppliers..."
+                        className="pl-9 h-10 border-2 border-slate-200 dark:border-slate-700 rounded-xl"
+                      />
+                    </div>
+                  )}
+                </div>
 
                 {/* Grid of supplier cards */}
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 pr-1">
@@ -899,6 +899,16 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
                               {supplier.contact_phone}
                             </p>
                           )}
+                          {supplier.supplier_type && (() => {
+                            const t = productTypes.find((x) => x.key === supplier.supplier_type);
+                            return t ? (
+                              <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ backgroundColor: `${t.color}20`, color: t.color }}>
+                                {t.emoji} {t.label}
+                              </span>
+                            ) : (
+                              <span className="inline-block mt-1 text-[10px] text-slate-400">{supplier.supplier_type}</span>
+                            );
+                          })()}
                         </div>
                         <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 shrink-0 transition-colors" />
                       </button>
@@ -938,28 +948,6 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
               )}
             </div>
             <div className="flex items-center gap-2">
-              {linkedCount > 0 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleResetStockToZero}
-                  disabled={isResettingStock}
-                  className="h-7 text-xs border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
-                >
-                  {isResettingStock ? (
-                    <>
-                      <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                      Reset stock
-                    </>
-                  ) : (
-                    <>
-                      <Trash2 className="w-3 h-3 mr-1" />
-                      Reset stock
-                    </>
-                  )}
-                </Button>
-              )}
               <Button
                 type="button"
                 variant="outline"
@@ -996,7 +984,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
           </div>
 
           {/* Table-style header (visible on larger screens) */}
-          <div className="hidden sm:grid sm:grid-cols-[1fr_80px_100px_90px_28px] gap-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+          <div className="hidden sm:grid sm:grid-cols-[1fr_80px_100px_90px_56px] gap-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
             <span>Product</span>
             <span className="text-center">Qty</span>
             <span className="text-center">Buy Price</span>
@@ -1033,7 +1021,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
                   {/* ── Desktop layout ── */}
                   <div className="hidden sm:block">
                     {/* Main row */}
-                    <div className="grid sm:grid-cols-[1fr_80px_100px_90px_28px] gap-2 items-center px-3 py-2.5">
+                    <div className="grid sm:grid-cols-[1fr_80px_100px_90px_56px] gap-2 items-center px-3 py-2.5">
                       {/* Product name + meta */}
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
@@ -1121,20 +1109,41 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
                         </span>
                       </div>
 
-                      {/* Delete */}
-                      {lineItems.length > 1 ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeLineItem(item.id)}
-                          className="h-6 w-6 p-0 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      ) : (
-                        <div className="w-6" />
-                      )}
+                      {/* Actions: Delete + Reset stock (per linked product) */}
+                      <div className="flex items-center gap-1 justify-end">
+                        {item.itemId &&
+                        item.currentStock != null &&
+                        item.currentStock !== 0 ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            title="Reset stock to 0"
+                            onClick={() => handleResetStockForItem(item)}
+                            disabled={resettingStockItemIds.has(item.id)}
+                            className="h-6 w-6 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/30 rounded-lg transition-transform active:scale-90 disabled:opacity-70"
+                          >
+                            {resettingStockItemIds.has(item.id) ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <RotateCcw className="w-3 h-3" />
+                            )}
+                          </Button>
+                        ) : null}
+                        {lineItems.length > 1 ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeLineItem(item.id)}
+                            className="h-6 w-6 p-0 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        ) : (
+                          <div className="w-6" />
+                        )}
+                      </div>
                     </div>
 
                     {/* Bulk packaging row (desktop) - revealed via toggle */}
@@ -1218,6 +1227,25 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
                         )}
                       </div>
                       <div className="flex items-center gap-1 ml-2">
+                        {item.itemId &&
+                        item.currentStock != null &&
+                        item.currentStock !== 0 ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            title="Reset stock to 0"
+                            onClick={() => handleResetStockForItem(item)}
+                            disabled={resettingStockItemIds.has(item.id)}
+                            className="h-6 w-6 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/30 rounded-lg transition-transform active:scale-90 disabled:opacity-70 shrink-0"
+                          >
+                            {resettingStockItemIds.has(item.id) ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <RotateCcw className="w-3 h-3" />
+                            )}
+                          </Button>
+                        ) : null}
                         <Button
                           type="button"
                           variant="ghost"
@@ -1392,28 +1420,6 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
 
           {/* Add Item at bottom - so you don't have to scroll up after adding a row */}
           <div className="flex items-center justify-end gap-2 pt-1">
-            {linkedCount > 0 && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleResetStockToZero}
-                disabled={isResettingStock}
-                className="h-7 text-xs border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20"
-              >
-                {isResettingStock ? (
-                  <>
-                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                    Reset stock
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="w-3 h-3 mr-1" />
-                    Reset stock
-                  </>
-                )}
-              </Button>
-            )}
             <Button
               type="button"
               variant="outline"
@@ -1792,6 +1798,26 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
                 className="border-2 border-slate-200 dark:border-slate-700"
               />
             </div>
+
+            {productTypes.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-slate-700 dark:text-slate-300 font-bold flex items-center gap-1.5">
+                  <Tag className="w-4 h-4 text-[#1c6a1e]" />
+                  Type
+                </Label>
+                <Select value={newSupplierType || 'none'} onValueChange={(v) => setNewSupplierType(v === 'none' ? '' : v)}>
+                  <SelectTrigger className="h-12 border-2 border-slate-200 dark:border-slate-700">
+                    <SelectValue placeholder="Select type (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {productTypes.map((t) => (
+                      <SelectItem key={t.key} value={t.key}>{t.emoji} {t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           <DialogFooter>
@@ -1806,6 +1832,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
                 setNewSupplierEmail('');
                 setNewSupplierLocation('');
                 setNewSupplierNotes('');
+                setNewSupplierType('');
               }}
               disabled={isCreatingSupplier}
             >
@@ -1923,6 +1950,26 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
                 className="border-2 border-slate-200 dark:border-slate-700"
               />
             </div>
+
+            {productTypes.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-slate-700 dark:text-slate-300 font-bold flex items-center gap-1.5">
+                  <Tag className="w-4 h-4 text-[#1c6a1e]" />
+                  Type
+                </Label>
+                <Select value={editSupplierType || 'none'} onValueChange={(v) => setEditSupplierType(v === 'none' ? '' : v)}>
+                  <SelectTrigger className="h-12 border-2 border-slate-200 dark:border-slate-700">
+                    <SelectValue placeholder="Select type (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {productTypes.map((t) => (
+                      <SelectItem key={t.key} value={t.key}>{t.emoji} {t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             {/* Payment method & details (same options as bill form) */}
             <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-700">

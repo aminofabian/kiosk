@@ -26,8 +26,10 @@ import {
   Link2,
   Receipt,
   Check,
+  Tag,
 } from 'lucide-react';
-import { apiGet, apiPost, apiDelete } from '@/lib/utils/api-client';
+import { apiGet, apiPost, apiDelete, apiPatch } from '@/lib/utils/api-client';
+import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { toast } from 'sonner';
 
 interface Supplier {
@@ -37,6 +39,7 @@ interface Supplier {
   contact_email: string | null;
   location: string | null;
   notes: string | null;
+  supplier_type?: string | null;
 }
 
 interface LinkedProduct {
@@ -68,6 +71,7 @@ interface SupplierProductsDrawerProps {
   supplier: Supplier | null;
   onCreateBill?: (supplierId: string, supplierName: string) => void;
   onSupplierDeleted?: () => void;
+  onSupplierUpdated?: (supplier: Supplier) => void;
 }
 
 export function SupplierProductsDrawer({
@@ -76,12 +80,15 @@ export function SupplierProductsDrawer({
   supplier,
   onCreateBill,
   onSupplierDeleted,
+  onSupplierUpdated,
 }: SupplierProductsDrawerProps) {
+  const { productTypes } = useItemTypes();
   const [linkedProducts, setLinkedProducts] = useState<LinkedProduct[]>([]);
   const [allItems, setAllItems] = useState<AllItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingItems, setLoadingItems] = useState(false);
   const [deletingSupplier, setDeletingSupplier] = useState(false);
+  const [settingType, setSettingType] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [addingItemIds, setAddingItemIds] = useState<Set<string>>(new Set());
   const [removingItemIds, setRemovingItemIds] = useState<Set<string>>(new Set());
@@ -168,6 +175,26 @@ export function SupplierProductsDrawer({
     }
   };
 
+  const handleSetSupplierType = async (typeKey: string) => {
+    if (!supplier) return;
+    setSettingType(typeKey);
+    try {
+      const result = await apiPatch<{ success: boolean }>(`/api/suppliers/${supplier.id}`, { supplierType: typeKey });
+      if (result.success) {
+        const updated = { ...supplier, supplier_type: typeKey };
+        onSupplierUpdated?.(updated);
+        toast.success('Supplier type updated');
+      } else {
+        toast.error(result.message || 'Failed to update type');
+      }
+    } catch (err) {
+      console.error('Error updating supplier type:', err);
+      toast.error('Failed to update type');
+    } finally {
+      setSettingType(null);
+    }
+  };
+
   const handleDeleteSupplier = async () => {
     if (!supplier) return;
     toast(`Delete supplier "${supplier.name}"? Linked products and bill history will be unaffected; existing bills will show as "No supplier". This cannot be undone.`, {
@@ -236,6 +263,32 @@ export function SupplierProductsDrawer({
           <DrawerDescription className="text-slate-600 dark:text-slate-400">
             Manage linked products for this supplier
           </DrawerDescription>
+          {productTypes.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2 pt-3 mt-3 border-t border-slate-200 dark:border-slate-700">
+              <Tag className="w-4 h-4 text-slate-400 shrink-0" />
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Quick type:</span>
+              {productTypes.map((t) => {
+                const isCurrent = supplier.supplier_type === t.key;
+                const isUpdating = settingType === t.key;
+                return (
+                  <Button
+                    key={t.key}
+                    type="button"
+                    variant={isCurrent ? 'default' : 'outline'}
+                    size="sm"
+                    className="h-8 text-xs"
+                    style={isCurrent ? { backgroundColor: t.color, borderColor: t.color } : undefined}
+                    disabled={!!settingType}
+                    onClick={() => handleSetSupplierType(t.key)}
+                  >
+                    {isUpdating ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
+                    <span className="mr-1">{t.emoji}</span>
+                    {t.label}
+                  </Button>
+                );
+              })}
+            </div>
+          )}
         </DrawerHeader>
 
         <div className="flex flex-col flex-1 min-h-0 bg-white dark:bg-[#0f1a0d]">

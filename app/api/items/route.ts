@@ -26,9 +26,10 @@ export async function GET(request: NextRequest) {
     const parentsOnly = searchParams.get('parentsOnly') === 'true';
     const parentId = searchParams.get('parentId'); // Get variants of a specific parent
     const sellableOnly = searchParams.get('sellableOnly') === 'true'; // Only items that can be sold (not parent containers)
-    const itemType = searchParams.get('itemType'); // 'grocery' | 'retail' - filter by item type
+    const itemType = searchParams.get('itemType')?.trim() || null;
 
-    const itemTypeFilter = itemType === 'grocery' || itemType === 'retail' ? ` AND item_type = '${itemType}'` : '';
+    const itemTypeFilter = itemType ? ` AND item_type = ?` : '';
+    const itemTypeParam = itemType ? [itemType] : [];
     // When includeInactive=true (admin "show deleted"), include soft-deleted items
     const activeFilter = includeInactive && all ? '' : ' AND active = 1';
     const iActiveFilter = includeInactive && all ? '' : ' AND i.active = 1';
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
         `SELECT * FROM items 
          WHERE business_id = ? AND parent_item_id = ? AND active = 1 ${itemTypeFilter}
          ORDER BY variant_name ASC, unit_type ASC`,
-        [auth.businessId, parentId]
+        [auth.businessId, parentId, ...itemTypeParam]
       );
     } else if (search) {
       const searchLower = search.toLowerCase().trim();
@@ -177,7 +178,7 @@ export async function GET(request: NextRequest) {
           `SELECT * FROM items 
            WHERE business_id = ?${activeFilter} AND parent_item_id IS NULL${itemTypeFilter}
            ORDER BY name ASC`,
-          [auth.businessId]
+          [auth.businessId, ...itemTypeParam]
         );
       } else if (sellableOnly) {
         // Only sellable items (variants OR standalone items without variants)
@@ -190,14 +191,14 @@ export async function GET(request: NextRequest) {
              OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id${variantActiveFilter})  -- standalone items without variants
            )
            ORDER BY i.name ASC`,
-          [auth.businessId]
+          [auth.businessId, ...itemTypeParam]
         );
       } else {
         items = await query<Item>(
           `SELECT * FROM items 
            WHERE business_id = ?${activeFilter}${itemTypeFilter}
            ORDER BY name ASC`,
-          [auth.businessId]
+          [auth.businessId, ...itemTypeParam]
         );
       }
     } else {
@@ -218,7 +219,7 @@ export async function GET(request: NextRequest) {
            WHERE business_id = ? AND category_id = ? AND active = 1 
            AND parent_item_id IS NULL${itemTypeFilter}
            ORDER BY name ASC`,
-          [auth.businessId, categoryId]
+          [auth.businessId, categoryId, ...itemTypeParam]
         );
       } else if (sellableOnly) {
         // Sellable items in category
@@ -230,14 +231,14 @@ export async function GET(request: NextRequest) {
              OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1)
            )
            ORDER BY i.name ASC`,
-          [auth.businessId, categoryId]
+          [auth.businessId, categoryId, ...itemTypeParam]
         );
       } else {
         items = await query<Item>(
           `SELECT * FROM items 
            WHERE business_id = ? AND category_id = ? AND active = 1${itemTypeFilter}
            ORDER BY name ASC`,
-          [auth.businessId, categoryId]
+          [auth.businessId, categoryId, ...itemTypeParam]
         );
       }
     }
@@ -278,7 +279,7 @@ export async function POST(request: NextRequest) {
       variantName,   // e.g., "Big", "Small", "Red Kidney"
       barcode,       // optional barcode
       expiryDate,    // optional expiry date (Unix timestamp)
-      itemType,      // 'grocery' or 'retail' (defaults to 'retail')
+      itemType,
       // Bundle pricing fields
       bundleQuantity, // number of units in a bundle (e.g., 3)
       bundlePrice,    // price for the bundle (e.g., 20)

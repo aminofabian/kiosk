@@ -351,6 +351,20 @@ export async function runMigrations() {
     }
 
     try {
+      const { migrateSupplierType } = await import('./migrate-supplier-type');
+      await migrateSupplierType();
+    } catch (error) {
+      console.error('⚠ supplier_type migration skipped:', error);
+    }
+
+    try {
+      const { migrateItemTypeCheckRemoval } = await import('./migrate-item-type-check-removal');
+      await migrateItemTypeCheckRemoval();
+    } catch (error) {
+      console.error('⚠ item_type CHECK removal migration skipped:', error);
+    }
+
+    try {
       const { migratePackagingUnits } = await import('./migrate-packaging-units');
       await migratePackagingUnits();
     } catch (error) {

@@ -44,7 +44,7 @@ interface LowStockItem {
 type DatePreset = 'today' | 'week' | 'month';
 
 interface ProfitViewMobileProps {
-  itemType?: 'grocery' | 'retail';
+  itemType?: string;
 }
 
 export function ProfitViewMobile({ itemType }: ProfitViewMobileProps = {}) {

@@ -30,6 +30,7 @@ import type { UnitType, AdjustmentReason, ItemType } from '@/lib/constants';
 import { ADJUSTMENT_REASONS } from '@/lib/constants';
 import { getItemShopType } from '@/lib/utils/shop-type';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { toast } from 'sonner';
 
 const REASON_LABELS: Record<AdjustmentReason, string> = {
@@ -58,7 +59,8 @@ export function ItemsManager() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [shopTypeFilter, setShopTypeFilter] = useState<'all' | 'retail' | 'grocery'>('all');
+  const [shopTypeFilter, setShopTypeFilter] = useState<'all' | string>('all');
+  const { productTypes } = useItemTypes();
   const [showDeletedItems, setShowDeletedItems] = useState(false);
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'stock'>('name');
   const [selectedItem, setSelectedItem] = useState<ItemWithCategory | null>(null);
@@ -426,8 +428,10 @@ export function ItemsManager() {
 
   const handleToggleItemType = async (item: ItemWithCategory, e: React.MouseEvent) => {
     e.stopPropagation();
-    const currentType = (item.item_type || 'retail') as ItemType;
-    const newType: ItemType = currentType === 'grocery' ? 'retail' : 'grocery';
+    const currentType = item.item_type || productTypes[0]?.key || 'retail';
+    const keys = productTypes.map((t) => t.key);
+    const currentIdx = keys.indexOf(currentType);
+    const newType = keys[(currentIdx + 1) % keys.length] || keys[0] || 'retail';
     setTogglingTypeId(item.id);
     try {
       const res = await fetch(`/api/items/${item.id}/type`, {
@@ -451,7 +455,8 @@ export function ItemsManager() {
         );
         if (selectedItem?.id === item.id) setSelectedItem({ ...selectedItem, item_type: newType });
         if (editingItem?.id === item.id) setEditingItem({ ...editingItem, item_type: newType });
-        toast.success(`Switched to ${newType === 'grocery' ? '🥬 Grocery' : '🏪 Retail'}`);
+        const tc = productTypes.find((t) => t.key === newType);
+        toast.success(`Switched to ${tc ? `${tc.emoji} ${tc.label}` : newType}`);
       } else {
         toast.error(result.message || 'Failed to update type');
       }
@@ -581,11 +586,11 @@ export function ItemsManager() {
                     </div>
 
                     {/* Shop Type Filter */}
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <Button
                         type="button"
                         variant={shopTypeFilter === 'all' ? 'default' : 'outline'}
-                        className={`h-10 flex-1 ${
+                        className={`h-10 flex-1 min-w-0 ${
                           shopTypeFilter === 'all'
                             ? 'bg-[#1c6a1e] hover:bg-[#2a8a30] text-white'
                             : 'bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800'
@@ -594,32 +599,22 @@ export function ItemsManager() {
                       >
                         All Items
                       </Button>
-                      <Button
-                        type="button"
-                        variant={shopTypeFilter === 'grocery' ? 'default' : 'outline'}
-                        className={`h-10 flex-1 ${
-                          shopTypeFilter === 'grocery'
-                            ? 'bg-[#1c6a1e] hover:bg-[#2a8a30] text-white'
-                            : 'bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800'
-                        }`}
-                        onClick={() => setShopTypeFilter('grocery')}
-                      >
-                        <ShoppingBag className="h-4 w-4 mr-1.5" />
-                        Grocery
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={shopTypeFilter === 'retail' ? 'default' : 'outline'}
-                        className={`h-10 flex-1 ${
-                          shopTypeFilter === 'retail'
-                            ? 'bg-[#1c6a1e] hover:bg-[#2a8a30] text-white'
-                            : 'bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800'
-                        }`}
-                        onClick={() => setShopTypeFilter('retail')}
-                      >
-                        <Store className="h-4 w-4 mr-1.5" />
-                        Retail
-                      </Button>
+                      {productTypes.map((type) => (
+                        <Button
+                          key={type.key}
+                          type="button"
+                          variant={shopTypeFilter === type.key ? 'default' : 'outline'}
+                          className={`h-10 flex-1 min-w-0 ${
+                            shopTypeFilter === type.key
+                              ? 'bg-[#1c6a1e] hover:bg-[#2a8a30] text-white'
+                              : 'bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800'
+                          }`}
+                          onClick={() => setShopTypeFilter(type.key)}
+                        >
+                          <span className="mr-1.5" aria-hidden>{type.emoji}</span>
+                          {type.label}
+                        </Button>
+                      ))}
                     </div>
 
                     {/* Show deleted items */}
@@ -783,25 +778,24 @@ export function ItemsManager() {
                                     )}
                                     {!isCashier && (
                                       <>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => handleToggleItemType(item, e)}
-                                          disabled={togglingTypeId === item.id}
-                                          className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                                            (item.item_type || 'retail') === 'grocery'
-                                              ? 'hover:bg-green-50 dark:hover:bg-green-950/30 text-green-600 dark:text-green-400'
-                                              : 'hover:bg-blue-50 dark:hover:bg-blue-950/30 text-blue-600 dark:text-blue-400'
-                                          }`}
-                                          title={(item.item_type || 'retail') === 'grocery' ? 'Click to switch to Retail' : 'Click to switch to Grocery'}
-                                        >
-                                          {togglingTypeId === item.id ? (
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                          ) : (item.item_type || 'retail') === 'grocery' ? (
-                                            <span className="text-sm">🥬</span>
-                                          ) : (
-                                            <span className="text-sm">🏪</span>
-                                          )}
-                                        </button>
+                                        {(() => {
+                                          const tc = productTypes.find((t) => t.key === (item.item_type || productTypes[0]?.key));
+                                          return (
+                                            <button
+                                              type="button"
+                                              onClick={(e) => handleToggleItemType(item, e)}
+                                              disabled={togglingTypeId === item.id}
+                                              className="p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-800"
+                                              title={tc ? `${tc.label} — click to cycle type` : 'Click to cycle type'}
+                                            >
+                                              {togglingTypeId === item.id ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                              ) : (
+                                                <span className="text-sm">{tc?.emoji ?? '📦'}</span>
+                                              )}
+                                            </button>
+                                          );
+                                        })()}
                                         <button
                                           type="button"
                                           onClick={(e) => handleDeleteItemFromList(item, e)}
@@ -874,25 +868,24 @@ export function ItemsManager() {
                                             )}
                                             {!isCashier && (
                                               <>
-                                                <button
-                                                  type="button"
-                                                  onClick={(e) => handleToggleItemType(variant, e)}
-                                                  disabled={togglingTypeId === variant.id}
-                                                  className={`p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                                                    (variant.item_type || 'retail') === 'grocery'
-                                                      ? 'hover:bg-green-50 dark:hover:bg-green-950/30 text-green-600 dark:text-green-400'
-                                                      : 'hover:bg-blue-50 dark:hover:bg-blue-950/30 text-blue-600 dark:text-blue-400'
-                                                  }`}
-                                                  title={(variant.item_type || 'retail') === 'grocery' ? 'Switch to Retail' : 'Switch to Grocery'}
-                                                >
-                                                  {togglingTypeId === variant.id ? (
-                                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                                  ) : (variant.item_type || 'retail') === 'grocery' ? (
-                                                    <span className="text-sm">🥬</span>
-                                                  ) : (
-                                                    <span className="text-sm">🏪</span>
-                                                  )}
-                                                </button>
+                                                {(() => {
+                                                  const tc = productTypes.find((t) => t.key === (variant.item_type || productTypes[0]?.key));
+                                                  return (
+                                                    <button
+                                                      type="button"
+                                                      onClick={(e) => handleToggleItemType(variant, e)}
+                                                      disabled={togglingTypeId === variant.id}
+                                                      className="p-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-100 dark:hover:bg-slate-800"
+                                                      title={tc ? `${tc.label} — click to cycle type` : 'Click to cycle type'}
+                                                    >
+                                                      {togglingTypeId === variant.id ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                      ) : (
+                                                        <span className="text-sm">{tc?.emoji ?? '📦'}</span>
+                                                      )}
+                                                    </button>
+                                                  );
+                                                })()}
                                                 <button
                                                   type="button"
                                                   onClick={(e) => handleDeleteItemFromList(variant, e)}

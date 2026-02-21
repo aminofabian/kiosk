@@ -7,7 +7,7 @@ import { Zap, Tag, Package, ShoppingBag, Flame, AlertTriangle, ArrowRight } from
 import type { Item } from '@/lib/db/types';
 import type { Category } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
-import { shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
+import { shouldShowCategory } from '@/lib/utils/shop-type';
 
 interface ItemWithVariants extends Item {
   isParent?: boolean;
@@ -29,7 +29,9 @@ interface ItemGridProps {
   onSelectItem: (item: Item) => void;
   onSelectParent?: (item: ItemWithVariants) => void;
   onQuickAdd?: (item: Item, quantity: number) => void;
-  shopType?: ShopType;
+  shopType?: string;
+  /** When showing "other" department fallback, pick from these keys (e.g. from useItemTypes) */
+  itemTypeKeys?: string[];
   categories?: Category[]; // Pass categories from parent to avoid redundant fetch
   featuredItems?: Item[];
   lowStockItems?: Item[];
@@ -260,6 +262,7 @@ export function ItemGrid({
   onSelectParent,
   onQuickAdd,
   shopType = 'grocery',
+  itemTypeKeys,
   categories: propCategories,
   featuredItems,
   lowStockItems,
@@ -354,7 +357,8 @@ export function ItemGrid({
             let isShowingOtherShopType = false;
 
             if (filteredByShopType.length === 0 && allItems.length > 0) {
-              const otherShopType: ShopType = shopType === 'grocery' ? 'retail' : 'grocery';
+              const keys = itemTypeKeys?.length ? itemTypeKeys : ['grocery', 'retail'];
+              const otherShopType = keys.find(k => k !== shopType) ?? keys[0];
               filteredItems = allItems.filter(item => {
                 const categoryName = categoryMap.get(item.category_id);
                 if (!categoryName) return true;
@@ -828,7 +832,7 @@ return (
                 <span className="text-amber-600 text-[10px] font-bold">i</span>
               </div>
               <p className="text-xs text-amber-700 dark:text-amber-200/80">
-                No results in <span className="font-semibold">{shopType}</span> mode. Showing results from <span className="font-semibold">{shopType === 'grocery' ? 'retail' : 'grocery'}</span> instead.
+                No results in <span className="font-semibold">{shopType}</span> mode. Showing results from another department instead.
               </p>
             </div>
           )}

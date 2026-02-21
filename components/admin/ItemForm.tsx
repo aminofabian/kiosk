@@ -10,7 +10,8 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Package, Layers, ShoppingCart, DollarSign, Box, AlertCircle, Info, Sparkles, Grid3x3, QrCode, Search, CheckCircle2 } from 'lucide-react';
 import type { Category, Item } from '@/lib/db/types';
-import type { ItemType, UnitType } from '@/lib/constants';
+import type { UnitType } from '@/lib/constants';
+import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { apiGet, apiPost, apiPut } from '@/lib/utils/api-client';
 import { getShopType, shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
 import { useBarcodeScanner } from '@/lib/hooks/use-barcode-scanner';
@@ -673,7 +674,7 @@ interface ItemFormProps {
     // Packaging units
     packaging_unit_name?: string | null;
     packaging_unit_qty?: number | null;
-    item_type?: ItemType;
+    item_type?: string;
   };
   parentItemId?: string; // If set, we're creating a variant for this parent
   defaultMode?: FormMode;
@@ -749,7 +750,8 @@ export function ItemForm({
   const [packagingUnitQty, setPackagingUnitQty] = useState<string>(
     initialData?.packaging_unit_qty?.toString() || ''
   );
-  const [itemType, setItemType] = useState<ItemType>(initialData?.item_type || 'retail');
+  const { productTypes } = useItemTypes();
+  const [itemType, setItemType] = useState<string>(initialData?.item_type || productTypes[0]?.key || 'retail');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -940,7 +942,7 @@ export function ItemForm({
     setBarcode(initialData.barcode || '');
     setExpiryDate(initialData.expiry_date ? new Date(initialData.expiry_date * 1000).toISOString().split('T')[0] : '');
     setSelectedParentId(initialData.parent_item_id || '');
-    setItemType(initialData.item_type || 'retail');
+    setItemType(initialData.item_type || productTypes[0]?.key || 'retail');
     // Stock: use current value from DB, not stale
     const unitType = initialData.unit_type || 'piece';
     if (unitType === 'piece') {
@@ -1337,27 +1339,21 @@ export function ItemForm({
             <Package className="h-4 w-4 text-muted-foreground" />
             <Label className="text-base font-semibold">Product type</Label>
           </div>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant={itemType === 'grocery' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setItemType('grocery')}
-              disabled={isSubmitting}
-              className={itemType === 'grocery' ? 'bg-[#1c6a1e] hover:bg-[#1c6a1e]/90' : ''}
-            >
-              🥬 Grocery
-            </Button>
-            <Button
-              type="button"
-              variant={itemType === 'retail' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setItemType('retail')}
-              disabled={isSubmitting}
-              className={itemType === 'retail' ? 'bg-[#1c6a1e] hover:bg-[#1c6a1e]/90' : ''}
-            >
-              🏪 Retail
-            </Button>
+          <div className="flex gap-2 flex-wrap">
+            {productTypes.map((type) => (
+              <Button
+                key={type.key}
+                type="button"
+                variant={itemType === type.key ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setItemType(type.key)}
+                disabled={isSubmitting}
+                className={itemType === type.key ? 'bg-[#1c6a1e] hover:bg-[#1c6a1e]/90' : ''}
+              >
+                <span className="mr-1" aria-hidden>{type.emoji}</span>
+                {type.label}
+              </Button>
+            ))}
           </div>
         </div>
 

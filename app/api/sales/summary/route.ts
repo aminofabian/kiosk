@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
 
     const start = startRaw ? parseInt(startRaw, 10) : 0;
     const end = endRaw ? parseInt(endRaw, 10) : Math.ceil(Date.now() / 1000);
+    const itemType = searchParams.get('itemType');
 
     if (!Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start) {
       return jsonResponse(
@@ -31,15 +32,30 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const row = await queryOne<{ total_revenue: number; total_transactions: number }>(
-      `SELECT 
-        COALESCE(SUM(s.total_amount), 0) as total_revenue,
-        COUNT(DISTINCT s.id) as total_transactions
-       FROM sales s
-       WHERE s.business_id = ? AND s.status = 'completed'
-         AND s.sale_date >= ? AND s.sale_date <= ?`,
-      [auth.businessId, start, end]
-    );
+    let row;
+    if (itemType) {
+      row = await queryOne<{ total_revenue: number; total_transactions: number }>(
+        `SELECT 
+          COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
+          COUNT(DISTINCT s.id) as total_transactions
+         FROM sale_items si
+         JOIN sales s ON si.sale_id = s.id
+         WHERE s.business_id = ? AND s.status = 'completed'
+           AND s.sale_date >= ? AND s.sale_date <= ?
+           AND COALESCE(si.item_type_snapshot, 'retail') = ?`,
+        [auth.businessId, start, end, itemType]
+      );
+    } else {
+      row = await queryOne<{ total_revenue: number; total_transactions: number }>(
+        `SELECT 
+          COALESCE(SUM(s.total_amount), 0) as total_revenue,
+          COUNT(DISTINCT s.id) as total_transactions
+         FROM sales s
+         WHERE s.business_id = ? AND s.status = 'completed'
+           AND s.sale_date >= ? AND s.sale_date <= ?`,
+        [auth.businessId, start, end]
+      );
+    }
 
     return jsonResponse({
       success: true,

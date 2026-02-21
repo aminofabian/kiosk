@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS items (
   name TEXT NOT NULL,
   variant_name TEXT, -- e.g., "Big", "Small", "Red Kidney" (null for parent items)
   unit_type TEXT NOT NULL CHECK (unit_type IN ('kg', 'g', 'piece', 'bunch', 'tray', 'litre', 'ml')),
-  item_type TEXT NOT NULL DEFAULT 'retail' CHECK (item_type IN ('grocery', 'retail')),
+  item_type TEXT NOT NULL DEFAULT 'retail',
   current_stock REAL NOT NULL DEFAULT 0, -- denormalized for speed
   min_stock_level REAL, -- nullable
   current_sell_price REAL NOT NULL DEFAULT 0, -- denormalized for speed
@@ -143,6 +143,7 @@ CREATE TABLE IF NOT EXISTS suppliers (
   contact_email TEXT,
   location TEXT,
   notes TEXT,
+  supplier_type TEXT,
   active INTEGER NOT NULL DEFAULT 1,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
@@ -282,7 +283,7 @@ CREATE TABLE IF NOT EXISTS sale_items (
   sell_price_per_unit REAL NOT NULL, -- COPIED at sale time
   buy_price_per_unit REAL NOT NULL, -- COPIED from batch at sale time
   profit REAL NOT NULL, -- CALCULATED and STORED
-  item_type_snapshot TEXT CHECK (item_type_snapshot IN ('grocery', 'retail')), -- Type at time of sale
+  item_type_snapshot TEXT, -- Type at time of sale (no CHECK; types from settings)
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
   FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE RESTRICT,

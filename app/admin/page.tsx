@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { ShopTypeSelector } from '@/components/pos/ShopTypeSelector';
-import { getShopType, setShopType, type ShopType } from '@/lib/utils/shop-type';
+import { getShopType } from '@/lib/utils/shop-type';
+import { useItemTypes } from '@/lib/hooks/use-item-types';
 import type { Category } from '@/lib/db/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -581,14 +582,18 @@ export default function AdminDashboardPage() {
   } | null>(null);
   const [salesByItemType, setSalesByItemType] = useState<{ item_type: string; revenue: number; profit: number }[]>([]);
   const [statsLoading, setStatsLoading] = useState(true);
-  const [shopType, setShopType] = useState<ShopType>(() => getShopType());
+  const { productTypes, itemTypeKeys } = useItemTypes();
+  const [shopType, setShopType] = useState<string>(() => getShopType());
 
   useEffect(() => {
-    const currentShopType = getShopType();
-    setShopType(currentShopType);
-  }, []);
+    if (itemTypeKeys.length > 0) {
+      setShopType(getShopType(itemTypeKeys));
+    } else {
+      setShopType(getShopType());
+    }
+  }, [itemTypeKeys]);
 
-  const handleShopTypeChange = (newShopType: ShopType) => {
+  const handleShopTypeChange = (newShopType: string) => {
     setShopType(newShopType);
     window.location.reload();
   };
@@ -1029,7 +1034,10 @@ export default function AdminDashboardPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {salesByItemType.map((row) => {
-                    const typeLabel = row.item_type === 'grocery' ? '🥬 Grocery' : '🏪 Retail';
+                    const typeConfig = productTypes.find((t) => t.key === row.item_type);
+                    const typeLabel = typeConfig
+                      ? `${typeConfig.emoji} ${typeConfig.label}`
+                      : row.item_type;
                     const totalRev = salesByItemType.reduce((s, r) => s + r.revenue, 0);
                     const pct = totalRev > 0 ? (row.revenue / totalRev) * 100 : 0;
                     return (

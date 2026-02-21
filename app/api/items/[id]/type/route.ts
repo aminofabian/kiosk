@@ -2,7 +2,6 @@ import { NextRequest } from 'next/server';
 import { execute, queryOne } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
-import type { ItemType } from '@/lib/constants';
 import type { Item } from '@/lib/db/types';
 
 export async function OPTIONS() {
@@ -11,7 +10,7 @@ export async function OPTIONS() {
 
 /**
  * PATCH /api/items/[id]/type
- * Quick endpoint to update an item's type (grocery/retail)
+ * Quick endpoint to update an item's product type
  */
 export async function PATCH(
     request: NextRequest,
@@ -23,12 +22,11 @@ export async function PATCH(
 
         const { id } = await params;
         const body = await request.json();
-        const { itemType } = body as { itemType: ItemType };
+        const { itemType } = body as { itemType: string };
 
-        // Validate itemType
-        if (!itemType || !['grocery', 'retail'].includes(itemType)) {
+        if (!itemType || typeof itemType !== 'string' || !itemType.trim()) {
             return jsonResponse(
-                { success: false, message: 'Invalid item type. Must be "grocery" or "retail".' },
+                { success: false, message: 'Invalid item type.' },
                 400
             );
         }
