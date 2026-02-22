@@ -481,12 +481,12 @@ export function ItemsManager() {
 
     doc.open();
     doc.write(`<!DOCTYPE html><html><head><title> </title><style>
-      @page { size: 50mm 25mm; margin: 0; }
+      @page { size: 25mm 50mm; margin: 0; }
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      html, body { width: 50mm; height: 25mm; overflow: hidden; }
-      body { font-family: Arial, sans-serif; padding: 1mm; display: flex; flex-direction: column; justify-content: center; gap: 0; }
-      .name { font-size: 7pt; font-weight: 800; color: #000; line-height: 1.1; word-break: break-word; }
-      .price { font-size: 11pt; font-weight: 900; color: #000; line-height: 1; }
+      html, body { width: 25mm; height: 50mm; overflow: hidden; }
+      body { font-family: Arial, sans-serif; padding: 1.5mm; display: flex; flex-direction: column; justify-content: center; gap: 0; }
+      .name { font-size: 6pt; font-weight: 800; color: #000; line-height: 1.15; word-break: break-word; }
+      .price { font-size: 10pt; font-weight: 900; color: #000; line-height: 1; margin-top: 1mm; }
     </style></head><body>
       <div class="name">${displayName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
       <div class="price">${priceStr}</div>
