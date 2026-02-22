@@ -484,13 +484,13 @@ export function ItemsManager() {
 
     doc.open();
     doc.write(`<!DOCTYPE html><html><head><style>
-      @page { size: 50mm 40mm; margin: 0; }
-      html, body { margin: 0; padding: 0; width: 50mm; height: 40mm; overflow: hidden; }
+      @page { size: 40mm 50mm; margin: 0; }
+      html, body { margin: 0; padding: 0; width: 40mm; height: 50mm; overflow: hidden; }
       body { display: flex; align-items: center; font-family: Arial, Helvetica, sans-serif; box-sizing: border-box; padding: 3mm; }
       .label { width: 100%; }
-      .name { font-size: 11pt; font-weight: 700; color: #000; line-height: 1.2; word-break: break-word; }
-      .meta { font-size: 9pt; color: #000; margin-top: 2px; }
-      .price { font-size: 18pt; font-weight: 900; color: #000; margin-top: 3px; letter-spacing: 0.5px; }
+      .name { font-size: 10pt; font-weight: 700; color: #000; line-height: 1.2; word-break: break-word; }
+      .meta { font-size: 8pt; color: #000; margin-top: 2px; }
+      .price { font-size: 16pt; font-weight: 900; color: #000; margin-top: 4px; letter-spacing: 0.5px; }
     </style></head><body>
       <div class="label">
         <div class="name">${displayName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
