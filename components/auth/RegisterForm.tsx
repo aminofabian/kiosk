@@ -180,7 +180,8 @@ export function RegisterForm() {
           <Button
             type="submit"
             size="lg"
-            className="w-full h-12 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+            className="w-full h-12 bg-emerald-600 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white"
+            style={{ backgroundColor: '#059669', color: '#ffffff' }}
             disabled={isLoading}
           >
             {isLoading ? (
