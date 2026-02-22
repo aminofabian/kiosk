@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Edit, Loader2, Plus, Search, Package, X, ChevronRight, FolderTree, Layers, ChevronDown, TrendingUp, TrendingDown, Trash2, Store, ShoppingBag } from 'lucide-react';
+import { Edit, Loader2, Plus, Search, Package, X, ChevronRight, FolderTree, Layers, ChevronDown, TrendingUp, TrendingDown, Trash2, Store, ShoppingBag, Printer } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { ItemForm } from '@/components/admin/ItemForm';
 import { CategoryForm } from '@/components/admin/CategoryForm';
@@ -466,6 +466,46 @@ export function ItemsManager() {
     } finally {
       setTogglingTypeId(null);
     }
+  };
+
+  const handlePrintLabel = (item: ItemWithCategory) => {
+    const displayName = item.variant_name ? `${item.name} – ${item.variant_name}` : item.name;
+    const priceStr = formatPrice(item.current_sell_price);
+    const unitStr = item.unit_type;
+    const stockStr = formatStock(item.current_stock, item.unit_type);
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Label – ${displayName.replace(/"/g, '&quot;')}</title>
+  <style>
+    @page { size: 50mm 40mm; margin: 0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 2mm; width: 50mm; height: 40mm; font-family: system-ui, sans-serif; font-size: 8px; color: #111; background: #fff; display: flex; flex-direction: column; justify-content: center; }
+    .name { font-weight: 700; font-size: 9px; line-height: 1.2; margin-bottom: 2px; word-break: break-word; }
+    .meta { color: #444; font-size: 7px; margin-bottom: 4px; }
+    .price { font-weight: 800; font-size: 12px; color: #0d5c0f; letter-spacing: 0.02em; }
+  </style>
+</head>
+<body>
+  <div class="name">${displayName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+  <div class="meta">${unitStr} · ${stockStr}</div>
+  <div class="price">${priceStr}</div>
+</body>
+</html>`;
+    const w = window.open('', '_blank', 'noopener');
+    if (!w) {
+      toast.error('Popup blocked. Allow popups to print the label.');
+      return;
+    }
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    w.onload = () => {
+      w.print();
+      w.onafterprint = () => w.close();
+    };
   };
 
   const handleDeleteItemFromList = (item: ItemWithCategory, e: React.MouseEvent) => {
@@ -993,6 +1033,17 @@ export function ItemsManager() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
+                          {!selectedItem.isParent && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handlePrintLabel(selectedItem)}
+                              title="Print price label (50×40mm)"
+                              className="text-slate-600 hover:text-[#1c6a1e] dark:text-slate-400 dark:hover:text-emerald-400"
+                            >
+                              <Printer className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
