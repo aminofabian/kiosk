@@ -69,6 +69,8 @@ const THEME_STYLES: Record<ButtonTheme, { iconBg: string; iconText: string }> = 
   slate: { iconBg: 'bg-slate-100 dark:bg-slate-800/60', iconText: 'text-slate-500 dark:text-slate-400' },
 };
 
+type ActionSection = 'pos' | 'catalog' | 'inventory' | 'money' | 'reports' | 'settings';
+
 interface ActionButton {
   href?: string;
   label: string;
@@ -78,6 +80,7 @@ interface ActionButton {
   onClick?: () => void;
   theme: ButtonTheme;
   group: 'action' | 'navigate';
+  section: ActionSection;
 }
 
 const ACTION_BUTTONS: ActionButton[] = [
@@ -88,6 +91,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: ShoppingCart,
     theme: 'brand',
     group: 'action',
+    section: 'pos',
   },
   {
     label: 'Open Shift',
@@ -96,6 +100,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     roles: ['cashier', 'admin', 'owner'],
     theme: 'brand',
     group: 'action',
+    section: 'pos',
   },
   {
     label: 'Close Shift',
@@ -104,6 +109,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     roles: ['cashier', 'admin', 'owner'],
     theme: 'brand',
     group: 'action',
+    section: 'pos',
   },
   {
     label: 'Create Category',
@@ -111,6 +117,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: FolderTree,
     theme: 'blue',
     group: 'action',
+    section: 'catalog',
   },
   {
     label: 'Add Item',
@@ -118,6 +125,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: Package,
     theme: 'blue',
     group: 'action',
+    section: 'catalog',
   },
   {
     label: 'Add Stock',
@@ -125,6 +133,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: Scale,
     theme: 'amber',
     group: 'action',
+    section: 'inventory',
   },
   {
     label: 'Stock Take',
@@ -132,6 +141,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: ClipboardList,
     theme: 'amber',
     group: 'action',
+    section: 'inventory',
   },
   {
     href: '/admin/items',
@@ -140,6 +150,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: Package,
     theme: 'blue',
     group: 'navigate',
+    section: 'catalog',
   },
   {
     href: '/admin/stock',
@@ -148,6 +159,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: PackageCheck,
     theme: 'amber',
     group: 'navigate',
+    section: 'inventory',
   },
   {
     href: '/admin/purchases',
@@ -156,6 +168,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: ShoppingBag,
     theme: 'amber',
     group: 'navigate',
+    section: 'inventory',
   },
   {
     href: '/admin/categories',
@@ -164,6 +177,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: FolderTree,
     theme: 'blue',
     group: 'navigate',
+    section: 'catalog',
   },
   {
     href: '/admin/sales',
@@ -172,6 +186,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: BarChart3,
     theme: 'violet',
     group: 'navigate',
+    section: 'reports',
   },
   {
     href: '/admin/profit',
@@ -180,6 +195,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: TrendingUp,
     theme: 'violet',
     group: 'navigate',
+    section: 'reports',
   },
   {
     href: '/admin/credits',
@@ -188,6 +204,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: CreditCard,
     theme: 'rose',
     group: 'navigate',
+    section: 'money',
   },
   {
     href: '/admin/expenses',
@@ -196,6 +213,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: Receipt,
     theme: 'rose',
     group: 'action',
+    section: 'money',
   },
   {
     label: 'Record Withdrawal',
@@ -204,6 +222,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     roles: ['cashier', 'admin', 'owner'],
     theme: 'rose',
     group: 'action',
+    section: 'money',
   },
   {
     href: '/admin/supplier-bills/new',
@@ -212,6 +231,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: Receipt,
     theme: 'rose',
     group: 'action',
+    section: 'money',
   },
   {
     href: '/admin/stock/approvals',
@@ -221,6 +241,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     roles: ['admin', 'owner'],
     theme: 'amber',
     group: 'navigate',
+    section: 'inventory',
   },
   {
     label: 'Balance Approvals',
@@ -229,6 +250,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     roles: ['admin', 'owner'],
     theme: 'slate',
     group: 'action',
+    section: 'money',
   },
   {
     href: '/admin/reports/sales',
@@ -237,6 +259,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     icon: FileText,
     theme: 'violet',
     group: 'navigate',
+    section: 'reports',
   },
   {
     href: '/admin/users',
@@ -246,6 +269,7 @@ const ACTION_BUTTONS: ActionButton[] = [
     roles: ['owner'],
     theme: 'slate',
     group: 'navigate',
+    section: 'settings',
   },
   {
     href: '/admin/banners',
@@ -255,8 +279,19 @@ const ACTION_BUTTONS: ActionButton[] = [
     roles: ['owner'],
     theme: 'slate',
     group: 'navigate',
+    section: 'settings',
   },
 ];
+
+const SECTION_ORDER: ActionSection[] = ['pos', 'catalog', 'inventory', 'money', 'reports', 'settings'];
+const SECTION_LABELS: Record<ActionSection, string> = {
+  pos: 'Shift & register',
+  catalog: 'Catalog',
+  inventory: 'Inventory',
+  money: 'Money & expenses',
+  reports: 'Reports & analytics',
+  settings: 'Settings',
+};
 
 type PendingOpeningItem = { id: string; amount: number; user_name?: string; balance_type: string };
 
@@ -819,8 +854,12 @@ export default function AdminDashboardPage() {
     return button;
   });
 
-  const quickActions = visibleButtons.filter((b) => b.group === 'action' && b.label !== 'Open POS');
-  const browseLinks = visibleButtons.filter((b) => b.group === 'navigate');
+  const buttonsExcludingOpenPos = visibleButtons.filter((b) => b.label !== 'Open POS');
+  const buttonsBySection = SECTION_ORDER.map((section) => ({
+    section,
+    label: SECTION_LABELS[section],
+    buttons: buttonsExcludingOpenPos.filter((b) => b.section === section),
+  })).filter((s) => s.buttons.length > 0);
 
   const renderButtonCard = (button: (typeof visibleButtons)[number], index: number) => {
     const Icon = button.icon;
@@ -869,190 +908,112 @@ export default function AdminDashboardPage() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-slate-50 dark:bg-[#0f1a0d] flex flex-col items-center justify-start sm:justify-center p-2 sm:p-4 pt-2 sm:pt-4 pb-20 sm:pb-4">
-        {/* Shop Type Selector and POS Quick Access */}
-        <div className="mb-2 sm:mb-6 w-full max-w-5xl mt-0 sm:mt-0 space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex-1">
-              <ShopTypeSelector 
-                key={shopType}
-                onShopTypeChange={handleShopTypeChange}
-                className="w-full sm:w-auto"
-              />
-            </div>
-          </div>
-          <Link href="/pos">
-            {/* Solid bg fallback for older browsers (e.g. Win7) that don't support CSS gradients */}
-            <div
-              className="group relative w-full overflow-hidden rounded-xl sm:rounded-2xl bg-[#1c6a1e] bg-gradient-to-r from-[#1c6a1e] to-[#1fa87a] px-4 py-3 sm:px-6 sm:py-5 transition-all duration-200 hover:shadow-xl hover:shadow-[#1c6a1e]/25 active:scale-[0.99] cursor-pointer"
-              style={{ backgroundColor: '#1c6a1e' }}
-            >
-              {/* Subtle decorative circles - rgba fallback for older browsers */}
-              <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-white/[0.06]" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }} />
-              <div className="absolute -right-2 -bottom-8 w-20 h-20 rounded-full bg-white/[0.04]" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }} />
-              <div className="relative flex items-center gap-3 sm:gap-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center ring-1 ring-white/20 bg-white/15 backdrop-blur-sm" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
-                  <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-white" style={{ color: '#ffffff' }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm sm:text-lg font-bold text-white leading-tight" style={{ color: '#ffffff' }}>
-                    Open POS
-                  </h3>
-                  <p className="text-[11px] sm:text-sm text-white/70 mt-0.5 leading-tight" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                    Start selling and processing transactions
-                  </p>
-                </div>
-                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center group-hover:bg-white/20 transition-colors flex-shrink-0 bg-white/10" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
-                  <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-white/80 group-hover:translate-x-0.5 transition-transform" style={{ color: 'rgba(255,255,255,0.9)' }} />
-                </div>
-              </div>
-            </div>
-          </Link>
-        </div>
+      <div className="min-h-screen bg-slate-50 dark:bg-[#0f1a0d] flex flex-col items-center p-2 sm:p-4 pt-2 sm:pt-4 pb-20 sm:pb-4">
+        <div className="w-full max-w-5xl space-y-5 sm:space-y-6">
+          {/* Page header */}
+          <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+              Dashboard
+            </h1>
+            <ShopTypeSelector
+              key={shopType}
+              onShopTypeChange={handleShopTypeChange}
+              className="w-full sm:w-auto"
+            />
+          </header>
 
-        {/* Guide Link - hidden from cashiers */}
-        {user?.role !== 'cashier' && (
-          <div className="mb-4 sm:mb-6 w-full max-w-5xl">
-            <button
-              onClick={() => setGuideDrawerOpen(true)}
-              className="w-full bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 rounded-lg sm:rounded-xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow text-left group"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#1c6a1e]/20 dark:group-hover:bg-[#1c6a1e]/30 transition-colors">
-                  <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 text-[#1c6a1e]" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-1">
-                    How to Use This System
-                  </h2>
-                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                    Click here to see a simple guide on how to get started
-                  </p>
-                </div>
-                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-[#1c6a1e] group-hover:translate-x-1 transition-all" />
-              </div>
-            </button>
-          </div>
-        )}
-
-        {/* Quick Actions */}
-        {quickActions.length > 0 && (
-          <div className="max-w-5xl w-full">
-            <div className="flex items-center gap-2 mb-2 sm:mb-3 px-1">
-              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.12em] text-slate-400/80 dark:text-slate-600">
-                Quick Actions
-              </span>
-              <div className="flex-1 h-px bg-slate-200/60 dark:bg-slate-700/40" />
-            </div>
-            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-2.5">
-              {quickActions.map(renderButtonCard)}
-            </div>
-          </div>
-        )}
-
-        {/* Browse & Reports */}
-        {browseLinks.length > 0 && (
-          <div className="max-w-5xl w-full mt-4 sm:mt-5">
-            <div className="flex items-center gap-2 mb-2 sm:mb-3 px-1">
-              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.12em] text-slate-400/80 dark:text-slate-600">
-                Browse & Reports
-              </span>
-              <div className="flex-1 h-px bg-slate-200/60 dark:bg-slate-700/40" />
-            </div>
-            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-2.5">
-              {browseLinks.map(renderButtonCard)}
-            </div>
-          </div>
-        )}
-
-        {/* Stats Section */}
-        <div className="w-full max-w-5xl mt-4 sm:mt-6">
-          {statsLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-4 h-4 animate-spin text-[#1c6a1e]" />
-            </div>
-          ) : stats ? (
-            <div className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18] border-t-2 border-t-[#1c6a1e]">
-              <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-800">
-                <Link href="/admin/items">
-                  <div className="p-3 sm:p-4 text-center hover:bg-[#1c6a1e]/5 dark:hover:bg-[#1c6a1e]/10 transition-colors cursor-pointer">
-                    <div className="flex items-center justify-center mb-1.5">
-                      <Package className="w-4 h-4 sm:w-5 sm:h-5 text-[#1c6a1e]" />
-                    </div>
-                    <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Products</p>
-                    <p className="text-xs sm:text-sm font-bold text-[#1c6a1e]">
-                      {stats.totalProducts}
+          {/* Primary CTA: Open POS */}
+          <section className="w-full">
+            <Link href="/pos">
+              <div
+                className="group relative w-full overflow-hidden rounded-xl sm:rounded-2xl bg-[#1c6a1e] bg-gradient-to-r from-[#1c6a1e] to-[#1fa87a] px-4 py-3 sm:px-6 sm:py-5 transition-all duration-200 hover:shadow-xl hover:shadow-[#1c6a1e]/25 active:scale-[0.99] cursor-pointer"
+                style={{ backgroundColor: '#1c6a1e' }}
+              >
+                <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-white/[0.06]" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }} />
+                <div className="absolute -right-2 -bottom-8 w-20 h-20 rounded-full bg-white/[0.04]" style={{ backgroundColor: 'rgba(255,255,255,0.04)' }} />
+                <div className="relative flex items-center gap-3 sm:gap-4">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center ring-1 ring-white/20 bg-white/15 backdrop-blur-sm" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}>
+                    <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-white" style={{ color: '#ffffff' }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-sm sm:text-lg font-bold text-white leading-tight" style={{ color: '#ffffff' }}>
+                      Open POS
+                    </h2>
+                    <p className="text-[11px] sm:text-sm text-white/70 mt-0.5 leading-tight" style={{ color: 'rgba(255,255,255,0.9)' }}>
+                      Start selling and processing transactions
                     </p>
                   </div>
-                </Link>
-                <div className="p-3 sm:p-4 text-center">
-                  <div className="flex items-center justify-center mb-1.5">
-                    <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 text-[#1c6a1e]" />
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center group-hover:bg-white/20 transition-colors flex-shrink-0 bg-white/10" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
+                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-white/80 group-hover:translate-x-0.5 transition-transform" style={{ color: 'rgba(255,255,255,0.9)' }} />
                   </div>
-                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Sales</p>
-                  <p className="text-xs sm:text-sm font-bold text-[#1c6a1e]">
-                    KES {Math.round(stats.totalSales).toLocaleString()}
-                  </p>
-                </div>
-                <div className="p-3 sm:p-4 text-center">
-                  <div className="flex items-center justify-center mb-1.5">
-                    <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-[#1c6a1e]" />
-                  </div>
-                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Orders</p>
-                  <p className="text-xs sm:text-sm font-bold text-[#1c6a1e]">
-                    {stats.salesCount}
-                  </p>
                 </div>
               </div>
-              <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-slate-800 border-t border-slate-200 dark:border-slate-800">
+            </Link>
+          </section>
+
+          {/* At a glance – stats (above actions for context) */}
+          <div className="w-full">
+          {statsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin text-[#1c6a1e]" />
+            </div>
+          ) : stats ? (
+            <div className="rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-[#1c2e18] shadow-sm overflow-hidden">
+              <div className="px-3 sm:px-4 py-2.5 border-b border-slate-100 dark:border-slate-800">
+                <p className="text-[11px] sm:text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  At a glance
+                </p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-slate-800">
+                <Link href="/admin/items" className="p-3 sm:p-4 text-center hover:bg-slate-50/80 dark:hover:bg-[#1c6a1e]/5 transition-colors">
+                  <Package className="w-4 h-4 sm:w-5 sm:h-5 text-[#1c6a1e] mx-auto mb-1.5" />
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">Products</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{stats.totalProducts}</p>
+                </Link>
                 <div className="p-3 sm:p-4 text-center">
-                  <div className="flex items-center justify-center mb-1.5">
-                    <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600 dark:text-slate-400" />
-                  </div>
-                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Cost</p>
-                  <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
-                    KES {Math.round(stats.totalCost).toLocaleString()}
-                  </p>
+                  <ShoppingBag className="w-4 h-4 sm:w-5 sm:h-5 text-[#1c6a1e] mx-auto mb-1.5" />
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">Sales</p>
+                  <p className="text-sm font-bold text-[#1c6a1e]">KES {Math.round(stats.totalSales).toLocaleString()}</p>
                 </div>
                 <div className="p-3 sm:p-4 text-center">
-                  <div className="flex items-center justify-center mb-1.5">
-                    <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-[#1c6a1e]" />
-                  </div>
-                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Profit</p>
-                  <p className="text-xs sm:text-sm font-bold text-[#1c6a1e]">
-                    KES {Math.round(stats.totalProfit).toLocaleString()}
-                  </p>
+                  <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-[#1c6a1e] mx-auto mb-1.5" />
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">Orders</p>
+                  <p className="text-sm font-bold text-slate-900 dark:text-white">{stats.salesCount}</p>
                 </div>
-                <div className="p-3 sm:p-4 text-center">
-                  <div className="flex items-center justify-center mb-1.5">
-                    <Percent className="w-4 h-4 sm:w-5 sm:h-5 text-[#1c6a1e]" />
-                  </div>
-                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 mb-1">Margin</p>
-                  <p className="text-xs sm:text-sm font-bold text-[#1c6a1e]">
-                    {(stats.profitMargin * 100).toFixed(1)}%
-                  </p>
+                <div className="p-3 sm:p-4 text-center hidden sm:block">
+                  <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-slate-500 dark:text-slate-400 mx-auto mb-1.5" />
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">Cost</p>
+                  <p className="text-sm font-bold text-slate-800 dark:text-slate-200">KES {Math.round(stats.totalCost).toLocaleString()}</p>
+                </div>
+                <div className="p-3 sm:p-4 text-center hidden sm:block">
+                  <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 text-[#1c6a1e] mx-auto mb-1.5" />
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">Profit</p>
+                  <p className="text-sm font-bold text-[#1c6a1e]">KES {Math.round(stats.totalProfit).toLocaleString()}</p>
+                </div>
+                <div className="p-3 sm:p-4 text-center hidden sm:block">
+                  <Percent className="w-4 h-4 sm:w-5 sm:h-5 text-[#1c6a1e] mx-auto mb-1.5" />
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">Margin</p>
+                  <p className="text-sm font-bold text-[#1c6a1e]">{(stats.profitMargin * 100).toFixed(1)}%</p>
                 </div>
               </div>
             </div>
           ) : null}
 
-          {/* Grocery vs Retail Sales Split */}
+          {/* Sales by type */}
           {!statsLoading && salesByItemType.length > 0 && (
             <Link href="/admin/sales" className="block mt-3 sm:mt-4">
-              <div className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18] rounded-lg sm:rounded-xl p-4 sm:p-5 hover:shadow-md transition-shadow">
+              <div className="rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-[#1c2e18] p-4 sm:p-5 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
                     <BarChart3 className="w-4 h-4 text-[#1c6a1e]" />
-                    Sales by Type
+                    Sales by type
                   </h3>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">View details</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">View details →</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {salesByItemType.map((row) => {
                     const typeConfig = productTypes.find((t) => t.key === row.item_type);
-                    const typeLabel = typeConfig
-                      ? `${typeConfig.emoji} ${typeConfig.label}`
-                      : row.item_type;
+                    const typeLabel = typeConfig ? `${typeConfig.emoji} ${typeConfig.label}` : row.item_type;
                     const totalRev = salesByItemType.reduce((s, r) => s + r.revenue, 0);
                     const pct = totalRev > 0 ? (row.revenue / totalRev) * 100 : 0;
                     return (
@@ -1061,9 +1022,7 @@ export default function AdminDashboardPage() {
                         className="rounded-lg bg-slate-50 dark:bg-slate-800/50 p-3 border border-slate-100 dark:border-slate-700"
                       >
                         <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">{typeLabel}</p>
-                        <p className="text-sm font-bold text-[#1c6a1e]">
-                          KES {Math.round(row.revenue).toLocaleString()}
-                        </p>
+                        <p className="text-sm font-bold text-[#1c6a1e]">KES {Math.round(row.revenue).toLocaleString()}</p>
                         <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
                           {pct.toFixed(0)}% of revenue · KES {Math.round(row.profit).toLocaleString()} profit
                         </p>
@@ -1073,6 +1032,37 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             </Link>
+          )}
+          </div>
+
+          {/* Grouped action sections */}
+          {buttonsBySection.length > 0 && (
+            <div className="w-full max-w-5xl space-y-6 mt-6">
+              {buttonsBySection.map(({ section, label, buttons }) => (
+                <section key={section} className="w-full">
+                  <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2.5 px-0.5">
+                    {label}
+                  </h2>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-2.5">
+                    {buttons.map((button, index) => renderButtonCard(button, index))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+
+          {/* Subtle help link – hidden from cashiers */}
+          {user?.role !== 'cashier' && (
+            <div className="w-full max-w-5xl pt-2 pb-4 text-center">
+              <button
+                type="button"
+                onClick={() => setGuideDrawerOpen(true)}
+                className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 hover:text-[#1c6a1e] dark:hover:text-[#2a8a30] transition-colors inline-flex items-center gap-1.5"
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+                Need help? View guide
+              </button>
+            </div>
           )}
         </div>
       </div>
