@@ -1,10 +1,12 @@
 'use client';
 
+// Messages that mean "session invalid or access revoked" — trigger redirect to login.
+// Do NOT include 'Forbidden' here: 403 Forbidden from requirePermission means the user
+// is logged in but lacks permission (e.g. cashier on profit/analytics); we must not log them out.
 const AUTH_ERROR_MESSAGES = [
   'Unauthorized',
   'Business is suspended or not found',
   'Super admin access required',
-  'Forbidden',
 ] as const;
 
 import { getUserRole } from './user-role-storage';

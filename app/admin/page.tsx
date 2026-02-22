@@ -624,30 +624,39 @@ export default function AdminDashboardPage() {
 
   const fetchStats = async () => {
     try {
-      const startTimestamp = 1;
-      const endTimestamp = Math.floor(Date.now() / 1000);
-      const [profitResponse, itemsResponse, analyticsResponse] = await Promise.all([
-        fetch(`/api/profit?start=${startTimestamp}&end=${endTimestamp}`),
-        fetch('/api/items?all=true'),
-        fetch('/api/sales/analytics?period=all'),
-      ]);
-      const profitResult = await profitResponse.json();
+      const itemsResponse = await fetch('/api/items?all=true');
       const itemsResult = await itemsResponse.json();
-      const analyticsResult = await analyticsResponse.json();
       const totalProducts = itemsResult.success ? itemsResult.data?.length || 0 : 0;
-      if (profitResult.success && profitResult.data) {
-        const data = profitResult.data;
-        setStats({
-          totalProducts,
-          totalSales: data.totalSales || 0,
-          salesCount: data.totalTransactions || 0,
-          totalCost: data.totalCost || 0,
-          totalProfit: data.totalProfit || 0,
-          profitMargin: data.profitMargin || 0,
-        });
-      }
-      if (analyticsResult.success && analyticsResult.data?.salesByItemType) {
-        setSalesByItemType(analyticsResult.data.salesByItemType);
+
+      // Only fetch profit and sales analytics for users with view_profit (avoids 403 for cashiers)
+      const canViewProfit = user?.role !== 'cashier';
+      if (canViewProfit) {
+        const startTimestamp = 1;
+        const endTimestamp = Math.floor(Date.now() / 1000);
+        const [profitResponse, analyticsResponse] = await Promise.all([
+          fetch(`/api/profit?start=${startTimestamp}&end=${endTimestamp}`),
+          fetch('/api/sales/analytics?period=all'),
+        ]);
+        const profitResult = await profitResponse.json();
+        const analyticsResult = await analyticsResponse.json();
+        if (profitResult.success && profitResult.data) {
+          const data = profitResult.data;
+          setStats({
+            totalProducts,
+            totalSales: data.totalSales || 0,
+            salesCount: data.totalTransactions || 0,
+            totalCost: data.totalCost || 0,
+            totalProfit: data.totalProfit || 0,
+            profitMargin: data.profitMargin || 0,
+          });
+        } else {
+          setStats({ totalProducts, totalSales: 0, salesCount: 0, totalCost: 0, totalProfit: 0, profitMargin: 0 });
+        }
+        if (analyticsResult.success && analyticsResult.data?.salesByItemType) {
+          setSalesByItemType(analyticsResult.data.salesByItemType);
+        }
+      } else {
+        setStats({ totalProducts, totalSales: 0, salesCount: 0, totalCost: 0, totalProfit: 0, profitMargin: 0 });
       }
     } catch (error) {
       console.error('Failed to fetch stats:', error);
@@ -658,7 +667,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [user?.role]);
 
   const visibleButtons = ACTION_BUTTONS.filter((button) => {
     // If button has specific roles, check if user role is included
