@@ -471,6 +471,9 @@ export function ItemsManager() {
   const handlePrintLabel = (item: ItemWithCategory) => {
     const displayName = item.variant_name ? `${item.name} – ${item.variant_name}` : item.name;
     const priceStr = formatPrice(item.current_sell_price);
+    const unitLine = item.unit_type !== 'piece'
+      ? `${item.unit_type} · ${formatStock(item.current_stock, item.unit_type)}`
+      : '';
 
     const iframe = document.createElement('iframe');
     iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:0;height:0;border:none;';
@@ -480,16 +483,16 @@ export function ItemsManager() {
     if (!doc) { document.body.removeChild(iframe); return; }
 
     doc.open();
-    doc.write(`<!DOCTYPE html><html><head><title> </title><style>
-      @page { size: 25mm 50mm; margin: 0; }
-      * { margin: 0; padding: 0; box-sizing: border-box; }
+    doc.write(`<!DOCTYPE html><html><head><title></title><style>
+      @page { size: 25mm 50mm; margin: 0 !important; }
+      * { margin: 0 !important; padding: 0 !important; box-sizing: border-box; }
       html, body { width: 25mm; height: 50mm; overflow: hidden; }
-      body { font-family: Arial, sans-serif; padding: 1.5mm; display: flex; flex-direction: column; justify-content: center; gap: 0; }
-      .name { font-size: 6pt; font-weight: 800; color: #000; line-height: 1.15; word-break: break-word; }
-      .price { font-size: 10pt; font-weight: 900; color: #000; line-height: 1; margin-top: 1mm; }
+      body { font-family: Arial, sans-serif; display: flex; flex-direction: column; justify-content: center; }
+      .name { font-size: 6pt; font-weight: 800; color: #000; line-height: 1.1; word-break: break-word; }
+      .meta { font-size: 5pt; color: #000; line-height: 1.1; }
+      .price { font-size: 10pt; font-weight: 900; color: #000; line-height: 1; }
     </style></head><body>
-      <div class="name">${displayName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
-      <div class="price">${priceStr}</div>
+      <div class="name">${displayName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>${unitLine ? `<div class="meta">${unitLine}</div>` : ''}<div class="price">${priceStr}</div>
     </body></html>`);
     doc.close();
 
