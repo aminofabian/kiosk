@@ -910,28 +910,30 @@ export default function AdminDashboardPage() {
           </Link>
         </div>
 
-        {/* Guide Link */}
-        <div className="mb-4 sm:mb-6 w-full max-w-5xl">
-          <button
-            onClick={() => setGuideDrawerOpen(true)}
-            className="w-full bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 rounded-lg sm:rounded-xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow text-left group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#1c6a1e]/20 dark:group-hover:bg-[#1c6a1e]/30 transition-colors">
-                <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 text-[#1c6a1e]" />
+        {/* Guide Link - hidden from cashiers */}
+        {user?.role !== 'cashier' && (
+          <div className="mb-4 sm:mb-6 w-full max-w-5xl">
+            <button
+              onClick={() => setGuideDrawerOpen(true)}
+              className="w-full bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 rounded-lg sm:rounded-xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow text-left group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center flex-shrink-0 group-hover:bg-[#1c6a1e]/20 dark:group-hover:bg-[#1c6a1e]/30 transition-colors">
+                  <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 text-[#1c6a1e]" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-1">
+                    How to Use This System
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
+                    Click here to see a simple guide on how to get started
+                  </p>
+                </div>
+                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-[#1c6a1e] group-hover:translate-x-1 transition-all" />
               </div>
-              <div className="flex-1">
-                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-1">
-                  How to Use This System
-                </h2>
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-                  Click here to see a simple guide on how to get started
-                </p>
-              </div>
-              <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-[#1c6a1e] group-hover:translate-x-1 transition-all" />
-            </div>
-          </button>
-        </div>
+            </button>
+          </div>
+        )}
 
         {/* Quick Actions */}
         {quickActions.length > 0 && (
