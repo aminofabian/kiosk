@@ -540,21 +540,21 @@ export function ItemsManager() {
         {typeof document !== 'undefined' && printLabelItem && createPortal(
           <>
             <style dangerouslySetInnerHTML={{ __html: `
-              .print-label-sheet { position: fixed; left: -9999px; top: 0; width: 50mm; height: 40mm; z-index: -1; }
+              .print-label-sheet { position: fixed; left: -9999px; top: 0; width: 50mm; height: 40mm; z-index: -1; box-sizing: border-box; overflow: hidden; }
               @media print {
-                @page { size: 50mm 40mm; margin: 0; }
-                body { margin: 0 !important; padding: 0 !important; }
+                @page { size: 50mm 40mm; margin: 0 !important; }
+                html, body { margin: 0 !important; padding: 0 !important; width: 50mm !important; height: 40mm !important; overflow: hidden !important; }
                 body > *:not(.print-label-sheet) { display: none !important; }
-                .print-label-sheet { display: flex !important; visibility: visible !important; position: fixed !important; left: 0 !important; top: 0 !important; width: 50mm !important; height: 40mm !important; min-width: 50mm !important; min-height: 40mm !important; max-width: 50mm !important; max-height: 40mm !important; z-index: 9999 !important; page-break-after: always !important; page-break-inside: avoid !important; }
+                .print-label-sheet { display: flex !important; visibility: visible !important; position: fixed !important; left: 0 !important; top: 0 !important; right: auto !important; bottom: auto !important; width: 50mm !important; height: 40mm !important; min-width: 50mm !important; min-height: 40mm !important; max-width: 50mm !important; max-height: 40mm !important; overflow: hidden !important; box-sizing: border-box !important; z-index: 9999 !important; page-break-after: always !important; page-break-inside: avoid !important; }
                 .print-label-sheet * { visibility: visible !important; }
               }
             `}} />
-            <div className="print-label-sheet bg-white p-[3mm] flex flex-col justify-center text-[#111] font-sans box-border">
-              <div className="print-label-name font-bold leading-tight break-words" style={{ fontSize: '11px' }}>{printLabelItem.variant_name ? `${printLabelItem.name} – ${printLabelItem.variant_name}` : printLabelItem.name}</div>
+            <div className="print-label-sheet bg-white p-[3mm] flex flex-col justify-center text-black font-sans box-border overflow-hidden">
+              <div className="print-label-name font-bold leading-tight break-words" style={{ fontSize: '11px', color: '#000' }}>{printLabelItem.variant_name ? `${printLabelItem.name} – ${printLabelItem.variant_name}` : printLabelItem.name}</div>
               {printLabelItem.unit_type !== 'piece' && (
-                <div className="print-label-meta text-[#444] mb-1" style={{ fontSize: '9px' }}>{printLabelItem.unit_type} · {formatStock(printLabelItem.current_stock, printLabelItem.unit_type)}</div>
+                <div className="print-label-meta mb-1" style={{ fontSize: '9px', color: '#000' }}>{printLabelItem.unit_type} · {formatStock(printLabelItem.current_stock, printLabelItem.unit_type)}</div>
               )}
-              <div className="print-label-price font-extrabold tracking-wide" style={{ fontSize: '18px', color: '#0d5c0f' }}>{formatPrice(printLabelItem.current_sell_price)}</div>
+              <div className="print-label-price font-extrabold tracking-wide" style={{ fontSize: '18px', color: '#000' }}>{formatPrice(printLabelItem.current_sell_price)}</div>
             </div>
           </>,
           document.body
