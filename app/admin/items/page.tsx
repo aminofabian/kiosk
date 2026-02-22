@@ -478,7 +478,8 @@ export function ItemsManager() {
     if (!printLabelItem) return;
     const afterPrint = () => setPrintLabelItem(null);
     window.onafterprint = afterPrint;
-    const t = setTimeout(() => window.print(), 100);
+    toast.info('In the print dialog: set Copies to 1 and Paper size to 50×40mm if needed.', { duration: 4000 });
+    const t = setTimeout(() => window.print(), 150);
     return () => {
       clearTimeout(t);
       window.onafterprint = null;
@@ -542,10 +543,10 @@ export function ItemsManager() {
             <style dangerouslySetInnerHTML={{ __html: `
               .print-label-sheet { position: fixed; left: -9999px; top: 0; width: 50mm; height: 40mm; z-index: -1; box-sizing: border-box; overflow: hidden; }
               @media print {
-                @page { size: 50mm 40mm; margin: 0 !important; }
-                html, body { margin: 0 !important; padding: 0 !important; width: 50mm !important; height: 40mm !important; overflow: hidden !important; }
-                body > *:not(.print-label-sheet) { display: none !important; }
-                .print-label-sheet { display: flex !important; visibility: visible !important; position: fixed !important; left: 0 !important; top: 0 !important; right: auto !important; bottom: auto !important; width: 50mm !important; height: 40mm !important; min-width: 50mm !important; min-height: 40mm !important; max-width: 50mm !important; max-height: 40mm !important; overflow: hidden !important; box-sizing: border-box !important; z-index: 9999 !important; page-break-after: always !important; page-break-inside: avoid !important; }
+                @page { size: 50mm 40mm landscape; margin: 0 !important; }
+                html, body { margin: 0 !important; padding: 0 !important; width: 50mm !important; height: 40mm !important; min-width: 50mm !important; min-height: 40mm !important; max-width: 50mm !important; max-height: 40mm !important; overflow: hidden !important; }
+                body > *:not(.print-label-sheet) { display: none !important; width: 0 !important; height: 0 !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; position: absolute !important; left: -9999px !important; }
+                .print-label-sheet { display: flex !important; visibility: visible !important; position: fixed !important; left: 0 !important; top: 0 !important; right: auto !important; bottom: auto !important; width: 50mm !important; height: 40mm !important; min-width: 50mm !important; min-height: 40mm !important; max-width: 50mm !important; max-height: 40mm !important; overflow: hidden !important; box-sizing: border-box !important; z-index: 9999 !important; page-break-after: avoid !important; page-break-inside: avoid !important; page-break-before: avoid !important; }
                 .print-label-sheet * { visibility: visible !important; }
               }
             `}} />
