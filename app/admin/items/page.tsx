@@ -483,11 +483,18 @@ export function ItemsManager() {
     if (!doc) { document.body.removeChild(iframe); return; }
 
     doc.open();
-    doc.write(`<!DOCTYPE html><html><head><title>\u200B</title><style>
-@page{margin:0}
-*{margin:0;padding:0}
-body{font-family:Arial,sans-serif}
-</style></head><body>${displayName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}${unitLine ? '<br>' + unitLine : ''}<br><b>${priceStr}</b></body></html>`);
+    doc.write(`<!DOCTYPE html><html><head><title></title><style>
+      @page { size: 25mm 50mm; margin: 0 !important; }
+      * { margin: 0 !important; padding: 0 !important; box-sizing: border-box; }
+      html, body { width: 25mm; height: 50mm; overflow: hidden; }
+      body { font-family: Arial, sans-serif; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0 1mm !important; }
+      .name, .meta, .price { max-width: 100%; overflow-wrap: break-word; word-break: break-word; }
+      .name { font-size: 6pt; font-weight: 800; color: #000; line-height: 1.1; }
+      .meta { font-size: 5pt; color: #000; line-height: 1.1; }
+      .price { font-size: 10pt; font-weight: 900; color: #000; line-height: 1; }
+    </style></head><body>
+      <div class="name">${displayName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>${unitLine ? `<div class="meta">${unitLine}</div>` : ''}<div class="price">${priceStr}</div>
+    </body></html>`);
     doc.close();
 
     iframe.onload = () => {
