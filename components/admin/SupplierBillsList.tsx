@@ -821,7 +821,8 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
         </div>
       </div>
 
-      {/* ═══════════ 1. FINANCIAL PULSE ═══════════ */}
+      {/* ═══════════ 1. FINANCIAL PULSE (hidden for cashiers) ═══════════ */}
+      {user?.role !== 'cashier' && (
       <Card className="overflow-hidden border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-white via-emerald-50/30 to-white dark:from-[#1c2e18] dark:via-emerald-950/20 dark:to-[#1c2e18] rounded-xl shadow-sm">
         <CardContent className="p-3.5 sm:p-5">
           <div className="flex items-center gap-2 mb-3 sm:mb-4">
@@ -974,9 +975,10 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
           )}
         </CardContent>
       </Card>
+      )}
 
-      {/* ═══════════ TYPE BREAKDOWN ═══════════ */}
-      {productTypes.length > 1 && !salesLoading && (
+      {/* ═══════════ TYPE BREAKDOWN (hidden for cashiers) ═══════════ */}
+      {user?.role !== 'cashier' && productTypes.length > 1 && !salesLoading && (
         <Card className="overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1c2e18] rounded-xl shadow-sm">
           <CardContent className="p-0">
             <div className="px-3.5 sm:px-5 pt-3.5 sm:pt-5 pb-2.5 sm:pb-3 border-b border-slate-100 dark:border-slate-800">
@@ -1148,16 +1150,18 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
         </Card>
       )}
 
-      {/* ═══════════ 2. QUICK STATS ═══════════ */}
+      {/* ═══════════ 2. QUICK STATS (Total, Pending, Paid, Avg/week; cashiers see amount-focused stats) ═══════════ */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
         <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
           <CardContent className="p-2.5 sm:p-3">
             <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 mb-0.5">
               <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              <span className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wide">Total Bills</span>
+              <span className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wide">
+                {user?.role === 'cashier' ? 'Total' : 'Total Bills'}
+              </span>
             </div>
             <p className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-              {filteredBills.length}
+              {user?.role === 'cashier' ? formatPrice(totalAmount) : filteredBills.length}
             </p>
           </CardContent>
         </Card>
@@ -1196,8 +1200,8 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
         </Card>
       </div>
 
-      {/* ═══════════ 3. SUPPLIER BUDGET PLANNER ═══════════ */}
-      {supplierBudget.length > 0 && (
+      {/* ═══════════ 3. SUPPLIER BUDGET PLANNER (hidden for cashiers) ═══════════ */}
+      {user?.role !== 'cashier' && supplierBudget.length > 0 && (
         <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 overflow-hidden rounded-xl shadow-sm">
           <CardContent className="p-0">
             {/* Section header */}
@@ -1436,8 +1440,8 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
         </Card>
       )}
 
-      {/* ═══════════ 4. DELIVERY SCHEDULE ═══════════ */}
-      {deliveryMatrix.suppliers.length > 0 && (
+      {/* ═══════════ 4. DELIVERY SCHEDULE (hidden for cashiers) ═══════════ */}
+      {user?.role !== 'cashier' && deliveryMatrix.suppliers.length > 0 && (
         <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 overflow-hidden rounded-xl shadow-sm">
           <CardContent className="p-0">
             {/* Section header */}
