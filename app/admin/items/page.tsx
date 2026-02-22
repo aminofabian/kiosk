@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -84,7 +83,6 @@ export function ItemsManager() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [togglingTypeId, setTogglingTypeId] = useState<string | null>(null);
-  const [printLabelItem, setPrintLabelItem] = useState<ItemWithCategory | null>(null);
 
   const fetchItems = async (background = false) => {
     try {
@@ -471,20 +469,42 @@ export function ItemsManager() {
   };
 
   const handlePrintLabel = (item: ItemWithCategory) => {
-    setPrintLabelItem(item);
-  };
+    const displayName = item.variant_name ? `${item.name} – ${item.variant_name}` : item.name;
+    const priceStr = formatPrice(item.current_sell_price);
+    const unitLine = item.unit_type !== 'piece'
+      ? `<div style="font-size:9pt;color:#000;margin-top:2px;">${item.unit_type} &middot; ${formatStock(item.current_stock, item.unit_type)}</div>`
+      : '';
 
-  useEffect(() => {
-    if (!printLabelItem) return;
-    const afterPrint = () => setPrintLabelItem(null);
-    window.onafterprint = afterPrint;
-    toast.info('In the print dialog: set Copies to 1 and Paper size to 50×40mm if needed.', { duration: 4000 });
-    const t = setTimeout(() => window.print(), 150);
-    return () => {
-      clearTimeout(t);
-      window.onafterprint = null;
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:0;height:0;border:none;';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) { document.body.removeChild(iframe); return; }
+
+    doc.open();
+    doc.write(`<!DOCTYPE html><html><head><style>
+      @page { size: 50mm 40mm; margin: 0; }
+      html, body { margin: 0; padding: 0; width: 50mm; height: 40mm; overflow: hidden; }
+      body { display: flex; align-items: center; font-family: Arial, Helvetica, sans-serif; box-sizing: border-box; padding: 3mm; }
+      .label { width: 100%; }
+      .name { font-size: 11pt; font-weight: 700; color: #000; line-height: 1.2; word-break: break-word; }
+      .meta { font-size: 9pt; color: #000; margin-top: 2px; }
+      .price { font-size: 18pt; font-weight: 900; color: #000; margin-top: 3px; letter-spacing: 0.5px; }
+    </style></head><body>
+      <div class="label">
+        <div class="name">${displayName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+        ${unitLine}
+        <div class="price">${priceStr}</div>
+      </div>
+    </body></html>`);
+    doc.close();
+
+    iframe.onload = () => {
+      try { iframe.contentWindow?.print(); } catch { /* ignore */ }
+      setTimeout(() => document.body.removeChild(iframe), 1000);
     };
-  }, [printLabelItem]);
+  };
 
   const handleDeleteItemFromList = (item: ItemWithCategory, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -537,29 +557,6 @@ export function ItemsManager() {
 
   return (
     <div className="min-h-screen">
-        {/* In-page print label: rendered into body so print CSS can show only this (no popup) */}
-        {typeof document !== 'undefined' && printLabelItem && createPortal(
-          <>
-            <style dangerouslySetInnerHTML={{ __html: `
-              .print-label-sheet { position: fixed; left: -9999px; top: 0; width: 50mm; height: 40mm; z-index: -1; box-sizing: border-box; overflow: hidden; }
-              @media print {
-                @page { size: 50mm 40mm landscape; margin: 0 !important; }
-                html, body { margin: 0 !important; padding: 0 !important; width: 50mm !important; height: 40mm !important; min-width: 50mm !important; min-height: 40mm !important; max-width: 50mm !important; max-height: 40mm !important; overflow: hidden !important; }
-                body > *:not(.print-label-sheet) { display: none !important; width: 0 !important; height: 0 !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; position: absolute !important; left: -9999px !important; }
-                .print-label-sheet { display: flex !important; visibility: visible !important; position: fixed !important; left: 0 !important; top: 0 !important; right: auto !important; bottom: auto !important; width: 50mm !important; height: 40mm !important; min-width: 50mm !important; min-height: 40mm !important; max-width: 50mm !important; max-height: 40mm !important; overflow: hidden !important; box-sizing: border-box !important; z-index: 9999 !important; page-break-after: avoid !important; page-break-inside: avoid !important; page-break-before: avoid !important; }
-                .print-label-sheet * { visibility: visible !important; }
-              }
-            `}} />
-            <div className="print-label-sheet bg-white p-[3mm] flex flex-col justify-center text-black font-sans box-border overflow-hidden">
-              <div className="print-label-name font-bold leading-tight break-words" style={{ fontSize: '11px', color: '#000' }}>{printLabelItem.variant_name ? `${printLabelItem.name} – ${printLabelItem.variant_name}` : printLabelItem.name}</div>
-              {printLabelItem.unit_type !== 'piece' && (
-                <div className="print-label-meta mb-1" style={{ fontSize: '9px', color: '#000' }}>{printLabelItem.unit_type} · {formatStock(printLabelItem.current_stock, printLabelItem.unit_type)}</div>
-              )}
-              <div className="print-label-price font-extrabold tracking-wide" style={{ fontSize: '18px', color: '#000' }}>{formatPrice(printLabelItem.current_sell_price)}</div>
-            </div>
-          </>,
-          document.body
-        )}
         {/* Header */}
         <div className="sticky top-0 z-10 bg-white/80 dark:bg-[#0f1a0d]/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800">
           <div className="px-4 md:px-6 py-4">
