@@ -471,9 +471,6 @@ export function ItemsManager() {
   const handlePrintLabel = (item: ItemWithCategory) => {
     const displayName = item.variant_name ? `${item.name} – ${item.variant_name}` : item.name;
     const priceStr = formatPrice(item.current_sell_price);
-    const unitLine = item.unit_type !== 'piece'
-      ? `<div style="font-size:9pt;color:#000;margin-top:2px;">${item.unit_type} &middot; ${formatStock(item.current_stock, item.unit_type)}</div>`
-      : '';
 
     const iframe = document.createElement('iframe');
     iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:0;height:0;border:none;';
@@ -483,20 +480,16 @@ export function ItemsManager() {
     if (!doc) { document.body.removeChild(iframe); return; }
 
     doc.open();
-    doc.write(`<!DOCTYPE html><html><head><style>
+    doc.write(`<!DOCTYPE html><html><head><title> </title><style>
       @page { size: 40mm 50mm; margin: 0; }
-      html, body { margin: 0; padding: 0; width: 40mm; height: 50mm; overflow: hidden; }
-      body { display: flex; align-items: center; font-family: Arial, Helvetica, sans-serif; box-sizing: border-box; padding: 3mm; }
-      .label { width: 100%; }
-      .name { font-size: 10pt; font-weight: 700; color: #000; line-height: 1.2; word-break: break-word; }
-      .meta { font-size: 8pt; color: #000; margin-top: 2px; }
-      .price { font-size: 16pt; font-weight: 900; color: #000; margin-top: 4px; letter-spacing: 0.5px; }
+      * { margin: 0; padding: 0; }
+      html, body { width: 40mm; height: 50mm; overflow: hidden; }
+      body { font-family: Arial, sans-serif; padding: 2mm; box-sizing: border-box; }
+      .name { font-size: 14pt; font-weight: 800; color: #000; line-height: 1.15; word-break: break-word; }
+      .price { font-size: 22pt; font-weight: 900; color: #000; margin-top: 2mm; }
     </style></head><body>
-      <div class="label">
-        <div class="name">${displayName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
-        ${unitLine}
-        <div class="price">${priceStr}</div>
-      </div>
+      <div class="name">${displayName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+      <div class="price">${priceStr}</div>
     </body></html>`);
     doc.close();
 
