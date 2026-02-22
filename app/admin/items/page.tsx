@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -83,6 +84,7 @@ export function ItemsManager() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [togglingTypeId, setTogglingTypeId] = useState<string | null>(null);
+  const [printLabelItem, setPrintLabelItem] = useState<ItemWithCategory | null>(null);
 
   const fetchItems = async (background = false) => {
     try {
@@ -469,43 +471,19 @@ export function ItemsManager() {
   };
 
   const handlePrintLabel = (item: ItemWithCategory) => {
-    const displayName = item.variant_name ? `${item.name} – ${item.variant_name}` : item.name;
-    const priceStr = formatPrice(item.current_sell_price);
-    const unitStr = item.unit_type;
-    const stockStr = formatStock(item.current_stock, item.unit_type);
-    const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Label – ${displayName.replace(/"/g, '&quot;')}</title>
-  <style>
-    @page { size: 50mm 40mm; margin: 0; }
-    * { box-sizing: border-box; }
-    body { margin: 0; padding: 2mm; width: 50mm; height: 40mm; font-family: system-ui, sans-serif; font-size: 8px; color: #111; background: #fff; display: flex; flex-direction: column; justify-content: center; }
-    .name { font-weight: 700; font-size: 9px; line-height: 1.2; margin-bottom: 2px; word-break: break-word; }
-    .meta { color: #444; font-size: 7px; margin-bottom: 4px; }
-    .price { font-weight: 800; font-size: 12px; color: #0d5c0f; letter-spacing: 0.02em; }
-  </style>
-</head>
-<body>
-  <div class="name">${displayName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
-  <div class="meta">${unitStr} · ${stockStr}</div>
-  <div class="price">${priceStr}</div>
-  <script>
-    document.addEventListener('DOMContentLoaded', function() { window.print(); });
-    window.onafterprint = function() { window.close(); };
-  </script>
-</body>
-</html>`;
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const w = window.open(url, '_blank', 'noopener');
-    URL.revokeObjectURL(url);
-    if (!w) {
-      toast.error('Popup blocked. Allow popups for this site, or use the browser menu: File → Print.');
-      return;
-    }
+    setPrintLabelItem(item);
   };
+
+  useEffect(() => {
+    if (!printLabelItem) return;
+    const afterPrint = () => setPrintLabelItem(null);
+    window.onafterprint = afterPrint;
+    const t = setTimeout(() => window.print(), 100);
+    return () => {
+      clearTimeout(t);
+      window.onafterprint = null;
+    };
+  }, [printLabelItem]);
 
   const handleDeleteItemFromList = (item: ItemWithCategory, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -558,6 +536,26 @@ export function ItemsManager() {
 
   return (
     <div className="min-h-screen">
+        {/* In-page print label: rendered into body so print CSS can show only this (no popup) */}
+        {typeof document !== 'undefined' && printLabelItem && createPortal(
+          <>
+            <style dangerouslySetInnerHTML={{ __html: `
+              .print-label-sheet { position: fixed; left: -9999px; top: 0; width: 50mm; height: 40mm; z-index: -1; }
+              @media print {
+                body > *:not(.print-label-sheet) { visibility: hidden !important; }
+                .print-label-sheet { visibility: visible !important; position: fixed !important; left: 0 !important; top: 0 !important; width: 50mm !important; height: 40mm !important; z-index: 9999 !important; }
+                .print-label-sheet * { visibility: visible !important; }
+                @page { size: 50mm 40mm; margin: 0; }
+              }
+            `}} />
+            <div className="print-label-sheet bg-white p-[2mm] flex flex-col justify-center text-[#111] font-sans" style={{ fontSize: '8px' }}>
+              <div className="font-bold text-[9px] leading-tight mb-0.5 break-words">{printLabelItem.variant_name ? `${printLabelItem.name} – ${printLabelItem.variant_name}` : printLabelItem.name}</div>
+              <div className="text-[7px] text-[#444] mb-1">{printLabelItem.unit_type} · {formatStock(printLabelItem.current_stock, printLabelItem.unit_type)}</div>
+              <div className="font-extrabold text-[12px] text-[#0d5c0f] tracking-wide">{formatPrice(printLabelItem.current_sell_price)}</div>
+            </div>
+          </>,
+          document.body
+        )}
         {/* Header */}
         <div className="sticky top-0 z-10 bg-white/80 dark:bg-[#0f1a0d]/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800">
           <div className="px-4 md:px-6 py-4">
