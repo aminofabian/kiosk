@@ -473,8 +473,7 @@ export function ItemsManager() {
     const priceStr = formatPrice(item.current_sell_price);
     const unitStr = item.unit_type;
     const stockStr = formatStock(item.current_stock, item.unit_type);
-    const html = `
-<!DOCTYPE html>
+    const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -492,20 +491,20 @@ export function ItemsManager() {
   <div class="name">${displayName.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
   <div class="meta">${unitStr} · ${stockStr}</div>
   <div class="price">${priceStr}</div>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() { window.print(); });
+    window.onafterprint = function() { window.close(); };
+  </script>
 </body>
 </html>`;
-    const w = window.open('', '_blank', 'noopener');
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank', 'noopener');
+    URL.revokeObjectURL(url);
     if (!w) {
-      toast.error('Popup blocked. Allow popups to print the label.');
+      toast.error('Popup blocked. Allow popups for this site, or use the browser menu: File → Print.');
       return;
     }
-    w.document.write(html);
-    w.document.close();
-    w.focus();
-    w.onload = () => {
-      w.print();
-      w.onafterprint = () => w.close();
-    };
   };
 
   const handleDeleteItemFromList = (item: ItemWithCategory, e: React.MouseEvent) => {
