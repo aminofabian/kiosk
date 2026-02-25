@@ -255,7 +255,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN items parent ON i.parent_item_id = parent.id
       WHERE s.business_id = ? AND s.status = 'completed'
         AND s.sale_date >= ? AND s.sale_date <= ?
-      GROUP BY i.id, i.parent_item_id, parent.name, i.name, i.variant_name, c.name, item_type
+      GROUP BY i.id, i.parent_item_id, parent.name, i.name, i.variant_name, c.name, COALESCE(si.item_type_snapshot, i.item_type)
       ORDER BY total_revenue DESC
       LIMIT 100`,
       [bid, startDate, endDate]
@@ -303,7 +303,7 @@ export async function GET(request: NextRequest) {
       JOIN items i ON si.item_id = i.id
       WHERE s.business_id = ? AND s.status = 'completed'
         AND s.sale_date >= ? AND s.sale_date <= ?
-      GROUP BY item_type
+      GROUP BY COALESCE(si.item_type_snapshot, i.item_type)
       ORDER BY revenue DESC`,
       [bid, startDate, endDate]
     );
