@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import {
   Drawer,
   DrawerContent,
@@ -49,6 +50,7 @@ import {
   Lightbulb,
   Zap,
   ChevronRight,
+  CalendarDays,
 } from 'lucide-react';
 import { apiGet, apiPost } from '@/lib/utils/api-client';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
@@ -220,6 +222,8 @@ export default function DailyReportPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState('today');
+  const [customStart, setCustomStart] = useState(() => new Date().toISOString().slice(0, 10));
+  const [customEnd, setCustomEnd] = useState(() => new Date().toISOString().slice(0, 10));
   const reportRef = useRef<HTMLDivElement>(null);
 
   // AI Insights state
@@ -234,7 +238,11 @@ export default function DailyReportPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await apiGet<ReportData>(`/api/reports/daily-summary?period=${period}`);
+      const url =
+        period === 'custom'
+          ? `/api/reports/daily-summary?startDate=${encodeURIComponent(customStart)}&endDate=${encodeURIComponent(customEnd)}`
+          : `/api/reports/daily-summary?period=${period}`;
+      const res = await apiGet<ReportData>(url);
       if (res.success && res.data) {
         setData(res.data);
       } else {
@@ -245,7 +253,7 @@ export default function DailyReportPage() {
     } finally {
       setLoading(false);
     }
-  }, [period]);
+  }, [period, customStart, customEnd]);
 
   useEffect(() => {
     if (!user || user.role === 'cashier') return;
@@ -552,7 +560,7 @@ export default function DailyReportPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
                 <Select value={period} onValueChange={setPeriod}>
                   <SelectTrigger className="w-[120px] sm:w-[150px] h-9 text-xs sm:text-sm">
                     <SelectValue />
@@ -566,8 +574,30 @@ export default function DailyReportPage() {
                     <SelectItem value="this_month">This Month</SelectItem>
                     <SelectItem value="last_month">Last Month</SelectItem>
                     <SelectItem value="last_30_days">Last 30 Days</SelectItem>
+                    <SelectItem value="custom">Custom range</SelectItem>
                   </SelectContent>
                 </Select>
+                {period === 'custom' && (
+                  <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5">
+                    <CalendarDays className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                    <Input
+                      type="date"
+                      value={customStart}
+                      onChange={(e) => setCustomStart(e.target.value)}
+                      max={customEnd}
+                      className="h-8 w-[120px] sm:w-[130px] text-xs border-0 bg-transparent p-0 focus-visible:ring-0"
+                    />
+                    <span className="text-slate-400 text-xs">to</span>
+                    <Input
+                      type="date"
+                      value={customEnd}
+                      onChange={(e) => setCustomEnd(e.target.value)}
+                      min={customStart}
+                      max={new Date().toISOString().slice(0, 10)}
+                      className="h-8 w-[120px] sm:w-[130px] text-xs border-0 bg-transparent p-0 focus-visible:ring-0"
+                    />
+                  </div>
+                )}
                 <Button
                   onClick={handleGetAiInsights}
                   size="sm"

@@ -14,6 +14,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const period = searchParams.get('period') || 'today';
+    const startDateParam = searchParams.get('startDate'); // YYYY-MM-DD
+    const endDateParam = searchParams.get('endDate');     // YYYY-MM-DD
 
     const now = Math.floor(Date.now() / 1000);
     const todayStart = new Date();
@@ -26,6 +28,30 @@ export async function GET(request: NextRequest) {
     let prevStartDate = todayStartUnix - 86400;
     let prevEndDate = todayStartUnix - 1;
 
+    let useHourlyBreakdown = period === 'today' || period === 'yesterday';
+
+    // Custom date range: startDate and endDate query params (YYYY-MM-DD)
+    if (startDateParam && endDateParam) {
+      const startD = new Date(startDateParam + 'T00:00:00');
+      const endD = new Date(endDateParam + 'T23:59:59');
+      if (!Number.isNaN(startD.getTime()) && !Number.isNaN(endD.getTime())) {
+        startDate = Math.floor(startD.getTime() / 1000);
+        endDate = Math.floor(endD.getTime() / 1000);
+        if (startDate > endDate) {
+          const swap = startDate;
+          startDate = endDate;
+          endDate = swap;
+        }
+        prevEndDate = startDate - 1;
+        prevStartDate = prevEndDate - (endDate - startDate);
+        useHourlyBreakdown = startDateParam === endDateParam; // hourly only for single-day custom
+        if (startDateParam === endDateParam) {
+          periodLabel = startD.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        } else {
+          periodLabel = `${startD.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} – ${endD.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+        }
+      }
+    } else
     switch (period) {
       case 'today':
         startDate = todayStartUnix;
@@ -337,7 +363,7 @@ export async function GET(request: NextRequest) {
     let hourlyData: { hour: number; revenue: number; items_sold: number; transactions: number }[] = [];
     let dailyData: { date_key: string; date_label: string; revenue: number; profit: number; items_sold: number; transactions: number }[] = [];
 
-    if (period === 'today' || period === 'yesterday') {
+    if (useHourlyBreakdown) {
       hourlyData = await query<{
         hour: number;
         revenue: number;
