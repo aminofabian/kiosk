@@ -1098,11 +1098,19 @@ export default function AdminDashboardPage() {
       </Drawer>
 
       <Drawer open={itemDrawerOpen && !isMobile} onOpenChange={setItemDrawerOpen} direction="right">
-        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
-          <DrawerHeader className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900 px-5 py-4">
+        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[720px] !max-w-none h-full max-h-screen rounded-l-2xl border-l border-slate-200/80 dark:border-slate-800/80 shadow-xl bg-white dark:bg-slate-900">
+          <DrawerHeader className="relative shrink-0 border-b border-slate-200/80 dark:border-slate-800/80 bg-gradient-to-br from-[#1c6a1e]/5 via-white to-slate-50/80 dark:from-[#1c6a1e]/15 dark:via-slate-900 dark:to-slate-950/80 px-5 py-5 pr-14">
+            <DrawerClose asChild>
+              <button
+                className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white active:scale-95 transition-all shadow-sm"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" strokeWidth={2.5} />
+              </button>
+            </DrawerClose>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center flex-shrink-0">
-                <Package className="w-5 h-5 text-[#1c6a1e] dark:text-[#2a8a30]" />
+              <div className="w-11 h-11 rounded-xl bg-[#1c6a1e]/15 dark:bg-[#1c6a1e]/25 flex items-center justify-center flex-shrink-0 shadow-sm">
+                <Package className="w-6 h-6 text-[#1c6a1e] dark:text-[#2a8a30]" />
               </div>
               <div>
                 <DrawerTitle className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
@@ -1114,7 +1122,7 @@ export default function AdminDashboardPage() {
               </div>
             </div>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 sm:px-5 py-5 flex-1 bg-slate-50/50 dark:bg-slate-950/30">
+          <div className="overflow-y-auto px-4 sm:px-6 py-6 flex-1 bg-slate-50/60 dark:bg-slate-950/40">
             <ItemForm
               onSuccess={() => setItemDrawerOpen(false)}
               onCancel={() => setItemDrawerOpen(false)}

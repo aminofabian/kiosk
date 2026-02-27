@@ -395,14 +395,6 @@ export default function POSPage() {
     loadPosInsights();
   }, [loadPosInsights]);
 
-  useEffect(() => {
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') loadPosInsights();
-    };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
-  }, [loadPosInsights]);
-
   // Soft refresh: re-fetch insights + categories + items without full reload (keeps cart)
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);

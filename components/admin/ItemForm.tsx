@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Package, Layers, ShoppingCart, DollarSign, Box, AlertCircle, Info, Sparkles, Grid3x3, QrCode, Search, CheckCircle2 } from 'lucide-react';
+import { Loader2, Package, Layers, ShoppingCart, DollarSign, Box, AlertCircle, Info, Sparkles, Grid3x3, QrCode, Search, CheckCircle2, ChevronRight, ChevronLeft } from 'lucide-react';
 import type { Category, Item } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
@@ -758,6 +758,7 @@ export function ItemForm({
   const [loading, setLoading] = useState(true);
   const [parentSearchQuery, setParentSearchQuery] = useState('');
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
+  const [formStep, setFormStep] = useState(1);
   const [barcodeScanStatus, setBarcodeScanStatus] = useState<{ scanning: boolean; lastScanned: string | null }>({ scanning: false, lastScanned: null });
   const [barcodeCheckStatus, setBarcodeCheckStatus] = useState<{ checking: boolean; exists: boolean; existingItem: Item | null; error: string | null; checked: boolean }>({ checking: false, exists: false, existingItem: null, error: null, checked: false });
 
@@ -955,6 +956,7 @@ export function ItemForm({
     setBundleName(initialData.bundle_name || '');
     setPackagingUnitName(initialData.packaging_unit_name || '');
     setPackagingUnitQty(initialData.packaging_unit_qty?.toString() || '');
+    setFormStep(1);
   }, [initialData, itemId, parentItemId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1222,17 +1224,130 @@ export function ItemForm({
   }
 
   const isEditingExistingItem = !!itemId;
+  const useSteps = !isEditingExistingItem && !parentItemId;
+  const totalSteps = useSteps
+    ? (mode === 'variant' ? 4 : 3)
+    : 1;
+  const canGoNext = formStep < totalSteps;
+  const canGoBack = formStep > 1;
 
   return (
     <div className="max-w-2xl mx-auto py-6">
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Mode Selection - only show for new items and not when creating variant for a parent */}
-        {!isEditingExistingItem && !parentItemId && (
+        {/* Step indicator - only for new items */}
+        {useSteps && (
+          <div className="flex items-center gap-2 mb-6">
+            {Array.from({ length: totalSteps }).map((_, i) => {
+              const stepNum = i + 1;
+              const isActive = formStep === stepNum;
+              const isComplete = formStep > stepNum;
+              return (
+                <div key={stepNum} className="flex items-center flex-1">
+                  <button
+                    type="button"
+                    onClick={() => setFormStep(stepNum)}
+                    className={`
+                      flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all
+                      ${isActive ? 'bg-[#1c6a1e] text-white shadow-sm' : ''}
+                      ${isComplete ? 'bg-[#1c6a1e]/20 text-[#1c6a1e] dark:bg-[#1c6a1e]/30' : ''}
+                      ${!isActive && !isComplete ? 'bg-slate-100 dark:bg-slate-800 text-slate-500' : ''}
+                      ${!isActive ? 'hover:bg-slate-200 dark:hover:bg-slate-700' : ''}
+                    `}
+                  >
+                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-white/20">
+                      {isComplete ? <CheckCircle2 className="w-3.5 h-3.5" /> : stepNum}
+                    </span>
+                    <span className="hidden sm:inline">
+                      {stepNum === 1 ? 'Type' : stepNum === 2 ? 'Structure' : stepNum === 3 && mode === 'variant' ? 'Variant' : 'Details'}
+                    </span>
+                  </button>
+                  {i < totalSteps - 1 && (
+                    <div className={`flex-1 h-0.5 mx-1 rounded ${formStep > stepNum ? 'bg-[#1c6a1e]/50' : 'bg-slate-200 dark:bg-slate-700'}`} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Step 1: Product type */}
+        {(formStep === 1 || !useSteps) && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Package className="h-4 w-4 text-muted-foreground" />
+            <Label className="text-base font-semibold">Product type</Label>
+          </div>
+          <p className="text-sm text-muted-foreground -mt-1">
+            Choose how this product is sold (affects units & pricing)
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {productTypes.map((type) => {
+              const isSelected = itemType === type.key;
+              const typeColor = type.color || '#1c6a1e';
+              const desc = type.key === 'grocery'
+                ? 'Fresh produce, perishables, sold by weight or piece'
+                : type.key === 'retail'
+                  ? 'Packaged goods, sold by unit (each, pack, box)'
+                  : 'Custom product type';
+              return (
+                <button
+                  key={type.key}
+                  type="button"
+                  onClick={() => setItemType(type.key)}
+                  disabled={isSubmitting}
+                  className={`
+                    relative p-4 rounded-xl border-2 transition-all duration-200 text-left
+                    hover:shadow-md group
+                    ${isSelected
+                      ? 'shadow-sm'
+                      : 'border-border bg-card hover:border-muted-foreground/40 hover:bg-accent/50'
+                    }
+                    ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+                  `}
+                  style={isSelected ? {
+                    borderColor: typeColor,
+                    backgroundColor: `${typeColor}18`,
+                  } : undefined}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="p-2.5 rounded-lg shrink-0"
+                      style={{ backgroundColor: isSelected ? `${typeColor}25` : undefined }}
+                    >
+                      <span className="text-2xl" aria-hidden>{type.emoji}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm mb-0.5">{type.label}</p>
+                      <p className="text-xs text-muted-foreground leading-snug">
+                        {desc}
+                      </p>
+                    </div>
+                  </div>
+                  {isSelected && (
+                    <div className="absolute top-3 right-3">
+                      <CheckCircle2
+                        className="h-5 w-5"
+                        style={{ color: typeColor }}
+                      />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        )}
+
+        {/* Step 2: Mode Selection - only show for new items */}
+        {(formStep === 2 || !useSteps) && !isEditingExistingItem && !parentItemId && (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <Package className="h-4 w-4 text-muted-foreground" />
-              <Label className="text-base font-semibold">What type of product is this?</Label>
+              <Layers className="h-4 w-4 text-muted-foreground" />
+              <Label className="text-base font-semibold">Product structure</Label>
             </div>
+            <p className="text-sm text-muted-foreground -mt-1">
+              How is this product organized?
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
                 type="button"
@@ -1333,32 +1448,8 @@ export function ItemForm({
           </div>
         )}
 
-        {/* Item type: Grocery vs Retail */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Package className="h-4 w-4 text-muted-foreground" />
-            <Label className="text-base font-semibold">Product type</Label>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            {productTypes.map((type) => (
-              <Button
-                key={type.key}
-                type="button"
-                variant={itemType === type.key ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setItemType(type.key)}
-                disabled={isSubmitting}
-                className={itemType === type.key ? 'bg-[#1c6a1e] hover:bg-[#1c6a1e]/90' : ''}
-              >
-                <span className="mr-1" aria-hidden>{type.emoji}</span>
-                {type.label}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        {/* Variant-specific: Parent selection */}
-        {mode === 'variant' && !parentItemId && (
+        {/* Step 3: Variant-specific - Parent selection + Variant name */}
+        {(formStep === 3 || !useSteps) && mode === 'variant' && !parentItemId && (
           <>
             <Separator />
             <div className="space-y-4">
@@ -1422,8 +1513,8 @@ export function ItemForm({
           </>
         )}
 
-        {/* Variant Name (for variants) */}
-        {mode === 'variant' && (() => {
+        {/* Variant Name (for variants) - part of Step 3 */}
+        {(formStep === 3 || !useSteps) && mode === 'variant' && (() => {
           const selectedParent = parentItems.find(p => p.id === selectedParentId);
           const parentName = selectedParent?.name || '';
           const parentCategory = categories.find(c => c.id === selectedParent?.category_id);
@@ -1563,7 +1654,10 @@ export function ItemForm({
           );
         })()}
 
-        {/* Category Selection - only show for non-variant modes */}
+        {/* Step 4 (variant) / Step 3 (non-variant): Product details */}
+        {(formStep === (mode === 'variant' ? 4 : 3) || !useSteps) && (
+        <>
+        {/* Category - non-variant only */}
         {mode !== 'variant' && (
           <>
             <Separator />
@@ -2420,6 +2514,35 @@ export function ItemForm({
             </div>
           </>
         )}
+        </>
+        )}
+
+        {/* Step navigation - Next / Back */}
+        {useSteps && formStep < totalSteps && (
+          <div className="flex gap-3 pt-4">
+            {canGoBack && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setFormStep((s) => s - 1)}
+                className="flex-1 h-11"
+                disabled={isSubmitting}
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Back
+              </Button>
+            )}
+            <Button
+              type="button"
+              onClick={() => setFormStep((s) => Math.min(s + 1, totalSteps))}
+              className={`${canGoBack ? 'flex-1' : 'w-full'} h-11 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white font-semibold`}
+              disabled={isSubmitting}
+            >
+              Next
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+        )}
 
         {error && (
           <div className="p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg flex items-start gap-2">
@@ -2428,6 +2551,8 @@ export function ItemForm({
           </div>
         )}
 
+        {(formStep === totalSteps || !useSteps) && (
+        <>
         <Separator />
 
         <div className="flex gap-3 pt-2">
@@ -2464,6 +2589,8 @@ export function ItemForm({
             )}
           </Button>
         </div>
+        </>
+        )}
       </form>
     </div>
   );

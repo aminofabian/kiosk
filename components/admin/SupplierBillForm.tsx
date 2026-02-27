@@ -1809,7 +1809,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
                   <SelectTrigger className="h-12 border-2 border-slate-200 dark:border-slate-700">
                     <SelectValue placeholder="Select type (optional)" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[70]">
                     <SelectItem value="none">None</SelectItem>
                     {productTypes.map((t) => (
                       <SelectItem key={t.key} value={t.key}>{t.emoji} {t.label}</SelectItem>
@@ -1961,7 +1961,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
                   <SelectTrigger className="h-12 border-2 border-slate-200 dark:border-slate-700">
                     <SelectValue placeholder="Select type (optional)" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[70]">
                     <SelectItem value="none">None</SelectItem>
                     {productTypes.map((t) => (
                       <SelectItem key={t.key} value={t.key}>{t.emoji} {t.label}</SelectItem>

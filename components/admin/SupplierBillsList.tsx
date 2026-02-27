@@ -40,7 +40,6 @@ import {
   Pencil,
   X,
   TrendingUp,
-  Wallet,
   Truck,
   Trash2,
   Banknote,
@@ -52,7 +51,7 @@ import {
   Store,
   ScanBarcode,
 } from 'lucide-react';
-import { apiGet, apiPost, apiDelete, apiPatch } from '@/lib/utils/api-client';
+import { apiGet, apiPost, apiDelete } from '@/lib/utils/api-client';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { toast } from 'sonner';
 import { SupplierBillEditForm } from '@/components/admin/SupplierBillEditForm';
@@ -97,7 +96,6 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
   const canDeleteBills = user?.role === 'admin' || user?.role === 'owner';
   const [bills, setBills] = useState<SupplierBillWithDetails[]>([]);
   const [suppliersFromTable, setSuppliersFromTable] = useState<SupplierFromTable[]>([]);
-  const [settingTypeForId, setSettingTypeForId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -510,10 +508,17 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#1c6a1e]" />
-          <p className="text-slate-500">Loading supplier bills...</p>
+      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-[#1c2e18] shadow-sm">
+        <div className="flex items-center justify-center py-24 sm:py-32">
+          <div className="text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto">
+              <Loader2 className="h-7 w-7 animate-spin text-[#1c6a1e]" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Loading supplier bills</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Fetching your payment records...</p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -521,10 +526,17 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
 
   if (error) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center space-y-3">
-          <AlertTriangle className="h-8 w-8 mx-auto text-red-500" />
-          <p className="text-red-600">{error}</p>
+      <div className="rounded-2xl border border-red-200/80 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 shadow-sm">
+        <div className="flex items-center justify-center py-24 sm:py-32">
+          <div className="text-center space-y-4 max-w-sm px-4">
+            <div className="w-14 h-14 rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto">
+              <AlertTriangle className="h-7 w-7 text-red-600 dark:text-red-400" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-red-800 dark:text-red-300">Unable to load bills</p>
+              <p className="text-xs text-red-600/90 dark:text-red-400/90 mt-1">{error}</p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -712,47 +724,43 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
     return { matrix, suppliers, maxCount, dayBudgets, dayBillsCount, weeklyBudget };
   })();
 
-  const getHeatBg = (count: number, max: number) => {
-    if (!count || !max) return '';
-    const r = count / max;
-    if (r > 0.66) return 'bg-emerald-200/70 dark:bg-emerald-700/40';
-    if (r > 0.33) return 'bg-emerald-100/70 dark:bg-emerald-800/30';
-    return 'bg-emerald-50/70 dark:bg-emerald-900/20';
-  };
-
   // ── Render ───────────────────────────────────────────
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-5">
       {/* ═══════════ FILTERS ═══════════ */}
-      <div className="space-y-3">
-        <div>
-          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-            Supplier Bills &amp; Budget
-          </h2>
-          <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            {filteredBills.length} bill{filteredBills.length !== 1 ? 's' : ''}
-            {dateRangeLabel && <span> &middot; {dateRangeLabel}</span>}
-            {typeFilter !== 'all' && (() => {
-              const tc = productTypes.find((t) => t.key === typeFilter);
-              return (
-                <span className="text-slate-700 dark:text-slate-300"> &middot; {tc?.emoji} {tc?.label ?? typeFilter}</span>
-              );
-            })()}
-            {supplierFilter !== 'all' && (
-              <span className="text-slate-700 dark:text-slate-300"> &middot; {supplierFilter}</span>
-            )}
-            {dayOfWeekFilter !== 'all' && (
-              <span className="text-slate-700 dark:text-slate-300">
-                {' '}&middot; {DAY_NAMES[parseInt(dayOfWeekFilter, 10)]}s only
-              </span>
-            )}
-          </p>
+      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-[#1c2e18] shadow-sm overflow-hidden">
+        <div className="px-4 sm:px-5 py-3.5 sm:py-4 border-b border-slate-100 dark:border-slate-800">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <h2 className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-widest">
+                Filters &amp; View
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                {filteredBills.length} bill{filteredBills.length !== 1 ? 's' : ''}
+                {dateRangeLabel && <span> &middot; {dateRangeLabel}</span>}
+                {typeFilter !== 'all' && (() => {
+                  const tc = productTypes.find((t) => t.key === typeFilter);
+                  return (
+                    <span className="text-slate-600 dark:text-slate-300"> &middot; {tc?.emoji} {tc?.label ?? typeFilter}</span>
+                  );
+                })()}
+                {supplierFilter !== 'all' && (
+                  <span className="text-slate-600 dark:text-slate-300"> &middot; {supplierFilter}</span>
+                )}
+                {dayOfWeekFilter !== 'all' && (
+                  <span className="text-slate-600 dark:text-slate-300">
+                    {' '}&middot; {DAY_NAMES[parseInt(dayOfWeekFilter, 10)]}s only
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
         </div>
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none">
+        <div className="px-4 sm:px-5 py-3 flex flex-wrap gap-2 sm:gap-3 overflow-x-auto scrollbar-none">
           {productTypes.length > 1 && (
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="min-w-[110px] sm:w-36 h-9 text-xs sm:text-sm shrink-0">
+              <SelectTrigger className="min-w-[110px] sm:w-36 h-9 text-xs sm:text-sm shrink-0 bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
                 <SelectValue placeholder="All types" />
               </SelectTrigger>
               <SelectContent>
@@ -766,7 +774,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
             </Select>
           )}
           <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-            <SelectTrigger className="min-w-[130px] sm:w-44 h-9 text-xs sm:text-sm shrink-0">
+            <SelectTrigger className="min-w-[130px] sm:w-44 h-9 text-xs sm:text-sm shrink-0 bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
               <SelectValue placeholder="All suppliers" />
             </SelectTrigger>
             <SelectContent>
@@ -779,7 +787,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
             </SelectContent>
           </Select>
           <Select value={dayOfWeekFilter} onValueChange={setDayOfWeekFilter}>
-            <SelectTrigger className="min-w-[100px] sm:w-36 h-9 text-xs sm:text-sm shrink-0">
+            <SelectTrigger className="min-w-[100px] sm:w-36 h-9 text-xs sm:text-sm shrink-0 bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
               <SelectValue placeholder="All days" />
             </SelectTrigger>
             <SelectContent>
@@ -792,7 +800,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
             </SelectContent>
           </Select>
           <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="min-w-[120px] sm:w-40 h-9 text-xs sm:text-sm shrink-0">
+            <SelectTrigger className="min-w-[120px] sm:w-40 h-9 text-xs sm:text-sm shrink-0 bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
               <SelectValue placeholder="Period" />
             </SelectTrigger>
             <SelectContent>
@@ -808,7 +816,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="min-w-[90px] sm:w-32 h-9 text-xs sm:text-sm shrink-0">
+            <SelectTrigger className="min-w-[90px] sm:w-32 h-9 text-xs sm:text-sm shrink-0 bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -821,801 +829,155 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
         </div>
       </div>
 
-      {/* ═══════════ 1. FINANCIAL PULSE (hidden for cashiers) ═══════════ */}
-      {user?.role !== 'cashier' && (
-      <Card className="overflow-hidden border border-slate-200 dark:border-slate-700 bg-gradient-to-br from-white via-emerald-50/30 to-white dark:from-[#1c2e18] dark:via-emerald-950/20 dark:to-[#1c2e18] rounded-xl shadow-sm">
-        <CardContent className="p-3.5 sm:p-5">
-          <div className="flex items-center gap-2 mb-3 sm:mb-4">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center shrink-0">
-              <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#1c6a1e]" />
+      {/* ═══════════ UNIFIED OVERVIEW (compact, all in one) ═══════════ */}
+      <Card className="rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-gradient-to-br from-white to-slate-50/50 dark:from-[#1c2e18] dark:to-slate-900/30 shadow-sm overflow-hidden">
+        <CardContent className="p-4 sm:p-5">
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1c6a1e]/15 to-[#2a8a30]/10 dark:from-[#1c6a1e]/25 dark:to-[#2a8a30]/15 flex items-center justify-center shrink-0">
+              <TrendingUp className="w-4 h-4 text-[#1c6a1e] dark:text-[#2a8a30]" />
             </div>
-            <div className="min-w-0">
-              <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Financial Pulse</h3>
-              <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                {dateRangeLabel || 'All time'} &middot; How much of your sales go to suppliers
-              </p>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Overview</h3>
+              <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                {dateRangeLabel || 'All time'}
+              </span>
             </div>
           </div>
 
-          {salesLoading ? (
-            <div className="flex items-center gap-2 py-6 text-slate-500">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-sm">Loading sales data...</span>
+          {salesLoading && user?.role !== 'cashier' ? (
+            <div className="flex items-center gap-2 py-4 text-slate-500">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <span className="text-xs">Loading...</span>
             </div>
           ) : (
-            <div className="space-y-3 sm:space-y-4">
-              {/* Big numbers */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                <div>
-                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">
-                    Sales Revenue
-                  </p>
-                  <p className="text-base sm:text-xl font-bold text-emerald-700 dark:text-emerald-400">
-                    {formatPrice(salesRevenue)}
-                  </p>
-                  {salesSummary && (
-                    <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400">
-                      {salesSummary.totalTransactions} txn{salesSummary.totalTransactions !== 1 ? 's' : ''}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">
-                    Supplier Costs
-                  </p>
-                  <p className="text-base sm:text-xl font-bold text-slate-900 dark:text-white">
-                    {formatPrice(totalAmount)}
-                  </p>
-                  <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400">
-                    {filteredBills.length} bill{filteredBills.length !== 1 ? 's' : ''}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">
-                    Net After Suppliers
-                  </p>
-                  <p
-                    className={`text-base sm:text-xl font-bold ${
-                      netMargin >= 0
-                        ? 'text-emerald-700 dark:text-emerald-400'
-                        : 'text-red-600 dark:text-red-400'
-                    }`}
-                  >
-                    {netMargin >= 0 ? '+' : ''}
-                    {formatPrice(netMargin)}
-                  </p>
-                  <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 hidden sm:block">
-                    {netMargin >= 0 ? 'Sales cover your suppliers' : 'Costs exceed sales'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5">
-                    Cost Ratio
-                  </p>
-                  <p className="text-base sm:text-xl font-bold text-slate-900 dark:text-white">
-                    {salesRevenue > 0 ? `${Math.round(costRatio)}%` : '—'}
-                  </p>
-                  <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 hidden sm:block">
-                    of sales goes to suppliers
-                  </p>
-                </div>
+            <div className="space-y-3">
+              {/* Row 1: Bills stats */}
+              <div className="flex flex-wrap gap-x-5 sm:gap-x-8 gap-y-2 text-sm">
+                <span className="flex items-center gap-2">
+                  <FileText className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                  <span className="text-slate-500 dark:text-slate-400">Bills</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{filteredBills.length}</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  <span className="text-slate-500 dark:text-slate-400">Total</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{formatPrice(totalAmount)}</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  <Clock className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-slate-500 dark:text-slate-400">Pending</span>
+                  <span className="font-bold text-amber-600 dark:text-amber-400">{formatPrice(totalPending)}</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+                  <span className="text-slate-500 dark:text-slate-400">Paid</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatPrice(totalPaid)}</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  <Calendar className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+                  <span className="text-slate-500 dark:text-slate-400">Avg/wk</span>
+                  <span className="font-bold text-slate-900 dark:text-white">{formatPrice(totalAmount / spanWeeks)}</span>
+                </span>
               </div>
 
-              {/* Cost ratio progress bar */}
-              {salesRevenue > 0 && (
-                <div>
-                  <div className="flex items-center justify-between text-[10px] mb-1">
-                    <span className="text-slate-500 dark:text-slate-400">
-                      Supplier costs as % of sales
+              {/* Row 2: Financial pulse (non-cashiers) + cost ratio bar */}
+              {user?.role !== 'cashier' && (
+                <>
+                  <div className="flex flex-wrap gap-x-5 sm:gap-x-8 gap-y-2 text-sm pt-3 border-t border-slate-200/80 dark:border-slate-700/80">
+                    <span className="flex items-center gap-2">
+                      <span className="text-slate-500 dark:text-slate-400">Sales</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatPrice(salesRevenue)}</span>
                     </span>
-                    <span className="font-bold text-slate-700 dark:text-slate-300">
-                      {Math.round(costRatio)}%
+                    <span className="flex items-center gap-2">
+                      <span className="text-slate-500 dark:text-slate-400">Net</span>
+                      <span className={`font-bold ${netMargin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {netMargin >= 0 ? '+' : ''}{formatPrice(netMargin)}
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="text-slate-500 dark:text-slate-400">Cost ratio</span>
+                      <span className="font-bold text-slate-900 dark:text-white">{salesRevenue > 0 ? `${Math.round(costRatio)}%` : '—'}</span>
                     </span>
                   </div>
-                  <div className="h-3 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        costRatio > 80
-                          ? 'bg-red-500'
-                          : costRatio > 60
-                          ? 'bg-amber-500'
-                          : 'bg-[#1c6a1e]'
-                      }`}
-                      style={{ width: `${Math.min(100, costRatio)}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-[10px] mt-1 text-slate-400 dark:text-slate-500">
-                    <span>0%</span>
-                    <span
-                      className={
-                        costRatio > 80
-                          ? 'text-red-500 font-medium'
-                          : costRatio > 60
-                          ? 'text-amber-500 font-medium'
-                          : 'text-emerald-600 font-medium'
-                      }
-                    >
-                      {costRatio <= 50
-                        ? 'Healthy margin'
-                        : costRatio <= 70
-                        ? 'Moderate spend'
-                        : 'High supplier spend'}
-                    </span>
-                    <span>100%</span>
-                  </div>
-                </div>
+                  {salesRevenue > 0 && (
+                    <div className="pt-1.5">
+                      <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            costRatio > 80 ? 'bg-red-500' : costRatio > 60 ? 'bg-amber-500' : 'bg-[#1c6a1e]'
+                          }`}
+                          style={{ width: `${Math.min(100, costRatio)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
-              {/* Daily averages comparison */}
-              <div className="grid grid-cols-2 gap-2 sm:gap-3 pt-2 border-t border-slate-200 dark:border-slate-700">
-                <div className="p-2.5 sm:p-3 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30">
-                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5 sm:mb-1">
-                    Avg Sales / Day
-                  </p>
-                  <p className="text-sm sm:text-lg font-bold text-emerald-700 dark:text-emerald-400">
-                    {formatPrice(salesRevenue / spanDays)}
-                  </p>
-                  <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 hidden sm:block">
-                    ~{formatPrice((salesRevenue / spanDays) * 7)} / week
-                  </p>
+              {/* Row 3: Top suppliers + weekly budget (non-cashiers, compact) */}
+              {user?.role !== 'cashier' && (supplierBudget.length > 0 || deliveryMatrix.weeklyBudget > 0) && (
+                <div className="flex flex-wrap gap-x-4 sm:gap-x-6 gap-y-2 text-xs pt-3 border-t border-slate-200/80 dark:border-slate-700/80">
+                  {deliveryMatrix.weeklyBudget > 0 && (
+                    <span className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-100/80 dark:bg-slate-800/50">
+                      <Truck className="w-3 h-3 text-slate-500 dark:text-slate-400" />
+                      <span className="text-slate-500 dark:text-slate-400">This week</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200">{formatPrice(deliveryMatrix.weeklyBudget)}</span>
+                    </span>
+                  )}
+                  {supplierBudget.slice(0, 5).map((s) => (
+                    <button
+                      key={s.name}
+                      type="button"
+                      onClick={() => {
+                        const supplier = suppliersFromTable.find((sup) => sup.name === s.name);
+                        if (supplier && onSupplierClick) onSupplierClick(supplier);
+                      }}
+                      className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-100/60 dark:bg-slate-800/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:text-[#1c6a1e] dark:hover:text-[#2a8a30] transition-colors text-left"
+                    >
+                      <span className="text-slate-600 dark:text-slate-400 truncate max-w-[90px]">{s.name}</span>
+                      <span className="font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">{formatPrice(s.total)}</span>
+                    </button>
+                  ))}
                 </div>
-                <div className="p-2.5 sm:p-3 rounded-lg bg-slate-50 dark:bg-slate-800/30 border border-slate-200/50 dark:border-slate-700/30">
-                  <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-0.5 sm:mb-1">
-                    Avg Cost / Day
-                  </p>
-                  <p className="text-sm sm:text-lg font-bold text-slate-900 dark:text-white">
-                    {formatPrice(totalAmount / spanDays)}
-                  </p>
-                  <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 hidden sm:block">
-                    ~{formatPrice(totalAmount / spanWeeks)} / week
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
-      )}
-
-      {/* ═══════════ TYPE BREAKDOWN (hidden for cashiers) ═══════════ */}
-      {user?.role !== 'cashier' && productTypes.length > 1 && !salesLoading && (
-        <Card className="overflow-hidden border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1c2e18] rounded-xl shadow-sm">
-          <CardContent className="p-0">
-            <div className="px-3.5 sm:px-5 pt-3.5 sm:pt-5 pb-2.5 sm:pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
-                  <Store className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-violet-600 dark:text-violet-400" />
-                </div>
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
-                  Breakdown by Type
-                </h3>
-              </div>
-              <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 ml-8 sm:ml-9">
-                {dateRangeLabel || 'All time'} &middot; Sales, profit &amp; supplier costs per department
-              </p>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[580px]">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
-                    <th className="text-left px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Type</th>
-                    <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Sales Revenue</th>
-                    <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">COGS</th>
-                    <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Gross Profit</th>
-                    <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Margin</th>
-                    <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Supplier Bills</th>
-                    <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Net</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {productTypes.map((t, i) => {
-                    const sd = typeSalesData[t.key];
-                    const pd = typeProfitData[t.key];
-                    const typeSupplierCost = bills
-                      .filter((b) => {
-                        const sup = suppliersFromTable.find((s) => b.supplier_id === s.id || s.name === b.supplier_name);
-                        return sup?.supplier_type === t.key && isDateInRange(b.created_at, dateFilter);
-                      })
-                      .reduce((sum, b) => sum + b.amount, 0);
-                    const rev = sd?.revenue ?? 0;
-                    const profit = pd?.profit ?? 0;
-                    const cost = pd?.cost ?? 0;
-                    const margin = pd?.margin ?? 0;
-                    const netAfterSupplier = rev - typeSupplierCost;
-
-                    return (
-                      <tr
-                        key={t.key}
-                        className={`border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors ${
-                          i % 2 !== 0 ? 'bg-slate-50/30 dark:bg-slate-900/10' : ''
-                        }`}
-                      >
-                        <td className="px-4 py-2.5">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className="w-2 h-8 rounded-full shrink-0"
-                              style={{ backgroundColor: t.color, opacity: 0.7 }}
-                            />
-                            <span className="font-medium text-slate-900 dark:text-white">
-                              {t.emoji} {t.label}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="text-right px-3 py-2.5 font-semibold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
-                          {formatPrice(rev)}
-                        </td>
-                        <td className="text-right px-3 py-2.5 text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                          {formatPrice(cost)}
-                        </td>
-                        <td className="text-right px-3 py-2.5 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
-                          {formatPrice(profit)}
-                        </td>
-                        <td className="text-right px-3 py-2.5">
-                          <span className={`text-xs font-semibold ${
-                            margin > 0.3 ? 'text-emerald-600 dark:text-emerald-400'
-                              : margin > 0.15 ? 'text-amber-600 dark:text-amber-400'
-                              : 'text-red-600 dark:text-red-400'
-                          }`}>
-                            {rev > 0 ? `${Math.round(margin * 100)}%` : '—'}
-                          </span>
-                        </td>
-                        <td className="text-right px-3 py-2.5 text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                          {formatPrice(typeSupplierCost)}
-                        </td>
-                        <td className="text-right px-3 py-2.5">
-                          <span className={`font-semibold whitespace-nowrap ${
-                            netAfterSupplier >= 0
-                              ? 'text-emerald-700 dark:text-emerald-400'
-                              : 'text-red-600 dark:text-red-400'
-                          }`}>
-                            {netAfterSupplier >= 0 ? '+' : ''}{formatPrice(netAfterSupplier)}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-slate-100 dark:bg-slate-900/50 border-t-2 border-slate-300 dark:border-slate-700">
-                    <td className="px-4 py-2.5 font-bold text-slate-900 dark:text-white">Total</td>
-                    <td className="text-right px-3 py-2.5 font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
-                      {formatPrice(salesRevenue)}
-                    </td>
-                    <td className="text-right px-3 py-2.5 font-semibold text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                      {formatPrice(Object.values(typeProfitData).reduce((s, d) => s + d.cost, 0))}
-                    </td>
-                    <td className="text-right px-3 py-2.5 font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                      {formatPrice(Object.values(typeProfitData).reduce((s, d) => s + d.profit, 0))}
-                    </td>
-                    <td className="text-right px-3 py-2.5">
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                        {salesRevenue > 0 ? `${Math.round((Object.values(typeProfitData).reduce((s, d) => s + d.profit, 0) / salesRevenue) * 100)}%` : '—'}
-                      </span>
-                    </td>
-                    <td className="text-right px-3 py-2.5 font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                      {formatPrice(totalAmount)}
-                    </td>
-                    <td className="text-right px-3 py-2.5">
-                      <span className={`font-bold whitespace-nowrap ${
-                        netMargin >= 0
-                          ? 'text-emerald-700 dark:text-emerald-400'
-                          : 'text-red-600 dark:text-red-400'
-                      }`}>
-                        {netMargin >= 0 ? '+' : ''}{formatPrice(netMargin)}
-                      </span>
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            {/* Per-type visual bars */}
-            <div className="px-3.5 sm:px-5 py-3 sm:py-4 border-t border-slate-200 dark:border-slate-700 space-y-2.5">
-              {productTypes.map((t) => {
-                const sd = typeSalesData[t.key];
-                const rev = sd?.revenue ?? 0;
-                const typeSupplierCost = bills
-                  .filter((b) => {
-                    const sup = suppliersFromTable.find((s) => b.supplier_id === s.id || s.name === b.supplier_name);
-                    return sup?.supplier_type === t.key && isDateInRange(b.created_at, dateFilter);
-                  })
-                  .reduce((sum, b) => sum + b.amount, 0);
-                const typeRatio = rev > 0 ? (typeSupplierCost / rev) * 100 : 0;
-
-                return (
-                  <div key={t.key}>
-                    <div className="flex items-center justify-between text-[10px] mb-0.5">
-                      <span className="text-slate-600 dark:text-slate-400 font-medium">
-                        {t.emoji} {t.label}
-                      </span>
-                      <span className="text-slate-500 dark:text-slate-400">
-                        {rev > 0 ? `${Math.round(typeRatio)}% of sales → suppliers` : 'No sales data'}
-                      </span>
-                    </div>
-                    <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${Math.min(100, typeRatio)}%`,
-                          backgroundColor: t.color,
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ═══════════ 2. QUICK STATS (Total, Pending, Paid, Avg/week; cashiers see amount-focused stats) ═══════════ */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-        <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
-          <CardContent className="p-2.5 sm:p-3">
-            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 mb-0.5">
-              <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              <span className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wide">
-                {user?.role === 'cashier' ? 'Total' : 'Total Bills'}
-              </span>
-            </div>
-            <p className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-              {user?.role === 'cashier' ? formatPrice(totalAmount) : filteredBills.length}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="bg-white dark:bg-[#1c2e18] border border-orange-200 dark:border-orange-900/50 rounded-xl shadow-sm">
-          <CardContent className="p-2.5 sm:p-3">
-            <div className="flex items-center gap-1.5 text-orange-600 dark:text-orange-400 mb-0.5">
-              <Clock className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              <span className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wide">Pending</span>
-            </div>
-            <p className="text-base sm:text-lg font-bold text-orange-600 dark:text-orange-400">
-              {formatPrice(totalPending)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="bg-white dark:bg-[#1c2e18] border border-green-200 dark:border-green-900/50 rounded-xl shadow-sm">
-          <CardContent className="p-2.5 sm:p-3">
-            <div className="flex items-center gap-1.5 text-green-600 dark:text-green-400 mb-0.5">
-              <CheckCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              <span className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wide">Paid</span>
-            </div>
-            <p className="text-base sm:text-lg font-bold text-green-600 dark:text-green-400">
-              {formatPrice(totalPaid)}
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
-          <CardContent className="p-2.5 sm:p-3">
-            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 mb-0.5">
-              <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-              <span className="text-[9px] sm:text-[10px] font-medium uppercase tracking-wide">Avg / Week</span>
-            </div>
-            <p className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-              {formatPrice(totalAmount / spanWeeks)}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ═══════════ 3. SUPPLIER BUDGET PLANNER (hidden for cashiers) ═══════════ */}
-      {user?.role !== 'cashier' && supplierBudget.length > 0 && (
-        <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 overflow-hidden rounded-xl shadow-sm">
-          <CardContent className="p-0">
-            {/* Section header */}
-            <div className="px-3.5 sm:px-5 pt-3.5 sm:pt-5 pb-2.5 sm:pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
-                  <Wallet className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-600 dark:text-amber-400" />
-                </div>
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
-                  Supplier Budget Planner
-                </h3>
-              </div>
-              <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 ml-8 sm:ml-9">
-                Averages based on {spanDays} day{spanDays !== 1 ? 's' : ''} of data
-                {dateRangeLabel && ` (${dateRangeLabel})`}
-              </p>
-            </div>
-
-            {/* Budget table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm min-w-[640px]">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
-                    <th className="text-left px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Supplier
-                    </th>
-                    {productTypes.length > 0 && (
-                      <th className="text-left px-2 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 w-[100px]">
-                        Type
-                      </th>
-                    )}
-                    <th className="text-center px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Bills
-                    </th>
-                    <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Total
-                    </th>
-                    <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Avg / Week
-                    </th>
-                    <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      Avg / Day
-                    </th>
-                    <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                      % of Costs
-                    </th>
-                    {salesSummary && salesSummary.totalRevenue > 0 && (
-                      <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                        % of Sales
-                      </th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {supplierBudget.map((s, i) => (
-                    <tr
-                      key={s.name}
-                      className={`border-b border-slate-100 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors ${
-                        i % 2 !== 0 ? 'bg-slate-50/30 dark:bg-slate-900/10' : ''
-                      }`}
-                    >
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-2 h-8 rounded-full shrink-0"
-                            style={{
-                              backgroundColor: `hsl(${(160 + i * 35) % 360}, 55%, 50%)`,
-                              opacity: 0.7,
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const supplier = suppliersFromTable.find(
-                                (sup) => sup.name === s.name
-                              );
-                              if (supplier && onSupplierClick) {
-                                onSupplierClick(supplier);
-                              }
-                            }}
-                            className="font-medium text-slate-900 dark:text-white truncate max-w-[130px] hover:text-[#1c6a1e] dark:hover:text-[#2a8a30] hover:underline underline-offset-2 transition-colors text-left"
-                            title={`${s.name} — Click to manage products`}
-                          >
-                            {s.name}
-                          </button>
-                        </div>
-                      </td>
-                      {productTypes.length > 0 && (
-                        <td className="px-2 py-2.5 align-middle">
-                          {(() => {
-                            const supplier = suppliersFromTable.find((sup) => sup.name === s.name);
-                            if (!supplier) return <span className="text-slate-400 text-[10px]">—</span>;
-                            const currentType = supplier.supplier_type;
-                            const updating = settingTypeForId === supplier.id;
-                            return (
-                              <div className="flex flex-wrap items-center gap-0.5">
-                                {productTypes.map((t) => {
-                                  const isCurrent = currentType === t.key;
-                                  return (
-                                    <button
-                                      key={t.key}
-                                      type="button"
-                                      title={`Set to ${t.label}`}
-                                      disabled={!!settingTypeForId}
-                                      onClick={async () => {
-                                        setSettingTypeForId(supplier.id);
-                                        try {
-                                          const res = await apiPatch<{ success: boolean }>(`/api/suppliers/${supplier.id}`, { supplierType: t.key });
-                                          if (res.success) {
-                                            fetchSuppliers();
-                                            toast.success(`${supplier.name} → ${t.label}`);
-                                          }
-                                        } catch {
-                                          toast.error('Failed to update type');
-                                        } finally {
-                                          setSettingTypeForId(null);
-                                        }
-                                      }}
-                                      className={`inline-flex items-center justify-center w-7 h-7 rounded-md border text-xs transition-all ${
-                                        isCurrent
-                                          ? 'ring-1 ring-offset-1'
-                                          : 'border-slate-200 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 opacity-70 hover:opacity-100'
-                                      }`}
-                                      style={isCurrent ? { backgroundColor: `${t.color}20`, borderColor: t.color, color: t.color } : undefined}
-                                    >
-                                      {updating ? '…' : t.emoji}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            );
-                          })()}
-                        </td>
-                      )}
-                      <td className="text-center px-3 py-2.5 text-slate-600 dark:text-slate-400">
-                        {s.count}
-                      </td>
-                      <td className="text-right px-3 py-2.5 font-semibold text-slate-900 dark:text-white whitespace-nowrap">
-                        {formatPrice(s.total)}
-                      </td>
-                      <td className="text-right px-3 py-2.5 text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                        {formatPrice(s.avgPerWeek)}
-                      </td>
-                      <td className="text-right px-3 py-2.5 text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                        {formatPrice(s.avgPerDay)}
-                      </td>
-                      <td className="text-right px-3 py-2.5">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="w-12 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                            <div
-                              className="h-full rounded-full bg-[#1c6a1e]"
-                              style={{ width: `${Math.min(100, s.shareOfTotal)}%` }}
-                            />
-                          </div>
-                          <span className="text-xs font-medium text-slate-700 dark:text-slate-300 w-10 text-right">
-                            {Math.round(s.shareOfTotal)}%
-                          </span>
-                        </div>
-                      </td>
-                      {salesSummary && salesSummary.totalRevenue > 0 && (
-                        <td className="text-right px-3 py-2.5">
-                          <span
-                            className={`text-xs font-semibold ${
-                              (s.shareOfSales ?? 0) > 30
-                                ? 'text-red-600 dark:text-red-400'
-                                : (s.shareOfSales ?? 0) > 15
-                                ? 'text-amber-600 dark:text-amber-400'
-                                : 'text-emerald-600 dark:text-emerald-400'
-                            }`}
-                          >
-                            {s.shareOfSales !== null ? `${Math.round(s.shareOfSales)}%` : '—'}
-                          </span>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-slate-100 dark:bg-slate-900/50 border-t-2 border-slate-300 dark:border-slate-700">
-                    <td className="px-4 py-2.5 font-bold text-slate-900 dark:text-white">Total</td>
-                    {productTypes.length > 0 && <td />}
-                    <td className="text-center px-3 py-2.5 font-semibold text-slate-700 dark:text-slate-300">
-                      {filteredBills.length}
-                    </td>
-                    <td className="text-right px-3 py-2.5 font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                      {formatPrice(totalAmount)}
-                    </td>
-                    <td className="text-right px-3 py-2.5 font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                      {formatPrice(totalAmount / spanWeeks)}
-                    </td>
-                    <td className="text-right px-3 py-2.5 font-semibold text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                      {formatPrice(totalAmount / spanDays)}
-                    </td>
-                    <td className="text-right px-3 py-2.5 font-bold text-slate-900 dark:text-white">
-                      100%
-                    </td>
-                    {salesSummary && salesSummary.totalRevenue > 0 && (
-                      <td className="text-right px-3 py-2.5 font-bold text-slate-900 dark:text-white">
-                        {Math.round(costRatio)}%
-                      </td>
-                    )}
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            {/* Projected monthly footer */}
-            <div className="px-3.5 sm:px-5 py-2.5 sm:py-3 border-t border-slate-200 dark:border-slate-700 bg-amber-50/50 dark:bg-amber-950/10">
-              <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-400">
-                <span className="font-semibold">Monthly projection:</span>{' '}
-                <span className="font-bold text-slate-900 dark:text-white">
-                  {formatPrice((totalAmount / spanDays) * 30)}
-                </span>
-                {salesSummary && salesSummary.totalRevenue > 0 && (
-                  <span className="block sm:inline sm:ml-3 mt-0.5 sm:mt-0 text-slate-500 dark:text-slate-400">
-                    Sales:{' '}
-                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                      {formatPrice((salesRevenue / spanDays) * 30)}
-                    </span>
-                    <span className="mx-1">&middot;</span>
-                    Margin:{' '}
-                    <span
-                      className={`font-semibold ${
-                        netMargin >= 0
-                          ? 'text-emerald-700 dark:text-emerald-400'
-                          : 'text-red-600 dark:text-red-400'
-                      }`}
-                    >
-                      {formatPrice((netMargin / spanDays) * 30)}
-                    </span>
-                  </span>
-                )}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* ═══════════ 4. DELIVERY SCHEDULE (hidden for cashiers) ═══════════ */}
-      {user?.role !== 'cashier' && deliveryMatrix.suppliers.length > 0 && (
-        <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 overflow-hidden rounded-xl shadow-sm">
-          <CardContent className="p-0">
-            {/* Section header */}
-            <div className="px-3.5 sm:px-5 pt-3.5 sm:pt-5 pb-2.5 sm:pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2 mb-1">
-                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
-                  <Truck className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
-                  Delivery Schedule
-                </h3>
-              </div>
-              <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 ml-8 sm:ml-9">
-                Which supplier delivers on which days &middot; Current week
-              </p>
-            </div>
-
-            {/* Schedule grid */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs min-w-[540px]">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
-                    <th className="text-left px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 w-32">
-                      Supplier
-                    </th>
-                    {DAY_ORDER.map((d, i) => (
-                      <th
-                        key={d}
-                        className="text-center px-1 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400"
-                      >
-                        {DAY_SHORT[i]}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {deliveryMatrix.suppliers.map((name, si) => (
-                    <tr
-                      key={name}
-                      className={`border-b border-slate-100 dark:border-slate-800/50 ${
-                        si % 2 !== 0 ? 'bg-slate-50/30 dark:bg-slate-900/10' : ''
-                      }`}
-                    >
-                      <td
-                        className="px-4 py-2.5 font-medium text-slate-900 dark:text-white truncate max-w-[130px]"
-                        title={name}
-                      >
-                        {name}
-                      </td>
-                      {DAY_ORDER.map((d) => {
-                        const cell = deliveryMatrix.matrix[name]?.[d];
-                        if (!cell) {
-                          return (
-                            <td key={d} className="text-center px-1 py-2">
-                              <span className="text-slate-300 dark:text-slate-700">—</span>
-                            </td>
-                          );
-                        }
-                        // Average spend per occurrence of this day (not per delivery)
-                        const avgPerDay = cell.total / cell.distinctDays;
-                        return (
-                          <td
-                            key={d}
-                            className={`text-center px-1 py-2 ${getHeatBg(
-                              cell.count,
-                              deliveryMatrix.maxCount
-                            )}`}
-                          >
-                            <div
-                              title={`${cell.count} deliveries across ${cell.distinctDays} ${
-                                cell.distinctDays === 1 ? 'day' : 'days'
-                              }, avg ${formatPrice(avgPerDay)} per day`}
-                            >
-                              <span className="font-bold text-slate-800 dark:text-slate-200">
-                                {formatPrice(avgPerDay)}
-                              </span>
-                              <br />
-                              <span className="text-[9px] text-slate-500 dark:text-slate-400">
-                                {cell.count}x / {cell.distinctDays}d
-                              </span>
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  {/* Daily budget row - amount and bills count per day */}
-                  <tr className="bg-blue-50/50 dark:bg-blue-950/10 border-t-2 border-slate-300 dark:border-slate-700">
-                    <td className="px-4 py-2.5 font-bold text-xs text-slate-900 dark:text-white">
-                      Daily Budget
-                    </td>
-                    {DAY_ORDER.map((d) => {
-                      const budget = deliveryMatrix.dayBudgets[d];
-                      const count = deliveryMatrix.dayBillsCount[d] ?? 0;
-                      return (
-                        <td key={d} className="text-center px-1 py-2.5">
-                          {budget > 0 || count > 0 ? (
-                            <div className="space-y-0.5">
-                              <span className="font-bold text-xs text-slate-900 dark:text-white block">
-                                {formatPrice(budget)}
-                              </span>
-                              {count > 0 && (
-                                <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                                  {count} bill{count !== 1 ? 's' : ''}
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-slate-300 dark:text-slate-700">—</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                  {/* Weekly total row */}
-                  <tr className="bg-amber-50/50 dark:bg-amber-950/10 border-t border-slate-200 dark:border-slate-700">
-                    <td className="px-4 py-2.5 font-bold text-xs text-amber-800 dark:text-amber-300">
-                      Weekly Total
-                    </td>
-                    <td
-                      colSpan={7}
-                      className="text-center px-1 py-2.5 font-bold text-sm text-amber-800 dark:text-amber-300"
-                    >
-                      {formatPrice(deliveryMatrix.weeklyBudget)}
-                      <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400 ml-2">
-                        / week (sum of all daily budgets)
-                      </span>
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            {/* Legend */}
-            <div className="px-3.5 sm:px-5 py-2 sm:py-2.5 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/20">
-              <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                <span className="font-semibold">How to read:</span> Each cell = average spend per day.{' '}
-                <span className="font-semibold">Daily Budget</span> = column total.{' '}
-                <span className="font-semibold">Weekly Total</span> = sum of daily budgets.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* ═══════════ 5. ALL BILLS ═══════════ */}
-      <div className="flex items-center gap-2 mt-2">
-        <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-          <Receipt className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+      <div className="flex items-center gap-3 pt-2">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center ring-1 ring-slate-200/60 dark:ring-slate-700/60">
+            <Receipt className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">All Bills</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Individual bill records</p>
+          </div>
         </div>
-        <h3 className="text-sm font-bold text-slate-900 dark:text-white">All Bills</h3>
-        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
-          {filteredBills.length}
+        <Badge variant="secondary" className="text-xs px-3 py-1 h-6 font-medium ml-auto bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+          {filteredBills.length} {filteredBills.length === 1 ? 'bill' : 'bills'}
         </Badge>
       </div>
 
       {filteredBills.length === 0 ? (
-        <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
-          <CardContent className="py-12 sm:py-16 text-center">
-            <Receipt className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
-            <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 font-semibold">No bills found</p>
-            <p className="text-xs sm:text-sm text-slate-400 mt-1">
+        <Card className="bg-white dark:bg-[#1c2e18] border border-slate-200/80 dark:border-slate-700/80 rounded-2xl shadow-sm overflow-hidden">
+          <CardContent className="py-16 sm:py-24 text-center">
+            <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
+              <Receipt className="h-8 w-8 text-slate-400 dark:text-slate-500" />
+            </div>
+            <p className="text-base font-semibold text-slate-700 dark:text-slate-300">No bills found</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
               {statusFilter === 'all'
-                ? 'No supplier bills match your current filters'
-                : `No ${statusFilter} bills found`}
+                ? 'No supplier bills match your current filters. Try adjusting your filters or add a new bill.'
+                : `No ${statusFilter} bills found for the selected period.`}
             </p>
           </CardContent>
         </Card>
       ) : (
         <>
           {/* ── Mobile: Compact cards ── */}
-          <div className="lg:hidden grid gap-2.5">
+          <div className="lg:hidden grid gap-3">
             {filteredBills.map((bill) => {
               const daysUntilDue = getDaysUntilDue(bill.due_date);
               const isOverdue = bill.status === 'overdue' || daysUntilDue < 0;
@@ -1626,15 +988,15 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
               return (
                 <Card
                   key={bill.id}
-                  className={`bg-white dark:bg-[#1c2e18] overflow-hidden transition-all ${
+                  className={`bg-white dark:bg-[#1c2e18] overflow-hidden transition-all rounded-2xl shadow-sm hover:shadow-md ${
                     isOverdue
-                      ? 'border-l-4 border-l-red-500 border-y border-r border-slate-200 dark:border-slate-800'
+                      ? 'border-l-4 border-l-red-500 border border-slate-200/80 dark:border-slate-700/80'
                       : isDueSoon
-                      ? 'border-l-4 border-l-orange-500 border-y border-r border-slate-200 dark:border-slate-800'
-                      : 'border border-slate-200 dark:border-slate-800'
+                      ? 'border-l-4 border-l-amber-500 border border-slate-200/80 dark:border-slate-700/80'
+                      : 'border border-slate-200/80 dark:border-slate-700/80'
                   }`}
                 >
-                  <CardContent className="p-3 sm:p-4">
+                  <CardContent className="p-4 sm:p-5">
                     <div className="space-y-2.5">
                       {/* Header: supplier name + amount + status */}
                       <div className="flex items-start justify-between gap-2">
@@ -1739,11 +1101,11 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
           </div>
 
           {/* ── Desktop: Table ── */}
-          <Card className="hidden lg:block bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800 overflow-hidden rounded-xl shadow-sm">
+          <Card className="hidden lg:block bg-white dark:bg-[#1c2e18] border border-slate-200/80 dark:border-slate-700/80 overflow-hidden rounded-2xl shadow-sm">
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/50">
+                  <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/60">
                     <th className="text-left px-4 py-3 font-semibold text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider">
                       Supplier
                     </th>
@@ -1770,7 +1132,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/50 [&>tr]:transition-colors [&>tr:hover]:bg-slate-50/80 dark:[&>tr:hover]:bg-slate-800/30">
                   {filteredBills.map((bill, i) => {
                     const daysUntilDue = getDaysUntilDue(bill.due_date);
                     const isOverdue = bill.status === 'overdue' || daysUntilDue < 0;

@@ -83,32 +83,37 @@ function SupplierBillsPageContent() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen px-3 py-4 sm:px-4 md:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between gap-3 mb-5 sm:mb-6">
-            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-md shadow-[#1c6a1e]/30 shrink-0">
-                <Receipt className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100/80 dark:from-[#0f1a0d] dark:to-slate-950/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          {/* Page Header */}
+          <header className="mb-6 sm:mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#1c6a1e] via-[#238b26] to-[#2a8a30] flex items-center justify-center shadow-lg shadow-[#1c6a1e]/30 ring-2 ring-[#1c6a1e]/10 shrink-0">
+                  <Receipt className="w-6 h-6 text-white drop-shadow-sm" />
+                </div>
+                <div>
+                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+                    Supplier Bills
+                  </h1>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400 max-w-md">
+                    Track and manage pending payments to suppliers. Record bills, monitor due dates, and maintain cash flow visibility.
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-white truncate">
-                  Supplier Bills
-                </h1>
-                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 hidden sm:block">
-                  Manage pending payments to suppliers
-                </p>
-              </div>
+              <Button
+                onClick={handleOpenNewBill}
+                size="default"
+                className="bg-gradient-to-r from-[#1c6a1e] to-[#2a8a30] hover:from-[#238b26] hover:to-[#2d9a33] text-white shrink-0 h-10 px-4 sm:px-5 font-semibold shadow-lg shadow-[#1c6a1e]/25 hover:shadow-xl hover:shadow-[#1c6a1e]/30 transition-all duration-200"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                New Bill
+              </Button>
             </div>
-            <Button
-              onClick={handleOpenNewBill}
-              size="sm"
-              className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white shrink-0 h-9 sm:h-10 px-3 sm:px-4 text-xs sm:text-sm"
-            >
-              <Plus className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">New Bill</span>
-            </Button>
-          </div>
+          </header>
 
+          {/* Main Content */}
+          <main>
           <SupplierBillsList
             key={refreshKey}
             onSupplierClick={handleSupplierClick}
@@ -126,8 +131,8 @@ function SupplierBillsPageContent() {
 
           {/* New Supplier Bill Drawer */}
           <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
-            <DrawerContent className="!w-full sm:!w-[900px] !max-w-none h-full max-h-screen z-[51]">
-              <DrawerHeader className="border-b-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 relative pr-12">
+            <DrawerContent className="!w-full sm:!w-[900px] !max-w-none h-full max-h-screen z-[51] rounded-l-2xl">
+              <DrawerHeader className="border-b border-slate-200 dark:border-slate-800 bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-[#1c2e18] relative pr-12">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -167,6 +172,7 @@ function SupplierBillsPageContent() {
               </div>
             </DrawerContent>
           </Drawer>
+          </main>
         </div>
       </div>
     </AdminLayout>
@@ -178,10 +184,10 @@ export default function SupplierBillsPage() {
     <Suspense
       fallback={
         <AdminLayout>
-          <div className="min-h-screen px-3 py-4 sm:px-4 md:px-6 lg:px-8 flex items-center justify-center">
-            <div className="text-center space-y-3">
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#1c6a1e]" />
-              <p className="text-sm text-slate-500">Loading...</p>
+          <div className="min-h-screen flex items-center justify-center bg-slate-50/50 dark:bg-[#0f1a0d]">
+            <div className="text-center space-y-4">
+              <Loader2 className="h-10 w-10 animate-spin mx-auto text-[#1c6a1e]" />
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Loading supplier bills...</p>
             </div>
           </div>
         </AdminLayout>
