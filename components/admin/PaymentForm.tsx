@@ -15,9 +15,11 @@ import { cn } from '@/lib/utils';
 interface PaymentFormProps {
   account: CreditAccount;
   onSuccess?: () => void;
+  /** When true, hides the balance card (e.g. when shown in drawer with balance in header) */
+  compact?: boolean;
 }
 
-export function PaymentForm({ account, onSuccess }: PaymentFormProps) {
+export function PaymentForm({ account, onSuccess, compact }: PaymentFormProps) {
   const [amount, setAmount] = useState<string>(account.total_credit.toString());
   const [paymentMethod, setPaymentMethod] = useState<CreditPaymentMethod>('cash');
   const [notes, setNotes] = useState<string>('');
@@ -76,30 +78,35 @@ export function PaymentForm({ account, onSuccess }: PaymentFormProps) {
 
   return (
     <div className="space-y-6">
-      {/* Balance summary */}
-      <Card className="border-slate-200 dark:border-slate-800 overflow-hidden">
-        <CardContent className="p-0">
-          <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
-            <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
-              Outstanding balance
-            </span>
-            <span className="text-xl font-bold text-amber-600 dark:text-amber-400">
-              {formatPrice(account.total_credit)}
-            </span>
-          </div>
-        </CardContent>
-      </Card>
+      {!compact && (
+        <Card className="border-slate-200 dark:border-slate-800 overflow-hidden rounded-xl">
+          <CardContent className="p-0">
+            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50">
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                Outstanding balance
+              </span>
+              <span className="text-xl font-bold text-amber-600 dark:text-amber-400">
+                {formatPrice(account.total_credit)}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Record payment form */}
-      <Card className="border-slate-200 dark:border-slate-800 overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800">
-          <Wallet className="h-4 w-4 text-[#1c6a1e]" />
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Record payment</h3>
+      <Card className="border-slate-200 dark:border-slate-700 overflow-hidden rounded-2xl shadow-sm bg-white dark:bg-slate-900/50">
+        <div className="flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border-b border-slate-200/80 dark:border-slate-700/80">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/20 dark:bg-emerald-500/30">
+            <Wallet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+          </div>
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+            Record payment
+          </h3>
         </div>
-        <CardContent className="p-4">
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <CardContent className="p-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="amount" className="text-slate-700 dark:text-slate-300">
+              <Label htmlFor="amount" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                 Amount (KES) *
               </Label>
               <Input
@@ -112,7 +119,7 @@ export function PaymentForm({ account, onSuccess }: PaymentFormProps) {
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder={account.total_credit.toString()}
                 required
-                className="h-12 text-base font-medium border-slate-200 dark:border-slate-700 focus-visible:ring-[#1c6a1e]"
+                className="h-12 text-base font-semibold border-slate-200 dark:border-slate-700 focus-visible:ring-emerald-500 focus-visible:ring-2"
               />
               <div className="flex gap-2 pt-1">
                 <Button
@@ -120,7 +127,7 @@ export function PaymentForm({ account, onSuccess }: PaymentFormProps) {
                   variant="outline"
                   size="sm"
                   onClick={() => setAmount((account.total_credit * 0.5).toString())}
-                  className="text-xs border-slate-200 dark:border-slate-700"
+                  className="text-xs rounded-lg border-slate-200 dark:border-slate-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:border-emerald-200"
                 >
                   50%
                 </Button>
@@ -129,7 +136,7 @@ export function PaymentForm({ account, onSuccess }: PaymentFormProps) {
                   variant="outline"
                   size="sm"
                   onClick={() => setAmount(account.total_credit.toString())}
-                  className="text-xs border-slate-200 dark:border-slate-700"
+                  className="text-xs rounded-lg border-slate-200 dark:border-slate-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:border-emerald-200"
                 >
                   Full payment
                 </Button>
@@ -137,14 +144,14 @@ export function PaymentForm({ account, onSuccess }: PaymentFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="method" className="text-slate-700 dark:text-slate-300">
+              <Label htmlFor="method" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                 Payment method
               </Label>
               <Select
                 value={paymentMethod}
                 onValueChange={(value) => setPaymentMethod(value as CreditPaymentMethod)}
               >
-                <SelectTrigger className="h-12 border-slate-200 dark:border-slate-700 focus:ring-[#1c6a1e]">
+                <SelectTrigger className="h-12 rounded-xl border-slate-200 dark:border-slate-700 focus:ring-emerald-500">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -155,7 +162,7 @@ export function PaymentForm({ account, onSuccess }: PaymentFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="notes" className="text-slate-700 dark:text-slate-300">
+              <Label htmlFor="notes" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                 Notes (optional)
               </Label>
               <Input
@@ -163,17 +170,17 @@ export function PaymentForm({ account, onSuccess }: PaymentFormProps) {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="e.g. partial payment, cheque number"
-                className="border-slate-200 dark:border-slate-700 focus-visible:ring-[#1c6a1e]"
+                className="rounded-xl border-slate-200 dark:border-slate-700 focus-visible:ring-emerald-500"
               />
             </div>
 
             {paymentAmount > 0 && (
               <div
                 className={cn(
-                  'rounded-xl p-4 space-y-2 border',
+                  'rounded-xl p-4 space-y-2.5 border-2 transition-colors',
                   isFullPayment
-                    ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/50'
-                    : 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50'
+                    : 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700'
                 )}
               >
                 <div className="flex justify-between text-sm">
@@ -219,7 +226,7 @@ export function PaymentForm({ account, onSuccess }: PaymentFormProps) {
               type="submit"
               size="lg"
               disabled={isSubmitting || paymentAmount <= 0}
-              className="w-full h-12 font-semibold bg-gradient-to-r from-[#1c6a1e] to-[#2a8a30] hover:from-[#2a8a30] hover:to-[#1c6a1e] text-white shadow-lg shadow-[#1c6a1e]/20"
+              className="w-full h-12 rounded-xl font-semibold bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:via-teal-500 hover:to-cyan-500 text-white shadow-lg shadow-emerald-500/25 transition-all"
             >
               {isSubmitting ? (
                 <>
