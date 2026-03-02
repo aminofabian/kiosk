@@ -1232,37 +1232,35 @@ export function ItemForm({
   const canGoBack = formStep > 1;
 
   return (
-    <div className="max-w-2xl mx-auto py-6">
+    <div className="max-w-2xl mx-auto py-4">
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Step indicator - only for new items */}
         {useSteps && (
-          <div className="flex items-center gap-2 mb-6">
+          <div className="flex items-center gap-0 mb-6 p-1.5 rounded-2xl bg-slate-100/80 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50">
             {Array.from({ length: totalSteps }).map((_, i) => {
               const stepNum = i + 1;
               const isActive = formStep === stepNum;
               const isComplete = formStep > stepNum;
+              const stepLabel = stepNum === 1 ? 'Type' : stepNum === 2 ? 'Structure' : stepNum === 3 && mode === 'variant' ? 'Variant' : 'Details';
               return (
-                <div key={stepNum} className="flex items-center flex-1">
+                <div key={stepNum} className="flex items-center flex-1 min-w-0">
                   <button
                     type="button"
                     onClick={() => setFormStep(stepNum)}
                     className={`
-                      flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all
-                      ${isActive ? 'bg-[#1c6a1e] text-white shadow-sm' : ''}
-                      ${isComplete ? 'bg-[#1c6a1e]/20 text-[#1c6a1e] dark:bg-[#1c6a1e]/30' : ''}
-                      ${!isActive && !isComplete ? 'bg-slate-100 dark:bg-slate-800 text-slate-500' : ''}
-                      ${!isActive ? 'hover:bg-slate-200 dark:hover:bg-slate-700' : ''}
+                      flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex-1
+                      ${isActive ? 'bg-white dark:bg-slate-700 text-[#1c6a1e] shadow-sm ring-1 ring-slate-200/50 dark:ring-slate-600' : ''}
+                      ${isComplete ? 'text-[#1c6a1e] dark:text-emerald-400' : ''}
+                      ${!isActive && !isComplete ? 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300' : ''}
                     `}
                   >
-                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-white/20">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isActive ? 'bg-[#1c6a1e] text-white' : isComplete ? 'bg-[#1c6a1e]/20 text-[#1c6a1e] dark:bg-emerald-500/20' : 'bg-slate-200/60 dark:bg-slate-700/60'}`}>
                       {isComplete ? <CheckCircle2 className="w-3.5 h-3.5" /> : stepNum}
                     </span>
-                    <span className="hidden sm:inline">
-                      {stepNum === 1 ? 'Type' : stepNum === 2 ? 'Structure' : stepNum === 3 && mode === 'variant' ? 'Variant' : 'Details'}
-                    </span>
+                    <span className="hidden sm:inline truncate">{stepLabel}</span>
                   </button>
                   {i < totalSteps - 1 && (
-                    <div className={`flex-1 h-0.5 mx-1 rounded ${formStep > stepNum ? 'bg-[#1c6a1e]/50' : 'bg-slate-200 dark:bg-slate-700'}`} />
+                    <div className={`w-4 h-px shrink-0 mx-0.5 rounded-full transition-colors ${formStep > stepNum ? 'bg-[#1c6a1e]/40' : 'bg-slate-300/50 dark:bg-slate-600/50'}`} aria-hidden />
                   )}
                 </div>
               );
@@ -1448,73 +1446,68 @@ export function ItemForm({
           </div>
         )}
 
-        {/* Step 3: Variant-specific - Parent selection + Variant name */}
+        {/* Step 3: Variant-specific - Parent selection + Variant name (compact) */}
         {(formStep === 3 || !useSteps) && mode === 'variant' && !parentItemId && (
-          <>
-            <Separator />
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Layers className="h-4 w-4 text-muted-foreground" />
-                <Label className="text-base font-semibold">Which product is this a variant of? *</Label>
-              </div>
-
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input
-                  placeholder="Search products..."
-                  value={parentSearchQuery}
-                  onChange={(e) => setParentSearchQuery(e.target.value)}
-                  className="pl-9 h-11 bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-[#1c6a1e]"
-                />
-              </div>
-
-              <div className="space-y-2 max-h-[250px] overflow-y-auto px-1 -mx-1">
-                {filteredParentItems.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground border-2 border-dashed rounded-xl">
-                    <Package className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                    <p className="text-sm italic">No products found</p>
-                  </div>
-                ) : (
-                  filteredParentItems.map((item) => {
-                    const isSelected = item.id === selectedParentId;
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedParentId(item.id);
-                          setCategoryId(item.category_id);
-                        }}
-                        className={`w-full text-left p-3.5 rounded-xl border-2 transition-all ${isSelected
-                            ? 'border-[#1c6a1e] bg-[#1c6a1e]/5 ring-2 ring-[#1c6a1e]/10 shadow-sm'
-                            : 'border-slate-100 dark:border-slate-800 bg-white/50 dark:bg-slate-800/30 hover:border-[#1c6a1e]/50 hover:bg-slate-50 dark:hover:bg-slate-800/50'
-                          }`}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${isSelected ? 'bg-[#1c6a1e]/20' : 'bg-slate-100 dark:bg-slate-800'
-                              }`}>
-                              <Package className={`h-4 w-4 ${isSelected ? 'text-[#1c6a1e]' : 'text-slate-500'}`} />
-                            </div>
-                            <span className={`font-semibold text-sm truncate ${isSelected ? 'text-[#1c6a1e]' : 'text-slate-700 dark:text-slate-300'}`}>
-                              {item.name}
-                            </span>
-                          </div>
-                          {isSelected && (
-                            <CheckCircle2 className="h-5 w-5 text-[#1c6a1e] shrink-0" />
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-muted-foreground shrink-0" />
+              <Label className="text-sm font-semibold">Which product is this a variant of? *</Label>
             </div>
-          </>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <Input
+                placeholder="Search products..."
+                value={parentSearchQuery}
+                onChange={(e) => setParentSearchQuery(e.target.value)}
+                className="pl-8 h-9 text-sm bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-[#1c6a1e]"
+              />
+            </div>
+            <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
+              {filteredParentItems.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground border border-dashed rounded-lg text-xs">
+                  <Package className="h-6 w-6 mx-auto mb-1 opacity-20" />
+                  No products found
+                </div>
+              ) : (
+                filteredParentItems.map((item) => {
+                  const isSelected = item.id === selectedParentId;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedParentId(item.id);
+                        setCategoryId(item.category_id);
+                      }}
+                      className={`w-full text-left p-2.5 rounded-lg border transition-all text-sm ${isSelected
+                          ? 'border-[#1c6a1e] bg-[#1c6a1e]/5'
+                          : 'border-slate-100 dark:border-slate-800 hover:border-[#1c6a1e]/50 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                        }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className={`w-6 h-6 rounded flex items-center justify-center shrink-0 ${isSelected ? 'bg-[#1c6a1e]/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                            <Package className={`h-3 w-3 ${isSelected ? 'text-[#1c6a1e]' : 'text-slate-500'}`} />
+                          </div>
+                          <span className={`font-medium truncate ${isSelected ? 'text-[#1c6a1e]' : 'text-slate-700 dark:text-slate-300'}`}>
+                            {item.name}
+                          </span>
+                        </div>
+                        {isSelected && <CheckCircle2 className="h-4 w-4 text-[#1c6a1e] shrink-0" />}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
         )}
 
-        {/* Variant Name (for variants) - part of Step 3 */}
-        {(formStep === 3 || !useSteps) && mode === 'variant' && (() => {
+        {/* Variant Name (for variants) - part of Step 3 (compact) */}
+        {(formStep === 3 || !useSteps) && mode === 'variant' && (
+        <>
+        <Separator className="my-2" />
+        {(() => {
           const selectedParent = parentItems.find(p => p.id === selectedParentId);
           const parentName = selectedParent?.name || '';
           const parentCategory = categories.find(c => c.id === selectedParent?.category_id);
@@ -1522,137 +1515,69 @@ export function ItemForm({
           const variantSuggestions = selectedParentId ? getVariantSuggestions(parentName, categoryName) : [];
 
           return (
-            <div className="space-y-3">
-              <Label className="text-base font-semibold">
-                What type of variant is this? *
-              </Label>
-
-              {/* Show parent product name prominently */}
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">What type of variant is this? *</Label>
               {selectedParentId && parentName && (
-                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
-                    Creating variant for: <span className="font-semibold">{parentName}</span>
-                  </p>
-                </div>
+                <p className="text-xs text-muted-foreground">Adding to: <span className="font-medium text-foreground">{parentName}</span></p>
               )}
-
-              {/* Variant suggestions - contextual based on product */}
               {selectedParentId && variantSuggestions.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">
-                    Common variants for <span className="font-medium">{parentName}</span>:
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {variantSuggestions.map((suggestion) => {
-                      const isSelected = selectedVariantSuggestion === suggestion && !isCustomVariantName;
-                      return (
-                        <button
-                          key={suggestion}
-                          type="button"
-                          onClick={() => {
-                            setIsCustomVariantName(false);
-                            setSelectedVariantSuggestion(suggestion);
-                            setVariantName(suggestion);
-                            // Auto-set unit type based on variant
-                            const detectedUnit = getUnitTypeFromVariant(suggestion);
-                            if (detectedUnit) {
-                              setUnitType(detectedUnit);
-                            }
-                          }}
-                          disabled={isSubmitting}
-                          className={`
-                            px-3 py-2 rounded-lg border text-sm transition-all
-                            ${isSelected
-                              ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 text-[#1c6a1e] font-medium'
-                              : 'border-border bg-card hover:border-[#1c6a1e]/50 hover:bg-accent/50'
-                            }
-                            ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                          `}
-                        >
-                          {suggestion}
-                        </button>
-                      );
-                    })}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsCustomVariantName(true);
-                        setSelectedVariantSuggestion('');
-                        setVariantName('');
-                      }}
-                      disabled={isSubmitting}
-                      className={`
-                        px-3 py-2 rounded-lg border-2 border-dashed text-sm transition-all
-                        ${isCustomVariantName
-                          ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 text-[#1c6a1e] font-medium'
-                          : 'border-border bg-card hover:border-[#1c6a1e]/50 hover:bg-accent/50'
-                        }
-                        ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-                      `}
-                    >
-                      <Sparkles className="h-3 w-3 inline mr-1" />
-                      Other
-                    </button>
-                  </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {variantSuggestions.map((suggestion) => {
+                    const isSelected = selectedVariantSuggestion === suggestion && !isCustomVariantName;
+                    return (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => {
+                          setIsCustomVariantName(false);
+                          setSelectedVariantSuggestion(suggestion);
+                          setVariantName(suggestion);
+                          const detectedUnit = getUnitTypeFromVariant(suggestion);
+                          if (detectedUnit) setUnitType(detectedUnit);
+                        }}
+                        disabled={isSubmitting}
+                        className={`px-2.5 py-1.5 rounded-md border text-xs transition-all ${isSelected ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 text-[#1c6a1e] font-medium' : 'border-border hover:border-[#1c6a1e]/50 hover:bg-accent/50'} ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                      >
+                        {suggestion}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => { setIsCustomVariantName(true); setSelectedVariantSuggestion(''); setVariantName(''); }}
+                    disabled={isSubmitting}
+                    className={`px-2.5 py-1.5 rounded-md border border-dashed text-xs ${isCustomVariantName ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 text-[#1c6a1e]' : 'border-border hover:border-[#1c6a1e]/50'} ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    <Sparkles className="h-3 w-3 inline mr-1" /> Other
+                  </button>
                 </div>
               )}
-
-              {/* Show selected variant or custom input */}
               {selectedVariantSuggestion && !isCustomVariantName ? (
-                <div className="p-4 rounded-lg bg-muted/50 border">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-1">Variant type:</p>
-                      <p className="font-semibold text-lg">{selectedVariantSuggestion}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsCustomVariantName(true);
-                        setSelectedVariantSuggestion('');
-                        setVariantName('');
-                      }}
-                      disabled={isSubmitting}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      Change
-                    </button>
-                  </div>
+                <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/50 border text-sm">
+                  <span className="font-medium">{selectedVariantSuggestion}</span>
+                  <button type="button" onClick={() => { setIsCustomVariantName(true); setSelectedVariantSuggestion(''); setVariantName(''); }} disabled={isSubmitting} className="text-xs text-primary hover:underline">Change</button>
                 </div>
-              ) : isCustomVariantName || !selectedParentId ? (
-                <div className="space-y-2">
-                  <Input
-                    id="variantName"
-                    value={variantName}
-                    onChange={(e) => setVariantName(e.target.value)}
-                    placeholder={parentName ? `Enter variant type for ${parentName}...` : 'Select a product first'}
-                    required
-                    disabled={isSubmitting || !selectedParentId}
-                    className="h-12 text-base focus-visible:ring-[#1c6a1e]"
-                  />
-                  {isCustomVariantName && parentName && (
-                    <p className="text-xs text-muted-foreground">
-                      Examples: type, size, weight, or any distinguishing feature
-                    </p>
-                  )}
-                </div>
-              ) : null}
-
-              {/* Preview how it will appear */}
+              ) : (
+                <Input
+                  id="variantName"
+                  value={variantName}
+                  onChange={(e) => setVariantName(e.target.value)}
+                  placeholder={parentName ? `e.g. Big, 1kg, Red` : 'Select a product first'}
+                  required
+                  disabled={isSubmitting || !selectedParentId}
+                  className="h-9 text-sm focus-visible:ring-[#1c6a1e]"
+                />
+              )}
               {variantName && parentName && (
-                <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                  <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-                    <Info className="h-3 w-3" />
-                    Will appear as:
-                  </p>
-                  <p className="text-sm font-semibold text-green-700 dark:text-green-300">
-                    {parentName} - {variantName}
-                  </p>
-                </div>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Info className="h-3 w-3" /> <span className="font-medium text-green-600 dark:text-green-400">{parentName} — {variantName}</span>
+                </p>
               )}
             </div>
           );
         })()}
+        </>
+        )}
 
         {/* Step 4 (variant) / Step 3 (non-variant): Product details */}
         {(formStep === (mode === 'variant' ? 4 : 3) || !useSteps) && (

@@ -185,21 +185,20 @@ export function AdminSidebar() {
   })).filter((s) => s.items.length > 0);
 
   return (
-    <nav className="py-3 px-2 select-none">
+    <nav className="px-3 select-none" aria-label="Admin navigation">
       {visibleSections.map((section, sIdx) => (
-        <div key={sIdx} className={sIdx > 0 ? 'mt-5' : ''}>
-          {/* Section label */}
+        <div key={sIdx} className={sIdx > 0 ? 'mt-8' : ''}>
+          {/* Section label — uppercase, bold (Agentic structure) */}
           {section.label && (
-            <div className="flex items-center gap-2 px-3 mb-2">
-              <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400/70 dark:text-slate-600">
+            <div className="flex items-center gap-2 px-3 mb-3">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-500">
                 {section.label}
               </span>
-              <div className="flex-1 h-px bg-slate-200/60 dark:bg-slate-700/40" />
             </div>
           )}
 
-          {/* Menu items */}
-          <div className="space-y-[2px]">
+          {/* Menu items — subtle left pill for active, plain text (Agentic layout) */}
+          <div className="space-y-0.5">
             {section.items.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.href, item.matchPath);
@@ -210,113 +209,79 @@ export function AdminSidebar() {
 
               return (
                 <div key={item.href}>
-                  {/* Main item row */}
                   <Link href={item.href}>
-                    <div className="relative group flex items-center">
-                      {/* Active glow bar */}
+                    <div className="relative group flex items-center gap-2.5 px-3 py-2 rounded-md transition-colors duration-150 hover:bg-slate-100/80 dark:hover:bg-white/[0.04]">
+                      {/* Active indicator — small pill left of text (Agentic-style) */}
                       {active && (
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-gradient-to-b from-[#1c6a1e] to-[#2a8a30] shadow-[0_0_8px_rgba(28,106,30,0.4)]" />
+                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 rounded-r-full bg-[#1c6a1e] dark:bg-[#2a8a30]" />
                       )}
-
-                      <div
-                        className={`flex items-center gap-2.5 w-full px-3 py-[7px] rounded-lg transition-all duration-150 ${
+                      <Icon
+                        className={`w-4 h-4 shrink-0 ${
                           active
-                            ? 'bg-[#1c6a1e]/[0.07] dark:bg-[#1c6a1e]/[0.12]'
-                            : 'hover:bg-slate-100/80 dark:hover:bg-white/[0.04] active:scale-[0.98]'
+                            ? 'text-[#1c6a1e] dark:text-[#2a8a30]'
+                            : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'
+                        }`}
+                        strokeWidth={1.5}
+                      />
+                      <span
+                        className={`flex-1 text-[12px] truncate font-medium ${
+                          active
+                            ? 'text-[#1c6a1e] dark:text-[#2a8a30]'
+                            : 'text-slate-600 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200'
                         }`}
                       >
-                        <div
-                          className={`flex items-center justify-center w-7 h-7 rounded-md transition-all duration-150 ${
-                            active
-                              ? 'bg-[#1c6a1e]/[0.12] dark:bg-[#1c6a1e]/[0.18]'
-                              : 'bg-transparent group-hover:bg-slate-200/60 dark:group-hover:bg-white/[0.06]'
-                          }`}
-                        >
-                          <Icon
-                            className={`w-[16px] h-[16px] transition-colors duration-150 ${
-                              active
-                                ? 'text-[#1c6a1e] dark:text-[#2a8a30]'
-                                : 'text-slate-400 dark:text-slate-500 group-hover:text-slate-500 dark:group-hover:text-slate-400'
-                            }`}
-                          />
-                        </div>
+                        {item.label}
+                      </span>
 
-                        <span
-                          className={`text-[13px] flex-1 truncate transition-colors duration-150 ${
-                            active
-                              ? 'font-semibold text-[#1c6a1e] dark:text-[#2a8a30]'
-                              : 'font-medium text-slate-600 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-300'
-                          }`}
-                        >
-                          {item.label}
+                      {showBadge && (
+                        <span className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center shrink-0">
+                          {billNotificationCount > 99 ? '99+' : billNotificationCount}
                         </span>
+                      )}
 
-                        {showBadge && (
-                          <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold leading-none animate-pulse">
-                            {billNotificationCount > 99 ? '99+' : billNotificationCount}
-                          </span>
-                        )}
-
-                        {hasSubItems && (
-                          <ChevronDown
-                            className={`w-3.5 h-3.5 transition-transform duration-200 ${
-                              expanded ? 'rotate-0' : '-rotate-90'
-                            } ${
-                              active
-                                ? 'text-[#1c6a1e]/50 dark:text-[#2a8a30]/50'
-                                : 'text-slate-300 dark:text-slate-600'
-                            }`}
-                          />
-                        )}
-                      </div>
+                      {hasSubItems && (
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${
+                            expanded ? 'rotate-0' : '-rotate-90'
+                          } text-slate-400 dark:text-slate-500`}
+                          strokeWidth={1.5}
+                        />
+                      )}
                     </div>
                   </Link>
 
-                  {/* Sub-items with smooth expand */}
+                  {/* Sub-items — indented, left pill for active */}
                   {hasSubItems && (
                     <div
-                      className={`grid transition-all duration-200 ease-out ${
-                        expanded
-                          ? 'grid-rows-[1fr] opacity-100'
-                          : 'grid-rows-[0fr] opacity-0'
+                      className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+                        expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
                       }`}
                     >
                       <div className="overflow-hidden">
-                        <div className="ml-[22px] pl-3 mt-0.5 mb-1 space-y-[1px] border-l-[1.5px] border-slate-200/80 dark:border-slate-700/40">
+                        <div className="ml-4 pl-3 mt-1 mb-2 space-y-0.5 border-l border-slate-200 dark:border-slate-700">
                           {item.subItems!.map((sub) => {
                             const SubIcon = sub.icon;
                             const subActive = isSubActive(sub.href);
 
                             return (
                               <Link key={sub.href} href={sub.href}>
-                                <div
-                                  className={`group/sub relative flex items-center gap-2 px-2.5 py-[5px] rounded-md transition-all duration-150 ${
-                                    subActive
-                                      ? 'bg-[#1c6a1e]/[0.07] dark:bg-[#1c6a1e]/[0.12]'
-                                      : 'hover:bg-slate-100/60 dark:hover:bg-white/[0.03]'
-                                  }`}
-                                >
-                                  {/* Connector dot */}
-                                  <div
-                                    className={`absolute -left-[calc(0.75rem+1px)] top-1/2 -translate-y-1/2 w-[6px] h-[6px] rounded-full border-[1.5px] transition-colors ${
-                                      subActive
-                                        ? 'bg-[#1c6a1e] border-[#1c6a1e]'
-                                        : 'bg-white dark:bg-[#1c2e18] border-slate-300 dark:border-slate-600 group-hover/sub:border-slate-400'
-                                    }`}
-                                  />
-
+                                <div className="relative flex items-center gap-2.5 pl-3 pr-2.5 py-1.5 -ml-px rounded-r-md transition-colors hover:bg-slate-100/60 dark:hover:bg-white/[0.03]">
+                                  {subActive && (
+                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-3 rounded-r-full bg-[#1c6a1e] dark:bg-[#2a8a30]" />
+                                  )}
                                   <SubIcon
-                                    className={`w-3.5 h-3.5 ${
+                                    className={`w-3.5 h-3.5 shrink-0 ${
                                       subActive
                                         ? 'text-[#1c6a1e] dark:text-[#2a8a30]'
-                                        : 'text-slate-400 dark:text-slate-600 group-hover/sub:text-slate-500'
+                                        : 'text-slate-500 dark:text-slate-400'
                                     }`}
+                                    strokeWidth={1.5}
                                   />
                                   <span
-                                    className={`text-[12px] ${
+                                    className={`text-[11px] truncate font-medium ${
                                       subActive
-                                        ? 'font-semibold text-[#1c6a1e] dark:text-[#2a8a30]'
-                                        : 'font-medium text-slate-500 dark:text-slate-500 group-hover/sub:text-slate-700 dark:group-hover/sub:text-slate-400'
+                                        ? 'text-[#1c6a1e] dark:text-[#2a8a30]'
+                                        : 'text-slate-500 dark:text-slate-400'
                                     }`}
                                   >
                                     {sub.label}

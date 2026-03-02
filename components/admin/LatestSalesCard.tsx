@@ -24,6 +24,7 @@ interface LatestSalesCardProps {
   endTs: number;
   itemType?: string;
   accentColor?: 'green' | 'blue' | 'teal';
+  compact?: boolean;
 }
 
 const formatPrice = (price: number) =>
@@ -62,6 +63,7 @@ export function LatestSalesCard({
   endTs,
   itemType,
   accentColor = 'teal',
+  compact = false,
 }: LatestSalesCardProps) {
   const [sales, setSales] = useState<LatestSale[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,41 +98,41 @@ export function LatestSalesCard({
   }, [startTs, endTs, itemType]);
 
   return (
-    <Card className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base font-bold flex items-center gap-2">
-          <Receipt className={`w-4 h-4 ${style.icon}`} />
+    <Card className={`bg-white dark:bg-slate-800 ${compact ? 'border border-slate-200 dark:border-slate-700' : 'border-2 border-slate-200 dark:border-slate-700'}`}>
+      <CardHeader className={compact ? 'py-2 px-3 pb-1' : 'pb-3'}>
+        <CardTitle className={`font-bold flex items-center gap-2 ${compact ? 'text-sm' : 'text-base'}`}>
+          <Receipt className={`${compact ? 'w-3.5 h-3.5' : 'w-4 h-4'} ${style.icon}`} />
           Latest Sales
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-0">
+      <CardContent className={compact ? 'pt-0 px-3 pb-3' : 'pt-0'}>
         {loading ? (
-          <div className="flex items-center justify-center py-10">
-            <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+          <div className={`flex items-center justify-center ${compact ? 'py-6' : 'py-10'}`}>
+            <Loader2 className={`animate-spin text-slate-400 ${compact ? 'h-4 w-4' : 'h-5 w-5'}`} />
           </div>
         ) : sales.length === 0 ? (
-          <p className="text-center text-slate-500 py-8 text-sm">No sales in this period</p>
+          <p className={`text-center text-slate-500 text-sm ${compact ? 'py-4' : 'py-8'}`}>No sales in this period</p>
         ) : (
           <div className="divide-y divide-slate-100 dark:divide-slate-700/80">
-            {sales.map((sale) => (
-              <div key={sale.id} className="py-3 first:pt-0 last:pb-0">
-                <div className="flex items-start justify-between gap-4">
+            {sales.slice(0, compact ? 5 : undefined).map((sale) => (
+              <div key={sale.id} className={compact ? 'py-1.5 first:pt-0 last:pb-0' : 'py-3 first:pt-0 last:pb-0'}>
+                <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <span className="text-xs font-medium text-slate-500 dark:text-slate-400 tabular-nums">
+                    <div className={`flex items-center justify-between gap-2 ${compact ? 'mb-0.5' : 'mb-1.5'}`}>
+                      <span className={`font-medium text-slate-500 dark:text-slate-400 tabular-nums ${compact ? 'text-[10px]' : 'text-xs'}`}>
                         {formatTime(sale.sale_date)}
                       </span>
-                      <span className={`text-sm font-black shrink-0 ${style.amount}`}>
+                      <span className={`font-black shrink-0 ${style.amount} ${compact ? 'text-xs' : 'text-sm'}`}>
                         {formatPrice(sale.total_amount)}
                       </span>
                     </div>
-                    <ul className="space-y-0.5">
-                      {sale.items.map((item, i) => (
+                    <ul className={compact ? 'space-y-0' : 'space-y-0.5'}>
+                      {sale.items.slice(0, compact ? 2 : undefined).map((item, i) => (
                         <li
                           key={`${sale.id}-${i}`}
-                          className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300"
+                          className={`flex items-center gap-2 text-slate-600 dark:text-slate-300 ${compact ? 'text-[11px]' : 'text-xs'}`}
                         >
-                          <span className={`w-1 h-1 rounded-full shrink-0 ${style.dot}`} />
+                          <span className={`rounded-full shrink-0 ${style.dot} ${compact ? 'w-1 h-1' : 'w-1 h-1'}`} />
                           <span className="truncate">
                             {item.item_name}
                             <span className="text-slate-400 dark:text-slate-500 font-medium ml-1">
@@ -139,11 +141,17 @@ export function LatestSalesCard({
                           </span>
                         </li>
                       ))}
+                      {compact && sale.items.length > 2 && (
+                        <li className="text-[10px] text-slate-400">+{sale.items.length - 2} more</li>
+                      )}
                     </ul>
                   </div>
                 </div>
               </div>
             ))}
+            {compact && sales.length > 5 && (
+              <p className="text-[10px] text-slate-400 pt-1">+{sales.length - 5} more sales</p>
+            )}
           </div>
         )}
       </CardContent>

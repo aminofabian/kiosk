@@ -231,112 +231,96 @@ export default function ProfitHubPage() {
   return (
     <AdminLayout>
       <div className="min-h-screen">
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-white/95 dark:bg-[#0f1a0d]/95 backdrop-blur-lg border-b-2 border-slate-200 dark:border-slate-800">
-          <div className="px-4 md:px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-[#1c6a1e] flex items-center justify-center rounded-lg">
-                  <TrendingUp className="w-5 h-5 text-white" />
+        {/* Compact Header with inline date filter */}
+        <div className="sticky top-0 z-10 bg-white/95 dark:bg-[#0f1a0d]/95 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800">
+          <div className="px-4 md:px-6 py-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-[#1c6a1e] flex items-center justify-center rounded-lg shrink-0">
+                  <TrendingUp className="w-4 h-4 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white">
-                    Profit Overview
-                  </h1>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Profit by department
-                  </p>
+                  <h1 className="text-base md:text-lg font-black text-slate-900 dark:text-white">Profit Overview</h1>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Profit by department</p>
                 </div>
               </div>
-              <Button onClick={fetchData} variant="outline" size="sm">
-                Refresh
-              </Button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md">
+                  {(['today', 'week', 'month', 'custom'] as DatePreset[]).map((preset) => (
+                    <button
+                      key={preset}
+                      onClick={() => setDatePreset(preset)}
+                      className={`px-2.5 py-1 text-[11px] font-bold transition-all rounded ${
+                        datePreset === preset ? 'bg-[#1c6a1e] text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                      }`}
+                    >
+                      {preset.charAt(0).toUpperCase() + preset.slice(1)}
+                    </button>
+                  ))}
+                </div>
+                {datePreset === 'custom' && (
+                  <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 rounded-md">
+                    <Input type="date" value={dateRange.start} onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })} className="h-6 w-28 text-[11px] border-0 bg-transparent p-1" />
+                    <span className="text-slate-400 text-[10px]">to</span>
+                    <Input type="date" value={dateRange.end} onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })} className="h-6 w-28 text-[11px] border-0 bg-transparent p-1" />
+                  </div>
+                )}
+                <span className="text-[10px] text-slate-400 font-medium">{periodDays}d</span>
+                <Button onClick={fetchData} variant="outline" size="sm" className="h-7 text-[11px] px-2">
+                  Refresh
+                </Button>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="p-4 md:p-6 pb-24 md:pb-6 max-w-5xl mx-auto space-y-6">
-          {/* Date Filter */}
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-lg">
-              {(['today', 'week', 'month', 'custom'] as DatePreset[]).map((preset) => (
-                <button
-                  key={preset}
-                  onClick={() => setDatePreset(preset)}
-                  className={`px-3 py-1.5 text-xs font-bold transition-all rounded-lg ${
-                    datePreset === preset
-                      ? 'bg-[#1c6a1e] text-white shadow-md'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                  }`}
-                >
-                  {preset.charAt(0).toUpperCase() + preset.slice(1)}
-                </button>
-              ))}
-            </div>
-            {datePreset === 'custom' && (
-              <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 p-1.5 rounded-lg">
-                <Input type="date" value={dateRange.start} onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })} className="h-7 w-32 text-xs border-0 bg-transparent" />
-                <span className="text-slate-400 text-xs">to</span>
-                <Input type="date" value={dateRange.end} onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })} className="h-7 w-32 text-xs border-0 bg-transparent" />
-              </div>
-            )}
-            <span className="text-xs text-slate-400 font-medium">{periodDays} day{periodDays !== 1 ? 's' : ''}</span>
-          </div>
-
-          {/* Top Stat Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className={`border-0 shadow-lg ${isProfitable ? 'bg-gradient-to-br from-green-500 to-green-600' : 'bg-gradient-to-br from-red-500 to-red-600'}`}>
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  {isProfitable ? <TrendingUp className="w-5 h-5 text-white/80" /> : <TrendingDown className="w-5 h-5 text-white/80" />}
-                  <Badge className="bg-white/20 text-white border-0 text-[10px]">
-                    {isProfitable ? 'Profit' : 'Loss'}
-                  </Badge>
+        <div className="p-3 md:p-4 pb-24 md:pb-6 max-w-5xl mx-auto space-y-4">
+          {/* Compact Stat Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+            <Card className={`border-0 shadow-md ${isProfitable ? 'bg-gradient-to-br from-green-500 to-green-600' : 'bg-gradient-to-br from-red-500 to-red-600'}`}>
+              <CardContent className="p-2.5">
+                <div className="flex items-center justify-between mb-0.5">
+                  {isProfitable ? <TrendingUp className="w-4 h-4 text-white/80" /> : <TrendingDown className="w-4 h-4 text-white/80" />}
+                  <Badge className="bg-white/20 text-white border-0 text-[9px] px-1">{isProfitable ? 'Profit' : 'Loss'}</Badge>
                 </div>
-                <p className={`text-xs font-medium mb-1 ${isProfitable ? 'text-green-100' : 'text-red-100'}`}>Net Profit</p>
-                <p className="text-xl font-black text-white">{formatPriceSigned(netProfit)}</p>
+                <p className={`text-[10px] font-medium ${isProfitable ? 'text-green-100' : 'text-red-100'}`}>Net Profit</p>
+                <p className="text-base font-black text-white leading-tight">{formatPriceSigned(netProfit)}</p>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-br from-blue-500 to-blue-600 border-0 shadow-lg">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <ShoppingCart className="w-5 h-5 text-white/80" />
-                  <Badge className="bg-white/20 text-white border-0 text-[10px]">
-                    {formatNumber(allData?.totalTransactions ?? 0)} orders
-                  </Badge>
+            <Card className="bg-gradient-to-br from-blue-500 to-blue-600 border-0 shadow-md">
+              <CardContent className="p-2.5">
+                <div className="flex items-center justify-between mb-0.5">
+                  <ShoppingCart className="w-4 h-4 text-white/80" />
+                  <Badge className="bg-white/20 text-white border-0 text-[9px] px-1">{formatNumber(allData?.totalTransactions ?? 0)} orders</Badge>
                 </div>
-                <p className="text-blue-100 text-xs font-medium mb-1">Total Revenue</p>
-                <p className="text-xl font-black text-white">{formatPrice(allData?.totalSales ?? 0)}</p>
+                <p className="text-blue-100 text-[10px] font-medium">Total Revenue</p>
+                <p className="text-base font-black text-white leading-tight">{formatPrice(allData?.totalSales ?? 0)}</p>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 border-0 shadow-lg">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <TrendingUp className="w-5 h-5 text-white/80" />
-                  <Badge className="bg-white/20 text-white border-0 text-[10px]">
-                    {formatPercent(grossMargin)} margin
-                  </Badge>
+            <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 border-0 shadow-md">
+              <CardContent className="p-2.5">
+                <div className="flex items-center justify-between mb-0.5">
+                  <TrendingUp className="w-4 h-4 text-white/80" />
+                  <Badge className="bg-white/20 text-white border-0 text-[9px] px-1">{formatPercent(grossMargin)} margin</Badge>
                 </div>
-                <p className="text-emerald-100 text-xs font-medium mb-1">Gross Profit</p>
-                <p className="text-xl font-black text-white">{formatPrice(grossProfit)}</p>
+                <p className="text-emerald-100 text-[10px] font-medium">Gross Profit</p>
+                <p className="text-base font-black text-white leading-tight">{formatPrice(grossProfit)}</p>
               </CardContent>
             </Card>
-            <Card className="bg-gradient-to-br from-purple-500 to-purple-600 border-0 shadow-lg">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <DollarSign className="w-5 h-5 text-white/80" />
-                  <Badge className="bg-white/20 text-white border-0 text-[10px]">
-                    {formatNumber(allData?.totalQuantitySold ?? 0)} sold
-                  </Badge>
+            <Card className="bg-gradient-to-br from-purple-500 to-purple-600 border-0 shadow-md">
+              <CardContent className="p-2.5">
+                <div className="flex items-center justify-between mb-0.5">
+                  <DollarSign className="w-4 h-4 text-white/80" />
+                  <Badge className="bg-white/20 text-white border-0 text-[9px] px-1">{formatNumber(allData?.totalQuantitySold ?? 0)} sold</Badge>
                 </div>
-                <p className="text-purple-100 text-xs font-medium mb-1">Cost of Goods</p>
-                <p className="text-xl font-black text-white">{formatPrice(allData?.totalCost ?? 0)}</p>
+                <p className="text-purple-100 text-[10px] font-medium">Cost of Goods</p>
+                <p className="text-base font-black text-white leading-tight">{formatPrice(allData?.totalCost ?? 0)}</p>
               </CardContent>
             </Card>
           </div>
 
           {/* Latest Sales + P&L Breakdown */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             <div className="lg:col-span-1">
               {(() => {
                 const [sY, sM, sD] = dateRange.start.split('-').map(Number);
@@ -344,97 +328,85 @@ export default function ProfitHubPage() {
                 const startTs = Math.floor(new Date(sY, sM - 1, sD, 0, 0, 0, 0).getTime() / 1000);
                 const endTs = Math.floor(new Date(eY, eM - 1, eD, 23, 59, 59, 999).getTime() / 1000);
                 return (
-                  <LatestSalesCard startTs={startTs} endTs={endTs} accentColor="teal" />
+                  <LatestSalesCard startTs={startTs} endTs={endTs} accentColor="teal" compact />
                 );
               })()}
             </div>
             <div className="lg:col-span-2">
-              {/* P&L Breakdown */}
-              <Card className="border-2 border-slate-200 dark:border-slate-700">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base font-bold flex items-center gap-2">
-                    <BarChart3 className="w-4 h-4 text-[#1c6a1e]" />
-                    Profit &amp; Loss Breakdown
+              <Card className="border border-slate-200 dark:border-slate-700">
+                <CardHeader className="py-2 px-3">
+                  <CardTitle className="text-sm font-bold flex items-center gap-1.5">
+                    <BarChart3 className="w-3.5 h-3.5 text-[#1c6a1e]" />
+                    P&amp;L Breakdown
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
+                <CardContent className="px-3 pb-3 pt-0">
+                  <div className="space-y-2.5">
                 {/* Revenue */}
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <ShoppingCart className="w-4 h-4 text-blue-500" />
-                      <span className="font-bold text-sm text-slate-700 dark:text-slate-300">Revenue</span>
+                    <div className="flex items-center gap-1.5">
+                      <ShoppingCart className="w-3.5 h-3.5 text-blue-500" />
+                      <span className="font-bold text-xs text-slate-700 dark:text-slate-300">Revenue</span>
                     </div>
-                    <span className="font-black text-sm text-slate-900 dark:text-white">{formatPrice(allData?.totalSales ?? 0)}</span>
+                    <span className="font-black text-xs text-slate-900 dark:text-white">{formatPrice(allData?.totalSales ?? 0)}</span>
                   </div>
-                  <div className="relative h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-blue-400 to-blue-500 transition-all duration-700" style={{ width: '100%' }} />
+                  <div className="relative h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-blue-400 to-blue-500" style={{ width: '100%' }} />
                   </div>
                 </div>
                 {/* Cost of Goods */}
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="w-4 h-4 text-orange-500" />
-                      <span className="font-bold text-sm text-slate-700 dark:text-slate-300">Cost of Goods</span>
+                    <div className="flex items-center gap-1.5">
+                      <DollarSign className="w-3.5 h-3.5 text-orange-500" />
+                      <span className="font-bold text-xs text-slate-700 dark:text-slate-300">Cost of Goods</span>
                     </div>
-                    <span className="font-black text-sm text-slate-900 dark:text-white">&minus; {formatPrice(allData?.totalCost ?? 0)}</span>
+                    <span className="font-black text-xs text-slate-900 dark:text-white">&minus; {formatPrice(allData?.totalCost ?? 0)}</span>
                   </div>
-                  <div className="relative h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div
-                      className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-orange-400 to-amber-500 transition-all duration-700"
-                      style={{ width: `${(allData?.totalSales ?? 0) > 0 ? ((allData?.totalCost ?? 0) / (allData?.totalSales ?? 1)) * 100 : 0}%` }}
-                    />
+                  <div className="relative h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-orange-400 to-amber-500" style={{ width: `${(allData?.totalSales ?? 0) > 0 ? ((allData?.totalCost ?? 0) / (allData?.totalSales ?? 1)) * 100 : 0}%` }} />
                   </div>
                 </div>
                 {/* Gross Profit */}
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-emerald-500" />
-                      <span className="font-bold text-sm text-slate-700 dark:text-slate-300">Gross Profit</span>
+                    <div className="flex items-center gap-1.5">
+                      <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+                      <span className="font-bold text-xs text-slate-700 dark:text-slate-300">Gross Profit</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-black text-sm text-emerald-600">{formatPrice(grossProfit)}</span>
-                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-0.5 rounded">{formatPercent(grossMargin)}</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-black text-xs text-emerald-600">{formatPrice(grossProfit)}</span>
+                      <span className="text-[9px] font-bold text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30 px-1 py-0.5 rounded">{formatPercent(grossMargin)}</span>
                     </div>
                   </div>
-                  <div className="relative h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                    <div
-                      className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-400 to-green-500 transition-all duration-700"
-                      style={{ width: `${(allData?.totalSales ?? 0) > 0 ? (grossProfit / (allData?.totalSales ?? 1)) * 100 : 0}%` }}
-                    />
+                  <div className="relative h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-400 to-green-500" style={{ width: `${(allData?.totalSales ?? 0) > 0 ? (grossProfit / (allData?.totalSales ?? 1)) * 100 : 0}%` }} />
                   </div>
                 </div>
                 {/* Operating Expenses */}
                 {hasExpenses && (
-                  <div className="space-y-2">
+                  <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Receipt className="w-4 h-4 text-red-500" />
-                        <span className="font-bold text-sm text-slate-700 dark:text-slate-300">Operating Expenses</span>
+                      <div className="flex items-center gap-1.5">
+                        <Receipt className="w-3.5 h-3.5 text-red-500" />
+                        <span className="font-bold text-xs text-slate-700 dark:text-slate-300">Operating Expenses</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-black text-sm text-slate-900 dark:text-white">&minus; {formatPrice(totalExpenses)}</span>
-                        <span className="text-[10px] text-slate-400">{expenseData?.expenseCount} &times; {periodDays}d</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-black text-xs text-slate-900 dark:text-white">&minus; {formatPrice(totalExpenses)}</span>
+                        <span className="text-[9px] text-slate-400">{expenseData?.expenseCount}&times;{periodDays}d</span>
                       </div>
                     </div>
-                    <div className="relative h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-red-400 to-rose-500 transition-all duration-700"
-                        style={{ width: `${(allData?.totalSales ?? 0) > 0 ? (totalExpenses / (allData?.totalSales ?? 1)) * 100 : 0}%` }}
-                      />
+                    <div className="relative h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-red-400 to-rose-500" style={{ width: `${(allData?.totalSales ?? 0) > 0 ? (totalExpenses / (allData?.totalSales ?? 1)) * 100 : 0}%` }} />
                     </div>
                   </div>
                 )}
                 {/* Net Profit */}
-                <div className="pt-3 border-t-2 border-slate-100 dark:border-slate-800">
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
                   <div className="flex items-center justify-between">
-                    <span className="font-black text-sm text-slate-900 dark:text-white">Net Profit</span>
-                    <span className={`text-lg font-black ${isProfitable ? 'text-[#1c6a1e]' : 'text-red-600'}`}>
-                      {formatPriceSigned(netProfit)}
-                    </span>
+                    <span className="font-black text-xs text-slate-900 dark:text-white">Net Profit</span>
+                    <span className={`text-sm font-black ${isProfitable ? 'text-[#1c6a1e]' : 'text-red-600'}`}>{formatPriceSigned(netProfit)}</span>
                   </div>
                 </div>
                   </div>
@@ -445,102 +417,91 @@ export default function ProfitHubPage() {
 
           {/* Expenses & Banking Row */}
           {hasExpenses ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <Card className="border-2 border-slate-200 dark:border-slate-700">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <Receipt className="w-5 h-5 text-[#1c6a1e]" />
-                    <Link href="/admin/expenses" className="text-[10px] text-[#1c6a1e] hover:underline flex items-center gap-0.5">
-                      Manage <ChevronRight className="w-3 h-3" />
-                    </Link>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              <Card className="border border-slate-200 dark:border-slate-700">
+                <CardContent className="p-2.5">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <Receipt className="w-4 h-4 text-[#1c6a1e]" />
+                    <Link href="/admin/expenses" className="text-[9px] text-[#1c6a1e] hover:underline flex items-center gap-0.5">Manage <ChevronRight className="w-2.5 h-2.5" /></Link>
                   </div>
-                  <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Operating Expenses</p>
-                  <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(totalExpenses)}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{expenseData?.expenseCount} expense{expenseData?.expenseCount !== 1 ? 's' : ''} &bull; {periodDays} day{periodDays !== 1 ? 's' : ''}</p>
+                  <p className="text-[9px] text-slate-400 font-medium uppercase">Operating Expenses</p>
+                  <p className="text-sm font-black text-slate-900 dark:text-white">{formatPrice(totalExpenses)}</p>
+                  <p className="text-[10px] text-slate-400">{expenseData?.expenseCount} expense{expenseData?.expenseCount !== 1 ? 's' : ''} &bull; {periodDays}d</p>
                 </CardContent>
               </Card>
-              <Card className="border-2 border-slate-200 dark:border-slate-700">
-                <CardContent className="p-4">
-                  <Target className="w-5 h-5 text-orange-500 mb-2" />
-                  <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Break-even Sales</p>
-                  <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(grossMargin > 0 ? totalExpenses / grossMargin : 0)}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">Min. to cover costs</p>
+              <Card className="border border-slate-200 dark:border-slate-700">
+                <CardContent className="p-2.5">
+                  <Target className="w-4 h-4 text-orange-500 mb-0.5" />
+                  <p className="text-[9px] text-slate-400 font-medium uppercase">Break-even Sales</p>
+                  <p className="text-sm font-black text-slate-900 dark:text-white">{formatPrice(grossMargin > 0 ? totalExpenses / grossMargin : 0)}</p>
+                  <p className="text-[10px] text-slate-400">Min. to cover costs</p>
                 </CardContent>
               </Card>
-              <Card className={`border-2 ${isProfitable ? 'border-green-200 dark:border-green-800' : 'border-red-200 dark:border-red-800'}`}>
-                <CardContent className="p-4">
-                  <Wallet className={`w-5 h-5 mb-2 ${isProfitable ? 'text-[#1c6a1e]' : 'text-red-500'}`} />
-                  <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Safe to Bank</p>
-                  <p className={`text-lg font-black ${isProfitable ? 'text-[#1c6a1e]' : 'text-red-600'}`}>
-                    {formatPrice(Math.max(0, netProfit))}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {isProfitable ? `Keep ${formatPrice(totalExpenses)} for expenses` : 'Costs exceed profit'}
-                  </p>
+              <Card className={`border ${isProfitable ? 'border-green-200 dark:border-green-800' : 'border-red-200 dark:border-red-800'}`}>
+                <CardContent className="p-2.5">
+                  <Wallet className={`w-4 h-4 mb-0.5 ${isProfitable ? 'text-[#1c6a1e]' : 'text-red-500'}`} />
+                  <p className="text-[9px] text-slate-400 font-medium uppercase">Safe to Bank</p>
+                  <p className={`text-sm font-black ${isProfitable ? 'text-[#1c6a1e]' : 'text-red-600'}`}>{formatPrice(Math.max(0, netProfit))}</p>
+                  <p className="text-[10px] text-slate-400">{isProfitable ? `Keep ${formatPrice(totalExpenses)} for expenses` : 'Costs exceed profit'}</p>
                 </CardContent>
               </Card>
             </div>
           ) : (
             <Link href="/admin/expenses" className="block">
-              <Card className="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-[#1c6a1e] transition-all group">
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Receipt className="w-5 h-5 text-[#1c6a1e]" />
+              <Card className="border border-dashed border-slate-300 dark:border-slate-700 hover:border-[#1c6a1e] transition-all group">
+                <CardContent className="p-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Receipt className="w-4 h-4 text-[#1c6a1e]" />
                     <div>
-                      <p className="font-bold text-sm text-slate-900 dark:text-white">Add Operating Expenses</p>
-                      <p className="text-xs text-slate-500">Track rent, salaries, and more to see your true net profit</p>
+                      <p className="font-bold text-xs text-slate-900 dark:text-white">Add Operating Expenses</p>
+                      <p className="text-[10px] text-slate-500">Track rent, salaries to see true net profit</p>
                     </div>
                   </div>
-                  <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-[#1c6a1e] group-hover:translate-x-1 transition-all" />
+                  <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-[#1c6a1e] group-hover:translate-x-1 transition-all" />
                 </CardContent>
               </Card>
             </Link>
           )}
 
-          {/* Department Cards - one per product type */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Department Cards - compact grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {productTypes.map((t) => {
               const data = typeData[t.key];
               const color = t.color ?? '#22c55e';
+              const pct = data?.totalSales ? getTypePct(t.key) : 0;
               return (
                 <Link key={t.key} href={`/admin/profit/${t.key}`} className="block group">
-                  <Card
-                    className="border-2 transition-all hover:shadow-xl h-full"
-                    style={{ borderColor: `${color}40` }}
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div
-                          className="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl shadow-lg"
-                          style={{ background: `linear-gradient(135deg, ${color}, ${color}dd)`, boxShadow: `0 4px 14px ${color}40` }}
-                        >
+                  <Card className="border transition-all hover:shadow-md h-full" style={{ borderColor: `${color}40` }}>
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg shrink-0" style={{ background: `linear-gradient(135deg, ${color}, ${color}dd)` }}>
                           {t.emoji}
                         </div>
-                        <ArrowRight className="w-5 h-5 text-slate-300 group-hover:translate-x-1 transition-all" style={{ color: data?.totalSales ? color : undefined }} />
+                        <ArrowRight className="w-4 h-4 text-slate-300 group-hover:translate-x-0.5 transition-all shrink-0" style={{ color: data?.totalSales ? color : undefined }} />
                       </div>
-                      <h2 className="text-xl font-black text-slate-900 dark:text-white mb-1">{t.label} Profit</h2>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
-                        Daily breakdowns, product performance, margin insights
-                      </p>
+                      <h2 className="text-sm font-black text-slate-900 dark:text-white mb-0.5">{t.label}</h2>
                       {data && data.totalSales > 0 ? (
-                        <div className="grid grid-cols-3 gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                          <div>
-                            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Sales</p>
-                            <p className="text-lg font-black" style={{ color }}>{formatPrice(data.totalSales)}</p>
+                        <>
+                          <div className="relative h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mb-2">
+                            <div className="absolute inset-y-0 left-0 rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
                           </div>
-                          <div>
-                            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Profit</p>
-                            <p className="text-lg font-black text-slate-700 dark:text-slate-300">{formatPrice(data.totalProfit)}</p>
+                          <div className="grid grid-cols-3 gap-1 text-center">
+                            <div>
+                              <p className="text-[9px] text-slate-400 uppercase">Sales</p>
+                              <p className="text-xs font-black truncate" style={{ color }} title={formatPrice(data.totalSales)}>{formatPrice(data.totalSales)}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] text-slate-400 uppercase">Profit</p>
+                              <p className="text-xs font-black text-slate-700 dark:text-slate-300 truncate" title={formatPrice(data.totalProfit)}>{formatPrice(data.totalProfit)}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] text-slate-400 uppercase">Margin</p>
+                              <p className="text-xs font-black text-slate-700 dark:text-slate-300">{formatPercent(data.grossMargin ?? data.profitMargin)}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Margin</p>
-                            <p className="text-lg font-black text-slate-700 dark:text-slate-300">{formatPercent(data.grossMargin ?? data.profitMargin)}</p>
-                          </div>
-                        </div>
+                        </>
                       ) : (
-                        <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                          <p className="text-sm text-slate-400">No {t.label.toLowerCase()} sales this period</p>
-                        </div>
+                        <p className="text-[11px] text-slate-400">No sales this period</p>
                       )}
                     </CardContent>
                   </Card>
@@ -549,89 +510,42 @@ export default function ProfitHubPage() {
             })}
           </div>
 
-          {/* Department Comparison */}
-          {totalSalesCombined > 0 && (
-            <Card className="border-2 border-slate-200 dark:border-slate-700">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4 text-[#1c6a1e]" />
-                  Department Comparison
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {productTypes.map((t) => {
-                    const d = typeData[t.key];
-                    if (!d || d.totalSales <= 0) return null;
-                    const pct = getTypePct(t.key);
-                    const color = t.color ?? '#22c55e';
-                    return (
-                      <div key={t.key} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg" aria-hidden>{t.emoji}</span>
-                            <span className="font-bold text-sm text-slate-700 dark:text-slate-300">{t.label}</span>
-                          </div>
-                          <div className="flex items-center gap-4 text-sm">
-                            <span className="font-black text-slate-900 dark:text-white">{formatPrice(d.totalSales)}</span>
-                            <span className="text-slate-400">{pct.toFixed(0)}%</span>
-                          </div>
-                        </div>
-                        <div className="relative h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                          <div
-                            className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
-                            style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${color}, ${color}dd)` }}
-                          />
-                        </div>
-                        <div className="flex gap-6 text-xs text-slate-500">
-                          <span>Profit: {formatPrice(d.totalProfit)}</span>
-                          <span>{formatNumber(d.totalQuantitySold)} items</span>
-                          <span>{d.totalTransactions} orders</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Top Earners by type */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {/* Top Earners by type - compact grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {productTypes.map((t) => {
               const topItems = topItemsByType[t.key] ?? [];
               const color = t.color ?? '#22c55e';
               return (
-                <Card key={t.key} className="border-2 border-slate-200 dark:border-slate-700">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base font-bold flex items-center gap-2">
-                      <span className="text-lg" aria-hidden>{t.emoji}</span>
+                <Card key={t.key} className="border border-slate-200 dark:border-slate-700">
+                  <CardHeader className="py-2 px-3">
+                    <CardTitle className="text-sm font-bold flex items-center gap-1.5">
+                      <span className="text-base" aria-hidden>{t.emoji}</span>
                       Top {t.label} Earners
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
+                  <CardContent className="px-3 pb-3 pt-0">
                     {topItems.length === 0 ? (
-                      <p className="text-center text-slate-400 py-4 text-sm">No data</p>
+                      <p className="text-center text-slate-400 py-3 text-xs">No data</p>
                     ) : (
-                      <div className="space-y-3">
-                        {topItems.map((item, i) => {
+                      <div className="space-y-1.5">
+                        {topItems.slice(0, 3).map((item, i) => {
                           const margin = item.total_sales > 0 ? (item.total_profit / item.total_sales) * 100 : 0;
                           return (
-                            <div key={item.item_id} className="flex items-center gap-3">
-                              <div
-                                className="w-6 h-6 flex items-center justify-center rounded-md text-[10px] font-black shrink-0"
-                                style={{ backgroundColor: `${color}20`, color }}
-                              >
-                                {i + 1}
-                              </div>
+                            <div key={item.item_id} className="flex items-center gap-2 py-1">
+                              <div className="w-5 h-5 flex items-center justify-center rounded text-[9px] font-black shrink-0" style={{ backgroundColor: `${color}20`, color }}>{i + 1}</div>
                               <div className="flex-1 min-w-0">
-                                <p className="font-bold text-sm text-slate-900 dark:text-white truncate">{item.item_name}</p>
-                                <p className="text-xs text-slate-500">{item.quantity_sold.toFixed(0)} sold &bull; {margin.toFixed(0)}% margin</p>
+                                <p className="font-bold text-xs text-slate-900 dark:text-white truncate">{item.item_name}</p>
+                                <p className="text-[10px] text-slate-500">{item.quantity_sold.toFixed(0)} sold &bull; {margin.toFixed(0)}%</p>
                               </div>
-                              <p className="text-sm font-black shrink-0" style={{ color }}>+{formatPrice(item.total_profit)}</p>
+                              <p className="text-xs font-black shrink-0" style={{ color }}>+{formatPrice(item.total_profit)}</p>
                             </div>
                           );
                         })}
+                        {topItems.length > 3 && (
+                          <Link href={`/admin/profit/${t.key}`} className="block text-center text-[10px] font-bold text-[#1c6a1e] hover:underline pt-1">
+                            View all &rarr;
+                          </Link>
+                        )}
                       </div>
                     )}
                   </CardContent>
@@ -640,43 +554,43 @@ export default function ProfitHubPage() {
             })}
           </div>
 
-          {/* Profit Calendar */}
-          <Card className="border-2 border-slate-200 dark:border-slate-700">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold flex items-center gap-2">
-                <BarChart3 className="w-4 h-4 text-[#1c6a1e]" />
+          {/* Profit Calendar - compact */}
+          <Card className="border border-slate-200 dark:border-slate-700">
+            <CardHeader className="py-2 px-3">
+              <CardTitle className="text-sm font-bold flex items-center gap-1.5">
+                <BarChart3 className="w-3.5 h-3.5 text-[#1c6a1e]" />
                 Daily Net Profit Calendar
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <ProfitCalendar />
+            <CardContent className="px-3 pb-3 pt-0">
+              <ProfitCalendar compact />
             </CardContent>
           </Card>
 
-          {/* All Items Table */}
-          <Card className="border-2 border-slate-200 dark:border-slate-700">
-            <CardHeader className="pb-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <Package className="w-4 h-4 text-[#1c6a1e]" />
+          {/* All Items Table - compact */}
+          <Card className="border border-slate-200 dark:border-slate-700">
+            <CardHeader className="py-2 px-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <CardTitle className="text-sm font-bold flex items-center gap-1.5">
+                  <Package className="w-3.5 h-3.5 text-[#1c6a1e]" />
                   All Items
-                  <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-xs ml-1">
+                  <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-[10px]">
                     {filteredItems.length}
                   </Badge>
                 </CardTitle>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                     <Input
                       type="text"
                       placeholder="Search..."
                       value={itemSearch}
                       onChange={(e) => setItemSearch(e.target.value)}
-                      className="pl-9 h-9 w-48 text-sm border-slate-200 dark:border-slate-700"
+                      className="pl-8 h-7 w-40 text-xs border-slate-200 dark:border-slate-700"
                     />
                   </div>
-                  <Button variant="outline" size="sm" className="h-9 text-xs" onClick={() => setShowAllItems(!showAllItems)}>
-                    {showAllItems ? <EyeOff className="w-3.5 h-3.5 mr-1" /> : <Eye className="w-3.5 h-3.5 mr-1" />}
+                  <Button variant="outline" size="sm" className="h-7 text-[11px] px-2" onClick={() => setShowAllItems(!showAllItems)}>
+                    {showAllItems ? <EyeOff className="w-3 h-3 mr-0.5" /> : <Eye className="w-3 h-3 mr-0.5" />}
                     {showAllItems ? 'Collapse' : 'Show All'}
                   </Button>
                 </div>
@@ -684,27 +598,27 @@ export default function ProfitHubPage() {
             </CardHeader>
             <CardContent className="p-0">
               {filteredItems.length === 0 ? (
-                <div className="text-center py-12">
-                  <ShoppingCart className="h-8 w-8 mx-auto text-slate-300 mb-2" />
-                  <p className="text-slate-500 text-sm">No sales in this period</p>
+                <div className="text-center py-8">
+                  <ShoppingCart className="h-6 w-6 mx-auto text-slate-300 mb-1" />
+                  <p className="text-slate-500 text-xs">No sales in this period</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
+                  <table className="w-full text-xs">
                     <thead>
                       <tr className="bg-slate-50 dark:bg-slate-900 border-y border-slate-200 dark:border-slate-700">
-                        <th className="text-left px-4 py-3 font-bold text-slate-700 dark:text-slate-300 text-xs">Item</th>
-                        <th className="text-center px-4 py-3 font-bold text-slate-700 dark:text-slate-300 text-xs">Dept</th>
-                        <th className="text-right px-4 py-3 font-bold text-slate-700 dark:text-slate-300 text-xs">Qty</th>
-                        <th className="text-right px-4 py-3 font-bold text-slate-700 dark:text-slate-300 text-xs">Sales</th>
-                        <th className="text-right px-4 py-3 font-bold text-slate-700 dark:text-slate-300 text-xs">Cost</th>
-                        <th className="text-right px-4 py-3 font-bold text-slate-700 dark:text-slate-300 text-xs">Profit</th>
-                        <th className="text-right px-4 py-3 font-bold text-slate-700 dark:text-slate-300 text-xs">Margin</th>
+                        <th className="text-left px-3 py-2 font-bold text-slate-700 dark:text-slate-300 text-[11px]">Item</th>
+                        <th className="text-center px-2 py-2 font-bold text-slate-700 dark:text-slate-300 text-[11px]">Dept</th>
+                        <th className="text-right px-2 py-2 font-bold text-slate-700 dark:text-slate-300 text-[11px]">Qty</th>
+                        <th className="text-right px-2 py-2 font-bold text-slate-700 dark:text-slate-300 text-[11px]">Sales</th>
+                        <th className="text-right px-2 py-2 font-bold text-slate-700 dark:text-slate-300 text-[11px]">Cost</th>
+                        <th className="text-right px-2 py-2 font-bold text-slate-700 dark:text-slate-300 text-[11px]">Profit</th>
+                        <th className="text-right px-2 py-2 font-bold text-slate-700 dark:text-slate-300 text-[11px]">Margin</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredItems
-                        .slice(0, showAllItems ? undefined : 20)
+                        .slice(0, showAllItems ? undefined : 10)
                         .map((item) => {
                           const margin = item.total_sales > 0 ? item.total_profit / item.total_sales : 0;
                           const isPositive = item.total_profit >= 0;
@@ -713,25 +627,25 @@ export default function ProfitHubPage() {
                           const deptColor = deptConfig?.color ?? '#22c55e';
                           return (
                             <tr key={`${item.department}-${item.item_id}`} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30">
-                              <td className="px-4 py-2.5">
+                              <td className="px-3 py-1.5">
                                 <div className="flex items-center gap-2">
                                   {isPositive
                                     ? <TrendingUp className="h-3.5 w-3.5 text-[#1c6a1e] flex-shrink-0" />
                                     : <TrendingDown className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
                                   }
-                                  <span className="font-bold text-xs text-slate-900 dark:text-white">{item.item_name}</span>
+                                  <span className="font-bold text-[11px] text-slate-900 dark:text-white">{item.item_name}</span>
                                 </div>
                               </td>
-                              <td className="px-4 py-2.5 text-center">
+                              <td className="px-2 py-1.5 text-center">
                                 <Badge className="text-[9px] border-0" style={{ backgroundColor: `${deptColor}20`, color: deptColor }}>
                                   {deptLabel}
                                 </Badge>
                               </td>
-                              <td className="px-4 py-2.5 text-right font-semibold text-slate-600 dark:text-slate-300 text-xs">{item.quantity_sold.toFixed(0)}</td>
-                              <td className="px-4 py-2.5 text-right text-xs text-slate-600 dark:text-slate-300">{formatPrice(item.total_sales)}</td>
-                              <td className="px-4 py-2.5 text-right text-xs text-slate-500">{formatPrice(item.total_cost)}</td>
-                              <td className={`px-4 py-2.5 text-right font-black text-xs ${isPositive ? 'text-[#1c6a1e]' : 'text-red-500'}`}>{formatPriceSigned(item.total_profit)}</td>
-                              <td className="px-4 py-2.5 text-right">
+                              <td className="px-2 py-1.5 text-right font-semibold text-slate-600 dark:text-slate-300 text-[11px]">{item.quantity_sold.toFixed(0)}</td>
+                              <td className="px-2 py-1.5 text-right text-[11px] text-slate-600 dark:text-slate-300">{formatPrice(item.total_sales)}</td>
+                              <td className="px-2 py-1.5 text-right text-[11px] text-slate-500">{formatPrice(item.total_cost)}</td>
+                              <td className={`px-2 py-1.5 text-right font-black text-[11px] ${isPositive ? 'text-[#1c6a1e]' : 'text-red-500'}`}>{formatPriceSigned(item.total_profit)}</td>
+                              <td className="px-2 py-1.5 text-right">
                                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isPositive ? 'bg-[#1c6a1e]/10 text-[#1c6a1e]' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
                                   {formatPercent(margin)}
                                 </span>
@@ -741,9 +655,9 @@ export default function ProfitHubPage() {
                         })}
                     </tbody>
                   </table>
-                  {!showAllItems && filteredItems.length > 20 && (
-                    <div className="p-3 text-center border-t border-slate-100 dark:border-slate-800">
-                      <button onClick={() => setShowAllItems(true)} className="text-xs font-bold text-[#1c6a1e] hover:text-[#1a7a69]">
+                  {!showAllItems && filteredItems.length > 10 && (
+                    <div className="p-2 text-center border-t border-slate-100 dark:border-slate-800">
+                      <button onClick={() => setShowAllItems(true)} className="text-[11px] font-bold text-[#1c6a1e] hover:text-[#1a7a69]">
                         Show all {filteredItems.length} items
                       </button>
                     </div>

@@ -5,7 +5,7 @@ import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminBottomNav } from '@/components/admin/AdminBottomNav';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { signOut } from 'next-auth/react';
-import { LogOut, ChevronRight } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { InstallApp } from '@/components/InstallApp';
 import { storeUserRole, clearUserRole } from '@/lib/utils/user-role-storage';
 import Link from 'next/link';
@@ -28,53 +28,59 @@ export function AdminLayout({ children, sidebar }: AdminLayoutProps) {
 
   return (
     <div className="flex h-screen w-screen bg-slate-50 dark:bg-[#0f1a0d]">
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:flex md:w-[232px] lg:w-[256px] flex-col border-r border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-[#1c2e18] transition-all duration-300">
+      {/* Desktop Sidebar — Agentic layout, theme colors */}
+      <aside className="hidden md:flex md:w-[220px] lg:w-[232px] flex-col shrink-0 bg-white dark:bg-[#1c2e18] border-r border-slate-200 dark:border-slate-800/80">
         {/* Brand header */}
-        <div className="h-14 flex items-center px-4 border-b border-slate-200/60 dark:border-slate-800/60">
-          <Link href="/admin" className="flex items-center gap-2.5 group">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-md shadow-[#1c6a1e]/20 transition-transform duration-200 group-hover:scale-105">
-              <span className="text-sm font-black text-white leading-none">P</span>
+        <div className="h-14 flex items-center px-4 shrink-0 border-b border-slate-100 dark:border-slate-800/60">
+          <Link href="/admin" className="flex items-center gap-3 group min-w-0">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shrink-0 shadow-sm shadow-[#1c6a1e]/20">
+              <span className="text-sm font-bold text-white">P</span>
             </div>
-            <div>
-              <h1 className="font-bold text-sm text-slate-900 dark:text-white leading-none tracking-tight">
+            <div className="min-w-0">
+              <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">
                 POS Admin
-              </h1>
-              <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-0.5 font-medium tracking-wide uppercase">
+              </span>
+              <span className="block text-[10px] text-slate-500 dark:text-slate-500 truncate">
                 Management
-              </p>
+              </span>
             </div>
           </Link>
         </div>
 
-        {/* Scrollable nav */}
-        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700">
+        {/* Nav */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 py-4 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700">
           {sidebar || <AdminSidebar />}
         </div>
 
-        {/* User footer */}
-        <div className="p-2.5 border-t border-slate-200/60 dark:border-slate-800/60">
-          <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors group">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#1c6a1e]/20 to-[#2a8a30]/20 dark:from-[#1c6a1e]/30 dark:to-[#2a8a30]/30 flex items-center justify-center flex-shrink-0 ring-1 ring-[#1c6a1e]/20">
-              <span className="text-xs font-semibold text-[#1c6a1e] dark:text-[#2a8a30]">
-                {user?.name?.charAt(0).toUpperCase() || 'U'}
-              </span>
+        {/* User + footer */}
+        <div className="shrink-0 border-t border-slate-100 dark:border-slate-800/60">
+          <div className="p-4 flex items-center gap-3 group">
+            <div className="w-8 h-8 rounded-lg bg-[#1c6a1e]/15 dark:bg-[#2a8a30]/20 flex items-center justify-center shrink-0 text-[#1c6a1e] dark:text-[#2a8a30] text-xs font-semibold">
+              {user?.name?.charAt(0).toUpperCase() || 'U'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[12px] font-semibold text-slate-700 dark:text-slate-300 truncate leading-none">
+              <p className="text-xs font-medium text-slate-700 dark:text-slate-200 truncate">
                 {user?.name || 'User'}
               </p>
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate capitalize mt-0.5 leading-none">
+              <p className="text-[10px] text-slate-500 dark:text-slate-500 truncate capitalize">
                 {user?.role || 'Loading...'}
               </p>
             </div>
             <button
               onClick={() => signOut({ callbackUrl: '/login' })}
-              className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-400 hover:text-red-500 dark:hover:text-red-400 transition-all duration-150 flex-shrink-0 opacity-0 group-hover:opacity-100"
+              className="p-1.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
               title="Sign out"
             >
               <LogOut className="w-3.5 h-3.5" />
             </button>
+          </div>
+          <div className="px-4 pb-4 pt-0">
+            <p className="text-[10px] text-slate-400 dark:text-slate-500">
+              POS Admin
+            </p>
+            <p className="text-[9px] text-slate-400/80 dark:text-slate-500/80">
+              © {new Date().getFullYear()}
+            </p>
           </div>
         </div>
       </aside>

@@ -58,6 +58,37 @@ function avatarColor(name: string): string {
   return `hsl(${hue}, 55%, 42%)`;
 }
 
+/** FIFO: which debt transactions are fully paid vs pending (oldest debts paid first) */
+function computeDebtPaidStatus(
+  transactions: CreditTransactionWithDetails[]
+): Map<string, boolean> {
+  const debts = transactions
+    .filter((t) => t.type === 'debt')
+    .sort((a, b) => a.created_at - b.created_at);
+  const payments = transactions
+    .filter((t) => t.type === 'payment')
+    .sort((a, b) => a.created_at - b.created_at);
+
+  const paid = new Map<string, boolean>();
+  let paymentIdx = 0;
+  let paymentRemaining = 0;
+
+  for (const debt of debts) {
+    let toCover = debt.amount;
+    while (toCover > 0 && paymentIdx < payments.length) {
+      if (paymentRemaining <= 0) {
+        paymentRemaining = payments[paymentIdx].amount;
+        paymentIdx++;
+      }
+      const apply = Math.min(toCover, paymentRemaining);
+      toCover -= apply;
+      paymentRemaining -= apply;
+    }
+    paid.set(debt.id, toCover <= 0);
+  }
+  return paid;
+}
+
 export function CreditList() {
   const [accounts, setAccounts] = useState<CreditAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -407,6 +438,7 @@ export function CreditList() {
                           const debtTransactions = transactions.filter(
                             (t) => t.type === 'debt' && t.items && t.items.length > 0
                           );
+                          const debtPaid = computeDebtPaidStatus(transactions);
                           if (debtTransactions.length === 0) {
                             return (
                               <p className="text-sm text-slate-500 dark:text-slate-400 text-center py-4">
@@ -416,60 +448,118 @@ export function CreditList() {
                           }
                           return (
                             <div className="space-y-4">
-                              {debtTransactions.map((transaction) => (
-                                <div
-                                  key={transaction.id}
-                                  className="rounded-lg border border-slate-100 dark:border-slate-800 p-3 space-y-2"
-                                >
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span className="text-slate-500 dark:text-slate-400">
-                                      {transaction.sale_date
-                                        ? new Date(transaction.sale_date * 1000).toLocaleDateString(
-                                            'en-KE',
-                                            {
-                                              year: 'numeric',
-                                              month: 'short',
-                                              day: 'numeric',
-                                            }
-                                          )
-                                        : formatDate(transaction.created_at)}
-                                    </span>
-                                    <span className="font-medium text-amber-600 dark:text-amber-400">
-                                      {formatPrice(transaction.amount)}
-                                    </span>
-                                  </div>
-                                  <div className="space-y-1.5">
-                                    {transaction.items?.map((item) => (
-                                      <div
-                                        key={item.id}
-                                        className="flex items-center justify-between text-sm"
+                              {debtTransactions.map((transaction) => {
+                                const isPaid = debtPaid.get(transaction.id) ?? false;
+                                return (
+                                  <div
+                                    key={transaction.id}
+                                    className={cn(
+                                      'rounded-lg border p-3 space-y-2 transition-colors',
+                                      isPaid
+                                        ? 'border-slate-100 dark:border-slate-800/60 bg-slate-50/50 dark:bg-slate-900/30'
+                                        : 'border-slate-100 dark:border-slate-800'
+                                    )}
+                                  >
+                                    <div className="flex items-center justify-between text-xs">
+                                      <span
+                                        className={cn(
+                                          isPaid
+                                            ? 'text-slate-400 dark:text-slate-500 line-through'
+                                            : 'text-slate-500 dark:text-slate-400'
+                                        )}
                                       >
-                                        <div className="flex items-center gap-2 min-w-0">
-                                          <Package className="h-3.5 w-3.5 shrink-0 text-slate-400" />
-                                          <span className="truncate text-slate-700 dark:text-slate-300">
-                                            {item.item_name}
-                                          </span>
-                                        </div>
-                                        <div className="flex items-center gap-2 shrink-0 text-xs text-slate-500 dark:text-slate-400">
-                                          <span>
-                                            {item.quantity_sold}{' '}
-                                            {item.item_unit_type === 'kg'
-                                              ? 'kg'
-                                              : item.quantity_sold === 1
-                                                ? 'pc'
-                                                : 'pcs'}
-                                          </span>
-                                          <span className="font-medium text-slate-700 dark:text-slate-300">
-                                            {formatPrice(
-                                              item.sell_price_per_unit * item.quantity_sold
+                                        {transaction.sale_date
+                                          ? new Date(transaction.sale_date * 1000).toLocaleDateString(
+                                              'en-KE',
+                                              {
+                                                year: 'numeric',
+                                                month: 'short',
+                                                day: 'numeric',
+                                              }
+                                            )
+                                          : formatDate(transaction.created_at)}
+                                      </span>
+                                      <span
+                                        className={cn(
+                                          'font-medium',
+                                          isPaid
+                                            ? 'text-slate-400 dark:text-slate-500 line-through'
+                                            : 'text-amber-600 dark:text-amber-400'
+                                        )}
+                                      >
+                                        {formatPrice(transaction.amount)}
+                                      </span>
+                                    </div>
+                                    {isPaid && (
+                                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-300">
+                                        <CheckCircle className="h-3 w-3" />
+                                        Paid
+                                      </span>
+                                    )}
+                                    <div className="space-y-1.5">
+                                      {transaction.items?.map((item) => (
+                                        <div
+                                          key={item.id}
+                                          className={cn(
+                                            'flex items-center justify-between text-sm',
+                                            isPaid && 'opacity-75'
+                                          )}
+                                        >
+                                          <div className="flex items-center gap-2 min-w-0">
+                                            <Package
+                                              className={cn(
+                                                'h-3.5 w-3.5 shrink-0',
+                                                isPaid
+                                                  ? 'text-slate-400 dark:text-slate-500'
+                                                  : 'text-slate-400'
+                                              )}
+                                            />
+                                            <span
+                                              className={cn(
+                                                'truncate',
+                                                isPaid
+                                                  ? 'text-slate-500 dark:text-slate-500 line-through'
+                                                  : 'text-slate-700 dark:text-slate-300'
+                                              )}
+                                            >
+                                              {item.item_name}
+                                            </span>
+                                          </div>
+                                          <div
+                                            className={cn(
+                                              'flex items-center gap-2 shrink-0 text-xs',
+                                              isPaid
+                                                ? 'text-slate-400 dark:text-slate-500 line-through'
+                                                : 'text-slate-500 dark:text-slate-400'
                                             )}
-                                          </span>
+                                          >
+                                            <span>
+                                              {item.quantity_sold}{' '}
+                                              {item.item_unit_type === 'kg'
+                                                ? 'kg'
+                                                : item.quantity_sold === 1
+                                                  ? 'pc'
+                                                  : 'pcs'}
+                                            </span>
+                                            <span
+                                              className={cn(
+                                                'font-medium',
+                                                isPaid
+                                                  ? 'text-slate-500 dark:text-slate-500'
+                                                  : 'text-slate-700 dark:text-slate-300'
+                                              )}
+                                            >
+                                              {formatPrice(
+                                                item.sell_price_per_unit * item.quantity_sold
+                                              )}
+                                            </span>
+                                          </div>
                                         </div>
-                                      </div>
-                                    ))}
+                                      ))}
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           );
                         })()

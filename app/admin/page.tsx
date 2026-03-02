@@ -1098,35 +1098,42 @@ export default function AdminDashboardPage() {
       </Drawer>
 
       <Drawer open={itemDrawerOpen && !isMobile} onOpenChange={setItemDrawerOpen} direction="right">
-        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[720px] !max-w-none h-full max-h-screen rounded-l-2xl border-l border-slate-200/80 dark:border-slate-800/80 shadow-xl bg-white dark:bg-slate-900">
-          <DrawerHeader className="relative shrink-0 border-b border-slate-200/80 dark:border-slate-800/80 bg-gradient-to-br from-[#1c6a1e]/5 via-white to-slate-50/80 dark:from-[#1c6a1e]/15 dark:via-slate-900 dark:to-slate-950/80 px-5 py-5 pr-14">
+        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[740px] !max-w-none h-full max-h-screen rounded-l-3xl overflow-hidden border-0 shadow-[-8px_0_40px_-12px_rgba(0,0,0,0.25)] dark:shadow-[-8px_0_40px_-12px_rgba(0,0,0,0.5)] bg-white dark:bg-slate-900">
+          {/* Accent stripe */}
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[#1c6a1e] via-emerald-500 to-teal-400 dark:from-[#1c6a1e] dark:via-emerald-600 dark:to-teal-500 pointer-events-none" aria-hidden />
+          <DrawerHeader className="relative shrink-0 border-b border-slate-200/60 dark:border-slate-800/60 bg-gradient-to-br from-emerald-50/80 via-white to-slate-50/50 dark:from-[#0d1f0e] dark:via-slate-900 dark:to-slate-950 px-6 py-5 pr-16">
             <DrawerClose asChild>
               <button
-                className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white active:scale-95 transition-all shadow-sm"
+                className="absolute top-4 right-4 w-9 h-9 flex items-center justify-center rounded-xl bg-slate-100/80 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-700 dark:hover:text-slate-200 active:scale-95 transition-all duration-200"
                 aria-label="Close"
               >
-                <X className="w-5 h-5" strokeWidth={2.5} />
+                <X className="w-4 h-4" strokeWidth={2.5} />
               </button>
             </DrawerClose>
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-[#1c6a1e]/15 dark:bg-[#1c6a1e]/25 flex items-center justify-center flex-shrink-0 shadow-sm">
-                <Package className="w-6 h-6 text-[#1c6a1e] dark:text-[#2a8a30]" />
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#1c6a1e] to-emerald-600 flex items-center justify-center shadow-lg shadow-[#1c6a1e]/25 dark:shadow-[#1c6a1e]/40">
+                  <Package className="w-6 h-6 text-white" />
+                </div>
+                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-400 dark:bg-emerald-500 border-2 border-white dark:border-slate-900" aria-hidden />
               </div>
-              <div>
-                <DrawerTitle className="text-lg font-bold text-slate-900 dark:text-white leading-tight">
+              <div className="min-w-0">
+                <DrawerTitle className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">
                   Add New Item
                 </DrawerTitle>
                 <DrawerDescription className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                  Create a new product for your inventory
+                  Quick-add products to your inventory
                 </DrawerDescription>
               </div>
             </div>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 sm:px-6 py-6 flex-1 bg-slate-50/60 dark:bg-slate-950/40">
+          <div className="overflow-y-auto flex-1 bg-gradient-to-b from-slate-50/50 to-white dark:from-slate-950/50 dark:to-slate-900 scroll-smooth">
+            <div className="px-5 sm:px-6 py-6 min-h-full">
             <ItemForm
               onSuccess={() => setItemDrawerOpen(false)}
               onCancel={() => setItemDrawerOpen(false)}
             />
+            </div>
           </div>
         </DrawerContent>
       </Drawer>
