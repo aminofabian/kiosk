@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -101,6 +101,53 @@ interface LinkedProduct {
   packaging_unit_qty: number | null;
 }
 
+const SUPPLIER_BILL_DRAFT_KEY = 'supplier-bill-draft';
+
+interface SupplierBillDraft {
+  supplierId: string;
+  supplierName: string;
+  supplierPhone: string;
+  lineItems: Pick<BillLineItem, 'id' | 'description' | 'quantity' | 'amount' | 'packages' | 'packagingUnitName' | 'packagingUnitQty' | 'itemId' | 'currentStock' | 'unitType' | 'sellPrice' | 'showPackaging'>[];
+  dueDateTime: string;
+  notes: string;
+  useManualSupplier: boolean;
+  selectedPaymentMethods: string[];
+  paymentDetails: string;
+}
+
+function loadDraft(): SupplierBillDraft | null {
+  try {
+    const raw = typeof window !== 'undefined' ? sessionStorage.getItem(SUPPLIER_BILL_DRAFT_KEY) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as SupplierBillDraft;
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (!Array.isArray(parsed.lineItems) || parsed.lineItems.length === 0) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveDraft(draft: SupplierBillDraft) {
+  try {
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem(SUPPLIER_BILL_DRAFT_KEY, JSON.stringify(draft));
+    }
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function clearDraft() {
+  try {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem(SUPPLIER_BILL_DRAFT_KEY);
+    }
+  } catch {
+    // Ignore
+  }
+}
+
 export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, onOpenManageLinkProducts }: SupplierBillFormProps) {
   const { productTypes } = useItemTypes();
   const PACKAGING_PRESETS = ['Carton', 'Sack', 'Net', 'Crate', 'Box', 'Bag', 'Bale', 'Bundle', 'Tray'];
@@ -154,6 +201,76 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
   const [productSearch, setProductSearch] = useState('');
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
   const [paymentDetails, setPaymentDetails] = useState('');
+  const restoredFromDraftRef = useRef(false);
+  const skipLinkedProductsFetchRef = useRef(false);
+
+  // Restore draft from sessionStorage on mount (survives drawer close / page navigation)
+  useEffect(() => {
+    const draft = loadDraft();
+    if (draft) {
+      restoredFromDraftRef.current = true;
+      skipLinkedProductsFetchRef.current = true;
+      setSupplierId(draft.supplierId);
+      setSupplierName(draft.supplierName);
+      setSupplierPhone(draft.supplierPhone);
+      setLineItems(draft.lineItems.map((item) => ({
+        ...item,
+        packagingUnitName: item.packagingUnitName ?? '',
+        packagingUnitQty: item.packagingUnitQty ?? '',
+      })));
+      setDueDateTime(draft.dueDateTime || '');
+      setNotes(draft.notes || '');
+      setUseManualSupplier(draft.useManualSupplier ?? false);
+      setSelectedPaymentMethods(draft.selectedPaymentMethods ?? []);
+      setPaymentDetails(draft.paymentDetails || '');
+      toast.success('Draft restored', { description: 'Your previous entries have been recovered.' });
+    }
+  }, []);
+
+  // Persist form state to sessionStorage when it changes (debounced)
+  useEffect(() => {
+    if (!supplierId && !useManualSupplier && !supplierName.trim()) return;
+    const hasContent = lineItems.some(
+      (i) => i.description?.trim() || i.quantity || i.amount
+    );
+    if (!hasContent && !supplierName.trim()) return;
+
+    const draft: SupplierBillDraft = {
+      supplierId,
+      supplierName,
+      supplierPhone,
+      lineItems: lineItems.map((item) => ({
+        id: item.id,
+        description: item.description,
+        quantity: item.quantity,
+        amount: item.amount,
+        packages: item.packages,
+        packagingUnitName: item.packagingUnitName,
+        packagingUnitQty: item.packagingUnitQty,
+        itemId: item.itemId,
+        currentStock: item.currentStock,
+        unitType: item.unitType,
+        sellPrice: item.sellPrice,
+        showPackaging: item.showPackaging,
+      })),
+      dueDateTime,
+      notes,
+      useManualSupplier,
+      selectedPaymentMethods,
+      paymentDetails,
+    };
+    saveDraft(draft);
+  }, [
+    supplierId,
+    supplierName,
+    supplierPhone,
+    lineItems,
+    dueDateTime,
+    notes,
+    useManualSupplier,
+    selectedPaymentMethods,
+    paymentDetails,
+  ]);
 
   // Filtered suppliers based on search, sorted alphabetically by name
   const filteredSuppliers = useMemo(() => {
@@ -177,7 +294,8 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
         const result = await apiGet<Supplier[]>(url);
         if (result.success) {
           setSuppliers(result.data || []);
-          if (preSelectedSupplierId) {
+          // Only pre-fill from URL when we did NOT restore a draft
+          if (preSelectedSupplierId && !restoredFromDraftRef.current) {
             const supplier = (result.data || []).find(
               (s) => s.id === preSelectedSupplierId
             );
@@ -198,9 +316,13 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplierTypeFilter]);
 
-  // Fetch linked products when supplier changes
+  // Fetch linked products when supplier changes (skip when restoring from draft)
   useEffect(() => {
     if (!supplierId) return;
+    if (skipLinkedProductsFetchRef.current) {
+      skipLinkedProductsFetchRef.current = false;
+      return;
+    }
 
     async function fetchLinkedProducts() {
       setLoadingLinkedProducts(true);
@@ -269,6 +391,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
     setLineItems([{ id: '1', description: '', quantity: '', amount: '', packages: '', packagingUnitName: '', packagingUnitQty: '' }]);
     setUseManualSupplier(false);
     setSupplierSearch('');
+    clearDraft();
   };
 
   const openEditSupplierDialog = () => {
@@ -634,6 +757,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
             )
           );
         }
+        clearDraft();
         if (onSuccess) onSuccess();
       } else {
         setError(result.message || 'Failed to create supplier bill');
