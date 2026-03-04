@@ -85,6 +85,7 @@ interface SupplierBillFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
   preSelectedSupplierId?: string;
+  linkedProductsRefreshKey?: number;
   onOpenManageLinkProducts?: (supplier: Supplier) => void;
 }
 
@@ -148,7 +149,7 @@ function clearDraft() {
   }
 }
 
-export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, onOpenManageLinkProducts }: SupplierBillFormProps) {
+export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, linkedProductsRefreshKey = 0, onOpenManageLinkProducts }: SupplierBillFormProps) {
   const { productTypes } = useItemTypes();
   const PACKAGING_PRESETS = ['Carton', 'Sack', 'Net', 'Crate', 'Box', 'Bag', 'Bale', 'Bundle', 'Tray'];
   const PAYMENT_METHODS = [
@@ -355,7 +356,16 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
               sellPrice: product.current_sell_price,
             };
           });
-          setLineItems(newLineItems);
+          // Merge: preserve existing entries with content, add linked products not already in list
+          setLineItems((prev) => {
+            const hasContent = (item: BillLineItem) =>
+              (item.description?.trim() || item.quantity || item.amount) ? true : false;
+            const existingWithContent = prev.filter(hasContent);
+            const existingItemIds = new Set(existingWithContent.map((i) => i.itemId).filter(Boolean));
+            const newLinked = newLineItems.filter((p) => !existingItemIds.has(p.itemId));
+            if (newLinked.length === 0) return prev;
+            return [...existingWithContent, ...newLinked];
+          });
         }
       } catch (err) {
         console.error('Error fetching linked products:', err);
@@ -366,7 +376,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, o
 
     fetchLinkedProducts();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supplierId]);
+  }, [supplierId, linkedProductsRefreshKey]);
 
   // Filter line items by product search (filters the table only)
   const filteredLineItems = useMemo(() => {

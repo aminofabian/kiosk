@@ -37,6 +37,7 @@ function SupplierBillsPageContent() {
   // Supplier products drawer
   const [supplierDrawerOpen, setSupplierDrawerOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<SupplierForDrawer | null>(null);
+  const [linkedProductsRefreshKey, setLinkedProductsRefreshKey] = useState(0);
 
   // Check if we should open the drawer from URL query parameter
   useEffect(() => {
@@ -122,7 +123,10 @@ function SupplierBillsPageContent() {
           {/* Supplier Products Drawer */}
           <SupplierProductsDrawer
             open={supplierDrawerOpen}
-            onOpenChange={setSupplierDrawerOpen}
+            onOpenChange={(open) => {
+              if (!open) setLinkedProductsRefreshKey((k) => k + 1);
+              setSupplierDrawerOpen(open);
+            }}
             supplier={selectedSupplier}
             onCreateBill={handleCreateBillFromSupplier}
             onSupplierDeleted={handleSupplierDeleted}
@@ -160,6 +164,7 @@ function SupplierBillsPageContent() {
                   onSuccess={handleSuccess}
                   onCancel={() => setDrawerOpen(false)}
                   preSelectedSupplierId={preSelectedSupplierId}
+                  linkedProductsRefreshKey={linkedProductsRefreshKey}
                   onOpenManageLinkProducts={(supplier) => {
                     setSelectedSupplier({
                       ...supplier,
