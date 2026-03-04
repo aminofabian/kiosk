@@ -353,26 +353,31 @@ export function ItemGrid({
           if (result.success) {
             const allItems: Item[] = result.data;
 
-            // Filter by shop type (client-side for now - could be moved to API)
-            const filteredByShopType = allItems.filter(item => {
-              const categoryName = categoryMap.get(item.category_id);
-              if (!categoryName) return true;
-              return shouldShowCategory(categoryName, shopType);
-            });
-
-            // If no results in current shop type, show from other shop type
-            let filteredItems = filteredByShopType;
+            // When searching, show ALL results - user explicitly searched and wants to find the item
+            // (including variants by variant name, even if in a different shop type)
+            let filteredItems: Item[];
             let isShowingOtherShopType = false;
-
-            if (filteredByShopType.length === 0 && allItems.length > 0) {
-              const keys = itemTypeKeys?.length ? itemTypeKeys : ['grocery', 'retail'];
-              const otherShopType = keys.find(k => k !== shopType) ?? keys[0];
-              filteredItems = allItems.filter(item => {
+            if (searchQuery) {
+              filteredItems = allItems;
+            } else {
+              // Category browse: filter by shop type
+              const filteredByShopType = allItems.filter(item => {
                 const categoryName = categoryMap.get(item.category_id);
                 if (!categoryName) return true;
-                return shouldShowCategory(categoryName, otherShopType);
+                return shouldShowCategory(categoryName, shopType);
               });
-              isShowingOtherShopType = filteredItems.length > 0;
+              if (filteredByShopType.length === 0 && allItems.length > 0) {
+                const keys = itemTypeKeys?.length ? itemTypeKeys : ['grocery', 'retail'];
+                const otherShopType = keys.find(k => k !== shopType) ?? keys[0];
+                filteredItems = allItems.filter(item => {
+                  const categoryName = categoryMap.get(item.category_id);
+                  if (!categoryName) return true;
+                  return shouldShowCategory(categoryName, otherShopType);
+                });
+                isShowingOtherShopType = filteredItems.length > 0;
+              } else {
+                filteredItems = filteredByShopType;
+              }
             }
 
             setShowingOtherShopType(isShowingOtherShopType);

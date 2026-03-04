@@ -78,6 +78,8 @@ export async function PATCH(
       amount,
       dueDate,
       notes,
+      preferredPaymentMethod,
+      paymentDetails,
     } = body;
 
     const bill = await queryOne<{ id: string; business_id: string; status: string }>(
@@ -125,7 +127,9 @@ export async function PATCH(
         amount = ?,
         due_date = ?,
         status = ?,
-        notes = ?
+        notes = ?,
+        preferred_payment_method = ?,
+        payment_details = ?
       WHERE id = ? AND business_id = ?`,
       [
         String(supplierName).trim(),
@@ -135,6 +139,8 @@ export async function PATCH(
         dueDateTimestamp,
         status,
         notes != null ? String(notes).trim() || null : null,
+        preferredPaymentMethod != null ? String(preferredPaymentMethod).trim() || null : null,
+        paymentDetails != null ? String(paymentDetails).trim() || null : null,
         id,
         auth.businessId,
       ]

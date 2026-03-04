@@ -54,7 +54,7 @@ import {
 import { apiGet, apiPost, apiDelete } from '@/lib/utils/api-client';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { toast } from 'sonner';
-import { SupplierBillEditForm } from '@/components/admin/SupplierBillEditForm';
+import { SupplierBillForm, type SupplierBillInitialData } from '@/components/admin/SupplierBillForm';
 import type { SupplierBill } from '@/lib/db/types';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 
@@ -1274,14 +1274,14 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
         </>
       )}
 
-      {/* ═══════════ EDIT BILL DRAWER ═══════════ */}
+      {/* ═══════════ EDIT BILL DRAWER (same form as new bill) ═══════════ */}
       <Drawer
         open={!!editingBill}
         onOpenChange={(open) => !open && setEditingBill(null)}
         direction="right"
       >
-        <DrawerContent className="!w-full sm:!w-[500px] !max-w-none h-full max-h-screen">
-          <DrawerHeader className="border-b-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 relative pr-12">
+        <DrawerContent className="!w-full sm:!w-[900px] !max-w-none h-full max-h-screen z-[51] rounded-l-2xl">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-800 bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-[#1c2e18] relative pr-12">
             <Button
               variant="ghost"
               size="icon"
@@ -1293,21 +1293,34 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
             <DrawerTitle className="flex items-center gap-2 text-slate-900 dark:text-white pr-8">
               <Pencil className="w-5 h-5 text-[#1c6a1e]" />
               Edit supplier bill
+              {editingBill && (
+                <span className="text-sm font-normal text-slate-500">
+                  — {editingBill.supplier_name}
+                </span>
+              )}
             </DrawerTitle>
             <DrawerDescription className="text-slate-600 dark:text-slate-400">
               {editingBill && <>Update details for bill from {editingBill.supplier_name}</>}
             </DrawerDescription>
           </DrawerHeader>
-          <div className="overflow-y-auto p-6 flex-1 bg-white dark:bg-[#0f1a0d]">
+          <div className="flex-1 min-h-0 overflow-y-auto p-6">
             {editingBill && (
-              <SupplierBillEditForm
+              <SupplierBillForm
+                key={editingBill.id}
                 billId={editingBill.id}
-                initialSupplierName={editingBill.supplier_name}
-                initialSupplierPhone={editingBill.supplier_phone ?? ''}
-                initialBillDescription={editingBill.bill_description}
-                initialAmount={editingBill.amount}
-                initialDueDate={editingBill.due_date}
-                initialNotes={editingBill.notes ?? ''}
+                initialData={
+                  {
+                    supplierId: editingBill.supplier_id,
+                    supplierName: editingBill.supplier_name,
+                    supplierPhone: editingBill.supplier_phone ?? '',
+                    billDescription: editingBill.bill_description,
+                    amount: editingBill.amount,
+                    dueDate: editingBill.due_date,
+                    notes: editingBill.notes ?? '',
+                    preferredPaymentMethod: editingBill.preferred_payment_method ?? null,
+                    paymentDetails: editingBill.payment_details ?? null,
+                  } satisfies SupplierBillInitialData
+                }
                 onSuccess={async () => {
                   setEditingBill(null);
                   await fetchBills();

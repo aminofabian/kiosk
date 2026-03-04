@@ -105,6 +105,9 @@ export async function GET(request: NextRequest) {
           // Single word search - match name, variant_name, and parent name (for variants)
           const searchContains = `%${searchLower}%`;
           const searchStarts = `${searchLower}%`;
+          const sellableFilter = sellableOnly
+            ? ` AND (i.parent_item_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1))`
+            : '';
           items = await query<Item>(
             `SELECT i.* FROM items i
              LEFT JOIN items p ON i.parent_item_id = p.id AND p.business_id = i.business_id
@@ -113,7 +116,7 @@ export async function GET(request: NextRequest) {
                LOWER(i.name) LIKE ? 
                OR LOWER(COALESCE(i.variant_name, '')) LIKE ?
                OR LOWER(COALESCE(p.name, '')) LIKE ?
-             )
+             )${sellableFilter}
              ORDER BY 
                CASE 
                  WHEN LOWER(i.name) LIKE ? THEN 1 
@@ -151,12 +154,15 @@ export async function GET(request: NextRequest) {
           // For ordering, prioritize exact phrase match, then first word starts
           const exactPhrase = `%${searchLower}%`;
           const firstWordStarts = `${searchWords[0]}%`;
+          const sellableFilterMulti = sellableOnly
+            ? ` AND (i.parent_item_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1))`
+            : '';
 
           items = await query<Item>(
             `SELECT i.* FROM items i
              LEFT JOIN items p ON i.parent_item_id = p.id AND p.business_id = i.business_id
              WHERE i.business_id = ? AND i.active = 1 
-             AND (${wordConditions})
+             AND (${wordConditions})${sellableFilterMulti}
              ORDER BY 
                CASE 
                  WHEN LOWER(i.name) LIKE ? THEN 1

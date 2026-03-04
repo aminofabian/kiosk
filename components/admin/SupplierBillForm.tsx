@@ -81,12 +81,27 @@ interface BillLineItem {
   showPackaging?: boolean; // UI: whether packaging row is expanded
 }
 
+export interface SupplierBillInitialData {
+  supplierId: string | null;
+  supplierName: string;
+  supplierPhone: string;
+  billDescription: string;
+  amount: number;
+  dueDate: number; // Unix seconds
+  notes: string;
+  preferredPaymentMethod: string | null;
+  paymentDetails: string | null;
+}
+
 interface SupplierBillFormProps {
   onSuccess?: () => void;
   onCancel?: () => void;
   preSelectedSupplierId?: string;
   linkedProductsRefreshKey?: number;
   onOpenManageLinkProducts?: (supplier: Supplier) => void;
+  /** Edit mode: when set, form pre-fills from initialData and submits via PATCH */
+  billId?: string;
+  initialData?: SupplierBillInitialData;
 }
 
 interface LinkedProduct {
@@ -149,7 +164,88 @@ function clearDraft() {
   }
 }
 
-export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, linkedProductsRefreshKey = 0, onOpenManageLinkProducts }: SupplierBillFormProps) {
+function toDateTimeLocal(unixSeconds: number): string {
+  const d = new Date(unixSeconds * 1000);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Parse bill_description string (from formatBillDescription) back into line items */
+function parseBillDescriptionToLineItems(
+  text: string,
+  totalAmount: number
+): Array<Pick<BillLineItem, 'id' | 'description' | 'quantity' | 'amount' | 'packages' | 'packagingUnitName' | 'packagingUnitQty'>> {
+  const items: Array<Pick<BillLineItem, 'id' | 'description' | 'quantity' | 'amount' | 'packages' | 'packagingUnitName' | 'packagingUnitQty'>> = [];
+
+  if (!text?.trim()) {
+    return [{ id: '1', description: '', quantity: '1', amount: String(totalAmount), packages: '', packagingUnitName: '', packagingUnitQty: '' }];
+  }
+
+  // Multi-item format: "1. Desc - qty × KES unitPrice = KES total" (may be newline or concatenated)
+  const priceSuffixRegex = /\s*-\s*(\d+(?:\.\d+)?)\s+×\s+KES\s+([\d.]+)\s+=\s+KES\s+([\d.]+)\s*$/;
+  const parts = text.split(/\s*(?=\d+\.\s)/).filter((p) => p.trim());
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i].trim();
+    if (!part) continue;
+
+    const cleaned = part.replace(/^\d+\.\s*/, '');
+    const match = cleaned.match(priceSuffixRegex);
+
+    if (match) {
+      const [, qty, unitPrice] = match;
+      const description = cleaned.replace(priceSuffixRegex, '').trim();
+      if (description) {
+        items.push({
+          id: `edit-${i + 1}-${Date.now()}`,
+          description,
+          quantity: qty,
+          amount: unitPrice,
+          packages: '',
+          packagingUnitName: '',
+          packagingUnitQty: '',
+        });
+      }
+    }
+  }
+
+  // Single-item format: "Description (qty × KES unitPrice = KES total)"
+  if (items.length === 0) {
+    const singleMatch = text.match(/^([\s\S]+?)\s*\((\d+(?:\.\d+)?)\s+×\s+KES\s+([\d.]+)\s+=\s+KES\s+([\d.]+)\)\s*$/);
+    if (singleMatch) {
+      const [, description, qty, unitPrice] = singleMatch;
+      if (description?.trim()) {
+        items.push({
+          id: 'edit-1',
+          description: description.trim(),
+          quantity: qty,
+          amount: unitPrice,
+          packages: '',
+          packagingUnitName: '',
+          packagingUnitQty: '',
+        });
+      }
+    }
+  }
+
+  // Fallback: treat as single line
+  if (items.length === 0) {
+    items.push({
+      id: '1',
+      description: text.trim(),
+      quantity: '1',
+      amount: String(totalAmount),
+      packages: '',
+      packagingUnitName: '',
+      packagingUnitQty: '',
+    });
+  }
+
+  return items;
+}
+
+export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, linkedProductsRefreshKey = 0, onOpenManageLinkProducts, billId, initialData }: SupplierBillFormProps) {
+  const isEditMode = !!billId && !!initialData;
   const { productTypes } = useItemTypes();
   const PACKAGING_PRESETS = ['Carton', 'Sack', 'Net', 'Crate', 'Box', 'Bag', 'Bale', 'Bundle', 'Tray'];
   const PAYMENT_METHODS = [
@@ -207,8 +303,9 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
   const [showDraftChoiceDialog, setShowDraftChoiceDialog] = useState(false);
   const pendingDraftRef = useRef<SupplierBillDraft | null>(null);
 
-  // On mount: if draft exists and we're not pre-selecting a supplier, ask user to resume or start fresh
+  // On mount: if draft exists and we're not pre-selecting a supplier, ask user to resume or start fresh (skip when editing)
   useEffect(() => {
+    if (isEditMode) return;
     if (preSelectedSupplierId) {
       // Creating bill for specific supplier: start fresh, clear any draft
       clearDraft();
@@ -219,7 +316,28 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
       pendingDraftRef.current = draft;
       setShowDraftChoiceDialog(true);
     }
-  }, [preSelectedSupplierId]);
+  }, [preSelectedSupplierId, isEditMode]);
+
+  // Initialize form from initialData when editing
+  useEffect(() => {
+    if (!isEditMode || !initialData) return;
+    setSupplierId(initialData.supplierId || '');
+    setSupplierName(initialData.supplierName);
+    setSupplierPhone(initialData.supplierPhone || '');
+    setUseManualSupplier(!initialData.supplierId);
+    // Parse bill_description back into line items (handles multi-line format from formatBillDescription)
+    setLineItems(
+      parseBillDescriptionToLineItems(initialData.billDescription, initialData.amount)
+    );
+    setDueDateTime(toDateTimeLocal(initialData.dueDate));
+    setNotes(initialData.notes || '');
+    setSelectedPaymentMethods(
+      initialData.preferredPaymentMethod
+        ? initialData.preferredPaymentMethod.split(',').map((s) => s.trim()).filter(Boolean)
+        : []
+    );
+    setPaymentDetails(initialData.paymentDetails || '');
+  }, [isEditMode, initialData]);
 
   const handleResumeDraft = () => {
     const draft = pendingDraftRef.current;
@@ -265,8 +383,9 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
     setError(null);
   };
 
-  // Persist form state to sessionStorage when it changes (debounced)
+  // Persist form state to sessionStorage when it changes (debounced) — skip when editing
   useEffect(() => {
+    if (isEditMode) return;
     if (!supplierId && !useManualSupplier && !supplierName.trim()) return;
     const hasContent = lineItems.some(
       (i) => i.description?.trim() || i.quantity || i.amount
@@ -299,6 +418,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
     };
     saveDraft(draft);
   }, [
+    isEditMode,
     supplierId,
     supplierName,
     supplierPhone,
@@ -354,9 +474,10 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplierTypeFilter]);
 
-  // Fetch linked products when supplier changes (skip when restoring from draft)
+  // Fetch linked products when supplier changes (skip when restoring from draft or editing)
   useEffect(() => {
     if (!supplierId) return;
+    if (isEditMode) return;
     if (skipLinkedProductsFetchRef.current) {
       skipLinkedProductsFetchRef.current = false;
       return;
@@ -762,63 +883,81 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
     try {
       const billDescription = formatBillDescription();
 
-      // Lines that will actually update stock (must have quantity and buy price)
-      const stockSourceItems = lineItems.filter(
-        (item) => item.description.trim() && item.quantity && item.amount
-      );
-      const stockItems = stockSourceItems
-        .filter((item) => item.itemId)
-        .map((item) => ({
-          itemId: item.itemId!,
-          quantity: parseFloat(item.quantity),
-          costPricePerUnit: parseFloat(item.amount),
-        }));
+      if (isEditMode && billId) {
+        // PATCH: Update existing bill (no stock updates)
+        const result = await apiPatch(`/api/supplier-bills/${billId}`, {
+          supplierName: supplierName.trim(),
+          supplierPhone: supplierPhone.trim() || null,
+          billDescription,
+          amount: totalAmount,
+          dueDate: dueDateTime,
+          notes: notes.trim() || null,
+          preferredPaymentMethod: selectedPaymentMethods.length > 0 ? selectedPaymentMethods.join(',') : null,
+          paymentDetails: paymentDetails.trim() || null,
+        });
 
-      const result = await apiPost('/api/supplier-bills', {
-        supplierId: supplierId || null,
-        supplierName: supplierName.trim(),
-        supplierPhone: supplierPhone.trim() || null,
-        billDescription: billDescription,
-        amount: totalAmount,
-        dueDate: dueDateTime,
-        notes: notes.trim() || null,
-        stockItems: stockItems.length > 0 ? stockItems : undefined,
-        preferredPaymentMethod: selectedPaymentMethods.length > 0 ? selectedPaymentMethods.join(',') : null,
-        paymentDetails: paymentDetails.trim() || null,
-      });
-
-      if (result.success) {
-        // Update default cost price for linked products when user changed the buy price
-        if (supplierId) {
-          // Any linked product with a non-zero amount should update its default cost,
-          // even if quantity was left empty (e.g. adjusting price only).
-          const linkedWithPrice = lineItems.filter(
-            (item) => item.itemId && item.amount && parseFloat(item.amount) > 0
-          );
-          await Promise.allSettled(
-            linkedWithPrice.map((item) =>
-              apiPatch(`/api/suppliers/${supplierId}/products`, {
-                itemId: item.itemId!,
-                defaultCostPrice: parseFloat(item.amount),
-              })
-            )
-          );
+        if (result.success) {
+          if (onSuccess) onSuccess();
+        } else {
+          setError(result.message || 'Failed to update bill');
         }
-        clearDraft();
-        if (onSuccess) onSuccess();
       } else {
-        setError(result.message || 'Failed to create supplier bill');
+        // POST: Create new bill
+        const stockSourceItems = lineItems.filter(
+          (item) => item.description.trim() && item.quantity && item.amount
+        );
+        const stockItems = stockSourceItems
+          .filter((item) => item.itemId)
+          .map((item) => ({
+            itemId: item.itemId!,
+            quantity: parseFloat(item.quantity),
+            costPricePerUnit: parseFloat(item.amount),
+          }));
+
+        const result = await apiPost('/api/supplier-bills', {
+          supplierId: supplierId || null,
+          supplierName: supplierName.trim(),
+          supplierPhone: supplierPhone.trim() || null,
+          billDescription,
+          amount: totalAmount,
+          dueDate: dueDateTime,
+          notes: notes.trim() || null,
+          stockItems: stockItems.length > 0 ? stockItems : undefined,
+          preferredPaymentMethod: selectedPaymentMethods.length > 0 ? selectedPaymentMethods.join(',') : null,
+          paymentDetails: paymentDetails.trim() || null,
+        });
+
+        if (result.success) {
+          if (supplierId) {
+            const linkedWithPrice = lineItems.filter(
+              (item) => item.itemId && item.amount && parseFloat(item.amount) > 0
+            );
+            await Promise.allSettled(
+              linkedWithPrice.map((item) =>
+                apiPatch(`/api/suppliers/${supplierId}/products`, {
+                  itemId: item.itemId!,
+                  defaultCostPrice: parseFloat(item.amount),
+                })
+              )
+            );
+          }
+          clearDraft();
+          if (onSuccess) onSuccess();
+        } else {
+          setError(result.message || 'Failed to create supplier bill');
+        }
       }
     } catch (err) {
-      console.error('Error creating supplier bill:', err);
+      console.error('Error creating/updating supplier bill:', err);
       setError('An error occurred. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Default due to today at end of day (23:59)
+  // Default due to today at end of day (23:59) — skip when editing (initialData sets it)
   useEffect(() => {
+    if (isEditMode) return;
     if (!dueDateTime) {
       const d = new Date();
       d.setHours(23, 59, 0, 0);
@@ -827,7 +966,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
         `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
       );
     }
-  }, [dueDateTime]);
+  }, [dueDateTime, isEditMode]);
 
   // ────────────────── Supplier color based on name ──────────────────
   const getSupplierColor = (name: string) => {
@@ -1900,12 +2039,12 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating...
+                  {isEditMode ? 'Saving...' : 'Creating...'}
                 </>
               ) : (
                 <>
                   <Check className="w-4 h-4 mr-2" />
-                  Create Bill — {formatPrice(totalAmount)}
+                  {isEditMode ? 'Save changes' : `Create Bill — ${formatPrice(totalAmount)}`}
                 </>
               )}
             </Button>
