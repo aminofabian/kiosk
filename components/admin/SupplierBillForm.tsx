@@ -204,29 +204,66 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
   const [paymentDetails, setPaymentDetails] = useState('');
   const restoredFromDraftRef = useRef(false);
   const skipLinkedProductsFetchRef = useRef(false);
+  const [showDraftChoiceDialog, setShowDraftChoiceDialog] = useState(false);
+  const pendingDraftRef = useRef<SupplierBillDraft | null>(null);
 
-  // Restore draft from sessionStorage on mount (survives drawer close / page navigation)
+  // On mount: if draft exists and we're not pre-selecting a supplier, ask user to resume or start fresh
   useEffect(() => {
+    if (preSelectedSupplierId) {
+      // Creating bill for specific supplier: start fresh, clear any draft
+      clearDraft();
+      return;
+    }
     const draft = loadDraft();
     if (draft) {
-      restoredFromDraftRef.current = true;
-      skipLinkedProductsFetchRef.current = true;
-      setSupplierId(draft.supplierId);
-      setSupplierName(draft.supplierName);
-      setSupplierPhone(draft.supplierPhone);
-      setLineItems(draft.lineItems.map((item) => ({
-        ...item,
-        packagingUnitName: item.packagingUnitName ?? '',
-        packagingUnitQty: item.packagingUnitQty ?? '',
-      })));
-      setDueDateTime(draft.dueDateTime || '');
-      setNotes(draft.notes || '');
-      setUseManualSupplier(draft.useManualSupplier ?? false);
-      setSelectedPaymentMethods(draft.selectedPaymentMethods ?? []);
-      setPaymentDetails(draft.paymentDetails || '');
-      toast.success('Draft restored', { description: 'Your previous entries have been recovered.' });
+      pendingDraftRef.current = draft;
+      setShowDraftChoiceDialog(true);
     }
-  }, []);
+  }, [preSelectedSupplierId]);
+
+  const handleResumeDraft = () => {
+    const draft = pendingDraftRef.current;
+    if (!draft) {
+      setShowDraftChoiceDialog(false);
+      return;
+    }
+    restoredFromDraftRef.current = true;
+    skipLinkedProductsFetchRef.current = true;
+    setSupplierId(draft.supplierId);
+    setSupplierName(draft.supplierName);
+    setSupplierPhone(draft.supplierPhone);
+    setLineItems(draft.lineItems.map((item) => ({
+      ...item,
+      packagingUnitName: item.packagingUnitName ?? '',
+      packagingUnitQty: item.packagingUnitQty ?? '',
+    })));
+    setDueDateTime(draft.dueDateTime || '');
+    setNotes(draft.notes || '');
+    setUseManualSupplier(draft.useManualSupplier ?? false);
+    setSelectedPaymentMethods(draft.selectedPaymentMethods ?? []);
+    setPaymentDetails(draft.paymentDetails || '');
+    pendingDraftRef.current = null;
+    setShowDraftChoiceDialog(false);
+    toast.success('Draft restored', { description: 'Your previous entries have been recovered.' });
+  };
+
+  const handleStartFresh = () => {
+    clearDraft();
+    pendingDraftRef.current = null;
+    setShowDraftChoiceDialog(false);
+    // Reset form to initial state
+    setSupplierId('');
+    setSupplierName('');
+    setSupplierPhone('');
+    setSupplierSearch('');
+    setLineItems([{ id: '1', description: '', quantity: '', amount: '', packages: '', packagingUnitName: '', packagingUnitQty: '' }]);
+    setDueDateTime('');
+    setNotes('');
+    setUseManualSupplier(false);
+    setSelectedPaymentMethods([]);
+    setPaymentDetails('');
+    setError(null);
+  };
 
   // Persist form state to sessionStorage when it changes (debounced)
   useEffect(() => {
@@ -813,6 +850,38 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
   // ────────────────────────── RENDER ──────────────────────────
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Draft choice dialog: resume or start fresh */}
+      <Dialog open={showDraftChoiceDialog} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md z-[60]" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-[#1c6a1e]" />
+              Saved draft found
+            </DialogTitle>
+            <DialogDescription>
+              You have a saved draft from a previous session. Would you like to resume where you left off or start a new bill?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleStartFresh}
+              className="flex-1"
+            >
+              Start fresh
+            </Button>
+            <Button
+              type="button"
+              onClick={handleResumeDraft}
+              className="flex-1 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
+            >
+              Resume draft
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {error && (
         <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-center gap-2 text-red-600 dark:text-red-400">
           <AlertCircle className="w-4 h-4 shrink-0" />
@@ -1808,37 +1877,39 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
         </div>
       )}
 
-      {/* ═══════════════ ACTIONS ═══════════════ */}
+      {/* ═══════════════ ACTIONS (fixed at bottom) ═══════════════ */}
       {(supplierId || useManualSupplier) && (
-        <div className="flex gap-3 pt-1">
-          {onCancel && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onCancel}
-              disabled={isSubmitting}
-              className="flex-1 h-12 rounded-xl border-2"
-            >
-              Cancel
-            </Button>
-          )}
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className="flex-1 h-12 rounded-xl bg-[#1c6a1e] hover:bg-[#2a8a30] text-white font-bold text-sm shadow-lg shadow-[#1c6a1e]/20"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              <>
-                <Check className="w-4 h-4 mr-2" />
-                Create Bill — {formatPrice(totalAmount)}
-              </>
+        <div className="sticky bottom-0 -mx-6 -mb-6 px-6 pb-6 pt-4 mt-6 bg-slate-50 dark:bg-[#0f1a0d] border-t border-slate-200 dark:border-slate-800 z-10">
+          <div className="flex gap-3">
+            {onCancel && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onCancel}
+                disabled={isSubmitting}
+                className="flex-1 h-12 rounded-xl border-2"
+              >
+                Cancel
+              </Button>
             )}
-          </Button>
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 h-12 rounded-xl bg-[#1c6a1e] hover:bg-[#2a8a30] text-white font-bold text-sm shadow-lg shadow-[#1c6a1e]/20"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  Create Bill — {formatPrice(totalAmount)}
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       )}
 
