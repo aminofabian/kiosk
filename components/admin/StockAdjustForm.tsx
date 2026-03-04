@@ -86,24 +86,25 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
 
   const selectedItem = items.find((i) => i.id === selectedItemId);
 
+  const currentStockNum = selectedItem ? (Number(selectedItem.current_stock) || 0) : 0;
   const calculatedNewStock = useMemo(() => {
     if (!selectedItem || !quantity) return null;
     const isDiscrete = isDiscreteUnitType(selectedItem.unit_type);
     const qty = isDiscrete ? parseInt(quantity, 10) : parseFloat(quantity);
     if (isNaN(qty) || qty <= 0) return null;
     return adjustmentType === 'increase'
-      ? selectedItem.current_stock + qty
-      : Math.max(0, selectedItem.current_stock - qty);
-  }, [selectedItem, quantity, adjustmentType]);
+      ? currentStockNum + qty
+      : Math.max(0, currentStockNum - qty);
+  }, [selectedItem, quantity, adjustmentType, currentStockNum]);
 
-  const isLowStock = selectedItem && selectedItem.current_stock < 10;
+  const isLowStock = selectedItem && currentStockNum < 10;
   const willGoNegative = calculatedNewStock !== null && calculatedNewStock < 0;
   const willBeLowStock = calculatedNewStock !== null && calculatedNewStock < 10 && calculatedNewStock >= 0;
 
   const handleQuantityQuickSet = (multiplier: number) => {
     if (!selectedItem) return;
     const isDiscrete = isDiscreteUnitType(selectedItem.unit_type);
-    const newQty = selectedItem.current_stock * multiplier;
+    const newQty = currentStockNum * multiplier;
     setQuantity(isDiscrete ? Math.round(newQty).toString() : newQty.toFixed(2));
   };
 
@@ -123,10 +124,10 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
       return;
     }
 
-    if (adjustmentType === 'decrease' && selectedItem && qty > selectedItem.current_stock) {
+    if (adjustmentType === 'decrease' && selectedItem && qty > currentStockNum) {
       const stockDisplay = isDiscreteUnitType(selectedItem.unit_type) 
-        ? Math.round(selectedItem.current_stock).toString()
-        : selectedItem.current_stock.toFixed(2);
+        ? Math.round(currentStockNum).toString()
+        : currentStockNum.toFixed(2);
       setError(`Cannot decrease by more than current stock (${stockDisplay})`);
       return;
     }
@@ -157,8 +158,8 @@ export function StockAdjustForm(props: StockAdjustFormProps = {}) {
         // Update the item's stock locally (no refetch needed)
         if (!result.data?.requiresApproval) {
           const newStock = adjustmentType === 'increase'
-            ? (selectedItem?.current_stock || 0) + qty
-            : Math.max(0, (selectedItem?.current_stock || 0) - qty);
+            ? currentStockNum + qty
+            : Math.max(0, currentStockNum - qty);
           setItems(prev => prev.map(item => 
             item.id === selectedItemId 
               ? { ...item, current_stock: newStock }

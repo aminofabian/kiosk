@@ -387,55 +387,56 @@ export function CreditList() {
 
       {/* Payment Drawer */}
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
-        <DrawerContent className="!w-full sm:!max-w-[480px] md:!max-w-[520px] h-full max-h-screen border-0 shadow-[-12px_0_48px_-8px_rgba(0,0,0,0.15)] dark:shadow-[-12px_0_48px_-8px_rgba(0,0,0,0.4)]">
-          {/* Header — gradient hero with customer info */}
-          <DrawerHeader className="relative overflow-hidden border-0 px-6 pt-6 pb-8 pr-14 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700 dark:from-emerald-800 dark:via-teal-800 dark:to-cyan-900">
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(255,255,255,0.15),transparent)]" />
-            <div className="absolute bottom-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+        <DrawerContent className="!w-full sm:!max-w-[480px] md:!max-w-[520px] h-full max-h-screen border-0 border-l border-slate-200 dark:border-slate-800 p-0">
+          {/* Header — solid gradient, no backdrop-filter for IE/old browser support */}
+          <DrawerHeader className="relative overflow-hidden border-0 px-6 pt-6 pb-8 pr-14 bg-emerald-600 dark:bg-emerald-800">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setDrawerOpen(false)}
-              className="absolute right-4 top-4 h-9 w-9 rounded-full text-white/80 hover:text-white hover:bg-white/20 transition-colors z-10"
+              className="absolute right-4 top-4 h-9 w-9 rounded-full text-white hover:bg-white/20 z-10"
             >
               <X className="h-5 w-5" />
               <span className="sr-only">Close</span>
             </Button>
-            <div className="relative flex flex-col gap-4">
-              <div className="flex items-center gap-4">
+            <div className="relative flex flex-col">
+              <div className="flex items-center mb-4">
                 <div
-                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-lg font-bold text-white shadow-lg ring-2 ring-white/30"
+                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white shadow-lg border-2 border-white"
                   style={{ backgroundColor: selectedAccount ? avatarColor(selectedAccount.customer_name) : 'transparent' }}
                 >
                   {selectedAccount ? getInitials(selectedAccount.customer_name) : '—'}
                 </div>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 ml-4">
                   <DrawerTitle className="text-xl font-bold text-white tracking-tight truncate">
                     {selectedAccount?.customer_name ?? '—'}
                   </DrawerTitle>
-                  <DrawerDescription className="text-emerald-100/90 dark:text-emerald-200/80 text-sm mt-0.5">
+                  <DrawerDescription className="text-emerald-100 text-sm mt-0.5">
                     {selectedAccount?.customer_phone ?? 'No phone'}
                   </DrawerDescription>
                 </div>
               </div>
-              <div className="flex items-center justify-between gap-4 rounded-xl bg-white/15 backdrop-blur-sm px-4 py-3 border border-white/20">
-                <span className="text-sm font-medium text-white/90">Outstanding</span>
-                <span className="text-2xl font-bold text-white tabular-nums">
+              <div
+                className="flex items-center justify-between rounded-lg px-4 py-3 border border-white"
+                style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
+              >
+                <span className="text-sm font-medium text-white">Outstanding</span>
+                <span className="text-2xl font-bold text-white">
                   {selectedAccount ? formatPrice(selectedAccount.total_credit) : '—'}
                 </span>
               </div>
             </div>
           </DrawerHeader>
-          <div className="overflow-y-auto flex-1 bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900 p-6">
+          <div className="overflow-y-auto flex-1 bg-slate-50 dark:bg-slate-900 p-6">
             {selectedAccount && (
               <div className="space-y-8">
                 {/* Items on credit — receipt-style timeline */}
                 <section className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/40">
+                  <div className="flex items-center">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900">
                       <ShoppingBag className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                     </div>
-                    <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                    <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 ml-2">
                       Items on credit
                     </h3>
                   </div>
@@ -452,7 +453,7 @@ export function CreditList() {
                         const debtPaid = computeDebtPaidStatus(transactions);
                         if (debtTransactions.length === 0) {
                           return (
-                            <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 py-8 text-center">
+                            <div className="rounded-lg border border-dashed border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 py-8 text-center">
                               <Package className="h-8 w-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
                               <p className="text-sm text-slate-500 dark:text-slate-400">
                                 No item details available
@@ -466,32 +467,33 @@ export function CreditList() {
                             <div
                               key={transaction.id}
                               className={cn(
-                                'relative -ml-[5px] pl-5 pb-6 last:pb-0',
-                                idx < debtTransactions.length - 1 && 'before:absolute before:left-0 before:top-5 before:bottom-0 before:w-px before:bg-slate-200 dark:before:bg-slate-700'
+                                'relative pl-5',
+                                idx === debtTransactions.length - 1 ? 'pb-0' : 'pb-6'
                               )}
                             >
                               <div
                                 className={cn(
-                                  'absolute left-0 top-1.5 h-3 w-3 rounded-full border-2 -translate-x-[7px]',
+                                  'absolute left-0 top-1.5 h-3 w-3 rounded-full border-2',
                                   isPaid
                                     ? 'bg-emerald-500 border-emerald-400 dark:border-emerald-600'
                                     : 'bg-amber-400 border-amber-300 dark:border-amber-600'
                                 )}
+                                style={{ marginLeft: '-6px' }}
                               />
                               <div
                                 className={cn(
-                                  'rounded-xl border p-4 transition-all',
+                                  'rounded-lg border p-4',
                                   isPaid
-                                    ? 'border-slate-200/80 dark:border-slate-700/80 bg-slate-50/80 dark:bg-slate-900/40'
-                                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/60 shadow-sm'
+                                    ? 'border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800'
+                                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
                                 )}
                               >
-                                <div className="flex items-center justify-between gap-3 mb-2">
+                                <div className="flex items-center justify-between mb-2">
                                   <span
                                     className={cn(
                                       'text-xs font-medium',
                                       isPaid
-                                        ? 'text-slate-400 dark:text-slate-500 line-through'
+                                        ? 'text-slate-500 line-through'
                                         : 'text-slate-600 dark:text-slate-400'
                                     )}
                                   >
@@ -502,18 +504,18 @@ export function CreditList() {
                                         )
                                       : formatDate(transaction.created_at)}
                                   </span>
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center">
                                     {isPaid && (
-                                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-900/40 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">
-                                        <CheckCircle className="h-3 w-3" />
+                                      <span className="inline-flex items-center rounded-full bg-emerald-100 dark:bg-emerald-900 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 mr-2">
+                                        <CheckCircle className="h-3 w-3 mr-1" />
                                         Paid
                                       </span>
                                     )}
                                     <span
                                       className={cn(
-                                        'font-semibold tabular-nums',
+                                        'font-semibold',
                                         isPaid
-                                          ? 'text-slate-400 dark:text-slate-500 line-through text-sm'
+                                          ? 'text-slate-500 line-through text-sm'
                                           : 'text-amber-600 dark:text-amber-400'
                                       )}
                                     >
@@ -527,13 +529,13 @@ export function CreditList() {
                                       key={item.id}
                                       className={cn(
                                         'flex items-center justify-between py-1.5 px-2 rounded-lg',
-                                        isPaid ? 'bg-slate-100/50 dark:bg-slate-800/30' : 'bg-slate-50/80 dark:bg-slate-800/40'
+                                        isPaid ? 'bg-slate-100 dark:bg-slate-800' : 'bg-slate-50 dark:bg-slate-800'
                                       )}
                                     >
-                                      <div className="flex items-center gap-2 min-w-0">
+                                      <div className="flex items-center min-w-0">
                                         <Package
                                           className={cn(
-                                            'h-3.5 w-3.5 shrink-0',
+                                            'h-3.5 w-3.5 shrink-0 mr-2',
                                             isPaid ? 'text-slate-400' : 'text-slate-500'
                                           )}
                                         />
@@ -550,11 +552,11 @@ export function CreditList() {
                                       </div>
                                       <div
                                         className={cn(
-                                          'flex items-center gap-2 shrink-0 text-xs',
+                                          'flex items-center shrink-0 text-xs',
                                           isPaid && 'line-through text-slate-400'
                                         )}
                                       >
-                                        <span className="text-slate-500 dark:text-slate-400">
+                                        <span className="text-slate-500 dark:text-slate-400 mr-2">
                                           {item.quantity_sold}{' '}
                                           {item.item_unit_type === 'kg'
                                             ? 'kg'

@@ -79,7 +79,7 @@ export function PaymentForm({ account, onSuccess, compact }: PaymentFormProps) {
   return (
     <div className="space-y-6">
       {!compact && (
-        <Card className="border-slate-200 dark:border-slate-800 overflow-hidden rounded-xl">
+        <Card className="border-slate-200 dark:border-slate-800 overflow-hidden rounded-lg">
           <CardContent className="p-0">
             <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-900/50">
               <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
@@ -93,13 +93,13 @@ export function PaymentForm({ account, onSuccess, compact }: PaymentFormProps) {
         </Card>
       )}
 
-      {/* Record payment form */}
-      <Card className="border-slate-200 dark:border-slate-700 overflow-hidden rounded-2xl shadow-sm bg-white dark:bg-slate-900/50">
-        <div className="flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30 border-b border-slate-200/80 dark:border-slate-700/80">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/20 dark:bg-emerald-500/30">
+      {/* Record payment form — solid colors for IE/old browser support */}
+      <Card className="border-slate-200 dark:border-slate-700 overflow-hidden rounded-lg bg-white dark:bg-slate-900">
+        <div className="flex items-center px-5 py-4 bg-emerald-50 dark:bg-emerald-900 border-b border-slate-200 dark:border-slate-700">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-200 dark:bg-emerald-800">
             <Wallet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+          <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 ml-3">
             Record payment
           </h3>
         </div>
@@ -119,7 +119,7 @@ export function PaymentForm({ account, onSuccess, compact }: PaymentFormProps) {
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder={account.total_credit.toString()}
                 required
-                className="h-12 text-base font-semibold border-slate-200 dark:border-slate-700 focus-visible:ring-emerald-500 focus-visible:ring-2"
+                className="h-12 text-base font-semibold border-slate-200 dark:border-slate-700"
               />
               <div className="flex gap-2 pt-1">
                 <Button
@@ -151,7 +151,7 @@ export function PaymentForm({ account, onSuccess, compact }: PaymentFormProps) {
                 value={paymentMethod}
                 onValueChange={(value) => setPaymentMethod(value as CreditPaymentMethod)}
               >
-                <SelectTrigger className="h-12 rounded-xl border-slate-200 dark:border-slate-700 focus:ring-emerald-500">
+                <SelectTrigger className="h-12 rounded-lg border-slate-200 dark:border-slate-700">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -170,17 +170,17 @@ export function PaymentForm({ account, onSuccess, compact }: PaymentFormProps) {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="e.g. partial payment, cheque number"
-                className="rounded-xl border-slate-200 dark:border-slate-700 focus-visible:ring-emerald-500"
+                className="rounded-lg border-slate-200 dark:border-slate-700"
               />
             </div>
 
             {paymentAmount > 0 && (
               <div
                 className={cn(
-                  'rounded-xl p-4 space-y-2.5 border-2 transition-colors',
+                  'rounded-lg p-4 space-y-2.5 border-2',
                   isFullPayment
-                    ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/50'
-                    : 'bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700'
+                    ? 'bg-emerald-50 dark:bg-emerald-900 border-emerald-200 dark:border-emerald-800'
+                    : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
                 )}
               >
                 <div className="flex justify-between text-sm">
@@ -217,7 +217,7 @@ export function PaymentForm({ account, onSuccess, compact }: PaymentFormProps) {
             )}
 
             {error && (
-              <div className="rounded-lg p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 text-sm text-red-700 dark:text-red-300">
+              <div className="rounded-lg p-3 bg-red-100 dark:bg-red-900 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-300">
                 {error}
               </div>
             )}
@@ -226,7 +226,7 @@ export function PaymentForm({ account, onSuccess, compact }: PaymentFormProps) {
               type="submit"
               size="lg"
               disabled={isSubmitting || paymentAmount <= 0}
-              className="w-full h-12 rounded-xl font-semibold bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:via-teal-500 hover:to-cyan-500 text-white shadow-lg shadow-emerald-500/25 transition-all"
+              className="w-full h-12 rounded-lg font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
             >
               {isSubmitting ? (
                 <>

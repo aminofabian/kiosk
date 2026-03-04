@@ -173,9 +173,10 @@ export function ItemsManager() {
     return `KES ${price.toFixed(0)}`;
   };
 
-  const formatStock = (stock: number, unitType: UnitType) => {
-    if (stock <= 0) return 'Out of stock';
-    return `${stock.toFixed(2)} ${unitType}`;
+  const formatStock = (stock: number | string, unitType: UnitType) => {
+    const n = Number(stock) || 0;
+    if (n <= 0) return 'Out of stock';
+    return `${n.toFixed(2)} ${unitType}`;
   };
 
   const isLowStock = (item: ItemWithCategory) => {
@@ -298,8 +299,9 @@ export function ItemsManager() {
       return;
     }
 
-    if (adjustmentType === 'decrease' && qty > adjustingItem.current_stock) {
-      setAdjustmentError(`Cannot decrease by more than current stock (${adjustingItem.current_stock.toFixed(2)})`);
+    const currentStock = Number(adjustingItem.current_stock) || 0;
+    if (adjustmentType === 'decrease' && qty > currentStock) {
+      setAdjustmentError(`Cannot decrease by more than current stock (${currentStock.toFixed(2)})`);
       return;
     }
 
@@ -331,10 +333,10 @@ export function ItemsManager() {
           return;
         }
 
-        // Update local state with new stock
-        const newStock = adjustmentType === 'increase' 
-          ? adjustingItem.current_stock + qty 
-          : adjustingItem.current_stock - qty;
+        // Update local state with new stock (coerce to number to avoid string concatenation)
+        const newStock = adjustmentType === 'increase'
+          ? currentStock + qty
+          : currentStock - qty;
 
         const updatedItem = { ...adjustingItem, current_stock: newStock };
 
@@ -370,10 +372,11 @@ export function ItemsManager() {
     }
   };
 
+  const currentStockNum = adjustingItem ? (Number(adjustingItem.current_stock) || 0) : 0;
   const calculatedNewStock = adjustingItem && adjustmentQuantity 
     ? (adjustmentType === 'increase' 
-        ? adjustingItem.current_stock + (parseFloat(adjustmentQuantity) || 0)
-        : Math.max(0, adjustingItem.current_stock - (parseFloat(adjustmentQuantity) || 0)))
+        ? currentStockNum + (parseFloat(adjustmentQuantity) || 0)
+        : Math.max(0, currentStockNum - (parseFloat(adjustmentQuantity) || 0)))
     : null;
 
   const handleDeleteClick = () => {
@@ -1428,7 +1431,7 @@ export function ItemsManager() {
                       <div>
                         <p className="text-sm text-slate-500 dark:text-slate-400">Current Stock</p>
                         <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                          {adjustingItem.current_stock.toFixed(2)} <span className="text-base font-normal text-slate-500">{adjustingItem.unit_type}</span>
+                          {(Number(adjustingItem.current_stock) || 0).toFixed(2)} <span className="text-base font-normal text-slate-500">{adjustingItem.unit_type}</span>
                         </p>
                       </div>
                       <Package className="h-10 w-10 text-slate-300 dark:text-slate-600" />
