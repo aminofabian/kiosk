@@ -102,29 +102,34 @@ export async function GET(request: NextRequest) {
         const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
 
         if (searchWords.length === 1) {
-          // Single word search - simple LIKE query
+          // Single word search - match name, variant_name, and parent name (for variants)
           const searchContains = `%${searchLower}%`;
           const searchStarts = `${searchLower}%`;
           items = await query<Item>(
-            `SELECT * FROM items 
-             WHERE business_id = ? AND active = 1 
+            `SELECT i.* FROM items i
+             LEFT JOIN items p ON i.parent_item_id = p.id AND p.business_id = i.business_id
+             WHERE i.business_id = ? AND i.active = 1 
              AND (
-               LOWER(name) LIKE ? 
-               OR LOWER(variant_name) LIKE ?
+               LOWER(i.name) LIKE ? 
+               OR LOWER(COALESCE(i.variant_name, '')) LIKE ?
+               OR LOWER(COALESCE(p.name, '')) LIKE ?
              )
              ORDER BY 
                CASE 
-                 WHEN LOWER(name) LIKE ? THEN 1 
-                 WHEN LOWER(variant_name) LIKE ? THEN 2
-                 WHEN LOWER(name) LIKE ? THEN 3
-                 ELSE 4 
+                 WHEN LOWER(i.name) LIKE ? THEN 1 
+                 WHEN LOWER(COALESCE(i.variant_name, '')) LIKE ? THEN 2
+                 WHEN LOWER(COALESCE(p.name, '')) LIKE ? THEN 3
+                 WHEN LOWER(i.name) LIKE ? THEN 4
+                 ELSE 5 
                END,
-               name ASC
+               i.name ASC
              LIMIT ?`,
             [
               auth.businessId,
               searchContains,
               searchContains,
+              searchContains,
+              searchStarts,
               searchStarts,
               searchStarts,
               searchContains,
@@ -133,14 +138,14 @@ export async function GET(request: NextRequest) {
           );
         } else {
           // Multi-word search - match items containing ALL words (in any order)
-          // Build dynamic WHERE clause for each word
+          // Match name, variant_name, and parent name
           const wordConditions = searchWords.map(() =>
-            `(LOWER(name) LIKE ? OR LOWER(variant_name) LIKE ?)`
+            `(LOWER(i.name) LIKE ? OR LOWER(COALESCE(i.variant_name, '')) LIKE ? OR LOWER(COALESCE(p.name, '')) LIKE ?)`
           ).join(' AND ');
 
           const wordParams: string[] = [];
           searchWords.forEach(word => {
-            wordParams.push(`%${word}%`, `%${word}%`);
+            wordParams.push(`%${word}%`, `%${word}%`, `%${word}%`);
           });
 
           // For ordering, prioritize exact phrase match, then first word starts
@@ -148,17 +153,18 @@ export async function GET(request: NextRequest) {
           const firstWordStarts = `${searchWords[0]}%`;
 
           items = await query<Item>(
-            `SELECT * FROM items 
-             WHERE business_id = ? AND active = 1 
+            `SELECT i.* FROM items i
+             LEFT JOIN items p ON i.parent_item_id = p.id AND p.business_id = i.business_id
+             WHERE i.business_id = ? AND i.active = 1 
              AND (${wordConditions})
              ORDER BY 
                CASE 
-                 WHEN LOWER(name) LIKE ? THEN 1
-                 WHEN LOWER(name) LIKE ? THEN 2
-                 WHEN LOWER(variant_name) LIKE ? THEN 3
+                 WHEN LOWER(i.name) LIKE ? THEN 1
+                 WHEN LOWER(i.name) LIKE ? THEN 2
+                 WHEN LOWER(COALESCE(i.variant_name, '')) LIKE ? THEN 3
                  ELSE 4 
                END,
-               name ASC
+               i.name ASC
              LIMIT ?`,
             [
               auth.businessId,
@@ -169,6 +175,24 @@ export async function GET(request: NextRequest) {
               limit
             ]
           );
+        }
+      }
+
+      // When search returns variants, include their parents so the grid can display them
+      const variantParentIds = [...new Set(
+        items.filter((i): i is Item & { parent_item_id: string } => !!i.parent_item_id).map(i => i.parent_item_id)
+      )];
+      if (variantParentIds.length > 0) {
+        const existingIds = new Set(items.map(i => i.id));
+        const parents = await query<Item>(
+          `SELECT * FROM items WHERE id IN (${variantParentIds.map(() => '?').join(',')}) AND business_id = ? AND active = 1`,
+          [...variantParentIds, auth.businessId]
+        );
+        for (const p of parents) {
+          if (!existingIds.has(p.id)) {
+            items.push(p);
+            existingIds.add(p.id);
+          }
         }
       }
     } else if (all) {

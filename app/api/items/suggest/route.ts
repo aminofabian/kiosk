@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
       items = await query<SuggestItem>(
         `${selectClause}
          WHERE ${activeFilter}
-           AND (LOWER(i.name) LIKE ? OR LOWER(i.variant_name) LIKE ? OR LOWER(p.name) LIKE ?)
+           AND (LOWER(i.name) LIKE ? OR LOWER(COALESCE(i.variant_name, '')) LIKE ? OR LOWER(COALESCE(p.name, '')) LIKE ?)
          ORDER BY
            CASE
              WHEN LOWER(i.name) LIKE ? THEN 1
@@ -148,7 +148,7 @@ export async function GET(request: NextRequest) {
     } else {
       // Multi-word: match ALL words in name, variant_name, or parent name
       const wordConditions = searchWords
-        .map(() => `(LOWER(i.name) LIKE ? OR LOWER(i.variant_name) LIKE ? OR LOWER(p.name) LIKE ?)`)
+        .map(() => `(LOWER(i.name) LIKE ? OR LOWER(COALESCE(i.variant_name, '')) LIKE ? OR LOWER(COALESCE(p.name, '')) LIKE ?)`)
         .join(' AND ');
 
       const wordParams: string[] = [];
@@ -188,7 +188,7 @@ export async function GET(request: NextRequest) {
         const fuzzyItems = await query<SuggestItem>(
           `${selectClause}
            WHERE ${activeFilter}
-             AND (LOWER(i.name) LIKE ? OR LOWER(i.variant_name) LIKE ? OR LOWER(p.name) LIKE ?)
+             AND (LOWER(i.name) LIKE ? OR LOWER(COALESCE(i.variant_name, '')) LIKE ? OR LOWER(COALESCE(p.name, '')) LIKE ?)
            LIMIT ?`,
           [auth.businessId, fuzzyPattern, fuzzyPattern, fuzzyPattern, fuzzyLimit + 10]
         );

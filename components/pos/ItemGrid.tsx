@@ -218,7 +218,7 @@ function groupItemsForDisplay(items: Item[]): GroupedItem[] {
   // Second pass: create grouped items
   const grouped: GroupedItem[] = [];
 
-  // Add parent groups
+  // Add parent groups (and orphan variants when parent isn't in results - e.g. search by variant name)
   for (const [parentId, children] of childrenByParent.entries()) {
     const parent = parentItems.get(parentId);
     if (parent) {
@@ -229,6 +229,14 @@ function groupItemsForDisplay(items: Item[]): GroupedItem[] {
           (a.variant_name || a.name).localeCompare(b.variant_name || b.name)
         ),
       });
+    } else {
+      // Parent not in results (e.g. searched "explode" - got variant but not parent)
+      // Show each variant as standalone so they appear in search results
+      for (const child of children.sort((a, b) =>
+        (a.variant_name || a.name).localeCompare(b.variant_name || b.name)
+      )) {
+        grouped.push({ type: 'standalone', item: child });
+      }
     }
   }
 
