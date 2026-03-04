@@ -44,25 +44,30 @@ export async function GET(request: NextRequest) {
     const itemTypeFilter = itemType ? ` AND COALESCE(si.item_type_snapshot, 'retail') = ?` : '';
     const itemTypeParams = itemType ? [itemType] : [];
 
-    // Buy price fallback expression used in multiple places.
-    // Falls back through: sale_item → inventory_batch → purchase_breakdown → 0
-    const buyPriceFallback = `
+    // Buy price fallback: sale snapshot → batch/purchase at sale time → 85% of sell price.
+    // If resolved buy > sell (would show negative profit), treat as bad data and use 85% fallback.
+    const buyPriceRaw = `
       COALESCE(
         NULLIF(si.buy_price_per_unit, 0),
         (SELECT ib.buy_price_per_unit 
          FROM inventory_batches ib 
-         WHERE ib.item_id = si.item_id 
+         WHERE ib.item_id = si.item_id AND ib.received_at <= s.sale_date
          ORDER BY ib.received_at DESC 
          LIMIT 1),
         (SELECT pb.buy_price_per_unit 
          FROM purchase_breakdowns pb
          JOIN purchase_items pi ON pb.purchase_item_id = pi.id
          JOIN purchases p ON pi.purchase_id = p.id
-         WHERE pb.item_id = si.item_id AND p.business_id = ?
+         WHERE pb.item_id = si.item_id AND p.business_id = ? AND pb.confirmed_at <= s.sale_date
          ORDER BY pb.confirmed_at DESC 
          LIMIT 1),
-        0
+        si.sell_price_per_unit * 0.85
       )`;
+    const buyPriceFallback = `
+      CASE WHEN ${buyPriceRaw} > si.sell_price_per_unit 
+        THEN si.sell_price_per_unit * 0.85 
+        ELSE ${buyPriceRaw} 
+      END`;
 
     // Get daily aggregated profit data
     // Items without a known buy price are excluded from profit/revenue/cost
@@ -107,7 +112,8 @@ export async function GET(request: NextRequest) {
        ORDER BY sale_day ASC`,
       [
         tzOffsetSeconds,
-        // buyPriceFallback ?s: profit check, profit calc, revenue check, cost check, cost calc
+        // buyPriceFallback: 5 usages × 2 buyPriceRaw = 10 placeholders
+        auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId,
         auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId,
         // WHERE clause
         auth.businessId,

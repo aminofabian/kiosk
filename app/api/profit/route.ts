@@ -28,25 +28,30 @@ export async function GET(request: NextRequest) {
     const itemTypeFilter = itemType ? ` AND COALESCE(si.item_type_snapshot, 'retail') = ?` : '';
     const itemTypeParams = itemType ? [itemType] : [];
 
-    // Buy price fallback: sale snapshot → inventory_batches → purchase_breakdowns → 0
-    // Cost = quantity_sold × buy_price_per_unit (portion cost, supports fractional qty)
-    const buyPriceFallbackSummary = `
+    // Buy price fallback: sale snapshot → batch/purchase at sale time → 85% of sell price.
+    // If resolved buy price > sell price (would show negative profit), treat as bad data and use 85% fallback.
+    const buyPriceRawSummary = `
       COALESCE(
         NULLIF(si.buy_price_per_unit, 0),
         (SELECT ib.buy_price_per_unit 
          FROM inventory_batches ib 
-         WHERE ib.item_id = si.item_id 
+         WHERE ib.item_id = si.item_id AND ib.received_at <= s.sale_date
          ORDER BY ib.received_at DESC 
          LIMIT 1),
         (SELECT pb.buy_price_per_unit 
          FROM purchase_breakdowns pb
          JOIN purchase_items pi ON pb.purchase_item_id = pi.id
          JOIN purchases p ON pi.purchase_id = p.id
-         WHERE pb.item_id = si.item_id AND p.business_id = ?
+         WHERE pb.item_id = si.item_id AND p.business_id = ? AND pb.confirmed_at <= s.sale_date
          ORDER BY pb.confirmed_at DESC 
          LIMIT 1),
-        0
+        si.sell_price_per_unit * 0.85
       )`;
+    const buyPriceFallbackSummary = `
+      CASE WHEN ${buyPriceRawSummary} > si.sell_price_per_unit 
+        THEN si.sell_price_per_unit * 0.85 
+        ELSE ${buyPriceRawSummary} 
+      END`;
 
     // Include ALL sale items so total_sales = full revenue and total_cost = full COGS.
     // Items without a known buy price contribute 0 to cost (COGS) and full sell to revenue.
@@ -74,7 +79,7 @@ export async function GET(request: NextRequest) {
          AND s.sale_date >= ? 
          AND s.sale_date <= ?
          ${itemTypeFilter}`,
-      [auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp, ...itemTypeParams]
+      [auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp, ...itemTypeParams]
     );
 
     const summaryData = summary[0] || {
@@ -177,24 +182,30 @@ export async function GET(request: NextRequest) {
     // Check if we should aggregate by parent item
     const groupByParent = searchParams.get('groupByParent') === 'true';
 
-    // Buy price fallback subquery (with placeholder for business_id)
-    const buyPriceFallback = `
+    // Buy price fallback: sale snapshot → batch/purchase at sale time → 85% of sell price.
+    // If resolved buy > sell (would show negative profit), treat as bad data and use 85% fallback.
+    const buyPriceRaw = `
       COALESCE(
         NULLIF(si.buy_price_per_unit, 0),
         (SELECT ib.buy_price_per_unit 
          FROM inventory_batches ib 
-         WHERE ib.item_id = si.item_id 
+         WHERE ib.item_id = si.item_id AND ib.received_at <= s.sale_date
          ORDER BY ib.received_at DESC 
          LIMIT 1),
         (SELECT pb.buy_price_per_unit 
          FROM purchase_breakdowns pb
          JOIN purchase_items pi ON pb.purchase_item_id = pi.id
          JOIN purchases p ON pi.purchase_id = p.id
-         WHERE pb.item_id = si.item_id AND p.business_id = ?
+         WHERE pb.item_id = si.item_id AND p.business_id = ? AND pb.confirmed_at <= s.sale_date
          ORDER BY pb.confirmed_at DESC 
          LIMIT 1),
-        0
-      )
+        si.sell_price_per_unit * 0.85
+      )`;
+    const buyPriceFallback = `
+      CASE WHEN ${buyPriceRaw} > si.sell_price_per_unit 
+        THEN si.sell_price_per_unit * 0.85 
+        ELSE ${buyPriceRaw} 
+      END
     `;
 
     let itemProfits;
@@ -244,7 +255,7 @@ export async function GET(request: NextRequest) {
          GROUP BY COALESCE(parent.id, i.id), COALESCE(parent.name, i.name)
          HAVING total_profit != 0 OR total_sales != 0
          ORDER BY has_buy_price DESC, total_profit DESC`,
-        [auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp, ...itemTypeParams]
+        [auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp, ...itemTypeParams]
       );
     } else {
       // Individual item profits (existing behavior)
@@ -291,7 +302,7 @@ export async function GET(request: NextRequest) {
          GROUP BY i.id, i.name, i.variant_name, parent.name
          HAVING total_profit != 0 OR total_sales != 0
          ORDER BY has_buy_price DESC, total_profit DESC`,
-        [auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp, ...itemTypeParams]
+        [auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp, ...itemTypeParams]
       );
     }
 

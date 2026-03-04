@@ -23,7 +23,17 @@ import {
   Wallet,
   Eye,
   EyeOff,
+  Pencil,
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
 import Link from 'next/link';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { ProfitCalendar } from '@/components/admin/ProfitCalendar';
@@ -94,8 +104,71 @@ export default function ProfitHubPage() {
   });
   const [itemSearch, setItemSearch] = useState('');
   const [showAllItems, setShowAllItems] = useState(false);
+  const [editPriceOpen, setEditPriceOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<{ item_id: string; item_name: string } | null>(null);
+  const [editSellPrice, setEditSellPrice] = useState('');
+  const [editBuyPrice, setEditBuyPrice] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
 
   useEffect(() => { updateDateRange(datePreset); }, [datePreset]);
+
+  async function openEditPrices(item: ItemProfit & { department: string }) {
+    setEditingItem({ item_id: item.item_id, item_name: item.item_name });
+    setEditSellPrice('');
+    setEditBuyPrice('');
+    setEditPriceOpen(true);
+    setEditLoading(true);
+    try {
+      const res = await fetch(`/api/items/${item.item_id}`);
+      const result = await res.json();
+      if (result.success && result.data) {
+        const sell = result.data.current_sell_price ?? (item.quantity_sold > 0 ? item.total_sales / item.quantity_sold : 0);
+        const buy = result.data.buy_price ?? (item.quantity_sold > 0 ? item.total_cost / item.quantity_sold : 0);
+        setEditSellPrice(String(sell));
+        setEditBuyPrice(String(buy));
+      }
+    } catch {
+      toast.error('Failed to load item');
+    } finally {
+      setEditLoading(false);
+    }
+  }
+
+  async function saveEditPrices() {
+    if (!editingItem) return;
+    const sellNum = parseFloat(editSellPrice);
+    const buyNum = parseFloat(editBuyPrice);
+    if (isNaN(sellNum) || sellNum < 0) {
+      toast.error('Invalid sell price');
+      return;
+    }
+    if (isNaN(buyNum) || buyNum < 0) {
+      toast.error('Invalid cost price');
+      return;
+    }
+    setEditSaving(true);
+    try {
+      const res = await fetch(`/api/items/${editingItem.item_id}/prices`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sellPrice: sellNum, buyPrice: buyNum }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast.success('Prices updated');
+        setEditPriceOpen(false);
+        setEditingItem(null);
+        fetchData();
+      } else {
+        toast.error(result.message ?? 'Failed to update');
+      }
+    } catch {
+      toast.error('Failed to update prices');
+    } finally {
+      setEditSaving(false);
+    }
+  }
 
   function updateDateRange(preset: DatePreset) {
     if (preset === 'custom') return;
@@ -174,14 +247,14 @@ export default function ProfitHubPage() {
   const getTypePct = (key: string) =>
     totalSalesCombined > 0 ? ((typeData[key]?.totalSales ?? 0) / totalSalesCombined) * 100 : 0;
 
-  // Items (department = type key)
-  const allItems: (ItemProfit & { department: string })[] = useMemo(
-    () =>
-      itemTypeKeys.flatMap((key) =>
-        (typeData[key]?.itemProfits ?? []).map((i) => ({ ...i, department: key }))
-      ),
-    [itemTypeKeys, typeData]
-  );
+  // Items (department = type key). Fallback to allData.itemProfits if per-type fetches return empty.
+  const allItems: (ItemProfit & { department: string })[] = useMemo(() => {
+    const fromTypes = itemTypeKeys.flatMap((key) =>
+      (typeData[key]?.itemProfits ?? []).map((i) => ({ ...i, department: key }))
+    );
+    if (fromTypes.length > 0) return fromTypes;
+    return (allData?.itemProfits ?? []).map((i) => ({ ...i, department: 'retail' }));
+  }, [itemTypeKeys, typeData, allData]);
 
   const topItemsByType = useMemo(
     () =>
@@ -614,6 +687,7 @@ export default function ProfitHubPage() {
                         <th className="text-right px-2 py-2 font-bold text-slate-700 dark:text-slate-300 text-[11px]">Cost</th>
                         <th className="text-right px-2 py-2 font-bold text-slate-700 dark:text-slate-300 text-[11px]">Profit</th>
                         <th className="text-right px-2 py-2 font-bold text-slate-700 dark:text-slate-300 text-[11px]">Margin</th>
+                        <th className="w-9 px-1 py-2" />
                       </tr>
                     </thead>
                     <tbody>
@@ -650,6 +724,17 @@ export default function ProfitHubPage() {
                                   {formatPercent(margin)}
                                 </span>
                               </td>
+                              <td className="px-1 py-1.5">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 text-slate-400 hover:text-[#1c6a1e]"
+                                  onClick={() => openEditPrices(item)}
+                                  title="Edit prices"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                              </td>
                             </tr>
                           );
                         })}
@@ -668,6 +753,61 @@ export default function ProfitHubPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={editPriceOpen} onOpenChange={(open) => { if (!open) { setEditPriceOpen(false); setEditingItem(null); } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Edit prices</DialogTitle>
+          </DialogHeader>
+          {editingItem && (
+            <div className="space-y-4 py-2">
+              <p className="text-sm text-slate-600 dark:text-slate-400 font-medium">{editingItem.item_name}</p>
+              {editLoading ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-6 w-6 animate-spin text-[#1c6a1e]" />
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-sell">Sell price (KES)</Label>
+                    <Input
+                      id="edit-sell"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={editSellPrice}
+                      onChange={(e) => setEditSellPrice(e.target.value)}
+                      placeholder="0"
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-buy">Cost price (KES)</Label>
+                    <Input
+                      id="edit-buy"
+                      type="number"
+                      min={0}
+                      step={0.01}
+                      value={editBuyPrice}
+                      onChange={(e) => setEditBuyPrice(e.target.value)}
+                      placeholder="0"
+                      className="h-9"
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditPriceOpen(false)} disabled={editSaving}>
+              Cancel
+            </Button>
+            <Button onClick={saveEditPrices} disabled={editLoading || editSaving}>
+              {editSaving ? <><Loader2 className="h-4 w-4 animate-spin mr-1.5" />Saving...</> : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }
