@@ -280,6 +280,7 @@ export interface BalanceApprovalRequest {
   denom_5: number;
   denom_10: number;
   denom_20: number;
+  denom_40: number;
   denom_50: number;
   denom_100: number;
   denom_200: number;

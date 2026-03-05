@@ -316,6 +316,13 @@ export async function runMigrations() {
     }
 
     try {
+      const { migrateDenom40 } = await import('./migrate-denom-40');
+      await migrateDenom40();
+    } catch (error) {
+      console.error('⚠ denom_40 migration skipped:', error);
+    }
+
+    try {
       const { migrateBalanceApprovals } = await import('./migrate-balance-approvals');
       await migrateBalanceApprovals();
     } catch (error) {

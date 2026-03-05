@@ -40,6 +40,7 @@ export async function POST(
       denom_5: number;
       denom_10: number;
       denom_20: number;
+      denom_40: number;
       denom_50: number;
       denom_100: number;
       denom_200: number;
@@ -98,9 +99,9 @@ export async function POST(
         `INSERT INTO shifts (
           id, business_id, user_id, opening_cash, expected_closing_cash,
           status, started_at,
-          opening_denom_1, opening_denom_5, opening_denom_10, opening_denom_20,
+          opening_denom_1, opening_denom_5, opening_denom_10, opening_denom_20, opening_denom_40,
           opening_denom_50, opening_denom_100, opening_denom_200, opening_denom_500, opening_denom_1000
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           shiftId,
           auth.businessId,
@@ -113,6 +114,7 @@ export async function POST(
           approvalRequest.denom_5,
           approvalRequest.denom_10,
           approvalRequest.denom_20,
+          approvalRequest.denom_40,
           approvalRequest.denom_50,
           approvalRequest.denom_100,
           approvalRequest.denom_200,
@@ -183,6 +185,7 @@ export async function POST(
              closing_denom_5 = ?,
              closing_denom_10 = ?,
              closing_denom_20 = ?,
+             closing_denom_40 = ?,
              closing_denom_50 = ?,
              closing_denom_100 = ?,
              closing_denom_200 = ?,
@@ -198,6 +201,7 @@ export async function POST(
           approvalRequest.denom_5,
           approvalRequest.denom_10,
           approvalRequest.denom_20,
+          approvalRequest.denom_40,
           approvalRequest.denom_50,
           approvalRequest.denom_100,
           approvalRequest.denom_200,

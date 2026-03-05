@@ -39,6 +39,7 @@ interface ShiftWithUser extends Shift {
   opening_denom_5?: number;
   opening_denom_10?: number;
   opening_denom_20?: number;
+  opening_denom_40?: number;
   opening_denom_50?: number;
   opening_denom_100?: number;
   opening_denom_200?: number;
@@ -48,6 +49,7 @@ interface ShiftWithUser extends Shift {
   closing_denom_5?: number;
   closing_denom_10?: number;
   closing_denom_20?: number;
+  closing_denom_40?: number;
   closing_denom_50?: number;
   closing_denom_100?: number;
   closing_denom_200?: number;

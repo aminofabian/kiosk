@@ -159,9 +159,9 @@ export async function POST(request: NextRequest) {
       `INSERT INTO balance_approval_requests (
         id, business_id, shift_id, user_id, balance_type, amount, expected_amount,
         notes, status,
-        denom_1, denom_5, denom_10, denom_20, denom_50,
+        denom_1, denom_5, denom_10, denom_20, denom_40, denom_50,
         denom_100, denom_200, denom_500, denom_1000, cash_expenses
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         requestId,
         auth.businessId,
@@ -175,6 +175,7 @@ export async function POST(request: NextRequest) {
         denominations?.denom_5 || 0,
         denominations?.denom_10 || 0,
         denominations?.denom_20 || 0,
+        denominations?.denom_40 || 0,
         denominations?.denom_50 || 0,
         denominations?.denom_100 || 0,
         denominations?.denom_200 || 0,

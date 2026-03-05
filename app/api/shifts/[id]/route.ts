@@ -179,6 +179,7 @@ export async function PATCH(
           'closing_denom_5 = ?,' +
           'closing_denom_10 = ?,' +
           'closing_denom_20 = ?,' +
+          'closing_denom_40 = ?,' +
           'closing_denom_50 = ?,' +
           'closing_denom_100 = ?,' +
           'closing_denom_200 = ?,' +
@@ -190,6 +191,7 @@ export async function PATCH(
           safe('denom_5'),
           safe('denom_10'),
           safe('denom_20'),
+          safe('denom_40'),
           safe('denom_50'),
           safe('denom_100'),
           safe('denom_200'),
@@ -208,6 +210,7 @@ export async function PATCH(
         'opening_denom_5 = ?,' +
         'opening_denom_10 = ?,' +
         'opening_denom_20 = ?,' +
+        'opening_denom_40 = ?,' +
         'opening_denom_50 = ?,' +
         'opening_denom_100 = ?,' +
         'opening_denom_200 = ?,' +
@@ -219,6 +222,7 @@ export async function PATCH(
         safe('denom_5'),
         safe('denom_10'),
         safe('denom_20'),
+        safe('denom_40'),
         safe('denom_50'),
         safe('denom_100'),
         safe('denom_200'),

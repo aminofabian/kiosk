@@ -40,6 +40,7 @@ export async function migrateBalanceApprovals(): Promise<void> {
       denom_5 INTEGER DEFAULT 0,
       denom_10 INTEGER DEFAULT 0,
       denom_20 INTEGER DEFAULT 0,
+      denom_40 INTEGER DEFAULT 0,
       denom_50 INTEGER DEFAULT 0,
       denom_100 INTEGER DEFAULT 0,
       denom_200 INTEGER DEFAULT 0,

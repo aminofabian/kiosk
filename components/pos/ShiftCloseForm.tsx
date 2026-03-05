@@ -32,6 +32,7 @@ const DENOMINATIONS = [
   { value: 200, label: '200', icon: Banknote, color: 'bg-purple-100 dark:bg-purple-900 border-purple-300' },
   { value: 100, label: '100', icon: Banknote, color: 'bg-red-100 dark:bg-red-900 border-red-300' },
   { value: 50, label: '50', icon: Banknote, color: 'bg-orange-100 dark:bg-orange-900 border-orange-300' },
+  { value: 40, label: '40', icon: Banknote, color: 'bg-teal-100 dark:bg-teal-900 border-teal-300' },
   { value: 20, label: '20', icon: Coins, color: 'bg-yellow-100 dark:bg-yellow-900 border-yellow-300' },
   { value: 10, label: '10', icon: Coins, color: 'bg-amber-100 dark:bg-amber-900 border-amber-300' },
   { value: 5, label: '5', icon: Coins, color: 'bg-gray-100 dark:bg-gray-800 border-gray-300' },
@@ -64,7 +65,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
   const router = useRouter();
   const { user } = useCurrentUser();
   const [denominations, setDenominations] = useState<DenominationCounts>({
-    1: 0, 5: 0, 10: 0, 20: 0, 50: 0, 100: 0, 200: 0, 500: 0, 1000: 0
+    1: 0, 5: 0, 10: 0, 20: 0, 40: 0, 50: 0, 100: 0, 200: 0, 500: 0, 1000: 0
   });
   const [showBreakdown, setShowBreakdown] = useState(true);
   const [salesSummary, setSalesSummary] = useState<ShiftSummary | null>(null);
@@ -178,6 +179,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
             denom_5: denominations[5],
             denom_10: denominations[10],
             denom_20: denominations[20],
+            denom_40: denominations[40],
             denom_50: denominations[50],
             denom_100: denominations[100],
             denom_200: denominations[200],
@@ -209,6 +211,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
             denom_5: denominations[5],
             denom_10: denominations[10],
             denom_20: denominations[20],
+            denom_40: denominations[40],
             denom_50: denominations[50],
             denom_100: denominations[100],
             denom_200: denominations[200],

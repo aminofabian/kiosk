@@ -30,6 +30,7 @@ interface ShiftWithDetails extends Shift {
   opening_denom_5?: number;
   opening_denom_10?: number;
   opening_denom_20?: number;
+  opening_denom_40?: number;
   opening_denom_50?: number;
   opening_denom_100?: number;
   opening_denom_200?: number;
@@ -39,6 +40,7 @@ interface ShiftWithDetails extends Shift {
   closing_denom_5?: number;
   closing_denom_10?: number;
   closing_denom_20?: number;
+  closing_denom_40?: number;
   closing_denom_50?: number;
   closing_denom_100?: number;
   closing_denom_200?: number;
@@ -76,6 +78,7 @@ const DENOMINATIONS = [
   { value: 200, label: '200', color: 'from-purple-500 to-violet-600', bgColor: 'bg-purple-50 dark:bg-purple-900/20', borderColor: 'border-purple-200 dark:border-purple-800', icon: Banknote },
   { value: 100, label: '100', color: 'from-amber-500 to-orange-600', bgColor: 'bg-amber-50 dark:bg-amber-900/20', borderColor: 'border-amber-200 dark:border-amber-800', icon: Banknote },
   { value: 50, label: '50', color: 'from-rose-500 to-pink-600', bgColor: 'bg-rose-50 dark:bg-rose-900/20', borderColor: 'border-rose-200 dark:border-rose-800', icon: Banknote },
+  { value: 40, label: '40', color: 'from-teal-500 to-emerald-600', bgColor: 'bg-teal-50 dark:bg-teal-900/20', borderColor: 'border-teal-200 dark:border-teal-800', icon: Banknote },
   { value: 20, label: '20', color: 'from-cyan-500 to-sky-600', bgColor: 'bg-cyan-50 dark:bg-cyan-900/20', borderColor: 'border-cyan-200 dark:border-cyan-800', icon: Coins },
   { value: 10, label: '10', color: 'from-slate-500 to-zinc-600', bgColor: 'bg-slate-50 dark:bg-slate-900/20', borderColor: 'border-slate-200 dark:border-slate-700', icon: Coins },
   { value: 5, label: '5', color: 'from-yellow-500 to-amber-600', bgColor: 'bg-yellow-50 dark:bg-yellow-900/20', borderColor: 'border-yellow-200 dark:border-yellow-800', icon: Coins },
@@ -101,6 +104,7 @@ export function ShiftEditForm({ shift, onSuccess, onCancel }: ShiftEditFormProps
     5: shift.opening_denom_5 ?? 0,
     10: shift.opening_denom_10 ?? 0,
     20: shift.opening_denom_20 ?? 0,
+    40: shift.opening_denom_40 ?? 0,
     50: shift.opening_denom_50 ?? 0,
     100: shift.opening_denom_100 ?? 0,
     200: shift.opening_denom_200 ?? 0,
@@ -112,6 +116,7 @@ export function ShiftEditForm({ shift, onSuccess, onCancel }: ShiftEditFormProps
     5: shift.closing_denom_5 ?? 0,
     10: shift.closing_denom_10 ?? 0,
     20: shift.closing_denom_20 ?? 0,
+    40: shift.closing_denom_40 ?? 0,
     50: shift.closing_denom_50 ?? 0,
     100: shift.closing_denom_100 ?? 0,
     200: shift.closing_denom_200 ?? 0,
@@ -225,6 +230,7 @@ export function ShiftEditForm({ shift, onSuccess, onCancel }: ShiftEditFormProps
         denom_5: openingDenoms[5] || 0,
         denom_10: openingDenoms[10] || 0,
         denom_20: openingDenoms[20] || 0,
+        denom_40: openingDenoms[40] || 0,
         denom_50: openingDenoms[50] || 0,
         denom_100: openingDenoms[100] || 0,
         denom_200: openingDenoms[200] || 0,
@@ -241,6 +247,7 @@ export function ShiftEditForm({ shift, onSuccess, onCancel }: ShiftEditFormProps
           denom_5: closingDenoms[5] || 0,
           denom_10: closingDenoms[10] || 0,
           denom_20: closingDenoms[20] || 0,
+          denom_40: closingDenoms[40] || 0,
           denom_50: closingDenoms[50] || 0,
           denom_100: closingDenoms[100] || 0,
           denom_200: closingDenoms[200] || 0,

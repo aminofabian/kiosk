@@ -8,6 +8,7 @@ type LastClosedShift = {
   closing_denom_5: number;
   closing_denom_10: number;
   closing_denom_20: number;
+  closing_denom_40: number;
   closing_denom_50: number;
   closing_denom_100: number;
   closing_denom_200: number;
@@ -26,7 +27,7 @@ export async function GET() {
 
     const shift = await queryOne<LastClosedShift>(
       `SELECT id,
-        closing_denom_1, closing_denom_5, closing_denom_10, closing_denom_20,
+        closing_denom_1, closing_denom_5, closing_denom_10, closing_denom_20, closing_denom_40,
         closing_denom_50, closing_denom_100, closing_denom_200, closing_denom_500, closing_denom_1000
        FROM shifts
        WHERE business_id = ? AND user_id = ? AND status = 'closed'
