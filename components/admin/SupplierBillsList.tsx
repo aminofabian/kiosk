@@ -113,14 +113,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
   const [paymentNotes, setPaymentNotes] = useState('');
   const [isMarkingAsPaid, setIsMarkingAsPaid] = useState(false);
   const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [salesSummary, setSalesSummary] = useState<{
-    totalRevenue: number;
-    totalTransactions: number;
-  } | null>(null);
-  const [salesLoading, setSalesLoading] = useState(false);
   const [deletingBillId, setDeletingBillId] = useState<string | null>(null);
-  const [typeSalesData, setTypeSalesData] = useState<Record<string, { revenue: number; transactions: number }>>({});
-  const [typeProfitData, setTypeProfitData] = useState<Record<string, { profit: number; cost: number; sales: number; margin: number }>>({});
   const [suppliersByDay, setSuppliersByDay] = useState<{
     byDay: Record<number, Array<{
       supplierName: string;
@@ -261,31 +254,31 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
     const daysUntilDue = getDaysUntilDue(bill.due_date);
     if (bill.status === 'paid') {
       return (
-        <Badge className="bg-green-500 hover:bg-green-600">
-          <CheckCircle className="w-3 h-3 mr-1" />
+        <Badge className="bg-emerald-500/90 hover:bg-emerald-600 text-white text-[10px] px-2 py-0.5 font-medium">
+          <CheckCircle className="w-2.5 h-2.5 mr-1" />
           Paid
         </Badge>
       );
     }
     if (bill.status === 'overdue' || daysUntilDue < 0) {
       return (
-        <Badge variant="destructive">
-          <AlertTriangle className="w-3 h-3 mr-1" />
+        <Badge variant="destructive" className="text-[10px] px-2 py-0.5 font-medium">
+          <AlertTriangle className="w-2.5 h-2.5 mr-1" />
           Overdue
         </Badge>
       );
     }
     if (daysUntilDue <= 3) {
       return (
-        <Badge className="bg-orange-500 hover:bg-orange-600">
-          <Clock className="w-3 h-3 mr-1" />
+        <Badge className="bg-amber-500/90 hover:bg-amber-600 text-white text-[10px] px-2 py-0.5 font-medium">
+          <Clock className="w-2.5 h-2.5 mr-1" />
           Due Soon ({daysUntilDue}d)
         </Badge>
       );
     }
     return (
-      <Badge className="bg-blue-500 hover:bg-blue-600">
-        <Calendar className="w-3 h-3 mr-1" />
+      <Badge className="bg-slate-500/90 hover:bg-slate-600 text-white text-[10px] px-2 py-0.5 font-medium">
+        <Calendar className="w-2.5 h-2.5 mr-1" />
         Pending ({daysUntilDue}d)
       </Badge>
     );
@@ -376,71 +369,6 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
   useEffect(() => {
     fetchSuppliers();
   }, [fetchSuppliers]);
-
-  // Fetch sales + per-type sales/profit data for comparison
-  useEffect(() => {
-    const range = getDateRangeForFilter(dateFilter);
-    const start = range ? range[0] : 0;
-    const end = range ? range[1] : Math.floor(Date.now() / 1000);
-
-    setSalesLoading(true);
-
-    const fetchAll = async () => {
-      try {
-        const summaryUrl = typeFilter !== 'all'
-          ? `/api/sales/summary?start=${start}&end=${end}&itemType=${encodeURIComponent(typeFilter)}`
-          : `/api/sales/summary?start=${start}&end=${end}`;
-
-        const [summaryRes, ...typeResults] = await Promise.all([
-          apiGet<{ totalRevenue: number; totalTransactions: number }>(summaryUrl),
-          ...productTypes.map((t) =>
-            Promise.all([
-              apiGet<{ totalRevenue: number; totalTransactions: number }>(
-                `/api/sales/summary?start=${start}&end=${end}&itemType=${encodeURIComponent(t.key)}`
-              ),
-              apiGet<{ totalSales: number; totalCost: number; totalProfit: number; profitMargin: number }>(
-                `/api/profit?start=${start}&end=${end}&itemType=${encodeURIComponent(t.key)}`
-              ),
-            ])
-          ),
-        ]);
-
-        if (summaryRes.success && summaryRes.data) {
-          setSalesSummary({ totalRevenue: summaryRes.data.totalRevenue, totalTransactions: summaryRes.data.totalTransactions });
-        } else {
-          setSalesSummary(null);
-        }
-
-        const nextSales: Record<string, { revenue: number; transactions: number }> = {};
-        const nextProfit: Record<string, { profit: number; cost: number; sales: number; margin: number }> = {};
-        productTypes.forEach((t, i) => {
-          const [salesRes, profitRes] = typeResults[i] as [
-            Awaited<ReturnType<typeof apiGet<{ totalRevenue: number; totalTransactions: number }>>>,
-            Awaited<ReturnType<typeof apiGet<{ totalSales: number; totalCost: number; totalProfit: number; profitMargin: number }>>>
-          ];
-          if (salesRes.success && salesRes.data) {
-            nextSales[t.key] = { revenue: salesRes.data.totalRevenue, transactions: salesRes.data.totalTransactions };
-          }
-          if (profitRes.success && profitRes.data) {
-            nextProfit[t.key] = {
-              profit: profitRes.data.totalProfit,
-              cost: profitRes.data.totalCost,
-              sales: profitRes.data.totalSales,
-              margin: profitRes.data.profitMargin,
-            };
-          }
-        });
-        setTypeSalesData(nextSales);
-        setTypeProfitData(nextProfit);
-      } catch {
-        setSalesSummary(null);
-      } finally {
-        setSalesLoading(false);
-      }
-    };
-
-    fetchAll();
-  }, [dateFilter, typeFilter, getDateRangeForFilter, productTypes]);
 
   // Fetch suppliers by day of week (for "call today" section)
   useEffect(() => {
@@ -535,7 +463,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
 
   if (loading) {
     return (
-      <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 shadow-sm">
+      <div className="rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900/40 shadow-sm">
         <div className="flex items-center justify-center py-24 sm:py-32">
           <div className="text-center space-y-4">
             <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto">
@@ -553,7 +481,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
 
   if (error) {
     return (
-      <div className="rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 shadow-sm">
+      <div className="rounded-2xl border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 shadow-sm">
         <div className="flex items-center justify-center py-24 sm:py-32">
           <div className="text-center space-y-4 max-w-sm px-4">
             <div className="w-14 h-14 rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto">
@@ -630,11 +558,6 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
   })();
   const spanWeeks = Math.max(1, spanDays / 7);
 
-  // Financial pulse
-  const salesRevenue = salesSummary?.totalRevenue ?? 0;
-  const netMargin = salesRevenue - totalAmount;
-  const costRatio = salesRevenue > 0 ? (totalAmount / salesRevenue) * 100 : 0;
-
   // ── Supplier Budget Planner ──────────────────────────
 
   const supplierBudget = (() => {
@@ -653,10 +576,6 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
         avgPerWeek: s.total / spanWeeks,
         avgPerMonth: (s.total / spanDays) * 30,
         shareOfTotal: totalAmount > 0 ? (s.total / totalAmount) * 100 : 0,
-        shareOfSales:
-          salesSummary && salesSummary.totalRevenue > 0
-            ? (s.total / salesSummary.totalRevenue) * 100
-            : null,
       }))
       .sort((a, b) => b.total - a.total);
   })();
@@ -754,14 +673,14 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
   // ── Render ───────────────────────────────────────────
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* ═══════════ FILTERS ═══════════ */}
-      <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 shadow-sm overflow-hidden">
-        <div className="px-4 sm:px-5 py-3 border-b border-slate-100 dark:border-slate-800">
-          <h2 className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+      <section className="rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900/40 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800/80">
+          <h2 className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
             Filters
           </h2>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
             {filteredBills.length} bill{filteredBills.length !== 1 ? 's' : ''}
             {dateRangeLabel && <span> · {dateRangeLabel}</span>}
             {typeFilter !== 'all' && (() => {
@@ -776,10 +695,10 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
             )}
           </p>
         </div>
-        <div className="px-4 sm:px-5 py-3 flex flex-wrap gap-2 sm:gap-3 overflow-x-auto scrollbar-none bg-slate-50/50 dark:bg-slate-900/30">
+        <div className="px-5 py-4 flex flex-wrap gap-3 overflow-x-auto scrollbar-none bg-slate-50/80 dark:bg-slate-900/20">
           {productTypes.length > 1 && (
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="min-w-[110px] sm:w-36 h-9 text-xs sm:text-sm shrink-0 bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
+              <SelectTrigger className="min-w-[110px] sm:w-36 h-9 text-xs sm:text-sm shrink-0 bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 rounded-lg">
                 <SelectValue placeholder="All types" />
               </SelectTrigger>
               <SelectContent>
@@ -793,7 +712,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
             </Select>
           )}
           <Select value={supplierFilter} onValueChange={setSupplierFilter}>
-            <SelectTrigger className="min-w-[130px] sm:w-44 h-9 text-xs sm:text-sm shrink-0 bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
+            <SelectTrigger className="min-w-[130px] sm:w-44 h-9 text-xs sm:text-sm shrink-0 bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 rounded-lg">
               <SelectValue placeholder="All suppliers" />
             </SelectTrigger>
             <SelectContent>
@@ -806,7 +725,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
             </SelectContent>
           </Select>
           <Select value={dayOfWeekFilter} onValueChange={setDayOfWeekFilter}>
-            <SelectTrigger className="min-w-[100px] sm:w-36 h-9 text-xs sm:text-sm shrink-0 bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
+            <SelectTrigger className="min-w-[100px] sm:w-36 h-9 text-xs sm:text-sm shrink-0 bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 rounded-lg">
               <SelectValue placeholder="All days" />
             </SelectTrigger>
             <SelectContent>
@@ -819,7 +738,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
             </SelectContent>
           </Select>
           <Select value={dateFilter} onValueChange={setDateFilter}>
-            <SelectTrigger className="min-w-[120px] sm:w-40 h-9 text-xs sm:text-sm shrink-0 bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
+            <SelectTrigger className="min-w-[120px] sm:w-40 h-9 text-xs sm:text-sm shrink-0 bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 rounded-lg">
               <SelectValue placeholder="Period" />
             </SelectTrigger>
             <SelectContent>
@@ -835,7 +754,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="min-w-[90px] sm:w-32 h-9 text-xs sm:text-sm shrink-0 bg-slate-50/50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700">
+            <SelectTrigger className="min-w-[90px] sm:w-32 h-9 text-xs sm:text-sm shrink-0 bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 rounded-lg">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -851,17 +770,22 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
       {/* ═══════════ TOP ROW: Suppliers to call + Overview ═══════════ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Suppliers to call */}
-        <section className="lg:col-span-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <PhoneCall className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Suppliers to call</h3>
+        <section className="lg:col-span-1 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900/40 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-3 bg-gradient-to-r from-emerald-50/50 to-transparent dark:from-emerald-950/20 dark:to-transparent">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center">
+                <PhoneCall className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Suppliers to call</h3>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">Based on order history</p>
+              </div>
             </div>
             <Select
               value={String(callDaySelector)}
               onValueChange={(v) => setCallDaySelector(parseInt(v, 10))}
             >
-              <SelectTrigger className="w-[120px] h-8 text-xs bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+              <SelectTrigger className="w-[130px] h-9 text-xs bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -874,7 +798,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
               </SelectContent>
             </Select>
           </div>
-          <div className="p-4 max-h-[280px] overflow-y-auto">
+          <div className="p-4 max-h-[300px] overflow-y-auto">
             {suppliersByDayLoading ? (
               <div className="flex items-center gap-2 py-8 text-slate-500 justify-center">
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -891,18 +815,18 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                       <button
                         type="button"
                         onClick={() => supplier && onSupplierClick?.(supplier)}
-                        className="flex items-center justify-between w-full px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left group"
+                        className="flex items-center justify-between w-full px-3 py-2.5 rounded-xl border border-transparent hover:border-emerald-200 dark:hover:border-emerald-800/50 hover:bg-emerald-50/70 dark:hover:bg-emerald-950/30 hover:shadow-sm transition-all duration-200 text-left group"
                       >
-                        <span className="text-sm font-medium text-slate-900 dark:text-white truncate pr-2">
+                        <span className="text-sm font-medium text-slate-900 dark:text-white truncate pr-2 group-hover:text-emerald-700 dark:group-hover:text-emerald-400 transition-colors">
                           {s.supplierName}
                         </span>
                         {s.supplierPhone ? (
                           <a
                             href={`tel:${s.supplierPhone}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 shrink-0"
+                            className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 shrink-0 transition-colors"
                           >
-                            <Phone className="w-3 h-3" />
+                            <Phone className="w-3 h-3 group-hover:scale-110 transition-transform" />
                             {s.supplierPhone}
                           </a>
                         ) : (
@@ -922,100 +846,50 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
         </section>
 
         {/* Overview */}
-        <section className="lg:col-span-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-[#1c6a1e] dark:text-[#2a8a30]" />
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Overview</h3>
+        <section className="lg:col-span-2 rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900/40 shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800/80">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-emerald-100/80 dark:bg-emerald-900/30 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4 text-[#1c6a1e] dark:text-[#2a8a30]" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Overview</h3>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">{dateRangeLabel || 'All time'}</p>
+              </div>
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{dateRangeLabel || 'All time'}</p>
           </div>
-          <div className="p-4 sm:p-5">
-
-          {salesLoading && user?.role !== 'cashier' ? (
-            <div className="flex items-center gap-2 py-8 text-slate-500">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span className="text-xs">Loading...</span>
-            </div>
-          ) : (
-            <div className="space-y-4">
+          <div className="p-5">
+            <div className="space-y-5">
               {/* Row 1: Bills stats */}
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                  <FileText className="w-3 h-3 text-slate-500 dark:text-slate-400 shrink-0" />
-                  <div>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Bills</p>
-                    <p className="text-xs font-medium text-slate-900 dark:text-white">{filteredBills.length}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                  <div>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Total</p>
-                    <p className="text-xs font-medium text-slate-900 dark:text-white">{formatPrice(totalAmount)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-50/50 dark:bg-amber-950/20">
-                  <Clock className="w-3 h-3 text-amber-500 shrink-0" />
-                  <div>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Pending</p>
-                    <p className="text-xs font-medium text-amber-600 dark:text-amber-400">{formatPrice(totalPending)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-emerald-50/50 dark:bg-emerald-950/20">
-                  <CheckCircle className="w-3 h-3 text-emerald-500 shrink-0" />
-                  <div>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Paid</p>
-                    <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">{formatPrice(totalPaid)}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                  <Calendar className="w-3 h-3 text-slate-500 dark:text-slate-400 shrink-0" />
-                  <div>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Avg/wk</p>
-                    <p className="text-xs font-medium text-slate-900 dark:text-white">{formatPrice(totalAmount / spanWeeks)}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 2: Financial pulse (non-cashiers) + cost ratio bar */}
-              {user?.role !== 'cashier' && (
-                <>
-                  <div className="grid grid-cols-3 gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
-                    <div>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Sales</p>
-                      <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">{formatPrice(salesRevenue)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Net</p>
-                      <p className={`text-xs font-medium ${netMargin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                        {netMargin >= 0 ? '+' : ''}{formatPrice(netMargin)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase">Cost ratio</p>
-                      <p className="text-xs font-medium text-slate-900 dark:text-white">{salesRevenue > 0 ? `${Math.round(costRatio)}%` : '—'}</p>
-                    </div>
-                  </div>
-                  {salesRevenue > 0 && (
-                    <div>
-                      <div className="h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${
-                            costRatio > 80 ? 'bg-red-500' : costRatio > 60 ? 'bg-amber-500' : 'bg-[#1c6a1e]'
-                          }`}
-                          style={{ width: `${Math.min(100, costRatio)}%` }}
-                        />
+                {[
+                  { icon: FileText, label: 'Bills', value: filteredBills.length, color: 'slate' },
+                  { icon: null, label: 'Total', value: formatPrice(totalAmount), color: 'slate' },
+                  { icon: Clock, label: 'Pending', value: formatPrice(totalPending), color: 'amber' },
+                  { icon: CheckCircle, label: 'Paid', value: formatPrice(totalPaid), color: 'emerald' },
+                  { icon: Calendar, label: 'Avg/wk', value: formatPrice(totalAmount / spanWeeks), color: 'slate' },
+                ].map((stat) => {
+                  const Icon = stat.icon;
+                  const bgClass = stat.color === 'amber' ? 'bg-amber-50 dark:bg-amber-950/20' : stat.color === 'emerald' ? 'bg-emerald-50 dark:bg-emerald-950/20' : 'bg-slate-50 dark:bg-slate-800/50';
+                  const valueClass = stat.color === 'amber' ? 'text-amber-600 dark:text-amber-400' : stat.color === 'emerald' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white';
+                  const iconClass = stat.color === 'amber' ? 'text-amber-500 dark:text-amber-400' : stat.color === 'emerald' ? 'text-emerald-500 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400';
+                  return (
+                    <div key={stat.label} className={`flex items-center gap-2.5 p-3 rounded-xl ${bgClass} transition-colors hover:opacity-90`}>
+                      {Icon && <Icon className={`w-3.5 h-3.5 shrink-0 ${iconClass}`} />}
+                      <div className="min-w-0">
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide">{stat.label}</p>
+                        <p className={`text-xs font-medium truncate ${valueClass}`}>{stat.value}</p>
                       </div>
                     </div>
-                  )}
-                </>
-              )}
+                  );
+                })}
+              </div>
 
-              {/* Row 3: Top suppliers + weekly budget (non-cashiers) */}
-              {user?.role !== 'cashier' && (supplierBudget.length > 0 || deliveryMatrix.weeklyBudget > 0) && (
-                <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-200 dark:border-slate-700">
+              {/* Row 2: Top suppliers + weekly budget */}
+              {(supplierBudget.length > 0 || deliveryMatrix.weeklyBudget > 0) && (
+                <div className="flex flex-wrap gap-2 pt-5 border-t border-slate-200/80 dark:border-slate-700/80">
                   {deliveryMatrix.weeklyBudget > 0 && (
-                    <span className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-100/80 dark:bg-slate-800/50">
+                    <span className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
                       <Truck className="w-3 h-3 text-slate-500 dark:text-slate-400" />
                       <span className="text-xs text-slate-500 dark:text-slate-400">This week</span>
                       <span className="text-xs font-medium text-slate-800 dark:text-slate-200">{formatPrice(deliveryMatrix.weeklyBudget)}</span>
@@ -1029,40 +903,44 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                         const supplier = suppliersFromTable.find((sup) => sup.name === s.name);
                         if (supplier && onSupplierClick) onSupplierClick(supplier);
                       }}
-                      className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-100/60 dark:bg-slate-800/40 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:text-[#1c6a1e] dark:hover:text-[#2a8a30] transition-colors text-left"
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100/80 dark:bg-slate-800/50 border border-transparent hover:border-emerald-200 dark:hover:border-emerald-800/50 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/30 transition-all text-left"
                     >
-                      <span className="text-xs text-slate-600 dark:text-slate-400 truncate max-w-[90px]">{s.name}</span>
+                      <span className="text-xs text-slate-600 dark:text-slate-400 truncate max-w-[100px]">{s.name}</span>
                       <span className="text-xs font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap">{formatPrice(s.total)}</span>
                     </button>
                   ))}
                 </div>
               )}
             </div>
-          )}
           </div>
         </section>
       </div>
 
       {/* ═══════════ ALL BILLS ═══════════ */}
       <section>
-        <div className="flex items-center justify-between gap-4 mb-4">
-          <div className="flex items-center gap-2">
-            <Receipt className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-white">All Bills</h3>
+        <div className="flex items-center justify-between gap-4 mb-5">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+              <Receipt className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">All Bills</h3>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400">Individual records</p>
+            </div>
           </div>
-          <Badge variant="secondary" className="text-xs px-2.5 py-0.5 font-medium">
+          <Badge variant="secondary" className="text-xs px-3 py-1 font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
             {filteredBills.length} {filteredBills.length === 1 ? 'bill' : 'bills'}
           </Badge>
         </div>
 
       {filteredBills.length === 0 ? (
-        <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 shadow-sm overflow-hidden">
-          <div className="py-16 sm:py-24 text-center px-4">
-            <div className="w-14 h-14 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
-              <Receipt className="h-7 w-7 text-slate-400 dark:text-slate-500" />
+        <div className="rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900/40 shadow-sm overflow-hidden">
+          <div className="py-20 sm:py-28 text-center px-6">
+            <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-5">
+              <Receipt className="h-8 w-8 text-slate-400 dark:text-slate-500" />
             </div>
-            <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">No bills found</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+            <p className="text-base font-semibold text-slate-700 dark:text-slate-300">No bills found</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-sm mx-auto">
               {statusFilter === 'all'
                 ? 'No supplier bills match your filters. Try adjusting filters or add a new bill.'
                 : `No ${statusFilter} bills for the selected period.`}
@@ -1083,12 +961,12 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
               return (
                 <Card
                   key={bill.id}
-                  className={`bg-white dark:bg-slate-900/50 overflow-hidden transition-all rounded-xl border ${
+                  className={`bg-white dark:bg-slate-900/40 overflow-hidden transition-all rounded-2xl border shadow-sm hover:shadow-md ${
                     isOverdue
-                      ? 'border-l-4 border-l-red-500 border-slate-200 dark:border-slate-700'
+                      ? 'border-l-4 border-l-red-500 border-slate-200/80 dark:border-slate-700/80'
                       : isDueSoon
-                      ? 'border-l-4 border-l-amber-500 border-slate-200 dark:border-slate-700'
-                      : 'border-slate-200 dark:border-slate-700'
+                      ? 'border-l-4 border-l-amber-500 border-slate-200/80 dark:border-slate-700/80'
+                      : 'border-slate-200/80 dark:border-slate-700/80'
                   }`}
                 >
                   <CardContent className="p-4 sm:p-5">
@@ -1196,11 +1074,11 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
           </div>
 
           {/* ── Desktop: Table ── */}
-          <div className="hidden lg:block rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 shadow-sm overflow-hidden">
+          <div className="hidden lg:block rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900/40 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-[13px]">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/90 dark:bg-slate-900/60">
+                  <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/50">
                     <th className="text-left px-4 py-3 font-semibold text-slate-500 dark:text-slate-400 text-[10px] uppercase tracking-wider">
                       Supplier
                     </th>
