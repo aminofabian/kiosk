@@ -90,9 +90,10 @@ const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 interface SupplierBillsListProps {
   onSupplierClick?: (supplier: SupplierFromTable) => void;
+  onAddBill?: () => void;
 }
 
-export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
+export function SupplierBillsList({ onSupplierClick, onAddBill }: SupplierBillsListProps) {
   const { productTypes } = useItemTypes();
   const { user } = useCurrentUser();
   const canDeleteBills = user?.role === 'admin' || user?.role === 'owner';
@@ -250,6 +251,15 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
     return Math.floor((dueDate - now) / 86400);
   };
 
+  const getDueLabel = (dueDate: number) => {
+    const d = getDaysUntilDue(dueDate);
+    if (d < 0) return `Overdue ${Math.abs(d)}d`;
+    if (d === 0) return 'Due today';
+    if (d === 1) return 'Due tomorrow';
+    if (d <= 7) return `Due in ${d}d`;
+    return null;
+  };
+
   const getStatusBadge = (bill: SupplierBillWithDetails) => {
     const daysUntilDue = getDaysUntilDue(bill.due_date);
     if (bill.status === 'paid') {
@@ -336,11 +346,10 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
   const fetchBills = useCallback(async () => {
     try {
       setLoading(true);
-      const url =
-        statusFilter === 'all'
-          ? '/api/supplier-bills?includeOverdue=true'
-          : `/api/supplier-bills?status=${statusFilter}`;
-      const result = await apiGet<SupplierBillWithDetails[]>(url);
+      // Always fetch all bills; status filtering is done client-side to avoid API/client mismatch
+      const result = await apiGet<SupplierBillWithDetails[]>(
+        '/api/supplier-bills?includeOverdue=true'
+      );
       if (result.success) {
         setBills(result.data || []);
       } else {
@@ -352,7 +361,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, []);
 
   useEffect(() => {
     fetchBills();
@@ -515,12 +524,15 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
           return false;
       }
       if (statusFilter !== 'all') {
+        const d = getDaysUntilDue(bill.due_date);
         if (statusFilter === 'pending') {
-          const d = getDaysUntilDue(bill.due_date);
           if (!(bill.status === 'pending' && d >= 0)) return false;
         } else if (statusFilter === 'overdue') {
-          const d = getDaysUntilDue(bill.due_date);
           if (!(bill.status === 'overdue' || (bill.status === 'pending' && d < 0))) return false;
+        } else if (statusFilter === 'due_today') {
+          if (bill.status === 'paid' || d !== 0) return false;
+        } else if (statusFilter === 'due_this_week') {
+          if (bill.status === 'paid' || d < 0 || d > 6) return false;
         } else {
           if (bill.status !== statusFilter) return false;
         }
@@ -672,8 +684,65 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
 
   // ── Render ───────────────────────────────────────────
 
+  const overdueCount = filteredBills.filter((b) => b.status !== 'paid' && (b.status === 'overdue' || getDaysUntilDue(b.due_date) < 0)).length;
+  const overdueBills = filteredBills.filter((b) => b.status !== 'paid' && (b.status === 'overdue' || getDaysUntilDue(b.due_date) < 0));
+  const dueSoonCount = filteredBills.filter((b) => {
+    const d = getDaysUntilDue(b.due_date);
+    return b.status !== 'paid' && d >= 0 && d <= 3;
+  }).length;
+
+  // Insights (from all bills, not filtered)
+  const unpaidBills = bills.filter((b) => b.status !== 'paid');
+  const dueTodayBills = unpaidBills.filter((b) => getDaysUntilDue(b.due_date) === 0);
+  const dueThisWeekBills = unpaidBills.filter((b) => {
+    const d = getDaysUntilDue(b.due_date);
+    return d >= 0 && d <= 6;
+  });
+  const whoYouOweMost = (() => {
+    const bySupplier: Record<string, number> = {};
+    unpaidBills.forEach((b) => {
+      const name = b.supplier_name || 'Unknown';
+      bySupplier[name] = (bySupplier[name] || 0) + b.amount;
+    });
+    const sorted = Object.entries(bySupplier).sort((a, b) => b[1] - a[1]);
+    return sorted[0] ? { name: sorted[0][0], amount: sorted[0][1] } : null;
+  })();
+  const monthStart = Math.floor(new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime() / 1000);
+  const paidThisMonth = bills.filter((b) => b.status === 'paid' && b.payment_date != null && b.payment_date >= monthStart);
+  const paidThisMonthTotal = paidThisMonth.reduce((s, b) => s + b.amount, 0);
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      {/* ═══════════ ALERTS (overdue / due soon) ═══════════ */}
+      {(overdueCount > 0 || dueSoonCount > 0) && (
+        <div className="flex flex-wrap gap-3">
+          {overdueCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setStatusFilter('overdue')}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200/80 dark:border-red-900/50 hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors text-left w-full sm:w-auto"
+            >
+              <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" />
+              <span className="text-sm font-medium text-red-800 dark:text-red-200">
+                {overdueCount} overdue bill{overdueCount !== 1 ? 's' : ''} — {formatPrice(overdueBills.reduce((s, b) => s + b.amount, 0))}
+              </span>
+            </button>
+          )}
+          {dueSoonCount > 0 && overdueCount === 0 && (
+            <button
+              type="button"
+              onClick={() => setStatusFilter('pending')}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-900/50 hover:bg-amber-100 dark:hover:bg-amber-950/30 transition-colors text-left w-full sm:w-auto"
+            >
+              <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                {dueSoonCount} bill{dueSoonCount !== 1 ? 's' : ''} due in 3 days or less
+              </span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* ═══════════ FILTERS ═══════════ */}
       <section className="rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900/40 shadow-sm overflow-hidden">
         <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800/80">
@@ -683,6 +752,9 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
           <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
             {filteredBills.length} bill{filteredBills.length !== 1 ? 's' : ''}
             {dateRangeLabel && <span> · {dateRangeLabel}</span>}
+            {statusFilter !== 'all' && (
+              <span> · {statusFilter === 'due_today' ? 'Due today' : statusFilter === 'due_this_week' ? 'Due this week' : statusFilter}</span>
+            )}
             {typeFilter !== 'all' && (() => {
               const tc = productTypes.find((t) => t.key === typeFilter);
               return (
@@ -761,6 +833,8 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
               <SelectItem value="all">All</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="overdue">Overdue</SelectItem>
+              <SelectItem value="due_today">Due today</SelectItem>
+              <SelectItem value="due_this_week">Due this week</SelectItem>
               <SelectItem value="paid">Paid</SelectItem>
             </SelectContent>
           </Select>
@@ -860,34 +934,120 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
           </div>
           <div className="p-5">
             <div className="space-y-5">
-              {/* Row 1: Bills stats */}
+              {/* Insight banner */}
+              {(dueTodayBills.length > 0 || overdueCount > 0 || whoYouOweMost) && (
+                <div className="rounded-xl border border-amber-200/80 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/20 p-3 text-sm">
+                  {overdueCount > 0 && (
+                    <p className="text-amber-800 dark:text-amber-200">
+                      <span className="font-medium">{overdueCount} overdue</span> — {formatPrice(overdueBills.reduce((s, b) => s + b.amount, 0))} total. Clear these first.
+                    </p>
+                  )}
+                  {overdueCount === 0 && dueTodayBills.length > 0 && (
+                    <p className="text-amber-800 dark:text-amber-200">
+                      <span className="font-medium">{dueTodayBills.length} due today</span> — {formatPrice(dueTodayBills.reduce((s, b) => s + b.amount, 0))}
+                    </p>
+                  )}
+                  {overdueCount === 0 && dueTodayBills.length === 0 && whoYouOweMost && unpaidBills.length > 0 && (
+                    <p className="text-amber-800 dark:text-amber-200">
+                      <span className="font-medium">Top creditor:</span> {whoYouOweMost.name} — {formatPrice(whoYouOweMost.amount)}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Payment pipeline */}
+              {totalAmount > 0 && (
+                <div>
+                  <p className="mb-1.5 text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide">Payment pipeline</p>
+                  <div className="flex h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                    <div
+                      className="bg-red-400 dark:bg-red-500 transition-all"
+                      style={{ width: `${Math.min(100, (overdueBills.reduce((s, b) => s + b.amount, 0) / totalAmount) * 100)}%` }}
+                    />
+                    <div
+                      className="bg-amber-400 dark:bg-amber-500 transition-all"
+                      style={{ width: `${Math.min(100, ((totalPending - overdueBills.reduce((s, b) => s + b.amount, 0)) / totalAmount) * 100)}%` }}
+                    />
+                    <div
+                      className="bg-emerald-400 dark:bg-emerald-500 transition-all"
+                      style={{ width: `${(totalPaid / totalAmount) * 100}%` }}
+                    />
+                  </div>
+                  <div className="mt-1.5 flex gap-4 text-[10px] text-slate-500 dark:text-slate-400">
+                    <span className="flex items-center gap-1.5"><span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" /> Overdue</span>
+                    <span className="flex items-center gap-1.5"><span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400" /> Pending</span>
+                    <span className="flex items-center gap-1.5"><span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" /> Paid</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Row 1: Bills stats (clickable) */}
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 {[
-                  { icon: FileText, label: 'Bills', value: filteredBills.length, color: 'slate' },
-                  { icon: null, label: 'Total', value: formatPrice(totalAmount), color: 'slate' },
-                  { icon: Clock, label: 'Pending', value: formatPrice(totalPending), color: 'amber' },
-                  { icon: CheckCircle, label: 'Paid', value: formatPrice(totalPaid), color: 'emerald' },
-                  { icon: Calendar, label: 'Avg/wk', value: formatPrice(totalAmount / spanWeeks), color: 'slate' },
+                  { icon: FileText, label: 'Bills', value: filteredBills.length, color: 'slate', onClick: () => setStatusFilter('all') },
+                  { icon: null, label: 'Total', value: formatPrice(totalAmount), color: 'slate', onClick: () => setStatusFilter('all') },
+                  { icon: Clock, label: 'Pending', value: formatPrice(totalPending), color: 'amber', onClick: () => setStatusFilter('pending') },
+                  { icon: CheckCircle, label: 'Paid', value: formatPrice(totalPaid), color: 'emerald', onClick: () => setStatusFilter('paid') },
+                  { icon: Calendar, label: 'Avg/wk', value: formatPrice(totalAmount / spanWeeks), color: 'slate', onClick: undefined },
                 ].map((stat) => {
                   const Icon = stat.icon;
                   const bgClass = stat.color === 'amber' ? 'bg-amber-50 dark:bg-amber-950/20' : stat.color === 'emerald' ? 'bg-emerald-50 dark:bg-emerald-950/20' : 'bg-slate-50 dark:bg-slate-800/50';
                   const valueClass = stat.color === 'amber' ? 'text-amber-600 dark:text-amber-400' : stat.color === 'emerald' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white';
                   const iconClass = stat.color === 'amber' ? 'text-amber-500 dark:text-amber-400' : stat.color === 'emerald' ? 'text-emerald-500 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400';
+                  const Wrapper = stat.onClick ? 'button' : 'div';
                   return (
-                    <div key={stat.label} className={`flex items-center gap-2.5 p-3 rounded-xl ${bgClass} transition-colors hover:opacity-90`}>
+                    <Wrapper
+                      key={stat.label}
+                      type={stat.onClick ? 'button' : undefined}
+                      onClick={stat.onClick}
+                      className={`flex w-full items-center gap-2.5 p-3 rounded-xl ${bgClass} transition-colors hover:opacity-90 text-left ${stat.onClick ? 'cursor-pointer hover:ring-2 hover:ring-slate-300 dark:hover:ring-slate-600' : ''}`}
+                    >
                       {Icon && <Icon className={`w-3.5 h-3.5 shrink-0 ${iconClass}`} />}
                       <div className="min-w-0">
                         <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide">{stat.label}</p>
                         <p className={`text-xs font-medium truncate ${valueClass}`}>{stat.value}</p>
                       </div>
-                    </div>
+                    </Wrapper>
                   );
                 })}
               </div>
 
+              {/* Row 2: Due today, Due this week, Paid this month, Who you owe most */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 border-t border-slate-200/80 dark:border-slate-700/80">
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('due_today')}
+                  className="flex flex-col gap-0.5 rounded-lg border border-amber-100 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/10 p-2.5 text-left transition hover:bg-amber-50 dark:hover:bg-amber-950/20"
+                >
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400 uppercase tracking-wide">Due today</p>
+                  <p className="text-xs font-medium text-amber-800 dark:text-amber-200">{dueTodayBills.length} · {formatPrice(dueTodayBills.reduce((s, b) => s + b.amount, 0))}</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('due_this_week')}
+                  className="flex flex-col gap-0.5 rounded-lg border border-slate-100 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/30 p-2.5 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800/50"
+                >
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide">Due this week</p>
+                  <p className="text-xs font-medium text-slate-800 dark:text-slate-200">{dueThisWeekBills.length} · {formatPrice(dueThisWeekBills.reduce((s, b) => s + b.amount, 0))}</p>
+                </button>
+                <div className="flex flex-col gap-0.5 rounded-lg border border-emerald-100 dark:border-emerald-900/50 bg-emerald-50/30 dark:bg-emerald-950/10 p-2.5">
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Paid this month</p>
+                  <p className="text-xs font-medium text-emerald-800 dark:text-emerald-200">{paidThisMonth.length} · {formatPrice(paidThisMonthTotal)}</p>
+                </div>
+                {whoYouOweMost && (
+                  <div className="flex flex-col gap-0.5 rounded-lg border border-slate-100 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/30 p-2.5">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide">You owe most</p>
+                    <p className="truncate text-xs font-medium text-slate-800 dark:text-slate-200">{whoYouOweMost.name}</p>
+                    <p className="text-[10px] text-slate-600 dark:text-slate-400">{formatPrice(whoYouOweMost.amount)}</p>
+                  </div>
+                )}
+              </div>
+
               {/* Row 2: Top suppliers + weekly budget */}
               {(supplierBudget.length > 0 || deliveryMatrix.weeklyBudget > 0) && (
-                <div className="flex flex-wrap gap-2 pt-5 border-t border-slate-200/80 dark:border-slate-700/80">
+                <div className="pt-5 border-t border-slate-200/80 dark:border-slate-700/80">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Top suppliers</p>
+                  <div className="flex flex-wrap gap-2">
                   {deliveryMatrix.weeklyBudget > 0 && (
                     <span className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
                       <Truck className="w-3 h-3 text-slate-500 dark:text-slate-400" />
@@ -909,6 +1069,7 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                       <span className="text-xs font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap">{formatPrice(s.total)}</span>
                     </button>
                   ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -935,16 +1096,30 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
 
       {filteredBills.length === 0 ? (
         <div className="rounded-2xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900/40 shadow-sm overflow-hidden">
-          <div className="py-20 sm:py-28 text-center px-6">
-            <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-5">
-              <Receipt className="h-8 w-8 text-slate-400 dark:text-slate-500" />
+          <div className="py-16 sm:py-20 text-center px-6">
+            <div className="w-14 h-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
+              <Receipt className="h-7 w-7 text-slate-400 dark:text-slate-500" />
             </div>
             <p className="text-base font-semibold text-slate-700 dark:text-slate-300">No bills found</p>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 max-w-sm mx-auto">
-              {statusFilter === 'all'
-                ? 'No supplier bills match your filters. Try adjusting filters or add a new bill.'
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-sm mx-auto">
+              {statusFilter === 'all' && dateFilter === 'all'
+                ? 'Record your first supplier bill to get started.'
+                : statusFilter === 'all'
+                ? 'No bills in this period. Try a different date range or add a new bill.'
+                : statusFilter === 'due_today'
+                ? 'No bills due today.'
+                : statusFilter === 'due_this_week'
+                ? 'No bills due this week.'
                 : `No ${statusFilter} bills for the selected period.`}
             </p>
+            {onAddBill && (
+              <Button
+                onClick={onAddBill}
+                className="mt-4 bg-[#1c6a1e] hover:bg-[#238b26] text-white text-sm font-medium"
+              >
+                Add a bill
+              </Button>
+            )}
           </div>
         </div>
       ) : (
@@ -1001,14 +1176,30 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                       {/* Key details row */}
                       <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400 flex-wrap">
                         <span className={`font-medium ${
-                          isOverdue ? 'text-red-600 dark:text-red-400' : isDueSoon ? 'text-orange-600 dark:text-orange-400' : ''
+                          isOverdue ? 'text-red-600 dark:text-red-400' : isDueSoon ? 'text-orange-600 dark:text-orange-400' : daysUntilDue === 0 ? 'text-amber-600 dark:text-amber-400' : ''
                         }`}>
-                          Due {formatDate(bill.due_date)}
+                          {bill.status === 'paid'
+                            ? formatDate(bill.due_date)
+                            : getDueLabel(bill.due_date)
+                            ? <><span>{getDueLabel(bill.due_date)}</span><span className="text-slate-400 dark:text-slate-500 font-normal ml-1">({formatDate(bill.due_date)})</span></>
+                            : `Due ${formatDate(bill.due_date)}`}
                         </span>
                         <span>&middot;</span>
-                        <span>{billDay} {formatDate(bill.created_at)}</span>
+                        <span>{billDay}</span>
+                        {bill.supplier_phone && (
+                          <>
+                            <span>&middot;</span>
+                            <a
+                              href={`tel:${bill.supplier_phone}`}
+                              className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 hover:underline"
+                            >
+                              <Phone className="w-3 h-3" />
+                              Call
+                            </a>
+                          </>
+                        )}
                         <span>&middot;</span>
-                        <span>by {bill.creator_name}</span>
+                        <span className="text-slate-400 dark:text-slate-500">by {bill.creator_name}</span>
                       </div>
 
                       {/* Payment info */}
@@ -1181,11 +1372,18 @@ export function SupplierBillsList({ onSupplierClick }: SupplierBillsListProps) {
                                 ? 'text-red-600 dark:text-red-400'
                                 : isDueSoon
                                 ? 'text-orange-600 dark:text-orange-400'
+                                : daysUntilDue === 0
+                                ? 'text-amber-600 dark:text-amber-400'
                                 : 'text-slate-700 dark:text-slate-300'
                             }`}
                           >
-                            {formatDate(bill.due_date)}
+                            {bill.status !== 'paid' && getDueLabel(bill.due_date)
+                              ? getDueLabel(bill.due_date)
+                              : formatDate(bill.due_date)}
                           </span>
+                          {bill.status !== 'paid' && getDueLabel(bill.due_date) && (
+                            <span className="block text-[10px] text-slate-400 dark:text-slate-500 font-normal mt-0.5">{formatDate(bill.due_date)}</span>
+                          )}
                         </td>
 
                         {/* Status */}

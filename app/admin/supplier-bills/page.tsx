@@ -87,25 +87,25 @@ function SupplierBillsPageContent() {
       <div className="min-h-screen bg-slate-100/60 dark:bg-[#0a1208]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
           {/* Page Header */}
-          <header className="mb-10">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5">
+          <header className="mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#1c6a1e] via-[#238b26] to-[#2a8a30] flex items-center justify-center shadow-lg shadow-emerald-900/20 ring-1 ring-white/10 shrink-0">
-                  <Receipt className="w-7 h-7 text-white" />
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-md shrink-0">
+                  <Receipt className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
                     Supplier Bills
                   </h1>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                    Track payments, monitor due dates, and manage cash flow.
+                  <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">
+                    Record bills, track payments, and manage supplier orders.
                   </p>
                 </div>
               </div>
               <Button
                 onClick={handleOpenNewBill}
                 size="default"
-                className="bg-[#1c6a1e] hover:bg-[#238b26] text-white shrink-0 h-11 px-6 font-medium shadow-md hover:shadow-lg transition-shadow rounded-xl"
+                className="bg-[#1c6a1e] hover:bg-[#238b26] text-white shrink-0 h-10 px-5 font-medium rounded-lg"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 New Bill
@@ -118,6 +118,7 @@ function SupplierBillsPageContent() {
           <SupplierBillsList
             key={refreshKey}
             onSupplierClick={handleSupplierClick}
+            onAddBill={handleOpenNewBill}
           />
 
           {/* Supplier Products Drawer */}

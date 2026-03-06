@@ -52,8 +52,13 @@ export async function GET(request: NextRequest) {
       WHERE sb.business_id = ? AND sb.status != 'cancelled'
     `;
     const params: (string | number)[] = [auth.businessId];
+    const now = Math.floor(Date.now() / 1000);
 
-    if (status) {
+    if (status === 'overdue') {
+      // Overdue = status 'overdue' OR pending bills past due date
+      querySql += ` AND (sb.status = 'overdue' OR (sb.status = 'pending' AND sb.due_date < ?))`;
+      params.push(now);
+    } else if (status) {
       querySql += ` AND sb.status = ?`;
       params.push(status);
     } else if (!includeOverdue) {
@@ -70,7 +75,6 @@ export async function GET(request: NextRequest) {
     }>(querySql, params);
 
     // Update overdue status for bills past due date
-    const now = Math.floor(Date.now() / 1000);
     const overdueBills = bills.filter(
       (bill) => bill.status === 'pending' && bill.due_date < now
     );
