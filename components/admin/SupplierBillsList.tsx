@@ -52,6 +52,8 @@ import {
   ScanBarcode,
   Phone,
   PhoneCall,
+  Package,
+  ListChecks,
 } from 'lucide-react';
 import { apiGet, apiPost, apiDelete } from '@/lib/utils/api-client';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
@@ -86,6 +88,43 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
 const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // Mon → Sun (business week)
 const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+/** Parse bill_description (from formatBillDescription) into structured items for display */
+function parseBillItems(text: string, totalAmount: number): Array<{ description: string; quantity: string; unitPrice: string; total: number }> {
+  if (!text?.trim()) {
+    return [{ description: text?.trim() || 'Item', quantity: '1', unitPrice: String(totalAmount), total: totalAmount }];
+  }
+  const priceSuffixRegex = /\s*-\s*(\d+(?:\.\d+)?)\s+×\s+KES\s+([\d.]+)\s+=\s+KES\s+([\d.]+)\s*$/;
+  const parts = text.split(/\s*(?=\d+\.\s)/).filter((p) => p.trim());
+  const items: Array<{ description: string; quantity: string; unitPrice: string; total: number }> = [];
+
+  for (const part of parts) {
+    const cleaned = part.trim().replace(/^\d+\.\s*/, '');
+    const match = cleaned.match(priceSuffixRegex);
+    if (match) {
+      const [, qty, unitPrice, totalStr] = match;
+      const description = cleaned.replace(priceSuffixRegex, '').trim();
+      if (description) {
+        items.push({ description, quantity: qty, unitPrice, total: parseFloat(totalStr) });
+      }
+    }
+  }
+
+  if (items.length === 0) {
+    const singleMatch = text.match(/^([\s\S]+?)\s*\((\d+(?:\.\d+)?)\s+×\s+KES\s+([\d.]+)\s+=\s+KES\s+([\d.]+)\)\s*$/);
+    if (singleMatch) {
+      const [, description, qty, unitPrice, totalStr] = singleMatch;
+      if (description?.trim()) {
+        items.push({ description: description.trim(), quantity: qty, unitPrice, total: parseFloat(totalStr) });
+      }
+    }
+  }
+
+  if (items.length === 0) {
+    items.push({ description: text.trim(), quantity: '1', unitPrice: String(totalAmount), total: totalAmount });
+  }
+  return items;
+}
+
 // ── Component ──────────────────────────────────────────
 
 interface SupplierBillsListProps {
@@ -110,6 +149,7 @@ export function SupplierBillsList({ onSupplierClick, onAddBill }: SupplierBillsL
     bill: SupplierBillWithDetails | null;
   }>({ open: false, bill: null });
   const [editingBill, setEditingBill] = useState<SupplierBillWithDetails | null>(null);
+  const [viewingBillItems, setViewingBillItems] = useState<SupplierBillWithDetails | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('');
   const [paymentNotes, setPaymentNotes] = useState('');
   const [isMarkingAsPaid, setIsMarkingAsPaid] = useState(false);
@@ -1161,9 +1201,14 @@ export function SupplierBillsList({ onSupplierClick, onAddBill }: SupplierBillsL
                           >
                             {bill.supplier_name}
                           </button>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => setViewingBillItems(bill)}
+                            className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5 block max-w-full text-left hover:text-[#1c6a1e] dark:hover:text-[#2a8a30] hover:underline transition-colors flex items-center gap-1"
+                          >
+                            <Package className="w-3 h-3 shrink-0" />
                             {bill.bill_description}
-                          </p>
+                          </button>
                         </div>
                         <div className="text-right shrink-0">
                           <p className="text-xs font-medium text-slate-900 dark:text-white">
@@ -1338,9 +1383,15 @@ export function SupplierBillsList({ onSupplierClick, onAddBill }: SupplierBillsL
 
                         {/* Description */}
                         <td className="px-3 py-3 max-w-[180px]">
-                          <p className="text-slate-600 dark:text-slate-400 truncate text-[13px]" title={bill.bill_description}>
-                            {bill.bill_description}
-                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setViewingBillItems(bill)}
+                            className="text-slate-600 dark:text-slate-400 truncate text-[13px] text-left hover:text-[#1c6a1e] dark:hover:text-[#2a8a30] hover:underline transition-colors flex items-center gap-1.5 max-w-full"
+                            title="View items"
+                          >
+                            <Package className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                            <span className="truncate">{bill.bill_description}</span>
+                          </button>
                         </td>
 
                         {/* Payment (combined method + details) */}
@@ -1504,6 +1555,95 @@ export function SupplierBillsList({ onSupplierClick, onAddBill }: SupplierBillsL
         </DrawerContent>
       </Drawer>
 
+      {/* ═══════════ BILL ITEMS DRAWER (View & Edit) ═══════════ */}
+      <Drawer open={!!viewingBillItems} onOpenChange={(open) => !open && setViewingBillItems(null)} direction="right">
+        <DrawerContent className="!w-full sm:!w-[480px] !max-w-full h-full max-h-screen z-[52] rounded-l-2xl">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/60 relative pr-12">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setViewingBillItems(null)}
+              className="absolute right-4 top-4 h-10 w-10 rounded-lg"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+            <div className="pr-8">
+              <DrawerTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+                <ListChecks className="w-5 h-5 text-[#1c6a1e]" />
+                Bill items
+              </DrawerTitle>
+              <DrawerDescription className="text-slate-600 dark:text-slate-400 mt-1">
+                {viewingBillItems && (
+                  <>
+                    {viewingBillItems.supplier_name} · {formatPrice(viewingBillItems.amount)}
+                  </>
+                )}
+              </DrawerDescription>
+            </div>
+          </DrawerHeader>
+          <div className="flex-1 min-h-0 overflow-y-auto p-5">
+            {viewingBillItems && (() => {
+              const items = parseBillItems(viewingBillItems.bill_description, viewingBillItems.amount);
+              return (
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-700 divide-y divide-slate-200 dark:divide-slate-700 overflow-hidden">
+                    {items.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between gap-4 px-4 py-3 bg-white dark:bg-slate-900/40 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">
+                            {item.description}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                            {item.quantity} × {formatPrice(parseFloat(item.unitPrice))}
+                          </p>
+                        </div>
+                        <span className="text-sm font-semibold text-slate-900 dark:text-white shrink-0">
+                          {formatPrice(item.total)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
+                    <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Total</span>
+                    <span className="text-lg font-bold text-slate-900 dark:text-white">
+                      {formatPrice(viewingBillItems.amount)}
+                    </span>
+                  </div>
+                  {viewingBillItems.status !== 'paid' && viewingBillItems.status !== 'cancelled' && (
+                    <div className="flex gap-2 pt-4">
+                      <Button
+                        onClick={() => {
+                          setViewingBillItems(null);
+                          setEditingBill(viewingBillItems);
+                        }}
+                        className="flex-1 bg-[#1c6a1e] hover:bg-[#238b26] text-white"
+                      >
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Edit bill
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setViewingBillItems(null);
+                          handleMarkAsPaid(viewingBillItems);
+                        }}
+                        variant="outline"
+                        className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400"
+                      >
+                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                        Mark as paid
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        </DrawerContent>
+      </Drawer>
+
       {/* ═══════════ MARK AS PAID DIALOG ═══════════ */}
       <Dialog
         open={markAsPaidDialog.open}
@@ -1511,55 +1651,87 @@ export function SupplierBillsList({ onSupplierClick, onAddBill }: SupplierBillsL
           setMarkAsPaidDialog({ open, bill: open ? markAsPaidDialog.bill : null })
         }
       >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-md flex max-h-[90vh] flex-col">
+          <DialogHeader className="shrink-0">
             <DialogTitle>Mark Bill as Paid</DialogTitle>
             <DialogDescription>
-              {markAsPaidDialog.bill && (
-                <>
-                  Mark the bill from <strong>{markAsPaidDialog.bill.supplier_name}</strong> as paid.
-                  You can optionally add payment details below.
-                </>
-              )}
+              Confirm this bill has been paid. Add payment details below if needed.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto py-4">
             {markAsPaidDialog.bill && (
-              <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs text-slate-600 dark:text-slate-400">Amount:</span>
-                  <span className="text-xs font-medium text-slate-900 dark:text-white">
-                    {formatPrice(markAsPaidDialog.bill.amount)}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-600 dark:text-slate-400">Description:</span>
-                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    {markAsPaidDialog.bill.bill_description}
-                  </span>
+              <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/40 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      Bill
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-white truncate">
+                      {markAsPaidDialog.bill.supplier_name}
+                    </p>
+                    {markAsPaidDialog.bill.bill_description && (
+                      <p className="mt-1 text-xs text-slate-600 dark:text-slate-400 line-clamp-2">
+                        {markAsPaidDialog.bill.bill_description}
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const bill = markAsPaidDialog.bill;
+                        if (bill) {
+                          setMarkAsPaidDialog({ open: false, bill: null });
+                          setViewingBillItems(bill);
+                        }
+                      }}
+                      className="mt-2 text-[11px] text-[#1c6a1e] dark:text-[#2a8a30] hover:underline flex items-center gap-1"
+                    >
+                      <ListChecks className="w-3 h-3" />
+                      View items
+                    </button>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Amount</p>
+                    <p className="text-lg font-bold text-slate-900 dark:text-white">
+                      {formatPrice(markAsPaidDialog.bill.amount)}
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="paymentMethod">Payment Method (Optional)</Label>
-              <Input
-                id="paymentMethod"
-                placeholder="e.g., Cash, M-Pesa, Bank Transfer"
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="paymentNotes">Payment Notes (Optional)</Label>
-              <Input
-                id="paymentNotes"
-                placeholder="Any additional notes about the payment"
-                value={paymentNotes}
-                onChange={(e) => setPaymentNotes(e.target.value)}
-              />
+
+            <div className="space-y-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Payment details <span className="font-normal">(optional)</span>
+              </p>
+              <div className="space-y-4 rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900/30 p-4">
+                <div className="space-y-2">
+                  <Label htmlFor="paymentMethod" className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                    Payment method
+                  </Label>
+                  <Input
+                    id="paymentMethod"
+                    placeholder="e.g. Cash, M-Pesa, Bank Transfer"
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="paymentNotes" className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                    Notes
+                  </Label>
+                  <Input
+                    id="paymentNotes"
+                    placeholder="Any additional notes about the payment"
+                    value={paymentNotes}
+                    onChange={(e) => setPaymentNotes(e.target.value)}
+                    className="h-9 text-sm"
+                  />
+                </div>
+              </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="shrink-0">
             <Button
               variant="outline"
               onClick={() => setMarkAsPaidDialog({ open: false, bill: null })}
