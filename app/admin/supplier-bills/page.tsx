@@ -84,28 +84,28 @@ function SupplierBillsPageContent() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100/80 dark:from-[#0f1a0d] dark:to-slate-950/30">
+      <div className="min-h-screen bg-slate-50/50 dark:bg-[#0f1a0d]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           {/* Page Header */}
-          <header className="mb-6 sm:mb-8">
+          <header className="mb-8">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#1c6a1e] via-[#238b26] to-[#2a8a30] flex items-center justify-center shadow-lg shadow-[#1c6a1e]/30 ring-2 ring-[#1c6a1e]/10 shrink-0">
-                  <Receipt className="w-6 h-6 text-white drop-shadow-sm" />
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-md shrink-0">
+                  <Receipt className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
                     Supplier Bills
                   </h1>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400 max-w-md">
-                    Track and manage pending payments to suppliers. Record bills, monitor due dates, and maintain cash flow visibility.
+                  <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+                    Track payments, monitor due dates, and manage cash flow.
                   </p>
                 </div>
               </div>
               <Button
                 onClick={handleOpenNewBill}
                 size="default"
-                className="bg-gradient-to-r from-[#1c6a1e] to-[#2a8a30] hover:from-[#238b26] hover:to-[#2d9a33] text-white shrink-0 h-10 px-4 sm:px-5 font-semibold shadow-lg shadow-[#1c6a1e]/25 hover:shadow-xl hover:shadow-[#1c6a1e]/30 transition-all duration-200"
+                className="bg-[#1c6a1e] hover:bg-[#238b26] text-white shrink-0 h-10 px-5 font-medium"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 New Bill
@@ -114,7 +114,7 @@ function SupplierBillsPageContent() {
           </header>
 
           {/* Main Content */}
-          <main>
+          <main className="space-y-6">
           <SupplierBillsList
             key={refreshKey}
             onSupplierClick={handleSupplierClick}
