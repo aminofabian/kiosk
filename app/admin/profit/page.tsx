@@ -56,6 +56,9 @@ interface ProfitData {
   grossProfit?: number;
   grossMargin?: number;
   totalSales: number;
+  paidRevenue?: number;
+  creditRevenue?: number;
+  totalOutstandingCredit?: number;
   totalCost: number;
   profitMargin: number;
   totalTransactions: number;
@@ -368,6 +371,11 @@ export default function ProfitHubPage() {
                 </div>
                 <p className="text-blue-100 text-[10px] font-medium">Total Revenue</p>
                 <p className="text-base font-black text-white leading-tight">{formatPrice(allData?.totalSales ?? 0)}</p>
+                {(allData?.creditRevenue ?? 0) > 0 && (
+                  <p className="text-[9px] text-blue-100/90 mt-0.5" title={`Revenue for ${dateRange.start}${dateRange.start !== dateRange.end ? ` to ${dateRange.end}` : ''}`}>
+                    Paid: {formatPrice(allData?.paidRevenue ?? 0)} · Credit: {formatPrice(allData?.creditRevenue ?? 0)}
+                  </p>
+                )}
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 border-0 shadow-md">
@@ -424,10 +432,23 @@ export default function ProfitHubPage() {
                     </div>
                     <span className="font-black text-xs text-slate-900 dark:text-white">{formatPrice(allData?.totalSales ?? 0)}</span>
                   </div>
+                  {(allData?.paidRevenue ?? 0) > 0 && (
+                    <div className="flex items-center justify-between pl-4 text-[10px]">
+                      <span className="text-slate-500 dark:text-slate-400">Paid (cash/mpesa)</span>
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">{formatPrice(allData?.paidRevenue ?? 0)}</span>
+                    </div>
+                  )}
+                  {(allData?.creditRevenue ?? 0) > 0 && (
+                    <div className="flex items-center justify-between pl-4 text-[10px]">
+                      <span className="text-slate-500 dark:text-slate-400">Credit</span>
+                      <span className="font-semibold text-amber-600 dark:text-amber-500">{formatPrice(allData?.creditRevenue ?? 0)}</span>
+                    </div>
+                  )}
                   <div className="relative h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                     <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-blue-400 to-blue-500" style={{ width: '100%' }} />
                   </div>
                 </div>
+                {/* Outstanding credit - separate from revenue */}
                 {/* Cost of Goods */}
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">

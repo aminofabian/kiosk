@@ -91,6 +91,62 @@ export async function GET(request: NextRequest) {
       unique_items_sold: 0,
     };
 
+    // Revenue breakdown: paid (cash/mpesa) vs credit - both from sale_items so Paid + Credit = Total
+    const revenueBreakdown = await queryOne<{
+      paid_revenue: number;
+      credit_revenue: number;
+    }>(
+      `WITH sales_in_range AS (
+        SELECT id, payment_method, total_amount
+        FROM sales
+        WHERE business_id = ? AND status = 'completed'
+          AND sale_date >= ? AND sale_date <= ?
+      )
+      SELECT 
+        COALESCE(SUM(
+          si.quantity_sold * si.sell_price_per_unit * 
+          CASE 
+            WHEN s.payment_method IN ('cash', 'mpesa') THEN 1.0
+            WHEN s.payment_method = 'credit' THEN 0.0
+            WHEN s.payment_method = 'split' THEN 
+              COALESCE((
+                SELECT SUM(sp.amount) FROM sale_payments sp 
+                WHERE sp.sale_id = s.id AND sp.payment_method IN ('cash', 'mpesa')
+              ), 0) / NULLIF(s.total_amount, 0)
+            ELSE 0.0
+          END
+        ), 0) as paid_revenue,
+        COALESCE(SUM(
+          si.quantity_sold * si.sell_price_per_unit * 
+          CASE 
+            WHEN s.payment_method IN ('cash', 'mpesa') THEN 0.0
+            WHEN s.payment_method = 'credit' THEN 1.0
+            WHEN s.payment_method = 'split' THEN 
+              COALESCE((
+                SELECT SUM(sp.amount) FROM sale_payments sp 
+                WHERE sp.sale_id = s.id AND sp.payment_method = 'credit'
+              ), 0) / NULLIF(s.total_amount, 0)
+            ELSE 0.0
+          END
+        ), 0) as credit_revenue
+       FROM sale_items si
+       JOIN sales_in_range s ON si.sale_id = s.id
+       WHERE 1=1
+         ${itemTypeFilter}`,
+      [auth.businessId, startTimestamp, endTimestamp, ...itemTypeParams]
+    );
+
+    const paidRevenue = revenueBreakdown?.paid_revenue ?? 0;
+    const creditRevenue = revenueBreakdown?.credit_revenue ?? 0;
+
+    // Total outstanding credit (current balance customers owe) - separate metric, not part of revenue
+    const totalOutstandingCredit = !itemType
+      ? (await queryOne<{ total: number }>(
+          `SELECT COALESCE(SUM(total_credit), 0) as total FROM credit_accounts WHERE business_id = ?`,
+          [auth.businessId]
+        ))?.total ?? 0
+      : undefined;
+
     // For customer queries, when filtering by itemType we need to join through sale_items
     const customerItemTypeJoin = itemType
       ? `JOIN sale_items si_c ON s_c.id = si_c.sale_id AND COALESCE(si_c.item_type_snapshot, 'retail') = ?`
@@ -426,6 +482,9 @@ export async function GET(request: NextRequest) {
         grossProfit: summaryData.total_profit,
         grossMargin,
         totalSales: summaryData.total_sales,
+        paidRevenue,
+        creditRevenue,
+        totalOutstandingCredit,
         totalCost: summaryData.total_cost,
         stockLosses: !itemType ? {
           total: totalStockLoss,
