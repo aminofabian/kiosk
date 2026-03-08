@@ -27,9 +27,12 @@ export async function GET(request: NextRequest) {
     const parentId = searchParams.get('parentId'); // Get variants of a specific parent
     const sellableOnly = searchParams.get('sellableOnly') === 'true'; // Only items that can be sold (not parent containers)
     const itemType = searchParams.get('itemType')?.trim() || null;
+    const noBarcode = searchParams.get('noBarcode') === 'true';
 
     const itemTypeFilter = itemType ? ` AND item_type = ?` : '';
     const itemTypeParam = itemType ? [itemType] : [];
+    const noBarcodeFilter = noBarcode ? ` AND (COALESCE(TRIM(barcode), '') = '')` : '';
+    const noBarcodeFilterAlias = noBarcode ? ` AND (COALESCE(TRIM(i.barcode), '') = '')` : '';
     // When includeInactive=true (admin "show deleted"), include soft-deleted items
     const activeFilter = includeInactive && all ? '' : ' AND active = 1';
     const iActiveFilter = includeInactive && all ? '' : ' AND i.active = 1';
@@ -40,7 +43,7 @@ export async function GET(request: NextRequest) {
       // Get variants of a specific parent item
       items = await query<Item>(
         `SELECT * FROM items 
-         WHERE business_id = ? AND parent_item_id = ? AND active = 1 ${itemTypeFilter}
+         WHERE business_id = ? AND parent_item_id = ? AND active = 1 ${itemTypeFilter}${noBarcodeFilter}
          ORDER BY variant_name ASC, unit_type ASC`,
         [auth.businessId, parentId, ...itemTypeParam]
       );
@@ -206,7 +209,7 @@ export async function GET(request: NextRequest) {
         // Only parent items (no parent_item_id) - for admin management
         items = await query<Item>(
           `SELECT * FROM items 
-           WHERE business_id = ?${activeFilter} AND parent_item_id IS NULL${itemTypeFilter}
+           WHERE business_id = ?${activeFilter} AND parent_item_id IS NULL${itemTypeFilter}${noBarcodeFilter}
            ORDER BY name ASC`,
           [auth.businessId, ...itemTypeParam]
         );
@@ -215,7 +218,7 @@ export async function GET(request: NextRequest) {
         const variantActiveFilter = includeInactive ? '' : ' AND v.active = 1';
         items = await query<Item>(
           `SELECT i.* FROM items i
-           WHERE i.business_id = ?${iActiveFilter}${itemTypeFilter.replace(' AND ', ' AND i.')}
+           WHERE i.business_id = ?${iActiveFilter}${itemTypeFilter.replace(' AND ', ' AND i.')}${noBarcodeFilterAlias}
            AND (
              i.parent_item_id IS NOT NULL  -- variants are sellable
              OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id${variantActiveFilter})  -- standalone items without variants
@@ -226,7 +229,7 @@ export async function GET(request: NextRequest) {
       } else {
         items = await query<Item>(
           `SELECT * FROM items 
-           WHERE business_id = ?${activeFilter}${itemTypeFilter}
+           WHERE business_id = ?${activeFilter}${itemTypeFilter}${noBarcodeFilter}
            ORDER BY name ASC`,
           [auth.businessId, ...itemTypeParam]
         );
@@ -247,7 +250,7 @@ export async function GET(request: NextRequest) {
         items = await query<Item>(
           `SELECT * FROM items 
            WHERE business_id = ? AND category_id = ? AND active = 1 
-           AND parent_item_id IS NULL${itemTypeFilter}
+           AND parent_item_id IS NULL${itemTypeFilter}${noBarcodeFilter}
            ORDER BY name ASC`,
           [auth.businessId, categoryId, ...itemTypeParam]
         );
@@ -255,7 +258,7 @@ export async function GET(request: NextRequest) {
         // Sellable items in category
         items = await query<Item>(
           `SELECT i.* FROM items i
-           WHERE i.business_id = ? AND i.category_id = ? AND i.active = 1${itemTypeFilter.replace(' AND ', ' AND i.')}
+           WHERE i.business_id = ? AND i.category_id = ? AND i.active = 1${itemTypeFilter.replace(' AND ', ' AND i.')}${noBarcodeFilterAlias}
            AND (
              i.parent_item_id IS NOT NULL  
              OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1)
@@ -266,7 +269,7 @@ export async function GET(request: NextRequest) {
       } else {
         items = await query<Item>(
           `SELECT * FROM items 
-           WHERE business_id = ? AND category_id = ? AND active = 1${itemTypeFilter}
+           WHERE business_id = ? AND category_id = ? AND active = 1${itemTypeFilter}${noBarcodeFilter}
            ORDER BY name ASC`,
           [auth.businessId, categoryId, ...itemTypeParam]
         );
