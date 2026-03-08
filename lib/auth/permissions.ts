@@ -51,7 +51,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'view_profit',
     'manage_items',
   ],
-  cashier: ['sell', 'view_own_sales', 'adjust_stock'],
+  cashier: ['sell', 'view_own_sales', 'adjust_stock', 'manage_items'],
 };
 
 export function hasPermission(role: UserRole, permission: Permission): boolean {

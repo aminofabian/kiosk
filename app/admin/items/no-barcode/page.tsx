@@ -34,6 +34,7 @@ import Link from 'next/link';
 
 interface ItemWithCategory extends Item {
   category_name?: string;
+  parent_name?: string;
   isParent?: boolean;
   variantCount?: number;
   variants?: ItemWithCategory[];
@@ -58,12 +59,13 @@ export default function ItemsWithoutBarcodePage() {
     try {
       setLoading(true);
       setError(null);
+      const cacheBust = `&_t=${Date.now()}`;
       const [itemsRes, categoriesRes] = await Promise.all([
         fetch(
-          `/api/items?all=true&noBarcode=true&itemType=${encodeURIComponent(itemTypeFilter)}`,
-          { cache: 'no-store' }
+          `/api/items?all=true&noBarcode=true&itemType=${encodeURIComponent(itemTypeFilter)}${cacheBust}`,
+          { cache: 'no-store', headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' } }
         ),
-        fetch('/api/categories', { cache: 'no-store' }),
+        fetch(`/api/categories?_t=${Date.now()}`, { cache: 'no-store' }),
       ]);
 
       const itemsResult = await itemsRes.json();
@@ -74,18 +76,20 @@ export default function ItemsWithoutBarcodePage() {
       }
 
       if (itemsResult.success) {
-        const allItems: ItemWithCategory[] = itemsResult.data.map((item: Item) => {
+        const allItems: ItemWithCategory[] = itemsResult.data.map((item: Item & { parent_name?: string }) => {
           const category = categoriesResult.success
             ? categoriesResult.data.find((c: Category) => c.id === item.category_id)
             : null;
           return {
             ...item,
             category_name: category?.name,
+            parent_name: item.parent_name,
           };
         });
 
-        const parentItems: ItemWithCategory[] = [];
+        // API returns only variants + standalone (no parents). Group variants by parent.
         const variantsByParent = new Map<string, ItemWithCategory[]>();
+        const standaloneItems: ItemWithCategory[] = [];
 
         for (const item of allItems) {
           if (item.parent_item_id) {
@@ -93,26 +97,34 @@ export default function ItemsWithoutBarcodePage() {
             variants.push(item);
             variantsByParent.set(item.parent_item_id, variants);
           } else {
-            parentItems.push(item);
+            standaloneItems.push(item);
           }
         }
 
         const processedItems: ItemWithCategory[] = [];
-        for (const item of parentItems) {
-          const variants = variantsByParent.get(item.id);
-          if (variants && variants.length > 0) {
-            processedItems.push({
-              ...item,
-              isParent: true,
-              variantCount: variants.length,
-              variants: variants.sort((a, b) =>
-                (a.variant_name || '').localeCompare(b.variant_name || '')
-              ),
-            });
-          } else {
-            processedItems.push(item);
-          }
+        // Add parent labels (from variant groups) — parent is only a label, never an item
+        const parentEntries = [...variantsByParent.entries()].sort((a, b) => {
+          const nameA = (a[1][0].parent_name || a[1][0].name || '').toLowerCase();
+          const nameB = (b[1][0].parent_name || b[1][0].name || '').toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+        for (const [parentId, variants] of parentEntries) {
+          const first = variants[0];
+          processedItems.push({
+            id: parentId,
+            name: first.parent_name || first.name,
+            category_id: first.category_id,
+            category_name: first.category_name,
+            isParent: true,
+            variantCount: variants.length,
+            variants: variants.sort((a, b) =>
+              (a.variant_name || '').localeCompare(b.variant_name || '')
+            ),
+          } as ItemWithCategory);
         }
+        // Add standalone items (sorted by name)
+        standaloneItems.sort((a, b) => a.name.localeCompare(b.name));
+        processedItems.push(...standaloneItems);
 
         setItems(processedItems);
       } else {
@@ -145,8 +157,13 @@ export default function ItemsWithoutBarcodePage() {
           );
         if (!matches) return false;
       }
-      if (selectedCategory !== 'all' && item.category_id !== selectedCategory) {
-        return false;
+      if (selectedCategory !== 'all') {
+        if (item.isParent && item.variants) {
+          const hasMatch = item.variants.some((v) => v.category_id === selectedCategory);
+          if (!hasMatch) return false;
+        } else if (item.category_id !== selectedCategory) {
+          return false;
+        }
       }
       return true;
     });
@@ -155,14 +172,14 @@ export default function ItemsWithoutBarcodePage() {
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const item of items) {
-      const catId = item.category_id;
-      const catName = categories.find((c) => c.id === catId)?.name || 'Uncategorized';
-      counts[catName] = (counts[catName] || 0) + 1;
-      if (item.variants) {
+      if (item.isParent && item.variants) {
         for (const v of item.variants) {
-          const vCatName = categories.find((c) => c.id === v.category_id)?.name || 'Uncategorized';
-          counts[vCatName] = (counts[vCatName] || 0) + 1;
+          const catName = categories.find((c) => c.id === v.category_id)?.name || 'Uncategorized';
+          counts[catName] = (counts[catName] || 0) + 1;
         }
+      } else {
+        const catName = categories.find((c) => c.id === item.category_id)?.name || 'Uncategorized';
+        counts[catName] = (counts[catName] || 0) + 1;
       }
     }
     return counts;
@@ -200,43 +217,22 @@ export default function ItemsWithoutBarcodePage() {
     if (!editingItem || !barcodeInput.trim()) return;
     setSavingBarcode(true);
     try {
-      const res = await fetch(`/api/items/${editingItem.id}`);
-      const result = await res.json();
-      if (!result.success) throw new Error(result.message);
-
-      const item = result.data;
-      const putRes = await fetch(`/api/items/${editingItem.id}`, {
-        method: 'PUT',
+      const res = await fetch(`/api/items/${editingItem.id}/barcode`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: item.name,
-          categoryId: item.category_id,
-          unitType: item.unit_type,
-          buyPrice: item.buy_price,
-          sellPrice: item.current_sell_price,
-          minStockLevel: item.min_stock_level,
-          variantName: item.variant_name,
-          barcode: barcodeInput.trim(),
-          expiryDate: item.expiry_date,
-          bundleQuantity: item.bundle_quantity,
-          bundlePrice: item.bundle_price,
-          bundleName: item.bundle_name,
-          packagingUnitName: item.packaging_unit_name,
-          packagingUnitQty: item.packaging_unit_qty,
-          itemType: item.item_type,
-        }),
+        body: JSON.stringify({ barcode: barcodeInput.trim() }),
       });
 
-      const putResult = await putRes.json();
-      if (putResult.success) {
+      const result = await res.json();
+      if (result.success) {
         toast.success('Barcode added', {
           description: `${editingItem.name}${editingItem.variant_name ? ` – ${editingItem.variant_name}` : ''}`,
         });
         setBarcodeDrawerOpen(false);
         setEditingItem(null);
-        fetchData();
+        await fetchData();
       } else {
-        toast.error(putResult.message || 'Failed to add barcode');
+        toast.error(result.message || 'Failed to add barcode');
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to add barcode');
@@ -463,56 +459,62 @@ export default function ItemsWithoutBarcodePage() {
                       </Link>
                     </div>
                   ) : (
-                    <div className="divide-y divide-slate-100 dark:divide-slate-800 max-h-[60vh] overflow-y-auto">
+                    <div className="max-h-[60vh] overflow-y-auto py-2">
                       {filteredItems.map((item) => {
                         const isExpanded = expandedParents.has(item.id);
                         return (
                           <div key={item.id}>
                             {item.isParent ? (
-                              <div className="p-4 bg-slate-50/50 dark:bg-slate-900/30 hover:bg-slate-100/50 dark:hover:bg-slate-800/30 transition-colors">
+                              <>
+                                {/* Parent as label — sticker/tag aesthetic */}
                                 <button
                                   type="button"
                                   onClick={() => toggleParentExpanded(item.id)}
-                                  className="w-full flex items-center gap-3 text-left"
+                                  className="w-full group/label text-left"
                                 >
-                                  <ChevronRight
-                                    className={`w-5 h-5 text-slate-400 transition-transform ${
-                                      isExpanded ? 'rotate-90' : ''
-                                    }`}
-                                  />
-                                  <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center shrink-0">
-                                    <Layers className="w-5 h-5 text-purple-600" />
+                                  <div className="relative mx-2 mt-3 mb-1 px-4 py-2.5 rounded-lg border-2 border-dashed border-amber-300/60 dark:border-amber-600/40 bg-gradient-to-r from-amber-50/80 to-orange-50/60 dark:from-amber-950/40 dark:to-orange-950/30 shadow-sm hover:shadow-md hover:border-amber-400/80 dark:hover:border-amber-500/50 transition-all duration-200 overflow-hidden">
+                                    {/* Tape/sticker accent */}
+                                    <div className="absolute top-0 right-8 w-16 h-3 bg-amber-300/40 dark:bg-amber-600/30 -skew-x-12" />
+                                    <div className="absolute -top-px left-4 w-8 h-px bg-amber-400/50 dark:bg-amber-500/30 rounded-full" />
+                                    <div className="flex items-center gap-3 relative">
+                                      <ChevronRight
+                                        className={`w-4 h-4 text-amber-600 dark:text-amber-400 transition-transform duration-200 shrink-0 ${
+                                          isExpanded ? 'rotate-90' : 'group-hover/label:translate-x-0.5'
+                                        }`}
+                                      />
+                                      <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-700/80 dark:text-amber-400/90">
+                                        {item.category_name || 'Uncategorized'}
+                                      </span>
+                                      <span className="text-amber-400 dark:text-amber-500">/</span>
+                                      <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm truncate">
+                                        {item.name}
+                                      </span>
+                                      <span className="ml-auto text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-200/50 dark:bg-amber-800/30 px-2 py-0.5 rounded-full">
+                                        {item.variantCount} to scan
+                                      </span>
+                                    </div>
                                   </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-semibold text-slate-900 dark:text-white">
-                                      {item.name}
-                                    </p>
-                                    <p className="text-sm text-slate-500">
-                                      {item.variantCount} variants need barcodes
-                                    </p>
-                                  </div>
-                                  <Badge variant="secondary" className="shrink-0">
-                                    {item.category_name}
-                                  </Badge>
                                 </button>
                                 {isExpanded && item.variants && (
-                                  <div className="mt-3 ml-12 space-y-2 pl-4 border-l-2 border-purple-200 dark:border-purple-800">
+                                  <div className="space-y-1 pb-2">
                                     {item.variants.map((v) => (
                                       <ItemRow
                                         key={v.id}
                                         item={v}
                                         categories={categories}
                                         onAddBarcode={openBarcodeDrawer}
+                                        showAddBarcode
                                       />
                                     ))}
                                   </div>
                                 )}
-                              </div>
+                              </>
                             ) : (
                               <ItemRow
                                 item={item}
                                 categories={categories}
                                 onAddBarcode={openBarcodeDrawer}
+                                showAddBarcode={!!item.parent_item_id}
                               />
                             )}
                           </div>
@@ -597,18 +599,20 @@ function ItemRow({
   item,
   categories,
   onAddBarcode,
+  showAddBarcode = false,
 }: {
   item: ItemWithCategory;
   categories: Category[];
   onAddBarcode: (item: ItemWithCategory) => void;
+  showAddBarcode?: boolean;
 }) {
   const catName = categories.find((c) => c.id === item.category_id)?.name;
   const formatPrice = (p: number) => `KES ${p.toFixed(0)}`;
 
   return (
-    <div className="flex items-center gap-3 p-4 hover:bg-amber-50/30 dark:hover:bg-amber-950/10 transition-colors group">
-      <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
-        <Package className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+    <div className="flex items-center gap-3 px-4 py-3 mx-2 rounded-xl hover:bg-amber-50/40 dark:hover:bg-amber-950/20 transition-colors group border border-transparent hover:border-amber-200/50 dark:hover:border-amber-800/30">
+      <div className="w-9 h-9 rounded-lg bg-amber-100/80 dark:bg-amber-900/40 flex items-center justify-center shrink-0 ring-1 ring-amber-200/50 dark:ring-amber-800/30">
+        <Package className="w-4 h-4 text-amber-600 dark:text-amber-400" />
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-medium text-slate-900 dark:text-white truncate">
@@ -622,18 +626,20 @@ function ItemRow({
       </div>
       <div className="flex items-center gap-2 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
         <Link href={`/admin/items/${item.id}/edit`}>
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" className="text-slate-500 hover:text-slate-700">
             <Edit className="w-4 h-4" />
           </Button>
         </Link>
-        <Button
-          size="sm"
-          className="bg-amber-600 hover:bg-amber-700 text-white"
-          onClick={() => onAddBarcode(item)}
-        >
-          <ScanBarcode className="w-4 h-4 mr-1.5" />
-          Add Barcode
-        </Button>
+        {showAddBarcode && (
+          <Button
+            size="sm"
+            className="bg-amber-600 hover:bg-amber-700 text-white shadow-sm shadow-amber-500/20"
+            onClick={() => onAddBarcode(item)}
+          >
+            <ScanBarcode className="w-4 h-4 mr-1.5" />
+            Add Barcode
+          </Button>
+        )}
       </div>
     </div>
   );

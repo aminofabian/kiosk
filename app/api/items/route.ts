@@ -33,6 +33,13 @@ export async function GET(request: NextRequest) {
     const itemTypeParam = itemType ? [itemType] : [];
     const noBarcodeFilter = noBarcode ? ` AND (COALESCE(TRIM(barcode), '') = '')` : '';
     const noBarcodeFilterAlias = noBarcode ? ` AND (COALESCE(TRIM(i.barcode), '') = '')` : '';
+    // When noBarcode: exclude parents (they don't have barcodes; only variants/standalone do)
+    const noBarcodeExcludeParents = noBarcode
+      ? ` AND (parent_item_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = items.id AND v.active = 1))`
+      : '';
+    const noBarcodeExcludeParentsAlias = noBarcode
+      ? ` AND (i.parent_item_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1))`
+      : '';
     // When includeInactive=true (admin "show deleted"), include soft-deleted items
     const activeFilter = includeInactive && all ? '' : ' AND active = 1';
     const iActiveFilter = includeInactive && all ? '' : ' AND i.active = 1';
@@ -218,7 +225,7 @@ export async function GET(request: NextRequest) {
         const variantActiveFilter = includeInactive ? '' : ' AND v.active = 1';
         items = await query<Item>(
           `SELECT i.* FROM items i
-           WHERE i.business_id = ?${iActiveFilter}${itemTypeFilter.replace(' AND ', ' AND i.')}${noBarcodeFilterAlias}
+           WHERE i.business_id = ?${iActiveFilter}${itemTypeFilter.replace(' AND ', ' AND i.')}${noBarcodeFilterAlias}${noBarcodeExcludeParentsAlias}
            AND (
              i.parent_item_id IS NOT NULL  -- variants are sellable
              OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id${variantActiveFilter})  -- standalone items without variants
@@ -227,12 +234,26 @@ export async function GET(request: NextRequest) {
           [auth.businessId, ...itemTypeParam]
         );
       } else {
-        items = await query<Item>(
-          `SELECT * FROM items 
-           WHERE business_id = ?${activeFilter}${itemTypeFilter}${noBarcodeFilter}
-           ORDER BY name ASC`,
-          [auth.businessId, ...itemTypeParam]
-        );
+        if (noBarcode) {
+          // noBarcode: only variants + standalone; include parent name for labels
+          items = await query<Item & { parent_name?: string }>(
+            `SELECT i.*, p.name as parent_name
+             FROM items i
+             LEFT JOIN items p ON i.parent_item_id = p.id AND p.business_id = i.business_id
+             WHERE i.business_id = ? AND i.active = 1${itemTypeFilter.replace(' AND ', ' AND i.')}
+             AND (COALESCE(TRIM(i.barcode), '') = '')
+             AND (i.parent_item_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1))
+             ORDER BY COALESCE(p.name, i.name), i.variant_name ASC`,
+            [auth.businessId, ...itemTypeParam]
+          );
+        } else {
+          items = await query<Item>(
+            `SELECT * FROM items 
+             WHERE business_id = ?${activeFilter}${itemTypeFilter}${noBarcodeFilter}
+             ORDER BY name ASC`,
+            [auth.businessId, ...itemTypeParam]
+          );
+        }
       }
     } else {
       if (!categoryId) {

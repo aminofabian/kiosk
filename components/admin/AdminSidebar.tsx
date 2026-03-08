@@ -172,6 +172,7 @@ export function AdminSidebar() {
           '/admin',
           '/admin/categories',
           '/admin/items',
+          '/admin/items/no-barcode',
           '/admin/credits',
           '/admin/expenses',
           '/admin/supplier-bills',
