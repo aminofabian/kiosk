@@ -174,6 +174,7 @@ export function AdminSidebar() {
       if (user?.role === 'cashier') {
         const allowed = [
           '/admin',
+          '/admin/aisles',
           '/admin/categories',
           '/admin/items',
           '/admin/items/no-barcode',
