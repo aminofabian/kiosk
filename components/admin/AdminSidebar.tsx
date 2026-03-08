@@ -28,6 +28,7 @@ import {
   Settings,
   ScanBarcode,
   LayoutGrid,
+  MapPin,
 } from 'lucide-react';
 
 interface SubItem {
@@ -81,6 +82,7 @@ const BASE_SECTIONS: MenuSection[] = [
     items: [
       { href: '/admin/purchases', label: 'Purchases', icon: ShoppingBag },
       { href: '/admin/categories', label: 'Categories', icon: FolderTree },
+      { href: '/admin/aisles', label: 'Aisles', icon: MapPin },
       { href: '/admin/items', label: 'Items', icon: Package },
       { href: '/admin/items/no-barcode', label: 'Barcode Audit', icon: ScanBarcode },
       { href: '/admin/items/price-stickers', label: 'Price Stickers', icon: LayoutGrid },

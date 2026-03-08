@@ -7,6 +7,7 @@ import { migratePasswordResetTokens } from './migrate-password-reset';
 import { migrateBarcodeExpiry } from './migrate-barcode-expiry';
 import { migrateBundlePricing } from './migrate-bundle-pricing';
 import { migrateAisle } from './migrate-aisle';
+import { migrateAislesTable } from './migrate-aisles-table';
 
 const SCHEMA_PATH = join(process.cwd(), 'lib', 'db', 'sql', 'schema.sql');
 
@@ -278,6 +279,12 @@ export async function runMigrations() {
       await migrateAisle();
     } catch (error) {
       console.error('⚠ aisle migration skipped:', error);
+    }
+
+    try {
+      await migrateAislesTable();
+    } catch (error) {
+      console.error('⚠ aisles table migration skipped:', error);
     }
 
     try {

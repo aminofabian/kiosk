@@ -67,6 +67,15 @@ export interface Category {
   created_at: number;
 }
 
+export interface Aisle {
+  id: string;
+  business_id: string;
+  name: string;
+  number: string | null;
+  sort_order: number;
+  created_at: number;
+}
+
 export interface Item {
   id: string;
   business_id: string;

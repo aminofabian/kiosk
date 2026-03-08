@@ -341,6 +341,7 @@ export async function POST(request: NextRequest) {
       // Packaging unit fields (bulk ordering)
       packagingUnitName, // e.g., "Carton", "Sack", "Crate"
       packagingUnitQty,  // items per packaging unit (e.g., 18)
+      aisleNumber,       // optional store location (e.g., "A3", "12")
     } = body;
 
     // Parent items don't need price/stock/unit - they're just containers
@@ -466,8 +467,9 @@ export async function POST(request: NextRequest) {
         item_type, current_stock, current_sell_price, min_stock_level, barcode, expiry_date,
         bundle_quantity, bundle_price, bundle_name,
         packaging_unit_name, packaging_unit_qty,
+        aisle_number,
         active, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         itemId,
         auth.businessId,
@@ -489,6 +491,7 @@ export async function POST(request: NextRequest) {
         // Packaging units (for bulk ordering)
         packagingUnitName?.trim() || null,
         packagingUnitQty || null,
+        aisleNumber?.trim() || null,
         1,
         now,
       ]

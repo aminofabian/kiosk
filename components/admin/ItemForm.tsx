@@ -675,6 +675,7 @@ interface ItemFormProps {
     packaging_unit_name?: string | null;
     packaging_unit_qty?: number | null;
     item_type?: string;
+    aisle_number?: string | null;
   };
   parentItemId?: string; // If set, we're creating a variant for this parent
   defaultMode?: FormMode;
@@ -729,6 +730,7 @@ export function ItemForm({
   const [expiryDate, setExpiryDate] = useState<string>(
     initialData?.expiry_date ? new Date(initialData.expiry_date * 1000).toISOString().split('T')[0] : ''
   );
+  const [aisleNumber, setAisleNumber] = useState<string>(initialData?.aisle_number || '');
   // Bundle pricing state
   const [bundleEnabled, setBundleEnabled] = useState<boolean>(
     !!(initialData?.bundle_quantity && initialData?.bundle_price)
@@ -924,6 +926,7 @@ export function ItemForm({
         setMinStockLevel('');
         setBarcode('');
         setExpiryDate('');
+        setAisleNumber('');
         setInitialStock('0');
         setBundleQuantity('');
         setBundlePrice('');
@@ -942,6 +945,7 @@ export function ItemForm({
     setMinStockLevel(initialData.min_stock_level?.toString() || '');
     setBarcode(initialData.barcode || '');
     setExpiryDate(initialData.expiry_date ? new Date(initialData.expiry_date * 1000).toISOString().split('T')[0] : '');
+    setAisleNumber(initialData.aisle_number || '');
     setSelectedParentId(initialData.parent_item_id || '');
     setItemType(initialData.item_type || productTypes[0]?.key || 'retail');
     // Stock: use current value from DB, not stale
@@ -1156,6 +1160,7 @@ export function ItemForm({
         packagingUnitName: packagingEnabled && packagingUnitName.trim() ? packagingUnitName.trim() : null,
         packagingUnitQty: packagingEnabled && packagingUnitQty ? parseFloat(packagingUnitQty) : null,
         itemType,
+        aisleNumber: aisleNumber.trim() || null,
       };
 
       const result = itemId
@@ -2200,6 +2205,27 @@ export function ItemForm({
                     When this product expires (for perishables)
                   </p>
                 </div>
+
+                {/* Aisle Number */}
+                <div className="space-y-2">
+                  <Label htmlFor="aisleNumber" className="text-sm font-medium">
+                    Aisle Number
+                    <span className="text-xs font-normal text-muted-foreground ml-1">(Optional)</span>
+                  </Label>
+                  <Input
+                    id="aisleNumber"
+                    type="text"
+                    value={aisleNumber}
+                    onChange={(e) => setAisleNumber(e.target.value)}
+                    disabled={isSubmitting}
+                    className="h-12 text-base focus-visible:ring-[#1c6a1e]"
+                    placeholder="e.g., A3, 12"
+                  />
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Info className="h-3 w-3" />
+                    Store location for this product
+                  </p>
+                </div>
               </div>
 
               {/* Bundle Pricing Section */}
@@ -2414,10 +2440,29 @@ export function ItemForm({
           )}
         </div>
 
-        {/* Parent mode info */}
+        {/* Parent mode - optional aisle number */}
         {mode === 'parent' && (
           <>
             <Separator />
+            <div className="space-y-2">
+              <Label htmlFor="aisleNumberParent" className="text-sm font-medium">
+                Aisle Number
+                <span className="text-xs font-normal text-muted-foreground ml-1">(Optional)</span>
+              </Label>
+              <Input
+                id="aisleNumberParent"
+                type="text"
+                value={aisleNumber}
+                onChange={(e) => setAisleNumber(e.target.value)}
+                disabled={isSubmitting}
+                className="h-12 text-base focus-visible:ring-[#1c6a1e]"
+                placeholder="e.g., A3, 12"
+              />
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Info className="h-3 w-3" />
+                Store location for this product
+              </p>
+            </div>
             {initialData?.barcode && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-sm mb-4">
                 <AlertCircle className="h-4 w-4 shrink-0" />

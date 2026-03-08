@@ -117,6 +117,7 @@ export async function PUT(
       // Packaging unit fields (bulk ordering)
       packagingUnitName, packagingUnitQty,
       itemType,
+      aisleNumber,
     } = body;
 
     // Ensure buyPrice is a number if provided
@@ -228,9 +229,10 @@ export async function PUT(
                  item_type = ?,
                  packaging_unit_name = ?,
                  packaging_unit_qty = ?,
+                 aisle_number = ?,
                  barcode = NULL
              WHERE id = ? AND business_id = ?`,
-            [name.trim(), categoryId, itemTypeVal, packagingUnitName?.trim() || null, packagingUnitQty || null, itemId, auth.businessId]
+            [name.trim(), categoryId, itemTypeVal, packagingUnitName?.trim() || null, packagingUnitQty || null, aisleNumber?.trim() || null, itemId, auth.businessId]
           )
         : await execute(
             `UPDATE items 
@@ -238,9 +240,10 @@ export async function PUT(
                  category_id = ?,
                  packaging_unit_name = ?,
                  packaging_unit_qty = ?,
+                 aisle_number = ?,
                  barcode = NULL
              WHERE id = ? AND business_id = ?`,
-            [name.trim(), categoryId, packagingUnitName?.trim() || null, packagingUnitQty || null, itemId, auth.businessId]
+            [name.trim(), categoryId, packagingUnitName?.trim() || null, packagingUnitQty || null, aisleNumber?.trim() || null, itemId, auth.businessId]
           );
 
       if (updateResult.rowsAffected === 0) {
@@ -269,7 +272,8 @@ export async function PUT(
              bundle_name = ?,
              packaging_unit_name = ?,
              packaging_unit_qty = ?,
-             item_type = ?
+             item_type = ?,
+             aisle_number = ?
          WHERE id = ? AND business_id = ?`,
         [
           name.trim(),
@@ -285,6 +289,7 @@ export async function PUT(
           packagingUnitName?.trim() || null,
           packagingUnitQty || null,
           itemTypeVal,
+          aisleNumber?.trim() || null,
           itemId,
           auth.businessId,
         ]
