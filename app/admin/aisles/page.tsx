@@ -411,7 +411,7 @@ export default function AislesPage() {
       });
       const result = await res.json();
       if (result.success) {
-        const aisle = aisleId ? aisles.find((a) => a.id === aisleId) : null;
+        const aisle = aisleId ? (aisles.find((a) => a.id === aisleId) ?? null) : null;
         updateItemAisle(itemId, aisle);
         toast.success('Aisle updated');
       } else {
