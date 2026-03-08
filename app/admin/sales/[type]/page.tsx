@@ -28,6 +28,7 @@ import {
   X,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/utils/api-client';
+import { getItemDisplayName } from '@/lib/utils';
 import Link from 'next/link';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
 
@@ -498,8 +499,7 @@ export default function SalesByTypePage() {
                                   <div key={p.item_id} className="grid grid-cols-12 gap-2 items-center px-2 py-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-800 text-sm">
                                     <div className="col-span-4 min-w-0">
                                       <p className="font-semibold text-slate-900 dark:text-white truncate text-xs">
-                                        {p.item_name}
-                                        {p.variant_name && <span className="text-slate-400 ml-1">({p.variant_name})</span>}
+                                        {getItemDisplayName(p.item_name, p.variant_name)}
                                       </p>
                                       <p className="text-[10px] text-slate-400">{p.category_name}</p>
                                     </div>
@@ -681,8 +681,7 @@ export default function SalesByTypePage() {
                                 </div>
                                 <div className="min-w-0">
                                   <p className="font-semibold text-sm text-slate-900 dark:text-white truncate">
-                                    {p.item_name}
-                                    {p.variant_name && <span className="text-slate-400 text-xs ml-1">({p.variant_name})</span>}
+                                    {getItemDisplayName(p.item_name, p.variant_name)}
                                   </p>
                                   <p className="text-[10px] text-slate-400">{p.category_name} &bull; {p.transaction_count} orders</p>
                                 </div>
@@ -833,8 +832,7 @@ export default function SalesByTypePage() {
                       >
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-sm text-slate-900 dark:text-white truncate">
-                            {alert.item_name}
-                            {alert.variant_name && <span className="text-slate-400 text-xs ml-1">({alert.variant_name})</span>}
+                            {getItemDisplayName(alert.item_name, alert.variant_name)}
                           </p>
                           <div className="flex items-center gap-2 mt-0.5">
                             <Scale className="w-3 h-3 text-slate-400" />

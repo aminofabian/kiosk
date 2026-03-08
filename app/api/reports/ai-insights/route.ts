@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
+import { getItemDisplayName } from '@/lib/utils';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 
 export async function OPTIONS() {
@@ -161,7 +162,7 @@ function buildPrompt(data: Record<string, unknown>): string {
   if (topR && topR.length > 0) {
     prompt += `## 3. TOP PRODUCTS BY REVENUE (use these exact names in your recommendations)\n`;
     topR.slice(0, 15).forEach((item, i) => {
-      const name = item.variant_name ? `${item.item_name} - ${item.variant_name}` : item.item_name;
+      const name = getItemDisplayName(String(item.item_name ?? ''), item.variant_name as string | null | undefined);
       const rev = item.total_revenue as number;
       const profit = item.total_profit as number;
       const marginPct = rev > 0 ? ((profit / rev) * 100).toFixed(1) : '0';
@@ -173,7 +174,7 @@ function buildPrompt(data: Record<string, unknown>): string {
   if (topQ && topQ.length > 0) {
     prompt += `## 4. TOP PRODUCTS BY QUANTITY SOLD\n`;
     topQ.slice(0, 12).forEach((item, i) => {
-      const name = item.variant_name ? `${item.item_name} - ${item.variant_name}` : item.item_name;
+      const name = getItemDisplayName(String(item.item_name ?? ''), item.variant_name as string | null | undefined);
       const rev = item.total_revenue as number;
       const profit = item.total_profit as number;
       const marginPct = rev > 0 ? ((profit / rev) * 100).toFixed(1) : '0';

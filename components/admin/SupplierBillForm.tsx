@@ -42,6 +42,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { apiGet, apiPost, apiPatch } from '@/lib/utils/api-client';
+import { getItemDisplayName } from '@/lib/utils';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -491,9 +492,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
         );
         if (result.success && result.data && result.data.length > 0) {
           const newLineItems: BillLineItem[] = result.data.map((product, index) => {
-            const displayName = product.variant_name
-              ? `${product.item_name} - ${product.variant_name}`
-              : product.item_name;
+            const displayName = getItemDisplayName(product.item_name, product.variant_name);
             // Prefill buy price: saved default > last inventory batch buy price > empty
             const buyPrice = product.default_cost_price != null
               ? product.default_cost_price

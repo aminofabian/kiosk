@@ -18,6 +18,7 @@ import {
   Plus,
 } from 'lucide-react';
 import type { Item, Category } from '@/lib/db/types';
+import { getItemDisplayName } from '@/lib/utils';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
 import {
   Select,
@@ -168,7 +169,7 @@ export default function PriceStickersPage() {
     return items.filter((item) => {
       if (searchQuery) {
         const q = searchQuery.toLowerCase().trim();
-        const name = item.variant_name ? `${item.name} – ${item.variant_name}` : item.name;
+        const name = getItemDisplayName(item.name, item.variant_name);
         if (
           !name.toLowerCase().includes(q) &&
           !item.category_name?.toLowerCase().includes(q) &&
@@ -420,9 +421,7 @@ export default function PriceStickersPage() {
                   ) : (
                     <div className="divide-y divide-slate-100/80 dark:divide-slate-800/80">
                       {filteredItems.map((item) => {
-                        const displayName = item.variant_name
-                          ? `${item.name} – ${item.variant_name}`
-                          : item.name;
+                        const displayName = getItemDisplayName(item.name, item.variant_name);
                         const qty = quantities[item.id] ?? 0;
                         const aisleLabel = getAisleLabel(item);
                         return (
@@ -492,7 +491,7 @@ export default function PriceStickersPage() {
                           {item ? (
                             <>
                               <p className="font-semibold leading-tight break-words">
-                                {item.variant_name ? `${item.name} – ${item.variant_name}` : item.name}
+                                {getItemDisplayName(item.name, item.variant_name)}
                               </p>
                               <p className="text-[#1c6a1e] font-bold">{formatPrice(item.current_sell_price)}</p>
                               {getAisleLabel(item) && (
@@ -557,7 +556,7 @@ export default function PriceStickersPage() {
                             className="font-semibold leading-tight text-slate-900 overflow-hidden"
                             style={{ fontSize: '9pt', wordBreak: 'break-word', overflowWrap: 'break-word' }}
                           >
-                            {item.variant_name ? `${item.name} – ${item.variant_name}` : item.name}
+                            {getItemDisplayName(item.name, item.variant_name)}
                           </p>
                           <p
                             className="text-[#1c6a1e] font-bold mt-0.5 shrink-0"

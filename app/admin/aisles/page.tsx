@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { getItemDisplayName } from '@/lib/utils';
 import {
   MapPin,
   Plus,
@@ -315,7 +316,7 @@ export default function AislesPage() {
     return items.filter((item) => {
       if (searchQuery) {
         const q = searchQuery.toLowerCase().trim();
-        const name = item.variant_name ? `${item.name} – ${item.variant_name}` : item.name;
+        const name = getItemDisplayName(item.name, item.variant_name);
         if (
           !name.toLowerCase().includes(q) &&
           !(item.category_name?.toLowerCase().includes(q))
@@ -704,7 +705,7 @@ export default function AislesPage() {
                                 <Package className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                               </div>
                               <span className="font-medium text-slate-900 dark:text-white">
-                                {item.variant_name ? `${item.name} – ${item.variant_name}` : item.name}
+                                {getItemDisplayName(item.name, item.variant_name)}
                               </span>
                             </div>
                           </td>

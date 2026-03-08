@@ -8,6 +8,7 @@ import type { Item } from '@/lib/db/types';
 import type { Category } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
 import { shouldShowCategory } from '@/lib/utils/shop-type';
+import { getItemDisplayName } from '@/lib/utils';
 
 interface ItemWithVariants extends Item {
   isParent?: boolean;
@@ -109,13 +110,8 @@ const ItemCard = memo(function ItemCard({
               ? 'text-gray-400 dark:text-gray-500'
               : 'text-gray-800 dark:text-gray-100 group-hover:text-[#1c6a1e] dark:group-hover:text-[#2a8a30]'
               }`}>
-              {item.name}
+              {getItemDisplayName(item.name, item.variant_name)}
             </h3>
-            {item.variant_name && (
-              <p className="text-[11px] sm:text-[12px] text-gray-400 dark:text-gray-500 mt-0.5 break-words">
-                {item.variant_name}
-              </p>
-            )}
           </div>
 
           {onQuickAdd && !isOutOfStock && (
@@ -636,7 +632,7 @@ export function ItemGrid({
                             : 'text-gray-800 dark:text-gray-100 group-hover:text-[#1c6a1e] dark:group-hover:text-[#2a8a30]'
                         }`}
                       >
-                        {item.name}
+                        {getItemDisplayName(item.name, item.variant_name)}
                       </h3>
                     </div>
 
@@ -713,7 +709,7 @@ export function ItemGrid({
                   </div>
                   <div className="flex-1 min-w-0 text-left">
                     <p className="text-[11px] font-medium text-gray-800 dark:text-gray-200 group-hover:text-amber-700 dark:group-hover:text-amber-300 transition-colors uppercase tracking-tight break-words">
-                      {item.name}
+                      {getItemDisplayName(item.name, item.variant_name)}
                     </p>
                     <div className="flex items-center gap-1 mt-0.5">
                       <span className={`text-[8px] font-semibold tabular-nums ${item.current_stock <= 0 ? 'text-red-500' : 'text-amber-600 dark:text-amber-400'

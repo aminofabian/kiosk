@@ -29,6 +29,7 @@ import {
   Tag,
 } from 'lucide-react';
 import { apiGet, apiPost, apiDelete, apiPatch } from '@/lib/utils/api-client';
+import { getItemDisplayName } from '@/lib/utils';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { toast } from 'sonner';
 
@@ -230,9 +231,7 @@ export function SupplierProductsDrawer({
     .filter((item) => {
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
-      const displayName = item.variant_name
-        ? `${item.name} - ${item.variant_name}`
-        : item.name;
+      const displayName = getItemDisplayName(item.name, item.variant_name);
       return displayName.toLowerCase().includes(q);
     });
 
@@ -240,7 +239,7 @@ export function SupplierProductsDrawer({
     `KES ${Math.round(price).toLocaleString()}`;
 
   const getDisplayName = (name: string, variantName: string | null) =>
-    variantName ? `${name} - ${variantName}` : name;
+    getItemDisplayName(name, variantName);
 
   if (!supplier) return null;
 

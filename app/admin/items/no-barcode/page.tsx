@@ -28,6 +28,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import type { Item, Category } from '@/lib/db/types';
+import { getItemDisplayName } from '@/lib/utils';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -226,7 +227,7 @@ export default function ItemsWithoutBarcodePage() {
       const result = await res.json();
       if (result.success) {
         toast.success('Barcode added', {
-          description: `${editingItem.name}${editingItem.variant_name ? ` – ${editingItem.variant_name}` : ''}`,
+          description: getItemDisplayName(editingItem.name, editingItem.variant_name),
         });
         setBarcodeDrawerOpen(false);
         setEditingItem(null);
@@ -545,7 +546,7 @@ export default function ItemsWithoutBarcodePage() {
               </DrawerTitle>
               <DrawerDescription>
                 {editingItem
-                  ? `${editingItem.name}${editingItem.variant_name ? ` – ${editingItem.variant_name}` : ''}`
+                  ? getItemDisplayName(editingItem.name, editingItem.variant_name)
                   : 'Enter or scan barcode'}
               </DrawerDescription>
             </DrawerHeader>
@@ -616,7 +617,7 @@ function ItemRow({
       </div>
       <div className="flex-1 min-w-0">
         <p className="font-medium text-slate-900 dark:text-white truncate">
-          {item.variant_name ? `${item.name} – ${item.variant_name}` : item.name}
+          {getItemDisplayName(item.name, item.variant_name)}
         </p>
         <div className="flex items-center gap-2 text-sm text-slate-500">
           <span>{formatPrice(item.current_sell_price)}</span>

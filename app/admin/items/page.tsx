@@ -29,6 +29,7 @@ import type { Item, Category } from '@/lib/db/types';
 import type { UnitType, AdjustmentReason, ItemType } from '@/lib/constants';
 import { ADJUSTMENT_REASONS } from '@/lib/constants';
 import { getItemShopType } from '@/lib/utils/shop-type';
+import { getItemDisplayName } from '@/lib/utils';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { toast } from 'sonner';
@@ -382,9 +383,7 @@ export function ItemsManager() {
   const handleDeleteClick = () => {
     if (!selectedItem) return;
 
-    const itemName = selectedItem.variant_name
-      ? `${selectedItem.name} - ${selectedItem.variant_name}`
-      : selectedItem.name;
+    const itemName = getItemDisplayName(selectedItem.name, selectedItem.variant_name);
 
     const hasVariants = selectedItem.isParent && selectedItem.variantCount && selectedItem.variantCount > 0;
     const confirmMessage = hasVariants
@@ -472,7 +471,7 @@ export function ItemsManager() {
   };
 
   const handlePrintLabel = (item: ItemWithCategory) => {
-    const displayName = item.variant_name ? `${item.name} – ${item.variant_name}` : item.name;
+    const displayName = getItemDisplayName(item.name, item.variant_name);
     const priceStr = formatPrice(item.current_sell_price);
     const unitLine = item.unit_type !== 'piece'
       ? `${item.unit_type} · ${formatStock(item.current_stock, item.unit_type)}`
@@ -509,7 +508,7 @@ export function ItemsManager() {
   const handleDeleteItemFromList = (item: ItemWithCategory, e: React.MouseEvent) => {
     e.stopPropagation();
 
-    const itemName = item.variant_name ? `${item.name} - ${item.variant_name}` : item.name;
+    const itemName = getItemDisplayName(item.name, item.variant_name);
     const hasVariants = item.isParent && item.variantCount && item.variantCount > 0;
     const confirmMessage = hasVariants
       ? `Are you sure you want to delete "${itemName}" and all its ${item.variantCount} variant(s)? This action cannot be undone.`
@@ -1345,7 +1344,7 @@ export function ItemsManager() {
                     setEditingItem(null);
                     setAddingVariantToParent(null);
                     toast.success('Item updated successfully', {
-                      description: updatedItem.variant_name ? `${updatedItem.name} – ${updatedItem.variant_name}` : updatedItem.name,
+                      description: getItemDisplayName(updatedItem.name, updatedItem.variant_name),
                     });
                   } else {
                     setEditingItem(null);

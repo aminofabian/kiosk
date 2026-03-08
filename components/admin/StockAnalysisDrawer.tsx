@@ -17,6 +17,7 @@ import {
 import type { UnitType } from '@/lib/constants';
 import type { Category } from '@/lib/db/types';
 import { getShopType, shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
+import { getItemDisplayName } from '@/lib/utils';
 
 interface StockItem {
   itemId: string;
@@ -463,7 +464,7 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
                             <div key={item.itemId} className="flex items-center justify-between text-xs bg-green-50/50 dark:bg-green-950/10 p-2 rounded">
                               <div className="flex-1 min-w-0">
                                 <span className="font-medium truncate block">
-                                  {item.variantName ? `${item.itemName} (${item.variantName})` : item.itemName}
+                                  {getItemDisplayName(item.itemName, item.variantName)}
                                 </span>
                                 <span className="text-slate-500">
                                   {formatNumber(item.initialStock)} → {formatNumber(item.currentStock)} {item.unitType}
@@ -494,7 +495,7 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
                             <div key={item.itemId} className="flex items-center justify-between text-xs bg-red-50/50 dark:bg-red-950/10 p-2 rounded">
                               <div className="flex-1 min-w-0">
                                 <span className="font-medium truncate block">
-                                  {item.variantName ? `${item.itemName} (${item.variantName})` : item.itemName}
+                                  {getItemDisplayName(item.itemName, item.variantName)}
                                 </span>
                                 <span className="text-slate-500">
                                   {formatNumber(item.initialStock)} → {formatNumber(item.currentStock)} {item.unitType}
@@ -525,7 +526,7 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
                             <div key={item.itemId} className="flex items-center justify-between text-xs bg-blue-50/50 dark:bg-blue-950/10 p-2 rounded">
                               <div className="flex-1 min-w-0">
                                 <span className="font-medium truncate block">
-                                  {item.variantName ? `${item.itemName} (${item.variantName})` : item.itemName}
+                                  {getItemDisplayName(item.itemName, item.variantName)}
                                 </span>
                                 <span className="text-slate-500">{item.categoryName}</span>
                               </div>
@@ -581,7 +582,7 @@ export function StockAnalysisDrawer({ open, onOpenChange }: StockAnalysisDrawerP
                             <div className="flex items-start justify-between gap-2 mb-2">
                               <div className="flex-1 min-w-0">
                                 <h4 className="font-semibold text-sm truncate">
-                                  {item.variantName ? `${item.itemName} (${item.variantName})` : item.itemName}
+                                  {getItemDisplayName(item.itemName, item.variantName)}
                                 </h4>
                                 <p className="text-xs text-slate-500">{item.categoryName}</p>
                               </div>
