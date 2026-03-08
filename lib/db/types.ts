@@ -89,6 +89,8 @@ export interface Item {
   // Packaging units: bulk ordering (e.g., "Carton" = 18 packets)
   packaging_unit_name: string | null; // e.g., "Carton", "Sack", "Crate"
   packaging_unit_qty: number | null; // items per packaging unit (e.g., 18)
+  aisle: string | null; // e.g., "Produce", "Dairy"
+  aisle_number: string | null; // e.g., "A3", "12"
   active: number; // 1 = true, 0 = false
   created_at: number;
 }
