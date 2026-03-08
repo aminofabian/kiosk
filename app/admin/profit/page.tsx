@@ -24,6 +24,7 @@ import {
   Eye,
   EyeOff,
   Pencil,
+  Layers,
 } from 'lucide-react';
 import {
   Dialog,
@@ -74,6 +75,21 @@ interface ExpenseSummary {
   expenseCount: number;
 }
 
+interface BatchProfit {
+  batchId: string;
+  batchNumber: string;
+  itemId: string;
+  itemName: string;
+  variantName: string | null;
+  parentName: string | null;
+  supplierName: string | null;
+  quantitySold: number;
+  totalSales: number;
+  totalCost: number;
+  totalProfit: number;
+  profitMargin: number;
+}
+
 type DatePreset = 'today' | 'week' | 'month' | 'custom';
 
 // ─── Helpers ─────────────────────────────────────────────────────
@@ -106,6 +122,10 @@ export default function ProfitHubPage() {
     return { start: today, end: today };
   });
   const [itemSearch, setItemSearch] = useState('');
+  const [batchFilter, setBatchFilter] = useState('');
+  const [batchView, setBatchView] = useState(false);
+  const [batchData, setBatchData] = useState<BatchProfit[]>([]);
+  const [batchLoading, setBatchLoading] = useState(false);
   const [showAllItems, setShowAllItems] = useState(false);
   const [editPriceOpen, setEditPriceOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<{ item_id: string; item_name: string } | null>(null);
@@ -225,6 +245,34 @@ export default function ProfitHubPage() {
     fetchData();
     fetchExpenseData();
   }, [fetchData]);
+
+  // Fetch batch profit when batch view is on
+  const fetchBatchData = useCallback(async () => {
+    if (!batchView) return;
+    setBatchLoading(true);
+    try {
+      const [sY, sM, sD] = dateRange.start.split('-').map(Number);
+      const [eY, eM, eD] = dateRange.end.split('-').map(Number);
+      const startTs = Math.floor(new Date(sY, sM - 1, sD, 0, 0, 0, 0).getTime() / 1000);
+      const endTs = Math.floor(new Date(eY, eM - 1, eD, 23, 59, 59, 999).getTime() / 1000);
+      const params = new URLSearchParams({ start: String(startTs), end: String(endTs) });
+      if (itemSearch) params.set('itemSearch', itemSearch);
+      if (batchFilter) params.set('batchFilter', batchFilter);
+      const res = await fetch(`/api/profit/batches?${params}`).then((r) => r.json());
+      if (res.success) setBatchData(res.data ?? []);
+      else setBatchData([]);
+    } catch {
+      setBatchData([]);
+    } finally {
+      setBatchLoading(false);
+    }
+  }, [batchView, dateRange, itemSearch, batchFilter]);
+
+  useEffect(() => {
+    if (!batchView) return;
+    const t = setTimeout(fetchBatchData, 200);
+    return () => clearTimeout(t);
+  }, [batchView, fetchBatchData]);
 
   const getPeriodDays = () => {
     const [sY, sM, sD] = dateRange.start.split('-').map(Number);
@@ -661,7 +709,26 @@ export default function ProfitHubPage() {
             </CardContent>
           </Card>
 
-          {/* All Items Table - compact */}
+          {/* View toggle: By Item | By Stock Lot */}
+          <div className="flex items-center gap-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg w-fit">
+            <button
+              onClick={() => setBatchView(false)}
+              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${!batchView ? 'bg-[#1c6a1e] text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
+            >
+              <Package className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
+              By Item
+            </button>
+            <button
+              onClick={() => setBatchView(true)}
+              className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${batchView ? 'bg-[#1c6a1e] text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'}`}
+            >
+              <Layers className="w-3.5 h-3.5 inline mr-1.5 -mt-0.5" />
+              By Stock Lot
+            </button>
+          </div>
+
+          {/* All Items Table - compact (when batchView=false) */}
+          {!batchView && (
           <Card className="border border-slate-200 dark:border-slate-700">
             <CardHeader className="py-2 px-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -677,7 +744,7 @@ export default function ProfitHubPage() {
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                     <Input
                       type="text"
-                      placeholder="Search..."
+                      placeholder="Search product..."
                       value={itemSearch}
                       onChange={(e) => setItemSearch(e.target.value)}
                       className="pl-8 h-7 w-40 text-xs border-slate-200 dark:border-slate-700"
@@ -772,6 +839,107 @@ export default function ProfitHubPage() {
               )}
             </CardContent>
           </Card>
+          )}
+
+          {/* By Stock Lot - batch-level profit tracking */}
+          {batchView && (
+          <Card className="border border-slate-200 dark:border-slate-700">
+            <CardHeader className="py-2 px-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <CardTitle className="text-sm font-bold flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-[#1c6a1e]" />
+                  Profit by Stock Lot
+                  <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-[10px]">
+                    {batchData.length}
+                  </Badge>
+                </CardTitle>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    <Input
+                      type="text"
+                      placeholder="Search product..."
+                      value={itemSearch}
+                      onChange={(e) => setItemSearch(e.target.value)}
+                      className="pl-8 h-7 w-36 text-xs border-slate-200 dark:border-slate-700"
+                    />
+                  </div>
+                  <div className="relative">
+                    <Layers className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    <Input
+                      type="text"
+                      placeholder="Filter by batch..."
+                      value={batchFilter}
+                      onChange={(e) => setBatchFilter(e.target.value)}
+                      className="pl-8 h-7 w-36 text-xs border-slate-200 dark:border-slate-700 font-mono"
+                    />
+                  </div>
+                  <Button variant="outline" size="sm" className="h-7 text-[11px] px-2" onClick={fetchBatchData} disabled={batchLoading}>
+                    {batchLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Refresh'}
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {batchLoading ? (
+                <div className="py-12 flex flex-col items-center gap-2">
+                  <Loader2 className="h-6 w-6 animate-spin text-[#1c6a1e]" />
+                  <p className="text-xs text-slate-500">Loading batch data...</p>
+                </div>
+              ) : batchData.length === 0 ? (
+                <div className="text-center py-8">
+                  <Layers className="h-6 w-6 mx-auto text-slate-300 mb-1" />
+                  <p className="text-slate-500 text-xs">
+                    {itemSearch || batchFilter ? 'No batches match your filters' : 'No batch sales in this period'}
+                  </p>
+                  <p className="text-slate-400 text-[10px] mt-0.5">Sales with batch tracking appear here</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-900 border-y border-slate-200 dark:border-slate-700">
+                        <th className="text-left px-3 py-2 font-bold text-slate-700 dark:text-slate-300 text-[11px]">Product</th>
+                        <th className="text-left px-2 py-2 font-bold text-slate-700 dark:text-slate-300 text-[11px] font-mono">Batch</th>
+                        <th className="text-left px-2 py-2 font-bold text-slate-700 dark:text-slate-300 text-[11px]">Supplier</th>
+                        <th className="text-right px-2 py-2 font-bold text-slate-700 dark:text-slate-300 text-[11px]">Qty</th>
+                        <th className="text-right px-2 py-2 font-bold text-slate-700 dark:text-slate-300 text-[11px]">Sales</th>
+                        <th className="text-right px-2 py-2 font-bold text-slate-700 dark:text-slate-300 text-[11px]">Cost</th>
+                        <th className="text-right px-2 py-2 font-bold text-slate-700 dark:text-slate-300 text-[11px]">Profit</th>
+                        <th className="text-right px-2 py-2 font-bold text-slate-700 dark:text-slate-300 text-[11px]">Margin</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {batchData.map((row) => {
+                        const displayName = row.variantName ? `${row.parentName || row.itemName} › ${row.variantName}` : row.itemName;
+                        const isPositive = row.totalProfit >= 0;
+                        const margin = row.totalSales > 0 ? row.totalProfit / row.totalSales : 0;
+                        return (
+                          <tr key={row.batchId} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                            <td className="px-3 py-1.5">
+                              <span className="font-bold text-[11px] text-slate-900 dark:text-white">{displayName}</span>
+                            </td>
+                            <td className="px-2 py-1.5 font-mono text-[11px] text-slate-600 dark:text-slate-300">{row.batchNumber}</td>
+                            <td className="px-2 py-1.5 text-[11px] text-slate-500">{row.supplierName || '—'}</td>
+                            <td className="px-2 py-1.5 text-right font-semibold text-slate-600 dark:text-slate-300 text-[11px]">{row.quantitySold.toFixed(0)}</td>
+                            <td className="px-2 py-1.5 text-right text-[11px] text-slate-600 dark:text-slate-300">{formatPrice(row.totalSales)}</td>
+                            <td className="px-2 py-1.5 text-right text-[11px] text-slate-500">{formatPrice(row.totalCost)}</td>
+                            <td className={`px-2 py-1.5 text-right font-black text-[11px] ${isPositive ? 'text-[#1c6a1e]' : 'text-red-500'}`}>{formatPriceSigned(row.totalProfit)}</td>
+                            <td className="px-2 py-1.5 text-right">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isPositive ? 'bg-[#1c6a1e]/10 text-[#1c6a1e]' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                                {formatPercent(margin)}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          )}
         </div>
       </div>
 

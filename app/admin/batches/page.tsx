@@ -81,6 +81,7 @@ export default function BatchesPage() {
   const [selectedBatch, setSelectedBatch] = useState<BatchDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [deactivating, setDeactivating] = useState(false);
+  const [listDeactivatingId, setListDeactivatingId] = useState<string | null>(null);
 
   const fetchBatches = useCallback(async () => {
     setLoading(true);
@@ -227,43 +228,85 @@ export default function BatchesPage() {
           ) : (
             <div className="space-y-2">
               {filtered.map((batch) => (
-                <button
+                <div
                   key={batch.id}
-                  onClick={() => handleRowClick(batch)}
-                  className="w-full text-left p-4 rounded-xl bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 hover:border-[#1c6a1e]/50 dark:hover:border-[#1c6a1e]/30 hover:bg-[#1c6a1e]/5 dark:hover:bg-[#1c6a1e]/10 transition-all flex items-center justify-between gap-4"
+                  className="group flex items-center gap-2 rounded-xl bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 hover:border-[#1c6a1e]/50 dark:hover:border-[#1c6a1e]/30 transition-all"
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
-                      <Package className="w-5 h-5 text-[#1c6a1e]" />
+                  <button
+                    onClick={() => handleRowClick(batch)}
+                    className="flex-1 text-left p-4 flex items-center justify-between gap-4 min-w-0 hover:bg-[#1c6a1e]/5 dark:hover:bg-[#1c6a1e]/10 rounded-xl"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
+                        <Package className="w-5 h-5 text-[#1c6a1e]" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-900 dark:text-white truncate">
+                          {batch.item_name}
+                        </p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                          {batch.batch_number || batch.id.slice(0, 8)} •{' '}
+                          {batch.supplier_name || 'No supplier'}
+                        </p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-slate-900 dark:text-white truncate">
-                        {batch.item_name}
-                      </p>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">
-                        {batch.batch_number || batch.id.slice(0, 8)} •{' '}
-                        {batch.supplier_name || 'No supplier'}
-                      </p>
+                    <div className="flex items-center gap-4 shrink-0">
+                      <div className="text-right hidden sm:block">
+                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          {formatPrice(batch.profit)} profit
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {batch.quantity_remaining} / {batch.initial_quantity}{' '}
+                          {batch.item_unit_type} left
+                        </p>
+                      </div>
+                      <Badge
+                        className={statusColors[batch.status] || 'bg-slate-100'}
+                      >
+                        {batch.status}
+                      </Badge>
+                      <ChevronRight className="w-5 h-5 text-slate-400" />
                     </div>
-                  </div>
-                  <div className="flex items-center gap-4 shrink-0">
-                    <div className="text-right hidden sm:block">
-                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                        {formatPrice(batch.profit)} profit
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {batch.quantity_remaining} / {batch.initial_quantity}{' '}
-                        {batch.item_unit_type} left
-                      </p>
-                    </div>
-                    <Badge
-                      className={statusColors[batch.status] || 'bg-slate-100'}
+                  </button>
+                  {batch.status === 'active' && batch.quantity_remaining > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        setListDeactivatingId(batch.id);
+                        try {
+                          const result = await apiPatch<{ batchId: string; status: string }>(
+                            `/api/batches/${batch.id}`,
+                            { status: 'deactivated' }
+                          );
+                          if (result.success) {
+                            toast.success('Batch deactivated');
+                            fetchBatches();
+                            if (selectedBatch?.id === batch.id) {
+                              setSelectedBatch((prev) => prev ? { ...prev, status: 'deactivated' } : null);
+                            }
+                          } else {
+                            toast.error(result.message || 'Failed to deactivate');
+                          }
+                        } catch {
+                          toast.error('Failed to deactivate');
+                        } finally {
+                          setListDeactivatingId(null);
+                        }
+                      }}
+                      disabled={listDeactivatingId === batch.id}
+                      className="opacity-60 group-hover:opacity-100 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:bg-amber-900/20 shrink-0 mr-2"
+                      title="Deactivate batch (won't appear for sale)"
                     >
-                      {batch.status}
-                    </Badge>
-                    <ChevronRight className="w-5 h-5 text-slate-400" />
-                  </div>
-                </button>
+                      {listDeactivatingId === batch.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Ban className="w-4 h-4" />
+                      )}
+                    </Button>
+                  )}
+                </div>
               ))}
             </div>
           )}

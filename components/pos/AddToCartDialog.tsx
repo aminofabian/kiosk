@@ -5,12 +5,13 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Minus, Plus, ShoppingCart, X, Package, Tag, Edit2, Layers } from 'lucide-react';
+import { Minus, Plus, ShoppingCart, X, Package, Tag, Edit2, Layers, Ban } from 'lucide-react';
 import { useCartStore } from '@/lib/stores/cart-store';
 import type { Item } from '@/lib/db/types';
 import { getItemImage } from '@/lib/utils/item-images';
 import { Badge } from '@/components/ui/badge';
-import { apiGet } from '@/lib/utils/api-client';
+import { apiGet, apiPatch } from '@/lib/utils/api-client';
+import { toast } from 'sonner';
 
 interface BatchOption {
   id: string;
@@ -42,7 +43,32 @@ export function AddToCartDialog({
   const [portion, setPortion] = useState<PortionSize>('full');
   const [batches, setBatches] = useState<BatchOption[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  const [deactivatingBatchId, setDeactivatingBatchId] = useState<string | null>(null);
   const { addItem, items: cartItems } = useCartStore();
+
+  const handleDeactivateBatch = async (batchId: string, batchNumber: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeactivatingBatchId(batchId);
+    try {
+      const result = await apiPatch<{ batchId: string; status: string }>(`/api/batches/${batchId}`, {
+        status: 'deactivated',
+      });
+      if (result.success) {
+        toast.success(`Batch ${batchNumber} deactivated`);
+        setBatches((prev) => prev.filter((b) => b.id !== batchId));
+        if (selectedBatchId === batchId) {
+          const remaining = batches.filter((b) => b.id !== batchId);
+          setSelectedBatchId(remaining[0]?.id ?? null);
+        }
+      } else {
+        toast.error(result.message || 'Failed to deactivate');
+      }
+    } catch {
+      toast.error('Failed to deactivate batch');
+    } finally {
+      setDeactivatingBatchId(null);
+    }
+  };
 
   // Fetch active batches when dialog opens (for regular/non-bundle adds)
   useEffect(() => {
@@ -350,19 +376,36 @@ export function AddToCartDialog({
                   </Label>
                   <div className="flex flex-wrap gap-1.5">
                     {batches.map((b) => (
-                      <button
+                      <div
                         key={b.id}
-                        type="button"
-                        onClick={() => setSelectedBatchId(b.id)}
-                        className={`px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all border ${
-                          selectedBatchId === b.id
-                            ? 'bg-[#1c6a1e] text-white border-[#1c6a1e]'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-[#1c6a1e]/50'
-                        }`}
+                        className="inline-flex items-center gap-0.5 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden"
                       >
-                        {b.batchNumber}
-                        <span className="ml-1 opacity-75">({b.quantityRemaining})</span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedBatchId(b.id)}
+                          className={`px-2.5 py-1.5 text-xs font-mono transition-all ${
+                            selectedBatchId === b.id
+                              ? 'bg-[#1c6a1e] text-white'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          {b.batchNumber}
+                          <span className="ml-1 opacity-75">({b.quantityRemaining})</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeactivateBatch(b.id, b.batchNumber, e)}
+                          disabled={deactivatingBatchId === b.id}
+                          className="p-1.5 text-amber-600 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors disabled:opacity-50"
+                          title="Deactivate batch (won't appear for sale)"
+                        >
+                          {deactivatingBatchId === b.id ? (
+                            <span className="inline-block w-3 h-3 border border-amber-500 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Ban className="w-3 h-3" />
+                          )}
+                        </button>
+                      </div>
                     ))}
                   </div>
                 </div>
