@@ -682,3 +682,46 @@
     visibility: hidden !important;
   }
 }
+
+/* Price Stickers - A4 label sheets (when #price-stickers-print exists) */
+@media print {
+  body:has(#price-stickers-print) {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body:has(#price-stickers-print) * {
+    visibility: hidden !important;
+  }
+  body:has(#price-stickers-print) #price-stickers-print,
+  body:has(#price-stickers-print) #price-stickers-print * {
+    visibility: visible !important;
+  }
+  body:has(#price-stickers-print) #price-stickers-print {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 210mm !important;
+    max-width: 210mm !important;
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+  }
+  body:has(#price-stickers-print) html,
+  body:has(#price-stickers-print) body {
+    width: 210mm !important;
+    max-width: 210mm !important;
+    min-width: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    overflow: hidden !important;
+  }
+  body:has(#price-stickers-print) .page-break-after {
+    page-break-after: always;
+    overflow: hidden !important;
+  }
+  body:has(#price-stickers-print) .page-break-after:last-child {
+    page-break-after: auto;
+  }
+}

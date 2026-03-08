@@ -27,6 +27,7 @@ import {
   PackageX,
   Settings,
   ScanBarcode,
+  LayoutGrid,
 } from 'lucide-react';
 
 interface SubItem {
@@ -82,6 +83,7 @@ const BASE_SECTIONS: MenuSection[] = [
       { href: '/admin/categories', label: 'Categories', icon: FolderTree },
       { href: '/admin/items', label: 'Items', icon: Package },
       { href: '/admin/items/no-barcode', label: 'Barcode Audit', icon: ScanBarcode },
+      { href: '/admin/items/price-stickers', label: 'Price Stickers', icon: LayoutGrid },
       { href: '/admin/stock', label: 'Stock', icon: PackageCheck },
       { href: '/admin/out-of-stock-requests', label: 'Requested (Not Sold)', icon: PackageX },
       { href: '/admin/stock/approvals', label: 'Approvals', icon: Scale, roles: ['admin', 'owner'] },
@@ -173,6 +175,7 @@ export function AdminSidebar() {
           '/admin/categories',
           '/admin/items',
           '/admin/items/no-barcode',
+          '/admin/items/price-stickers',
           '/admin/credits',
           '/admin/expenses',
           '/admin/supplier-bills',
