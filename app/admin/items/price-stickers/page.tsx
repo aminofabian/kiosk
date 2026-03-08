@@ -14,7 +14,8 @@ import {
   Store,
   LayoutGrid,
   Scissors,
-  ChevronDown,
+  Minus,
+  Plus,
 } from 'lucide-react';
 import type { Item, Category } from '@/lib/db/types';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
@@ -29,6 +30,73 @@ import {
 interface ItemWithCategory extends Item {
   category_name?: string;
   parent_name?: string;
+  aisle?: string | null;
+  aisle_number?: string | null;
+}
+
+function getAisleLabel(item: ItemWithCategory): string {
+  const parts = [item.aisle_number, item.aisle].filter(Boolean);
+  return parts.length ? `Aisle ${parts.join(' ')}` : '';
+}
+
+function QuantityStepper({
+  value,
+  onChange,
+  maxPerPage,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  maxPerPage: number;
+}) {
+  const set = (n: number) => onChange(Math.max(0, n));
+
+  return (
+    <div className="flex items-center gap-1.5 shrink-0">
+      <div className="flex items-center rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900/50 shadow-sm overflow-hidden">
+        <button
+          type="button"
+          onClick={() => set(value - 1)}
+          disabled={value <= 0}
+          className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/80 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent transition-all"
+          aria-label="Decrease"
+        >
+          <Minus className="w-4 h-4" strokeWidth={2.5} />
+        </button>
+        <input
+          type="number"
+          min={0}
+          value={value || ''}
+          onChange={(e) => set(parseInt(e.target.value, 10) || 0)}
+          className="w-11 h-8 text-center text-sm font-semibold bg-transparent border-0 focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        />
+        <button
+          type="button"
+          onClick={() => set(value + 1)}
+          className="w-8 h-8 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-all"
+          aria-label="Increase"
+        >
+          <Plus className="w-4 h-4" strokeWidth={2.5} />
+        </button>
+      </div>
+      <div className="flex gap-1">
+        <button
+          type="button"
+          onClick={() => set(1)}
+          className="h-8 px-2.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100/80 dark:bg-slate-800/60 hover:bg-slate-200 dark:hover:bg-slate-700/80 transition-colors"
+        >
+          1
+        </button>
+        <button
+          type="button"
+          onClick={() => set(maxPerPage)}
+          className="h-8 px-2.5 rounded-lg text-xs font-semibold text-white bg-slate-800 dark:bg-slate-700 hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors"
+          title={`Full page (${maxPerPage} labels)`}
+        >
+          {maxPerPage}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 const LABELS_PER_PAGE = 24; // 4 columns x 6 rows on A4
@@ -47,7 +115,7 @@ export default function PriceStickersPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [itemTypeFilter, setItemTypeFilter] = useState<string>('retail');
   const [aisleFilter, setAisleFilter] = useState<string>('all');
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [labelLayout, setLabelLayout] = useState(LABEL_LAYOUTS[0]);
   const [showBarcode, setShowBarcode] = useState(true);
 
@@ -117,25 +185,39 @@ export default function PriceStickersPage() {
     });
   }, [items, searchQuery, selectedCategory, aisleFilter]);
 
-  const toggleItem = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+  const setQuantity = (id: string, qty: number) => {
+    const n = Math.max(0, Math.floor(qty));
+    setQuantities((prev) => (n === 0 ? { ...prev, [id]: 0 } : { ...prev, [id]: n }));
+  };
+
+  const selectAll = () => {
+    setQuantities((prev) => {
+      const next = { ...prev };
+      filteredItems.forEach((i) => (next[i.id] = 1));
       return next;
     });
   };
 
-  const selectAll = () => {
-    setSelectedIds(new Set(filteredItems.map((i) => i.id)));
+  const selectNone = () => setQuantities({});
+
+  const fillPage = () => {
+    setQuantities((prev) => {
+      const next = { ...prev };
+      filteredItems.forEach((i) => {
+        if ((prev[i.id] ?? 0) > 0) next[i.id] = labelLayout.count;
+      });
+      return next;
+    });
   };
 
-  const selectNone = () => setSelectedIds(new Set());
-
-  const selectedItems = useMemo(
-    () => filteredItems.filter((i) => selectedIds.has(i.id)),
-    [filteredItems, selectedIds]
-  );
+  const selectedItems = useMemo(() => {
+    const out: ItemWithCategory[] = [];
+    filteredItems.forEach((item) => {
+      const qty = quantities[item.id] ?? 0;
+      for (let i = 0; i < qty; i++) out.push(item);
+    });
+    return out;
+  }, [filteredItems, quantities]);
 
   const printStickers = () => {
     window.print();
@@ -145,48 +227,48 @@ export default function PriceStickersPage() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen">
+      <div className="min-h-screen bg-slate-50/50 dark:bg-slate-950/50">
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-white/90 dark:bg-[#0f1a0d]/90 backdrop-blur-lg border-b border-slate-200 dark:border-slate-800">
-          <div className="px-4 md:px-6 py-6">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center shadow-lg">
-                  <LayoutGrid className="w-6 h-6 text-white" />
+        <div className="sticky top-0 z-10 bg-white/95 dark:bg-[#0f1a0d]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80">
+          <div className="px-4 md:px-8 py-6">
+            <div className="flex items-center justify-between gap-6 flex-wrap">
+              <div className="flex items-center gap-5">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-950 flex items-center justify-center shadow-xl shadow-slate-900/20 ring-1 ring-slate-700/50">
+                  <LayoutGrid className="w-7 h-7 text-white" strokeWidth={1.5} />
                 </div>
                 <div>
-                  <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">
+                  <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
                     Price Stickers
                   </h1>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Print A4 sheets — cut and stick
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                    A4 label sheets · Cut and stick
                   </p>
                 </div>
               </div>
               <Button
                 onClick={printStickers}
                 disabled={selectedItems.length === 0}
-                className="bg-slate-800 hover:bg-slate-900 text-white"
+                className="h-12 px-6 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold shadow-lg shadow-slate-900/25 disabled:opacity-50 disabled:shadow-none transition-all"
               >
-                <Printer className="w-4 h-4 mr-2" />
+                <Printer className="w-5 h-5 mr-2" strokeWidth={2} />
                 Print {selectedItems.length} sticker{selectedItems.length !== 1 ? 's' : ''}
               </Button>
             </div>
           </div>
         </div>
 
-        <div className="p-4 md:p-6 space-y-6">
+        <div className="p-4 md:p-8 space-y-6">
           {/* Filters */}
-          <Card className="border-slate-200 dark:border-slate-800">
-            <CardContent className="p-4 space-y-4">
+          <Card className="border-slate-200/80 dark:border-slate-800/80 shadow-sm overflow-hidden">
+            <CardContent className="p-5 space-y-5">
               <div className="flex flex-col sm:flex-row gap-4">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                   <Input
                     placeholder="Search products..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
+                    className="pl-10 h-11 rounded-xl border-slate-200/80 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-900/30 focus-visible:ring-slate-400"
                   />
                 </div>
                 <div className="flex gap-2 flex-wrap">
@@ -194,7 +276,11 @@ export default function PriceStickersPage() {
                     variant={itemTypeFilter === 'retail' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setItemTypeFilter('retail')}
-                    className={itemTypeFilter === 'retail' ? 'bg-slate-800' : ''}
+                    className={`h-9 rounded-lg font-medium transition-all ${
+                      itemTypeFilter === 'retail'
+                        ? 'bg-slate-800 hover:bg-slate-700 text-white shadow-sm'
+                        : 'border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800/50'
+                    }`}
                   >
                     <Store className="w-4 h-4 mr-1.5" />
                     Retail
@@ -207,7 +293,11 @@ export default function PriceStickersPage() {
                         variant={itemTypeFilter === t.key ? 'default' : 'outline'}
                         size="sm"
                         onClick={() => setItemTypeFilter(t.key)}
-                        className={itemTypeFilter === t.key ? 'bg-slate-800' : ''}
+                        className={`h-9 rounded-lg font-medium transition-all ${
+                          itemTypeFilter === t.key
+                            ? 'bg-slate-800 hover:bg-slate-700 text-white shadow-sm'
+                            : 'border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800/50'
+                        }`}
                       >
                         <span className="mr-1.5">{t.emoji}</span>
                         {t.label}
@@ -215,10 +305,10 @@ export default function PriceStickersPage() {
                     ))}
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2 items-center">
+              <div className="flex flex-wrap gap-3 items-center pt-1">
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger className="w-[180px]">
-                    <FolderTree className="w-4 h-4 mr-2" />
+                  <SelectTrigger className="w-[180px] h-9 rounded-lg border-slate-200/80 dark:border-slate-700/80">
+                    <FolderTree className="w-4 h-4 mr-2 text-slate-500" />
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -232,7 +322,7 @@ export default function PriceStickersPage() {
                 </Select>
                 {aisles.length > 0 && (
                   <Select value={aisleFilter} onValueChange={setAisleFilter}>
-                    <SelectTrigger className="w-[160px]">
+                    <SelectTrigger className="w-[160px] h-9 rounded-lg border-slate-200/80 dark:border-slate-700/80">
                       <SelectValue placeholder="Aisle" />
                     </SelectTrigger>
                     <SelectContent>
@@ -252,7 +342,7 @@ export default function PriceStickersPage() {
                     if (layout) setLabelLayout(layout);
                   }}
                 >
-                  <SelectTrigger className="w-[160px]">
+                  <SelectTrigger className="w-[160px] h-9 rounded-lg border-slate-200/80 dark:border-slate-700/80">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -263,7 +353,7 @@ export default function PriceStickersPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <label className="flex items-center gap-2.5 text-sm cursor-pointer text-slate-600 dark:text-slate-400">
                   <input
                     type="checkbox"
                     checked={showBarcode}
@@ -273,10 +363,28 @@ export default function PriceStickersPage() {
                   Show barcode
                 </label>
                 <div className="ml-auto flex gap-2">
-                  <Button variant="outline" size="sm" onClick={selectAll}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAll}
+                    className="h-9 rounded-lg border-slate-200 dark:border-slate-700 font-medium"
+                  >
                     Select all
                   </Button>
-                  <Button variant="outline" size="sm" onClick={selectNone}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={fillPage}
+                    className="h-9 rounded-lg border-slate-200 dark:border-slate-700 font-medium"
+                  >
+                    Fill page
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={selectNone}
+                    className="h-9 rounded-lg border-slate-200 dark:border-slate-700 font-medium text-slate-600 dark:text-slate-400"
+                  >
                     Clear
                   </Button>
                 </div>
@@ -286,52 +394,59 @@ export default function PriceStickersPage() {
 
           {/* Item list */}
           <div className="grid lg:grid-cols-2 gap-6">
-            <Card className="border-slate-200 dark:border-slate-800">
+            <Card className="border-slate-200/80 dark:border-slate-800/80 shadow-sm overflow-hidden">
               <CardContent className="p-0">
-                <div className="p-4 border-b border-slate-100 dark:border-slate-800">
+                <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/30 dark:bg-slate-900/20">
                   <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                    {filteredItems.length} products · {selectedIds.size} selected
+                    {filteredItems.length} products · <span className="font-semibold text-slate-800 dark:text-slate-200">{selectedItems.length}</span> sticker{selectedItems.length !== 1 ? 's' : ''} to print
                   </p>
                 </div>
                 <div className="max-h-[50vh] overflow-y-auto">
                   {loading ? (
-                    <div className="p-12 flex justify-center">
-                      <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
+                    <div className="p-16 flex flex-col items-center justify-center gap-4">
+                      <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 animate-spin text-slate-500" />
+                      </div>
+                      <p className="text-sm text-slate-500">Loading products...</p>
                     </div>
                   ) : filteredItems.length === 0 ? (
-                    <div className="p-12 text-center text-slate-500">
-                      <Package className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                      <p>No products match your filters</p>
+                    <div className="p-16 text-center">
+                      <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800/50 flex items-center justify-center mx-auto mb-4">
+                        <Package className="w-8 h-8 text-slate-400" />
+                      </div>
+                      <p className="font-medium text-slate-600 dark:text-slate-400">No products match your filters</p>
+                      <p className="text-sm text-slate-500 mt-1">Try adjusting category or search</p>
                     </div>
                   ) : (
-                    <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <div className="divide-y divide-slate-100/80 dark:divide-slate-800/80">
                       {filteredItems.map((item) => {
                         const displayName = item.variant_name
                           ? `${item.name} – ${item.variant_name}`
                           : item.name;
-                        const isSelected = selectedIds.has(item.id);
+                        const qty = quantities[item.id] ?? 0;
+                        const aisleLabel = getAisleLabel(item);
                         return (
-                          <label
+                          <div
                             key={item.id}
-                            className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors ${
-                              isSelected ? 'bg-slate-100 dark:bg-slate-800/50' : ''
+                            className={`flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 py-3.5 hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors ${
+                              qty > 0 ? 'bg-emerald-50/50 dark:bg-emerald-950/20' : ''
                             }`}
                           >
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => toggleItem(item.id)}
-                              className="rounded border-slate-300 text-slate-800 focus:ring-slate-500"
+                            <QuantityStepper
+                              value={qty}
+                              onChange={(n) => setQuantity(item.id, n)}
+                              maxPerPage={labelLayout.count}
                             />
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-slate-900 dark:text-white truncate">
                                 {displayName}
                               </p>
-                              <p className="text-xs text-slate-500">
+                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                                 {formatPrice(item.current_sell_price)} · {item.category_name}
+                                {aisleLabel && <span className="ml-1">· {aisleLabel}</span>}
                               </p>
                             </div>
-                          </label>
+                          </div>
                         );
                       })}
                     </div>
@@ -341,24 +456,26 @@ export default function PriceStickersPage() {
             </Card>
 
             {/* Print preview */}
-            <Card className="border-slate-200 dark:border-slate-800 print:hidden">
-              <CardContent className="p-4">
-                <h3 className="font-semibold text-slate-900 dark:text-white mb-3 flex items-center gap-2">
-                  <Scissors className="w-4 h-4" />
-                  Preview
-                </h3>
-                <p className="text-sm text-slate-500 mb-4">
-                  A4 sheet · {labelLayout.count} labels per page
-                </p>
+            <Card className="border-slate-200/80 dark:border-slate-800/80 shadow-sm overflow-hidden print:hidden">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Scissors className="w-4 h-4 text-slate-500" />
+                    Preview
+                  </h3>
+                  <span className="text-xs font-medium text-slate-500 bg-slate-100 dark:bg-slate-800/50 px-2.5 py-1 rounded-lg">
+                    {labelLayout.count} per page
+                  </span>
+                </div>
                 <div
-                  className="border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-slate-50/50 dark:bg-slate-900/30"
+                  className="rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700/80 p-4 bg-slate-50/50 dark:bg-slate-900/20"
                   style={{
                     aspectRatio: '210/297',
-                    maxHeight: '400px',
+                    maxHeight: '420px',
                   }}
                 >
                   <div
-                    className="grid h-full w-full"
+                    className="grid h-full w-full rounded-lg overflow-hidden"
                     style={{
                       gridTemplateColumns: `repeat(${labelLayout.cols}, 1fr)`,
                       gridTemplateRows: `repeat(${labelLayout.rows}, 1fr)`,
@@ -370,7 +487,7 @@ export default function PriceStickersPage() {
                       return (
                         <div
                           key={i}
-                          className="border border-slate-200 dark:border-slate-700 rounded p-1.5 bg-white dark:bg-slate-800 text-[10px] overflow-hidden flex flex-col justify-center"
+                          className="border border-slate-200 dark:border-slate-700 rounded-md p-2 bg-white dark:bg-slate-900 text-[10px] overflow-hidden flex flex-col justify-center shadow-sm"
                         >
                           {item ? (
                             <>
@@ -378,6 +495,9 @@ export default function PriceStickersPage() {
                                 {item.variant_name ? `${item.name} – ${item.variant_name}` : item.name}
                               </p>
                               <p className="text-[#1c6a1e] font-bold">{formatPrice(item.current_sell_price)}</p>
+                              {getAisleLabel(item) && (
+                                <p className="text-[8px] text-slate-500 mt-0.5">{getAisleLabel(item)}</p>
+                              )}
                               {showBarcode && item.barcode && (
                                 <p className="font-mono text-[8px] text-slate-500 break-all">
                                   {item.barcode}
@@ -445,6 +565,14 @@ export default function PriceStickersPage() {
                           >
                             {formatPrice(item.current_sell_price)}
                           </p>
+                          {getAisleLabel(item) && (
+                            <p
+                              className="text-slate-500 mt-0.5 shrink-0"
+                              style={{ fontSize: '7pt' }}
+                            >
+                              {getAisleLabel(item)}
+                            </p>
+                          )}
                           {showBarcode && item.barcode && (
                             <p
                               className="font-mono text-slate-500 mt-0.5 overflow-hidden"
