@@ -204,6 +204,7 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
           itemId: item.itemId,
           quantity: item.quantity,
           price: item.price,
+          inventoryBatchId: item.inventoryBatchId || undefined,
         })),
         paymentMethod,
       };
@@ -464,13 +465,16 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
             <CardContent className="space-y-3">
               {items.map((item) => (
                 <div
-                  key={item.itemId}
+                  key={item.inventoryBatchId ? `${item.itemId}:${item.inventoryBatchId}` : item.itemId}
                   className="flex justify-between items-start"
                 >
                   <div className="flex-1">
                     <div className="font-medium uppercase">{item.name}</div>
                     <div className="text-sm text-muted-foreground">
                       {item.quantity} {item.unitType} × {formatPrice(item.price)}
+                      {item.batchNumber && (
+                        <span className="ml-1.5 font-mono text-slate-500">Lot: {item.batchNumber}</span>
+                      )}
                     </div>
                   </div>
                   <div className="font-semibold">

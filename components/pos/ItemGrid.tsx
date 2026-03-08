@@ -159,6 +159,15 @@ const ItemCard = memo(function ItemCard({
           )}
         </div>
 
+        {/* Batch number (when available) */}
+        {item.batch_number && !isOutOfStock && (
+          <div className="mt-1">
+            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+              Lot: {item.batch_number}
+            </span>
+          </div>
+        )}
+
         {/* Stock indicator */}
         <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700/40">
           <div className="flex items-center gap-1.5">

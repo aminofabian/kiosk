@@ -11,6 +11,9 @@ export interface CartItem {
   // Bundle-specific fields
   isBundle?: boolean;
   bundleQuantity?: number; // Number of items in each bundle
+  // Batch selection (when cashier picks specific batch)
+  inventoryBatchId?: string;
+  batchNumber?: string;
 }
 
 export interface Cart {
@@ -21,9 +24,11 @@ export interface Cart {
   createdAt: number;
 }
 
-// Generate a unique cart key for an item (differentiates bundles from regular)
-const getCartKey = (item: { itemId: string; isBundle?: boolean }): string => {
-  return item.isBundle ? `${item.itemId}:bundle` : item.itemId;
+// Generate a unique cart key for an item (differentiates bundles, regular, and batch-specific)
+const getCartKey = (item: { itemId: string; isBundle?: boolean; inventoryBatchId?: string }): string => {
+  if (item.isBundle) return `${item.itemId}:bundle`;
+  if (item.inventoryBatchId) return `${item.itemId}:batch:${item.inventoryBatchId}`;
+  return item.itemId;
 };
 
 const calculateTotal = (items: CartItem[]): number => {
@@ -63,8 +68,8 @@ interface CartStore {
   
   // Item operations (operate on active cart)
   addItem: (item: Omit<CartItem, 'quantity'>, quantity: number) => void;
-  updateQuantity: (itemId: string, quantity: number, isBundle?: boolean) => void;
-  removeItem: (itemId: string, isBundle?: boolean) => void;
+  updateQuantity: (itemId: string, quantity: number, isBundle?: boolean, inventoryBatchId?: string) => void;
+  removeItem: (itemId: string, isBundle?: boolean, inventoryBatchId?: string) => void;
   clearCart: () => void;
 }
 
@@ -183,9 +188,12 @@ export const useCartStore = create<CartStore>()(
           const updatedCarts = state.carts.map(cart => {
             if (cart.id !== activeCartId) return cart;
             
-            // Find existing item with same itemId AND same type (bundle vs regular)
+            // Find existing item with same itemId, type (bundle vs regular), and batch
             const existingItemIndex = cart.items.findIndex(
-              (i) => i.itemId === item.itemId && Boolean(i.isBundle) === Boolean(item.isBundle)
+              (i) =>
+                i.itemId === item.itemId &&
+                Boolean(i.isBundle) === Boolean(item.isBundle) &&
+                (i.inventoryBatchId || null) === (item.inventoryBatchId || null)
             );
             
             let newItems: CartItem[];
@@ -212,19 +220,21 @@ export const useCartStore = create<CartStore>()(
         });
       },
       
-      updateQuantity: (itemId, quantity, isBundle = false) => {
+      updateQuantity: (itemId, quantity, isBundle = false, inventoryBatchId?: string) => {
         set((state) => {
           const activeCartId = state.activeCartId || state.carts[0]?.id;
           if (!activeCartId) return state;
+          
+          const matchesItem = (i: CartItem) =>
+            i.itemId === itemId &&
+            Boolean(i.isBundle) === isBundle &&
+            (i.inventoryBatchId || null) === (inventoryBatchId || null);
           
           const updatedCarts = state.carts.map(cart => {
             if (cart.id !== activeCartId) return cart;
             
             if (quantity <= 0) {
-              // Remove item if quantity is 0 or less
-              const newItems = cart.items.filter(
-                (i) => !(i.itemId === itemId && Boolean(i.isBundle) === isBundle)
-              );
+              const newItems = cart.items.filter((i) => !matchesItem(i));
               return {
                 ...cart,
                 items: newItems,
@@ -233,9 +243,7 @@ export const useCartStore = create<CartStore>()(
             }
             
             const newItems = cart.items.map((i) =>
-              i.itemId === itemId && Boolean(i.isBundle) === isBundle
-                ? { ...i, quantity }
-                : i
+              matchesItem(i) ? { ...i, quantity } : i
             );
             
             return {
@@ -249,17 +257,20 @@ export const useCartStore = create<CartStore>()(
         });
       },
       
-      removeItem: (itemId, isBundle = false) => {
+      removeItem: (itemId, isBundle = false, inventoryBatchId?: string) => {
         set((state) => {
           const activeCartId = state.activeCartId || state.carts[0]?.id;
           if (!activeCartId) return state;
           
+          const matchesItem = (i: CartItem) =>
+            i.itemId === itemId &&
+            Boolean(i.isBundle) === isBundle &&
+            (i.inventoryBatchId || null) === (inventoryBatchId || null);
+          
           const updatedCarts = state.carts.map(cart => {
             if (cart.id !== activeCartId) return cart;
             
-            const newItems = cart.items.filter(
-              (i) => !(i.itemId === itemId && Boolean(i.isBundle) === isBundle)
-            );
+            const newItems = cart.items.filter((i) => !matchesItem(i));
             return {
               ...cart,
               items: newItems,

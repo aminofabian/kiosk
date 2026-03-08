@@ -5,11 +5,20 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Minus, Plus, ShoppingCart, X, Package, Tag, Edit2 } from 'lucide-react';
+import { Minus, Plus, ShoppingCart, X, Package, Tag, Edit2, Layers } from 'lucide-react';
 import { useCartStore } from '@/lib/stores/cart-store';
 import type { Item } from '@/lib/db/types';
 import { getItemImage } from '@/lib/utils/item-images';
 import { Badge } from '@/components/ui/badge';
+import { apiGet } from '@/lib/utils/api-client';
+
+interface BatchOption {
+  id: string;
+  batchNumber: string;
+  quantityRemaining: number;
+  buyPricePerUnit: number;
+  receivedAt: number;
+}
 
 type PurchaseMode = 'regular' | 'bundle';
 type PortionSize = 'full' | 'half' | 'quarter' | 'eighth' | 'tenth' | 'twentieth' | 'custom';
@@ -31,7 +40,33 @@ export function AddToCartDialog({
   const [manualPrice, setManualPrice] = useState<number | null>(null);
   const [useManualPrice, setUseManualPrice] = useState(false);
   const [portion, setPortion] = useState<PortionSize>('full');
+  const [batches, setBatches] = useState<BatchOption[]>([]);
+  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const { addItem, items: cartItems } = useCartStore();
+
+  // Fetch active batches when dialog opens (for regular/non-bundle adds)
+  useEffect(() => {
+    if (open && item) {
+      apiGet<BatchOption[]>(`/api/items/${item.id}/batches`)
+        .then((res) => {
+          const list = res.success && Array.isArray(res.data) ? res.data : [];
+          if (list.length > 0) {
+            setBatches(list);
+            setSelectedBatchId(list[0].id);
+          } else {
+            setBatches([]);
+            setSelectedBatchId(null);
+          }
+        })
+        .catch(() => {
+          setBatches([]);
+          setSelectedBatchId(null);
+        });
+    } else {
+      setBatches([]);
+      setSelectedBatchId(null);
+    }
+  }, [open, item?.id]);
 
   // Check if item has bundle pricing
   const hasBundle = item && item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0;
@@ -89,12 +124,17 @@ export function AddToCartDialog({
       const finalPrice = useManualPrice && manualPrice !== null 
         ? manualPrice 
         : item.current_sell_price;
+      const selectedBatch = selectedBatchId ? batches.find((b) => b.id === selectedBatchId) : null;
       addItem(
         {
           itemId: item.id,
           name: item.name,
           price: finalPrice,
           unitType: item.unit_type,
+          ...(selectedBatch && {
+            inventoryBatchId: selectedBatch.id,
+            batchNumber: selectedBatch.batchNumber,
+          }),
         },
         quantity
       );
@@ -302,6 +342,36 @@ export function AddToCartDialog({
                   )}
                 </span>
               </div>
+              {batches.length > 0 && purchaseMode === 'regular' && (
+                <div className="mt-2 w-full">
+                  <Label className="text-xs text-gray-600 dark:text-gray-400 mb-1.5 flex items-center gap-1">
+                    <Layers className="w-3 h-3" />
+                    Sell from batch
+                  </Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {batches.map((b) => (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => setSelectedBatchId(b.id)}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all border ${
+                          selectedBatchId === b.id
+                            ? 'bg-[#1c6a1e] text-white border-[#1c6a1e]'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-[#1c6a1e]/50'
+                        }`}
+                      >
+                        {b.batchNumber}
+                        <span className="ml-1 opacity-75">({b.quantityRemaining})</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {item.batch_number && remainingStock > 0 && batches.length === 0 && (
+                <div className="mt-1.5 text-xs font-mono text-slate-500 dark:text-slate-400">
+                  Lot: {item.batch_number}
+                </div>
+              )}
               {hasBundle && (
                 <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700">
                   <Tag className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />

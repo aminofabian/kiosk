@@ -252,8 +252,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Process each item with FIFO
+    // Process each item (FIFO or cashier-selected batch)
     for (const item of items) {
+      const inventoryBatchId = (item as { inventoryBatchId?: string }).inventoryBatchId;
+
       // Fetch item's current type for snapshot
       const itemData = await queryOne<{ item_type: string }>(
         'SELECT item_type FROM items WHERE id = ?',
@@ -261,7 +263,34 @@ export async function POST(request: NextRequest) {
       );
       const itemTypeSnapshot = itemData?.item_type || 'retail';
 
-      const batches = await getBatchesForSale(item.itemId, item.quantity);
+      let batches: { batchId: string; quantity: number; buyPrice: number }[];
+      if (inventoryBatchId) {
+        // Cashier selected a specific batch - use it first
+        const selectedBatch = await queryOne<{
+          id: string;
+          quantity_remaining: number;
+          buy_price_per_unit: number;
+          item_id: string;
+        }>(
+          `SELECT id, quantity_remaining, buy_price_per_unit, item_id
+           FROM inventory_batches
+           WHERE id = ? AND business_id = ? AND item_id = ? AND status = 'active'`,
+          [inventoryBatchId, auth.businessId, item.itemId]
+        );
+        if (selectedBatch && selectedBatch.quantity_remaining > 0) {
+          const take = Math.min(item.quantity, selectedBatch.quantity_remaining);
+          batches = [{
+            batchId: selectedBatch.id,
+            quantity: take,
+            buyPrice: selectedBatch.buy_price_per_unit,
+          }];
+        } else {
+          batches = [];
+        }
+      } else {
+        batches = await getBatchesForSale(item.itemId, item.quantity);
+      }
+
       let remainingQuantity = item.quantity;
 
       // If we have batches, consume them

@@ -11,8 +11,10 @@ import type { UnitType } from '@/lib/constants';
 import { useEffect } from 'react';
 
 // Generate a unique key for cart items
-const getCartItemKey = (item: { itemId: string; isBundle?: boolean }): string => {
-  return item.isBundle ? `${item.itemId}:bundle` : item.itemId;
+const getCartItemKey = (item: { itemId: string; isBundle?: boolean; inventoryBatchId?: string }): string => {
+  if (item.isBundle) return `${item.itemId}:bundle`;
+  if (item.inventoryBatchId) return `${item.itemId}:batch:${item.inventoryBatchId}`;
+  return item.itemId;
 };
 
 // Type guard to check if unitType is a valid UnitType (not 'bundle')
@@ -171,11 +173,16 @@ export function CartView({ onContinueShopping, onCheckout }: CartViewProps = {})
                             </Badge>
                           )}
                         </div>
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
                           <span>{formatPrice(item.price)} / {item.isBundle ? 'bundle' : item.unitType}</span>
                           {item.isBundle && item.bundleQuantity && (
                             <span className="text-amber-600 dark:text-amber-400">
                               ({item.bundleQuantity}/bundle)
+                            </span>
+                          )}
+                          {item.batchNumber && (
+                            <span className="font-mono text-slate-500 dark:text-slate-400">
+                              Lot: {item.batchNumber}
                             </span>
                           )}
                         </div>
@@ -209,7 +216,7 @@ export function CartView({ onContinueShopping, onCheckout }: CartViewProps = {})
                             unitType={item.unitType}
                             value={item.quantity}
                             onChange={(newQuantity) =>
-                              updateQuantity(item.itemId, newQuantity, false)
+                              updateQuantity(item.itemId, newQuantity, false, item.inventoryBatchId)
                             }
                             min={0}
                           />
@@ -217,7 +224,7 @@ export function CartView({ onContinueShopping, onCheckout }: CartViewProps = {})
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => removeItem(item.itemId, item.isBundle)}
+                          onClick={() => removeItem(item.itemId, item.isBundle, item.inventoryBatchId)}
                           className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                         >
                           <Trash2 className="h-3.5 w-3.5" />

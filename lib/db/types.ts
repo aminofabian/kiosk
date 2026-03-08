@@ -103,6 +103,8 @@ export interface Item {
   aisle_number?: string | null; // e.g., "A3", "12" (added via migration)
   active: number; // 1 = true, 0 = false
   created_at: number;
+  /** FIFO batch number (from API when available, e.g. POS search) */
+  batch_number?: string | null;
 }
 
 // Helper type for parent items (grouping containers)

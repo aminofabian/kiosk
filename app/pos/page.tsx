@@ -200,7 +200,7 @@ export default function POSPage() {
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const printedReceiptIdRef = useRef<string | null>(null);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [searchSuggestions, setSearchSuggestions] = useState<{ id: string; name: string; variant_name?: string | null; current_sell_price: number; unit_type?: string; category_name?: string | null; parent_item_id?: string | null; parent_name?: string | null; sibling_count?: number }[]>([]);
+  const [searchSuggestions, setSearchSuggestions] = useState<{ id: string; name: string; variant_name?: string | null; current_sell_price: number; unit_type?: string; category_name?: string | null; parent_item_id?: string | null; parent_name?: string | null; sibling_count?: number; batch_number?: string | null }[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
@@ -871,6 +871,11 @@ export default function POSPage() {
                     : 'text-gray-400 dark:text-gray-500 bg-gray-100/80 dark:bg-gray-800/60'
                 }`}>
                   {suggestion.category_name}
+                </span>
+              )}
+              {suggestion.batch_number && (
+                <span className="text-[9.5px] font-mono text-slate-500 dark:text-slate-400">
+                  Lot: {suggestion.batch_number}
                 </span>
               )}
             </div>

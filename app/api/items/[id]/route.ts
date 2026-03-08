@@ -77,11 +77,20 @@ export async function GET(
       );
     }
 
+    // FIFO batch number for POS display
+    const fifoBatch = await queryOne<{ batch_number: string }>(
+      `SELECT batch_number FROM inventory_batches
+       WHERE item_id = ? AND business_id = ? AND quantity_remaining > 0 AND status = 'active'
+       ORDER BY received_at ASC LIMIT 1`,
+      [itemId, auth.businessId]
+    );
+
     return jsonResponse({
       success: true,
       data: {
         ...item,
         buy_price: latestBatch?.buy_price_per_unit || null,
+        batch_number: fifoBatch?.batch_number ?? null,
         isParent: isParentItem && variantCount > 0,
         variantCount,
         variants,

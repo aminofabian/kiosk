@@ -298,6 +298,27 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Enrich with FIFO batch_number for POS display (search/category sellable)
+    const needsBatchNumber = (search || (categoryId && sellableOnly)) && items.length > 0;
+    if (needsBatchNumber) {
+      const itemIds = items.map((i) => i.id);
+      const batchRows = await query<{ item_id: string; batch_number: string }>(
+        `SELECT item_id, batch_number FROM inventory_batches
+         WHERE item_id IN (${itemIds.map(() => '?').join(',')})
+           AND quantity_remaining > 0 AND status = 'active'
+         ORDER BY received_at ASC`,
+        itemIds
+      );
+      const batchByItem = new Map<string, string>();
+      for (const row of batchRows) {
+        if (!batchByItem.has(row.item_id)) batchByItem.set(row.item_id, row.batch_number);
+      }
+      items = items.map((i) => ({
+        ...i,
+        batch_number: batchByItem.get(i.id) ?? null,
+      }));
+    }
+
     return jsonResponse({
       success: true,
       data: items,
