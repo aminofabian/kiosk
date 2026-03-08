@@ -514,7 +514,7 @@ export default function ItemsWithoutBarcodePage() {
                                 item={item}
                                 categories={categories}
                                 onAddBarcode={openBarcodeDrawer}
-                                showAddBarcode={!!item.parent_item_id}
+                                showAddBarcode
                               />
                             )}
                           </div>
