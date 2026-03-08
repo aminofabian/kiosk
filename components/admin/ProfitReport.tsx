@@ -30,6 +30,18 @@ interface ProfitData {
     total_profit: number;
     profit_margin: number;
   }>;
+  byBatch?: Array<{
+    batch_id: string;
+    batch_number: string | null;
+    item_id: string;
+    item_name: string;
+    supplier_name: string | null;
+    quantity_sold: number;
+    total_sales: number;
+    total_cost: number;
+    total_profit: number;
+    profit_margin: number;
+  }>;
 }
 
 export function ProfitReport() {
@@ -42,7 +54,7 @@ export function ProfitReport() {
   const [endDate, setEndDate] = useState<string>(
     new Date().toISOString().split('T')[0]
   );
-  const [viewBy, setViewBy] = useState<'item' | 'category'>('item');
+  const [viewBy, setViewBy] = useState<'item' | 'category' | 'batch'>('item');
 
   useEffect(() => {
     fetchProfitData();
@@ -141,13 +153,14 @@ export function ProfitReport() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="view">View By</Label>
-              <Select value={viewBy} onValueChange={(v) => setViewBy(v as 'item' | 'category')}>
+              <Select value={viewBy} onValueChange={(v) => setViewBy(v as 'item' | 'category' | 'batch')}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="item">By Item</SelectItem>
                   <SelectItem value="category">By Category</SelectItem>
+                  <SelectItem value="batch">By Stock Lot</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -199,10 +212,62 @@ export function ProfitReport() {
         <CardContent className="p-0">
           <div className="p-4 border-b">
             <h3 className="font-semibold text-lg">
-              Profit {viewBy === 'item' ? 'by Item' : 'by Category'}
+              Profit {viewBy === 'item' ? 'by Item' : viewBy === 'batch' ? 'by Stock Lot' : 'by Category'}
             </h3>
           </div>
-          {viewBy === 'item' ? (
+          {viewBy === 'batch' && data.byBatch ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="text-left p-4 font-semibold">Lot / Item</th>
+                    <th className="text-left p-4 font-semibold">Supplier</th>
+                    <th className="text-right p-4 font-semibold">Qty Sold</th>
+                    <th className="text-right p-4 font-semibold">Sales</th>
+                    <th className="text-right p-4 font-semibold">Cost</th>
+                    <th className="text-right p-4 font-semibold">Profit</th>
+                    <th className="text-right p-4 font-semibold">Margin</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(data.byBatch || []).length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-12 text-center text-muted-foreground">
+                        No batch sales data for this period
+                      </td>
+                    </tr>
+                  ) : (
+                    (data.byBatch || []).map((batch) => (
+                      <tr key={batch.batch_id} className="border-t hover:bg-muted/50">
+                        <td className="p-4">
+                          <div className="font-medium">{batch.item_name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {batch.batch_number || batch.batch_id.slice(0, 8)}
+                          </div>
+                        </td>
+                        <td className="p-4 text-muted-foreground">
+                          {batch.supplier_name || '-'}
+                        </td>
+                        <td className="p-4 text-right">{batch.quantity_sold.toFixed(2)}</td>
+                        <td className="p-4 text-right">{formatPrice(batch.total_sales)}</td>
+                        <td className="p-4 text-right text-orange-600">
+                          {formatPrice(batch.total_cost)}
+                        </td>
+                        <td
+                          className={`p-4 text-right font-semibold ${
+                            batch.total_profit >= 0 ? 'text-emerald-600' : 'text-destructive'
+                          }`}
+                        >
+                          {formatPrice(batch.total_profit)}
+                        </td>
+                        <td className="p-4 text-right">{formatPercent(batch.profit_margin)}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : viewBy === 'item' ? (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-muted">
@@ -245,7 +310,7 @@ export function ProfitReport() {
                 </tbody>
               </table>
             </div>
-          ) : (
+          ) : viewBy === 'category' ? (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-muted">
@@ -292,7 +357,7 @@ export function ProfitReport() {
                 </tbody>
               </table>
             </div>
-          )}
+          ) : null}
         </CardContent>
       </Card>
     </div>

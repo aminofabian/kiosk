@@ -73,8 +73,53 @@ export async function GET(request: NextRequest) {
 
     let byItem: any[] = [];
     let byCategory: any[] = [];
+    let byBatch: any[] = [];
 
-    if (viewBy === 'item') {
+    if (viewBy === 'batch') {
+      // Profit by batch (stock lot)
+      byBatch = await query<{
+        batch_id: string;
+        batch_number: string | null;
+        item_id: string;
+        item_name: string;
+        supplier_name: string | null;
+        quantity_sold: number;
+        total_sales: number;
+        total_cost: number;
+        total_profit: number;
+        profit_margin: number;
+      }>(
+        `SELECT 
+          ib.id as batch_id,
+          ib.batch_number,
+          i.id as item_id,
+          i.name as item_name,
+          s.name as supplier_name,
+          COALESCE(SUM(si.quantity_sold), 0) as quantity_sold,
+          COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_sales,
+          COALESCE(SUM(si.quantity_sold * si.buy_price_per_unit), 0) as total_cost,
+          COALESCE(SUM(si.profit), 0) as total_profit,
+          CASE 
+            WHEN SUM(si.quantity_sold * si.sell_price_per_unit) > 0 
+            THEN SUM(si.profit) / SUM(si.quantity_sold * si.sell_price_per_unit)
+            ELSE 0 
+          END as profit_margin
+         FROM sale_items si
+         JOIN sales s2 ON si.sale_id = s2.id
+         JOIN inventory_batches ib ON si.inventory_batch_id = ib.id
+         JOIN items i ON si.item_id = i.id
+         LEFT JOIN suppliers s ON ib.supplier_id = s.id
+         WHERE s2.business_id = ? 
+           AND s2.status = 'completed'
+           AND s2.sale_date >= ? 
+           AND s2.sale_date <= ?
+           AND si.inventory_batch_id IS NOT NULL
+         GROUP BY ib.id, ib.batch_number, i.id, i.name, s.name
+         HAVING total_sales > 0
+         ORDER BY total_profit DESC`,
+        [auth.businessId, startTimestamp, endTimestamp]
+      );
+    } else if (viewBy === 'item') {
       // Profit by item with buy_price fallback
       byItem = await query<{
         item_id: string;
@@ -160,6 +205,7 @@ export async function GET(request: NextRequest) {
         profitMargin,
         byItem,
         byCategory,
+        byBatch,
       },
     });
   } catch (error) {

@@ -90,6 +90,7 @@ export interface Item {
   current_sell_price: number;
   image_url: string | null;
   barcode: string | null; // Optional barcode (EAN-13, UPC, etc.)
+  product_code: string | null; // Optional 3-5 char code for batch numbering (e.g. TOM, ONI)
   expiry_date: number | null; // Optional expiry date as Unix timestamp
   // Bundle pricing: allows selling items in bundles (e.g., "3 tomatoes for KES 20")
   bundle_quantity: number | null; // Number of units in a bundle (e.g., 3)
@@ -162,15 +163,21 @@ export interface PurchaseBreakdown {
   confirmed_at: number;
 }
 
+export type BatchStatus = 'active' | 'depleted' | 'deactivated';
+
 export interface InventoryBatch {
   id: string;
   business_id: string;
   item_id: string;
   source_breakdown_id: string | null;
+  batch_number: string | null;
+  status: BatchStatus;
+  supplier_id: string | null;
   initial_quantity: number;
   quantity_remaining: number;
   buy_price_per_unit: number;
   received_at: number;
+  expiry_date: number | null;
   created_at: number;
 }
 

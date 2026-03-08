@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { query, execute } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
+import { generateSupplierBatchNumber, getNextSupplierBatchSeq } from '@/lib/utils/batch-number';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
 import type { SupplierBill } from '@/lib/db/types';
@@ -141,6 +142,7 @@ export async function POST(request: NextRequest) {
         itemId: string;
         quantity: number;
         costPricePerUnit: number;
+        batchNumber?: string;
       }>;
       preferredPaymentMethod?: string;
       paymentDetails?: string;
@@ -193,6 +195,14 @@ export async function POST(request: NextRequest) {
     // Update stock for linked product items
     let stockUpdated = 0;
     if (stockItems && Array.isArray(stockItems) && stockItems.length > 0) {
+      const existingBatchNumbers = stockItems
+        .map((s) => s.batchNumber?.trim())
+        .filter(Boolean) as string[];
+      let seq = await getNextSupplierBatchSeq(
+        supplierId || null,
+        auth.businessId,
+        existingBatchNumbers
+      );
       for (const stockItem of stockItems) {
         if (!stockItem.itemId || !stockItem.quantity || stockItem.quantity <= 0) continue;
 
@@ -204,17 +214,24 @@ export async function POST(request: NextRequest) {
         if (item.length === 0) continue;
 
         const batchId = generateUUID();
+        const batchNumber =
+          stockItem.batchNumber?.trim() ||
+          generateSupplierBatchNumber(supplierName || 'Supplier', seq, now);
+        seq += 1;
 
         // Create inventory batch for FIFO cost tracking
         await execute(
           `INSERT INTO inventory_batches (
-            id, business_id, item_id, source_breakdown_id, initial_quantity,
-            quantity_remaining, buy_price_per_unit, received_at, created_at
-          ) VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?)`,
+            id, business_id, item_id, source_breakdown_id, batch_number, status,
+            supplier_id, initial_quantity, quantity_remaining, buy_price_per_unit,
+            received_at, created_at
+          ) VALUES (?, ?, ?, NULL, ?, 'active', ?, ?, ?, ?, ?, ?)`,
           [
             batchId,
             auth.businessId,
             stockItem.itemId,
+            batchNumber,
+            supplierId || null,
             stockItem.quantity,
             stockItem.quantity,
             stockItem.costPricePerUnit,

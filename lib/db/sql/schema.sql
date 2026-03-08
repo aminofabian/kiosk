@@ -228,14 +228,19 @@ CREATE TABLE IF NOT EXISTS inventory_batches (
   business_id TEXT NOT NULL,
   item_id TEXT NOT NULL,
   source_breakdown_id TEXT, -- nullable for initial stock batches
+  batch_number TEXT, -- human-readable e.g. TOM-20260308-01
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'depleted', 'deactivated')),
+  supplier_id TEXT,
   initial_quantity REAL NOT NULL,
   quantity_remaining REAL NOT NULL,
   buy_price_per_unit REAL NOT NULL,
   received_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  expiry_date INTEGER,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
   FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
-  FOREIGN KEY (source_breakdown_id) REFERENCES purchase_breakdowns(id) ON DELETE RESTRICT
+  FOREIGN KEY (source_breakdown_id) REFERENCES purchase_breakdowns(id) ON DELETE RESTRICT,
+  FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_inventory_batches_business_id ON inventory_batches(business_id);

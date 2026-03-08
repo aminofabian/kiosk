@@ -666,6 +666,7 @@ interface ItemFormProps {
     variant_name?: string | null;
     parent_item_id?: string | null;
     barcode?: string | null;
+    product_code?: string | null;
     expiry_date?: number | null;
     // Bundle pricing
     bundle_quantity?: number | null;
@@ -727,6 +728,7 @@ export function ItemForm({
   const [sellPrice, setSellPrice] = useState<string>(initialData?.current_sell_price?.toString() || '');
   const [minStockLevel, setMinStockLevel] = useState<string>(initialData?.min_stock_level?.toString() || '');
   const [barcode, setBarcode] = useState<string>(initialData?.barcode || '');
+  const [productCode, setProductCode] = useState<string>(initialData?.product_code || '');
   const [expiryDate, setExpiryDate] = useState<string>(
     initialData?.expiry_date ? new Date(initialData.expiry_date * 1000).toISOString().split('T')[0] : ''
   );
@@ -944,6 +946,7 @@ export function ItemForm({
     setBuyPrice(initialData.buy_price?.toString() || '');
     setMinStockLevel(initialData.min_stock_level?.toString() || '');
     setBarcode(initialData.barcode || '');
+    setProductCode(initialData.product_code || '');
     setExpiryDate(initialData.expiry_date ? new Date(initialData.expiry_date * 1000).toISOString().split('T')[0] : '');
     setAisleNumber(initialData.aisle_number || '');
     setSelectedParentId(initialData.parent_item_id || '');
@@ -1151,6 +1154,7 @@ export function ItemForm({
         parentItemId: mode === 'variant' ? selectedParentId : null,
         variantName: mode === 'variant' ? variantName.trim() : null,
         barcode: mode === 'parent' ? null : (barcode.trim() || null),
+        productCode: mode === 'parent' ? null : (productCode.trim() || null),
         expiryDate: expiryDate ? Math.floor(new Date(expiryDate).getTime() / 1000) : null,
         // Bundle pricing (only for non-parent items)
         bundleQuantity: mode === 'parent' ? null : bundleQty,
@@ -2184,6 +2188,28 @@ export function ItemForm({
                       Barcode scanned: {barcodeScanStatus.lastScanned}
                     </div>
                   )}
+                </div>
+
+                {/* Product Code (for Stock Lot numbering) */}
+                <div className="space-y-2">
+                  <Label htmlFor="productCode" className="text-sm font-medium">
+                    Product Code
+                    <span className="text-xs font-normal text-muted-foreground ml-1">(Optional)</span>
+                  </Label>
+                  <Input
+                    id="productCode"
+                    type="text"
+                    value={productCode}
+                    onChange={(e) => setProductCode(e.target.value.toUpperCase().slice(0, 5))}
+                    disabled={isSubmitting}
+                    className="h-12 text-base focus-visible:ring-[#1c6a1e] font-mono"
+                    placeholder="e.g., TOM, ONI"
+                    maxLength={5}
+                  />
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Info className="h-3 w-3" />
+                    3–5 chars for stock lot IDs (e.g. TOM-20260308-01). Leave empty to derive from name.
+                  </p>
                 </div>
 
                 {/* Expiry Date */}

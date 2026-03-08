@@ -294,12 +294,13 @@ export async function POST(request: NextRequest) {
             ]
           );
 
-          // Update batch quantity_remaining
+          // Update batch quantity_remaining and set status=depleted when empty
           await execute(
             `UPDATE inventory_batches 
-             SET quantity_remaining = quantity_remaining - ? 
+             SET quantity_remaining = quantity_remaining - ?,
+                 status = CASE WHEN (quantity_remaining - ?) <= 0 THEN 'depleted' ELSE status END
              WHERE id = ?`,
-            [batch.quantity, batch.batchId]
+            [batch.quantity, batch.quantity, batch.batchId]
           );
 
           remainingQuantity -= batch.quantity;

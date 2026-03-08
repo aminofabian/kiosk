@@ -40,9 +40,11 @@ import {
   Store,
   ScanBarcode,
   RotateCcw,
+  Layers,
 } from 'lucide-react';
 import { apiGet, apiPost, apiPatch } from '@/lib/utils/api-client';
 import { getItemDisplayName } from '@/lib/utils';
+import { generateSupplierBatchNumber } from '@/lib/utils/batch-number-shared';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -76,6 +78,7 @@ interface BillLineItem {
   packagingUnitName: string; // e.g., "Carton", "Sack" - editable inline
   packagingUnitQty: string; // items per package as string for input (e.g., "18")
   itemId?: string; // linked product item ID (for stock updates)
+  batchNumber?: string; // optional custom batch/lot number (e.g. TOM-20260308-01)
   currentStock?: number; // current stock level (display only)
   unitType?: string; // e.g. kg, piece (display only)
   sellPrice?: number; // current sell price (display only)
@@ -124,7 +127,7 @@ interface SupplierBillDraft {
   supplierId: string;
   supplierName: string;
   supplierPhone: string;
-  lineItems: Pick<BillLineItem, 'id' | 'description' | 'quantity' | 'amount' | 'packages' | 'packagingUnitName' | 'packagingUnitQty' | 'itemId' | 'currentStock' | 'unitType' | 'sellPrice' | 'showPackaging'>[];
+  lineItems: Pick<BillLineItem, 'id' | 'description' | 'quantity' | 'amount' | 'packages' | 'packagingUnitName' | 'packagingUnitQty' | 'itemId' | 'batchNumber' | 'currentStock' | 'unitType' | 'sellPrice' | 'showPackaging'>[];
   dueDateTime: string;
   notes: string;
   useManualSupplier: boolean;
@@ -406,6 +409,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
         packagingUnitName: item.packagingUnitName,
         packagingUnitQty: item.packagingUnitQty,
         itemId: item.itemId,
+        batchNumber: item.batchNumber,
         currentStock: item.currentStock,
         unitType: item.unitType,
         sellPrice: item.sellPrice,
@@ -543,6 +547,23 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
       item.description.toLowerCase().includes(q)
     );
   }, [lineItems, productSearch]);
+
+  // Supplier-based batch number placeholders (sequential per bill)
+  const batchNumberMap = useMemo(() => {
+    const next: Record<string, string> = {};
+    const now = Math.floor(Date.now() / 1000);
+    let seq = 0;
+    for (const item of lineItems) {
+      if (!item.itemId) continue;
+      seq += 1;
+      next[item.id] = generateSupplierBatchNumber(
+        supplierName || 'Supplier',
+        seq,
+        now
+      );
+    }
+    return next;
+  }, [lineItems, supplierName]);
 
   const handleSelectSupplier = (supplier: Supplier) => {
     setSupplierId(supplier.id);
@@ -748,7 +769,67 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
     }
   };
 
-  const updateLineItem = (id: string, field: 'description' | 'quantity' | 'amount' | 'packages' | 'packagingUnitName' | 'packagingUnitQty', value: string) => {
+  const [fillingBatchFor, setFillingBatchFor] = useState<string | null>(null);
+
+  const handlePrefillBatchNumbers = async () => {
+    const linked = lineItems.filter(
+      (i) => i.itemId && i.quantity && parseFloat(i.quantity) > 0
+    );
+    if (linked.length === 0) return;
+    setFillingBatchFor('all');
+    try {
+      const params = new URLSearchParams({
+        supplierName: supplierName || 'Supplier',
+        count: String(linked.length),
+      });
+      if (supplierId) params.set('supplierId', supplierId);
+      const res = await apiGet<{ batchNumbers: string[] }>(`/api/batches/next?${params}`);
+      if (res.success && res.data?.batchNumbers?.length) {
+        const byId: Record<string, string> = {};
+        linked.forEach((item, i) => {
+          byId[item.id] = res.data!.batchNumbers![i] ?? '';
+        });
+        setLineItems((prev) =>
+          prev.map((item) =>
+            item.itemId && byId[item.id] ? { ...item, batchNumber: byId[item.id] } : item
+          )
+        );
+      }
+    } catch {
+      toast.error('Could not fetch batch numbers');
+    } finally {
+      setFillingBatchFor(null);
+    }
+  };
+
+  const handlePrefillBatchNumberForItem = async (itemId: string, lineItemId: string) => {
+    const existing = lineItems
+      .filter((i) => i.itemId && i.batchNumber?.trim())
+      .map((i) => i.batchNumber!.trim());
+    setFillingBatchFor(lineItemId);
+    try {
+      const params = new URLSearchParams({
+        supplierName: supplierName || 'Supplier',
+        count: '1',
+        existing: existing.join(','),
+      });
+      if (supplierId) params.set('supplierId', supplierId);
+      const res = await apiGet<{ batchNumbers: string[] }>(`/api/batches/next?${params}`);
+      if (res.success && res.data?.batchNumbers?.[0]) {
+        setLineItems((prev) =>
+          prev.map((item) =>
+            item.id === lineItemId ? { ...item, batchNumber: res.data!.batchNumbers![0] } : item
+          )
+        );
+      }
+    } catch {
+      toast.error('Could not fetch batch number');
+    } finally {
+      setFillingBatchFor(null);
+    }
+  };
+
+  const updateLineItem = (id: string, field: 'description' | 'quantity' | 'amount' | 'packages' | 'packagingUnitName' | 'packagingUnitQty' | 'batchNumber', value: string) => {
     setLineItems(
       lineItems.map((item) => {
         if (item.id !== id) return item;
@@ -911,6 +992,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
             itemId: item.itemId!,
             quantity: parseFloat(item.quantity),
             costPricePerUnit: parseFloat(item.amount),
+            batchNumber: item.batchNumber?.trim() || undefined,
           }));
 
         const result = await apiPost('/api/supplier-bills', {
@@ -1289,6 +1371,26 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
               )}
             </div>
             <div className="flex items-center gap-2">
+              {lineItems.some(
+                (i) => i.itemId && i.quantity && parseFloat(i.quantity) > 0
+              ) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handlePrefillBatchNumbers}
+                  disabled={fillingBatchFor === 'all'}
+                  className="h-7 text-xs border-slate-300 dark:border-slate-600"
+                  title="Fill batch/lot numbers (continues from previous batches)"
+                >
+                  {fillingBatchFor === 'all' ? (
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                  ) : (
+                    <Layers className="w-3 h-3 mr-1" />
+                  )}
+                  Fill lots
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="outline"
@@ -1393,7 +1495,28 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
                         </div>
                         {/* Meta row for linked items */}
                         {item.itemId && (
-                          <div className="flex items-center gap-3 mt-0.5 ml-4">
+                          <div className="flex flex-wrap items-center gap-3 mt-0.5 ml-4">
+                            <div className="flex items-center gap-1.5">
+                              <Layers className="w-2.5 h-2.5 text-[#1c6a1e] dark:text-emerald-400 shrink-0 -mt-px" />
+                              <Input
+                                type="text"
+                                value={item.batchNumber ?? ''}
+                                onChange={(e) => updateLineItem(item.id, 'batchNumber', e.target.value)}
+                                placeholder={batchNumberMap[item.id] || 'e.g. CADBU-001'}
+                                className="h-6 w-28 text-[10px] font-mono border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 placeholder:text-slate-400"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handlePrefillBatchNumberForItem(item.itemId!, item.id)}
+                                disabled={fillingBatchFor === item.id || fillingBatchFor === 'all'}
+                                className="h-6 px-1.5 text-[10px] text-[#1c6a1e] hover:bg-[#1c6a1e]/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20"
+                                title="Fill next batch number"
+                              >
+                                {fillingBatchFor === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Fill'}
+                              </Button>
+                            </div>
                             <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
                               <Warehouse className="w-2.5 h-2.5 inline mr-0.5 -mt-px" />
                               {item.currentStock != null ? `${item.currentStock} ${item.unitType || ''}` : '—'} in stock
@@ -1613,7 +1736,28 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
 
                     {/* Mobile meta */}
                     {item.itemId && (
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px]">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]">
+                        <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                          <Layers className="w-2.5 h-2.5 text-[#1c6a1e] dark:text-emerald-400 shrink-0" />
+                          <Input
+                            type="text"
+                            value={item.batchNumber ?? ''}
+                            onChange={(e) => updateLineItem(item.id, 'batchNumber', e.target.value)}
+                            placeholder={batchNumberMap[item.id] || 'Lot (optional)'}
+                            className="h-6 flex-1 min-w-0 max-w-32 text-[10px] font-mono border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 placeholder:text-slate-400"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handlePrefillBatchNumberForItem(item.itemId!, item.id)}
+                            disabled={fillingBatchFor === item.id || fillingBatchFor === 'all'}
+                            className="h-6 px-1.5 text-[10px] text-[#1c6a1e] hover:bg-[#1c6a1e]/10 dark:text-emerald-400 dark:hover:bg-emerald-500/20 shrink-0"
+                            title="Fill next batch number"
+                          >
+                            {fillingBatchFor === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Fill'}
+                          </Button>
+                        </div>
                         <span className="text-blue-600 dark:text-blue-400 font-medium">
                           <Warehouse className="w-2.5 h-2.5 inline mr-0.5 -mt-px" />
                           {item.currentStock != null ? `${item.currentStock} ${item.unitType || ''}` : '—'}

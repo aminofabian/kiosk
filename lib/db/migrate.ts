@@ -399,6 +399,13 @@ export async function runMigrations() {
       console.error('⚠ out_of_stock_requests migration skipped:', error);
     }
 
+    try {
+      const { migrateBatchTracking } = await import('./migrate-batch-tracking');
+      await migrateBatchTracking();
+    } catch (error) {
+      console.error('⚠ batch_tracking migration skipped:', error);
+    }
+
     console.log('✅ Migration completed successfully!');
     return true;
   } catch (error) {

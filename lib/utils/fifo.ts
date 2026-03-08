@@ -15,10 +15,10 @@ export async function getBatchesForSale(
   itemId: string,
   quantityToSell: number
 ): Promise<BatchConsumption[]> {
-  // Get all batches with remaining stock, ordered by received_at (FIFO)
+  // Get all active batches with remaining stock, ordered by received_at (FIFO)
   const batches = await query<InventoryBatch>(
     `SELECT * FROM inventory_batches 
-     WHERE item_id = ? AND quantity_remaining > 0 
+     WHERE item_id = ? AND quantity_remaining > 0 AND status = 'active'
      ORDER BY received_at ASC`,
     [itemId]
   );

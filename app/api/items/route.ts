@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { query, execute, queryOne } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
+import { generateBatchNumber } from '@/lib/utils/batch-number';
 import type { Item } from '@/lib/db/types';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
@@ -332,6 +333,7 @@ export async function POST(request: NextRequest) {
       parentItemId,  // set if creating a variant
       variantName,   // e.g., "Big", "Small", "Red Kidney"
       barcode,       // optional barcode
+      productCode,   // optional 3-5 char code for batch numbering
       expiryDate,    // optional expiry date (Unix timestamp)
       itemType,
       // Bundle pricing fields
@@ -464,12 +466,12 @@ export async function POST(request: NextRequest) {
     await execute(
       `INSERT INTO items (
         id, business_id, category_id, parent_item_id, name, variant_name, unit_type,
-        item_type, current_stock, current_sell_price, min_stock_level, barcode, expiry_date,
+        item_type, current_stock, current_sell_price, min_stock_level, barcode, product_code, expiry_date,
         bundle_quantity, bundle_price, bundle_name,
         packaging_unit_name, packaging_unit_qty,
         aisle_number,
         active, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         itemId,
         auth.businessId,
@@ -483,6 +485,7 @@ export async function POST(request: NextRequest) {
         price,
         isParent ? null : (minStockLevel || null),
         barcode?.trim() || null,
+        productCode?.trim() || null,
         expiryDate || null,
         // Bundle pricing (null if not set or if parent item)
         isParent ? null : (bundleQuantity || null),
@@ -511,12 +514,14 @@ export async function POST(request: NextRequest) {
     // If initial stock and buy price provided, create inventory batch
     if (!isParent && stock > 0 && buyPrice) {
       const batchId = generateUUID();
+      const batchNumber = await generateBatchNumber(itemId, auth.businessId, now);
       await execute(
         `INSERT INTO inventory_batches (
-          id, business_id, item_id, source_breakdown_id, initial_quantity,
-          quantity_remaining, buy_price_per_unit, received_at, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [batchId, auth.businessId, itemId, null, stock, stock, buyPrice, now, now]
+          id, business_id, item_id, source_breakdown_id, batch_number, status,
+          supplier_id, initial_quantity, quantity_remaining, buy_price_per_unit,
+          received_at, created_at
+        ) VALUES (?, ?, ?, NULL, ?, 'active', NULL, ?, ?, ?, ?, ?)`,
+        [batchId, auth.businessId, itemId, batchNumber, stock, stock, buyPrice, now, now]
       );
     }
 

@@ -50,14 +50,20 @@ export async function GET(
     }
 
     const saleItems = await query<
-      SaleItem & { item_name: string; item_unit_type: string }
+      SaleItem & {
+        item_name: string;
+        item_unit_type: string;
+        batch_number: string | null;
+      }
     >(
       `SELECT 
         si.*,
         i.name as item_name,
-        i.unit_type as item_unit_type
+        i.unit_type as item_unit_type,
+        ib.batch_number
        FROM sale_items si
        JOIN items i ON si.item_id = i.id
+       LEFT JOIN inventory_batches ib ON si.inventory_batch_id = ib.id
        WHERE si.sale_id = ?
        ORDER BY si.created_at ASC`,
       [saleId]

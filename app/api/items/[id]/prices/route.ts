@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { execute, queryOne } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
+import { generateBatchNumber } from '@/lib/utils/batch-number';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 
@@ -101,12 +102,14 @@ export async function PATCH(
       } else {
         const batchId = generateUUID();
         const stockToUse = item.current_stock > 0 ? item.current_stock : 0;
+        const batchNumber = await generateBatchNumber(itemId, auth.businessId, now);
         await execute(
           `INSERT INTO inventory_batches (
-            id, business_id, item_id, source_breakdown_id, initial_quantity,
-            quantity_remaining, buy_price_per_unit, received_at, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [batchId, auth.businessId, itemId, null, stockToUse, stockToUse, buyPriceNum, now, now]
+            id, business_id, item_id, source_breakdown_id, batch_number, status,
+            supplier_id, initial_quantity, quantity_remaining, buy_price_per_unit,
+            received_at, created_at
+          ) VALUES (?, ?, ?, NULL, ?, 'active', NULL, ?, ?, ?, ?, ?)`,
+          [batchId, auth.businessId, itemId, batchNumber, stockToUse, stockToUse, buyPriceNum, now, now]
         );
       }
     }

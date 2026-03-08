@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { execute, queryOne } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
+import { generateBatchNumber } from '@/lib/utils/batch-number';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 
@@ -38,6 +39,17 @@ export async function POST(
     const breakdownId = generateUUID();
     const batchId = generateUUID();
 
+    // Get supplier_id from purchase
+    const purchaseInfo = await queryOne<{ supplier_id: string | null }>(
+      `SELECT p.supplier_id FROM purchase_items pi
+       JOIN purchases p ON pi.purchase_id = p.id
+       WHERE pi.id = ? AND p.business_id = ?`,
+      [purchaseItemId, auth.businessId]
+    );
+    const supplierId = purchaseInfo?.supplier_id ?? null;
+
+    const batchNumber = await generateBatchNumber(itemId, auth.businessId, now);
+
     await execute(
       `INSERT INTO purchase_breakdowns (
         id, purchase_item_id, item_id, usable_quantity, wastage_quantity,
@@ -58,14 +70,17 @@ export async function POST(
 
     await execute(
       `INSERT INTO inventory_batches (
-        id, business_id, item_id, source_breakdown_id, initial_quantity,
-        quantity_remaining, buy_price_per_unit, received_at, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        id, business_id, item_id, source_breakdown_id, batch_number, status,
+        supplier_id, initial_quantity, quantity_remaining, buy_price_per_unit,
+        received_at, created_at
+      ) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)`,
       [
         batchId,
         auth.businessId,
         itemId,
         breakdownId,
+        batchNumber,
+        supplierId,
         usableQuantity,
         usableQuantity,
         buyPricePerUnit,

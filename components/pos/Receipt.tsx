@@ -13,7 +13,11 @@ interface SplitPayment {
 
 interface ReceiptProps {
   sale: Sale & { business_name?: string; user_name?: string | null };
-  items: (SaleItem & { item_name: string; item_unit_type: string })[];
+  items: (SaleItem & {
+    item_name: string;
+    item_unit_type: string;
+    batch_number?: string | null;
+  })[];
   splitPayments?: SplitPayment[];
 }
 
@@ -181,6 +185,11 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
                   {item.item_unit_type && (
                     <div className="text-[10px] print:text-[10px] ml-0 text-black" style={{ color: '#000000' }}>
                       @ {formatPrice(item.sell_price_per_unit)}/{item.item_unit_type}
+                    </div>
+                  )}
+                  {item.batch_number && (
+                    <div className="text-[10px] print:text-[10px] ml-0 text-black/80" style={{ color: '#000000' }}>
+                      Lot: {item.batch_number}
                     </div>
                   )}
                 </div>

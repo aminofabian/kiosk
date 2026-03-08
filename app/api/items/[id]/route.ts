@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { queryOne, execute, query } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
+import { generateBatchNumber } from '@/lib/utils/batch-number';
 import type { Item } from '@/lib/db/types';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
@@ -111,7 +112,7 @@ export async function PUT(
     const { id: itemId } = await params;
     const body = await request.json();
     const { 
-      name, categoryId, unitType, buyPrice, sellPrice, minStockLevel, variantName, barcode, expiryDate,
+      name, categoryId, unitType, buyPrice, sellPrice, minStockLevel, variantName, barcode, productCode, expiryDate,
       // Bundle pricing fields
       bundleQuantity, bundlePrice, bundleName,
       // Packaging unit fields (bulk ordering)
@@ -266,6 +267,7 @@ export async function PUT(
              variant_name = ?,
              min_stock_level = ?,
              barcode = ?,
+             product_code = ?,
              expiry_date = ?,
              bundle_quantity = ?,
              bundle_price = ?,
@@ -282,6 +284,7 @@ export async function PUT(
           variantName?.trim() || null,
           minStockLevel || null,
           barcode?.trim() || null,
+          productCode?.trim() || null,
           expiryDate || null,
           bundleQuantity || null,
           bundlePrice || null,
@@ -385,16 +388,16 @@ export async function PUT(
           console.log('Verified batch buy price after update:', verifyBatch);
         } else {
           // No batch exists, create a new one
-          // Use current stock if available, otherwise use 0
           const stockToUse = existingItem.current_stock > 0 ? existingItem.current_stock : 0;
           const batchId = generateUUID();
-          console.log('Creating new batch:', batchId, 'with buy price:', buyPriceNum, 'stock:', stockToUse);
+          const batchNumber = await generateBatchNumber(itemId, auth.businessId, now);
           const insertResult = await execute(
             `INSERT INTO inventory_batches (
-              id, business_id, item_id, source_breakdown_id, initial_quantity,
-              quantity_remaining, buy_price_per_unit, received_at, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [batchId, auth.businessId, itemId, null, stockToUse,
+              id, business_id, item_id, source_breakdown_id, batch_number, status,
+              supplier_id, initial_quantity, quantity_remaining, buy_price_per_unit,
+              received_at, created_at
+            ) VALUES (?, ?, ?, NULL, ?, 'active', NULL, ?, ?, ?, ?, ?)`,
+            [batchId, auth.businessId, itemId, batchNumber, stockToUse,
               stockToUse, buyPriceNum, now, now]
           );
           console.log('Batch insert result:', insertResult, 'rowsAffected:', insertResult.rowsAffected);
@@ -438,16 +441,16 @@ export async function PUT(
         console.log('Verified batch buy price after update:', verifyBatch);
       } else {
         // No batch exists, create a new one
-        // Use current stock if available, otherwise use 0
         const stockToUse = existingItem.current_stock > 0 ? existingItem.current_stock : 0;
         const batchId = generateUUID();
-        console.log('Creating new batch:', batchId, 'with buy price:', buyPriceNum, 'stock:', stockToUse);
+        const batchNumber = await generateBatchNumber(itemId, auth.businessId, now);
         const insertResult = await execute(
           `INSERT INTO inventory_batches (
-            id, business_id, item_id, source_breakdown_id, initial_quantity,
-            quantity_remaining, buy_price_per_unit, received_at, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [batchId, auth.businessId, itemId, null, stockToUse,
+            id, business_id, item_id, source_breakdown_id, batch_number, status,
+            supplier_id, initial_quantity, quantity_remaining, buy_price_per_unit,
+            received_at, created_at
+          ) VALUES (?, ?, ?, NULL, ?, 'active', NULL, ?, ?, ?, ?, ?)`,
+          [batchId, auth.businessId, itemId, batchNumber, stockToUse,
             stockToUse, buyPriceNum, now, now]
         );
         console.log('Batch insert result:', insertResult, 'rowsAffected:', insertResult.rowsAffected);
