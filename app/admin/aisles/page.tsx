@@ -21,6 +21,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { getItemDisplayName } from '@/lib/utils';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { UNIT_TYPES, type UnitType } from '@/lib/constants';
 import {
   MapPin,
   Plus,
@@ -36,6 +38,7 @@ import {
   Check,
   X,
   Zap,
+  Minus,
 } from 'lucide-react';
 import type { Item, Category, Aisle } from '@/lib/db/types';
 import { toast } from 'sonner';
@@ -133,7 +136,7 @@ function AisleAssigner({
         type="button"
         onClick={() => setOpen((o) => !o)}
         disabled={isUpdating}
-        className="flex items-center gap-2 w-full max-w-[220px] h-9 px-3 rounded-lg border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-950/20 hover:bg-amber-100/60 dark:hover:bg-amber-900/30 transition-colors text-left"
+        className="flex items-center gap-2 w-full max-w-[220px] h-9 px-3 rounded-lg border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-950/20 hover:bg-amber-100/60 dark:hover:bg-amber-900/30 hover:border-amber-300/60 transition-all duration-200 text-left"
       >
         {isUpdating ? (
           <Loader2 className="w-4 h-4 animate-spin text-amber-600" />
@@ -149,7 +152,7 @@ function AisleAssigner({
       </button>
 
       {open && (
-        <div className="absolute z-50 top-full left-0 mt-1 w-72 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl overflow-hidden">
+        <div className="absolute z-50 top-full left-0 mt-1.5 w-72 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="p-2 border-b border-slate-100 dark:border-slate-800">
             <Input
               placeholder="Search or type new…"
@@ -274,6 +277,13 @@ export default function AislesPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkAssigning, setBulkAssigning] = useState(false);
   const [bulkSelectValue, setBulkSelectValue] = useState<string>('__none__');
+  const [editingStockId, setEditingStockId] = useState<string | null>(null);
+  const [editingStockValue, setEditingStockValue] = useState('');
+  const [updatingStockId, setUpdatingStockId] = useState<string | null>(null);
+  const [updatingUnitId, setUpdatingUnitId] = useState<string | null>(null);
+  const [justSavedId, setJustSavedId] = useState<string | null>(null);
+  const { user } = useCurrentUser();
+  const isAdmin = user?.role === 'admin' || user?.role === 'owner';
 
   const fetchData = async () => {
     try {
@@ -414,6 +424,8 @@ export default function AislesPage() {
       if (result.success) {
         const aisle = aisleId ? (aisles.find((a) => a.id === aisleId) ?? null) : null;
         updateItemAisle(itemId, aisle);
+        setJustSavedId(itemId);
+        setTimeout(() => setJustSavedId(null), 600);
         toast.success('Aisle updated');
       } else {
         toast.error(result.message || 'Failed to update');
@@ -555,6 +567,87 @@ export default function AislesPage() {
   const formatStock = (s: number, u: string) =>
     u === 'piece' ? Math.round(s).toString() : `${s.toFixed(1)} ${u}`;
 
+  const handleStockSave = async (itemId: string, valueOverride?: string) => {
+    const item = items.find((i) => i.id === itemId);
+    if (!item) return;
+    const valToUse = valueOverride ?? editingStockValue;
+    const newVal = parseFloat(valToUse);
+    if (isNaN(newVal) || newVal < 0) {
+      toast.error('Invalid stock value');
+      setEditingStockId(null);
+      return;
+    }
+    const current = Number(item.current_stock) || 0;
+    const diff = newVal - current;
+    if (Math.abs(diff) < 0.001) {
+      setEditingStockId(null);
+      return;
+    }
+    if (valueOverride) setEditingStockValue(valueOverride);
+    setUpdatingStockId(itemId);
+    try {
+      const res = await fetch('/api/stock/adjust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemId,
+          adjustmentType: diff > 0 ? 'increase' : 'decrease',
+          quantity: Math.abs(diff),
+          reason: 'counting_error',
+          notes: 'Updated from Aisles page',
+        }),
+      });
+      const result = await res.json();
+      if (result.success && !result.data?.requiresApproval) {
+        updateItemStock(itemId, newVal);
+        setJustSavedId(itemId);
+        setTimeout(() => setJustSavedId(null), 600);
+        toast.success('Stock updated');
+      } else if (result.data?.requiresApproval) {
+        toast.info('Stock change submitted for approval');
+      } else {
+        toast.error(result.message || 'Failed to update stock');
+      }
+    } catch {
+      toast.error('Failed to update stock');
+    } finally {
+      setUpdatingStockId(null);
+      setEditingStockId(null);
+    }
+  };
+
+  const updateItemStock = (itemId: string, stock: number) => {
+    setItems((prev) =>
+      prev.map((i) => (i.id === itemId ? { ...i, current_stock: stock } : i))
+    );
+  };
+
+  const handleUnitChange = async (itemId: string, unitType: UnitType) => {
+    setUpdatingUnitId(itemId);
+    try {
+      const res = await fetch(`/api/items/${itemId}/unit`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unitType }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        setItems((prev) =>
+          prev.map((i) => (i.id === itemId ? { ...i, unit_type: unitType } : i))
+        );
+        setJustSavedId(itemId);
+        setTimeout(() => setJustSavedId(null), 600);
+        toast.success('Unit updated');
+      } else {
+        toast.error(result.message || 'Failed to update unit');
+      }
+    } catch {
+      toast.error('Failed to update unit');
+    } finally {
+      setUpdatingUnitId(null);
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-amber-50/30 dark:from-[#0f1a0d] dark:via-[#0f1a0d] dark:to-emerald-950/10">
@@ -666,6 +759,9 @@ export default function AislesPage() {
                       <th className="text-left py-4 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                         Stock
                       </th>
+                      <th className="text-left py-4 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                        Unit
+                      </th>
                       <th className="text-left py-4 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 min-w-[220px]">
                         Aisle
                       </th>
@@ -678,10 +774,12 @@ export default function AislesPage() {
                       return (
                         <tr
                           key={item.id}
-                          className={`border-b border-slate-100 dark:border-slate-800/80 transition-colors hover:bg-amber-50/30 dark:hover:bg-slate-800/30 ${
+                          className={`border-b border-slate-100 dark:border-slate-800/80 transition-all duration-300 ${
+                            justSavedId === item.id ? 'bg-emerald-50/40 dark:bg-emerald-950/20' : ''
+                          } hover:bg-amber-50/30 dark:hover:bg-slate-800/30 ${
                             selectedIds.has(item.id) ? 'bg-amber-50/60 dark:bg-amber-950/20' : ''
                           } ${
-                            idx % 2 === 0 && !selectedIds.has(item.id) ? 'bg-white dark:bg-transparent' : 'bg-slate-50/30 dark:bg-slate-900/20'
+                            idx % 2 === 0 && !selectedIds.has(item.id) && justSavedId !== item.id ? 'bg-white dark:bg-transparent' : 'bg-slate-50/30 dark:bg-slate-900/20'
                           }`}
                         >
                           <td className="w-10 py-3.5 pl-4 pr-2">
@@ -715,8 +813,120 @@ export default function AislesPage() {
                           <td className="py-3.5 px-4 font-mono text-sm font-medium text-slate-700 dark:text-slate-300">
                             {formatPrice(item.current_sell_price)}
                           </td>
-                          <td className="py-3.5 px-4 text-sm text-slate-600 dark:text-slate-400">
-                            {formatStock(item.current_stock, item.unit_type)}
+                          <td className="py-3.5 px-4 text-sm">
+                            {isAdmin ? (
+                              editingStockId === item.id ? (
+                                <div className="flex items-center gap-0.5 rounded-lg border border-amber-300/60 dark:border-amber-600/50 bg-amber-50/50 dark:bg-amber-950/30 overflow-hidden animate-in fade-in duration-150">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const step = item.unit_type === 'piece' ? 1 : 0.1;
+                                      const v = Math.max(0, parseFloat(editingStockValue) - step);
+                                      setEditingStockValue(v.toString());
+                                    }}
+                                    className="p-1.5 hover:bg-amber-200/50 dark:hover:bg-amber-800/40 active:scale-95 transition-all"
+                                  >
+                                    <Minus className="w-3.5 h-3.5 text-amber-700 dark:text-amber-300" />
+                                  </button>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    step={item.unit_type === 'piece' ? 1 : 0.01}
+                                    value={editingStockValue}
+                                    onChange={(e) => setEditingStockValue(e.target.value)}
+                                    onBlur={() => handleStockSave(item.id)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleStockSave(item.id);
+                                      if (e.key === 'Escape') setEditingStockId(null);
+                                    }}
+                                    className="h-8 w-14 border-0 bg-transparent text-center text-sm focus-visible:ring-0 focus-visible:ring-offset-0 px-0"
+                                    autoFocus
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const step = item.unit_type === 'piece' ? 1 : 0.1;
+                                      const v = parseFloat(editingStockValue) + step;
+                                      setEditingStockValue(v.toString());
+                                    }}
+                                    className="p-1.5 hover:bg-amber-200/50 dark:hover:bg-amber-800/40 active:scale-95 transition-all"
+                                  >
+                                    <Plus className="w-3.5 h-3.5 text-amber-700 dark:text-amber-300" />
+                                  </button>
+                                  <span className="pr-2 text-[10px] text-amber-600/80 dark:text-amber-400/80 font-medium uppercase">
+                                    {item.unit_type}
+                                  </span>
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingStockId(item.id);
+                                    setEditingStockValue(
+                                      item.unit_type === 'piece'
+                                        ? Math.round(item.current_stock).toString()
+                                        : item.current_stock.toString()
+                                    );
+                                  }}
+                                  disabled={updatingStockId === item.id}
+                                  className={`group flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 -mx-1 transition-all duration-200 hover:bg-amber-100/80 dark:hover:bg-slate-700/50 hover:shadow-sm ${
+                                    justSavedId === item.id ? 'animate-pulse bg-emerald-50 dark:bg-emerald-950/30' : ''
+                                  }`}
+                                >
+                                  {updatingStockId === item.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin text-amber-600 shrink-0" />
+                                  ) : (
+                                    <>
+                                      <span className="text-slate-700 dark:text-slate-300 font-medium tabular-nums">
+                                        {formatStock(item.current_stock, item.unit_type)}
+                                      </span>
+                                      {item.unit_type === 'piece' && (
+                                        <span className="text-[10px] text-slate-400 group-hover:text-amber-600 transition-colors uppercase">
+                                          {item.unit_type}
+                                        </span>
+                                      )}
+                                      <Pencil className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                                    </>
+                                  )}
+                                </button>
+                              )
+                            ) : (
+                              <span className="text-slate-600 dark:text-slate-400">
+                                {formatStock(item.current_stock, item.unit_type)} {item.unit_type}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3.5 px-4 text-sm">
+                            {isAdmin ? (
+                              <div
+                                className={`inline-flex items-center rounded-lg transition-all duration-200 ${
+                                  justSavedId === item.id ? 'ring-2 ring-emerald-400/50 bg-emerald-50/50 dark:bg-emerald-950/30' : ''
+                                }`}
+                              >
+                                <Select
+                                  value={item.unit_type}
+                                  onValueChange={(v) => handleUnitChange(item.id, v as UnitType)}
+                                  disabled={updatingUnitId === item.id}
+                                >
+                                  <SelectTrigger className="h-8 min-w-[88px] text-xs border-slate-200/80 dark:border-slate-700 hover:border-amber-300 dark:hover:border-amber-600/50 transition-colors rounded-lg">
+                                    {updatingUnitId === item.id ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" />
+                                    ) : (
+                                      <SelectValue />
+                                    )}
+                                  </SelectTrigger>
+                                  <SelectContent className="rounded-xl">
+                                    {UNIT_TYPES.map((u) => (
+                                      <SelectItem key={u} value={u} className="rounded-lg">
+                                        {u}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            ) : (
+                              <span className="text-slate-600 dark:text-slate-400">{item.unit_type}</span>
+                            )}
                           </td>
                           <td className="py-3.5 px-4">
                             <AisleAssigner
