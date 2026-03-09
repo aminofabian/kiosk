@@ -22,6 +22,7 @@ const ENTITY_TYPES = [
   { value: 'supplier_bill', label: 'Supplier Bill' },
   { value: 'category', label: 'Category' },
   { value: 'expense', label: 'Expense' },
+  { value: 'credit', label: 'Credit' },
   { value: 'shift', label: 'Shift' },
   { value: 'sale', label: 'Sale' },
 ] as const;
@@ -148,6 +149,14 @@ function formatDetailsSummary(details: Record<string, unknown> | null): string {
   if (typeof details.reason === 'string') parts.push(details.reason);
   if (typeof details.difference === 'number') parts.push(`Δ ${details.difference}`);
   if (typeof details.itemCount === 'number') parts.push(`${details.itemCount} items`);
+  if (details.cleared === true) parts.push('cleared');
+  if (typeof details.newBalance === 'number') parts.push(`balance: KES ${details.newBalance.toLocaleString()}`);
+  if (typeof details.field === 'string') parts.push(details.field);
+  if (typeof details.barcode === 'string') parts.push(`barcode: ${details.barcode}`);
+  if (typeof details.itemType === 'string') parts.push(details.itemType);
+  if (typeof details.unitType === 'string') parts.push(details.unitType);
+  if (typeof details.price === 'number') parts.push(`KES ${details.price.toLocaleString()}`);
+  if (typeof details.aisle === 'string') parts.push(`aisle: ${details.aisle}`);
   return parts.join(' · ');
 }
 
@@ -319,10 +328,15 @@ export default function LogsPage() {
           ) : items.length === 0 ? (
             <div className="text-center py-16 text-slate-500 dark:text-slate-400">
               <ScrollText className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p className="font-medium">No activity yet</p>
+              <p className="font-medium">No activity in this period</p>
               <p className="text-sm mt-1">
                 Activity will appear here when stock, suppliers, items, and other data are updated.
               </p>
+              {datePreset !== 'all' && (
+                <p className="text-sm mt-2 text-slate-400 dark:text-slate-500">
+                  Try &quot;Past 3 days&quot;, &quot;Past week&quot;, or &quot;All time&quot; to see older entries.
+                </p>
+              )}
             </div>
           ) : (
             <div className="space-y-2">

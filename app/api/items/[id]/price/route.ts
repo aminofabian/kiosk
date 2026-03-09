@@ -3,6 +3,7 @@ import { execute, queryOne } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import { logActivity } from '@/lib/db/activity-log';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -27,8 +28,8 @@ export async function POST(
       );
     }
 
-    const item = await queryOne<{ id: string }>(
-      'SELECT id FROM items WHERE id = ? AND business_id = ?',
+    const item = await queryOne<{ id: string; name: string; variant_name: string | null }>(
+      'SELECT id, name, variant_name FROM items WHERE id = ? AND business_id = ?',
       [itemId, auth.businessId]
     );
 
@@ -55,6 +56,17 @@ export async function POST(
        WHERE id = ? AND business_id = ?`,
       [price, itemId, auth.businessId]
     );
+
+    const displayName = item.variant_name ? `${item.name} (${item.variant_name})` : item.name;
+    logActivity({
+      businessId: auth.businessId,
+      action: 'update',
+      entityType: 'item',
+      entityId: itemId,
+      entityNameSnapshot: displayName,
+      details: { field: 'price', price },
+      performedBy: auth.userId,
+    }).catch(() => {});
 
     return jsonResponse({
       success: true,

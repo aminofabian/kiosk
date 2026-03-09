@@ -4,6 +4,7 @@ import { generateUUID } from '@/lib/utils/uuid';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
 import { isAdminOrOwner } from '@/lib/auth/permissions';
+import { logActivity } from '@/lib/db/activity-log';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -29,8 +30,8 @@ export async function POST(
     }
 
     // Verify account exists
-    const account = await queryOne<{ id: string; total_credit: number }>(
-      'SELECT id, total_credit FROM credit_accounts WHERE id = ? AND business_id = ?',
+    const account = await queryOne<{ id: string; total_credit: number; customer_name: string }>(
+      'SELECT id, total_credit, customer_name FROM credit_accounts WHERE id = ? AND business_id = ?',
       [accountId, auth.businessId]
     );
 
@@ -107,12 +108,23 @@ export async function POST(
       [amount, now, accountId]
     );
 
+    const newBalance = account.total_credit - amount;
+    logActivity({
+      businessId: auth.businessId,
+      action: 'update',
+      entityType: 'credit',
+      entityId: accountId,
+      entityNameSnapshot: account.customer_name,
+      details: { amount, paymentMethod, newBalance, cleared: newBalance === 0 },
+      performedBy: auth.userId,
+    }).catch(() => {});
+
     return jsonResponse({
       success: true,
       message: 'Payment recorded successfully',
       data: {
         transactionId,
-        newBalance: account.total_credit - amount,
+        newBalance,
       },
     });
   } catch (error) {

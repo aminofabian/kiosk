@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { execute, queryOne } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import { logActivity } from '@/lib/db/activity-log';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -30,8 +31,8 @@ export async function PATCH(
     const barcodeValue = barcode == null ? null : (typeof barcode === 'string' ? barcode.trim() || null : null);
 
     // Verify item exists and is not a parent (parents don't have barcodes)
-    const item = await queryOne<{ id: string; parent_item_id: string | null }>(
-      'SELECT id, parent_item_id FROM items WHERE id = ? AND business_id = ? AND active = 1',
+    const item = await queryOne<{ id: string; parent_item_id: string | null; name: string; variant_name: string | null }>(
+      'SELECT id, parent_item_id, name, variant_name FROM items WHERE id = ? AND business_id = ? AND active = 1',
       [itemId, auth.businessId]
     );
 
@@ -72,6 +73,17 @@ export async function PATCH(
       'UPDATE items SET barcode = ? WHERE id = ? AND business_id = ?',
       [barcodeValue, itemId, auth.businessId]
     );
+
+    const displayName = item.variant_name ? `${item.name} (${item.variant_name})` : item.name;
+    logActivity({
+      businessId: auth.businessId,
+      action: 'update',
+      entityType: 'item',
+      entityId: itemId,
+      entityNameSnapshot: displayName,
+      details: { field: 'barcode', barcode: barcodeValue },
+      performedBy: auth.userId,
+    }).catch(() => {});
 
     return jsonResponse({
       success: true,
