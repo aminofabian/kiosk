@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,8 @@ import {
   Scissors,
   Minus,
   Plus,
+  Maximize2,
+  X,
 } from 'lucide-react';
 import type { Item, Category } from '@/lib/db/types';
 import { getItemDisplayName } from '@/lib/utils';
@@ -27,12 +29,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerClose,
+} from '@/components/ui/drawer';
 
 interface ItemWithCategory extends Item {
   category_name?: string;
   parent_name?: string;
   aisle?: string | null;
   aisle_number?: string | null;
+  batch_number?: string | null;
 }
 
 function getAisleLabel(item: ItemWithCategory): string {
@@ -119,6 +129,10 @@ export default function PriceStickersPage() {
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [labelLayout, setLabelLayout] = useState(LABEL_LAYOUTS[0]);
   const [showBarcode, setShowBarcode] = useState(true);
+  const [showBatchNumber, setShowBatchNumber] = useState(true);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
+  const [a4Scale, setA4Scale] = useState(1);
+  const a4ContainerRef = useRef<HTMLDivElement>(null);
 
   const fetchData = async () => {
     try {
@@ -155,6 +169,33 @@ export default function PriceStickersPage() {
   useEffect(() => {
     fetchData();
   }, [itemTypeFilter]);
+
+  // Scale A4 to fit viewport when expanded
+  useEffect(() => {
+    if (!previewExpanded) return;
+    const updateScale = () => {
+      const el = a4ContainerRef.current;
+      if (!el) return;
+      const { clientWidth, clientHeight } = el;
+      const a4WidthPx = 794; // 210mm at 96dpi
+      const a4HeightPx = 1123; // 297mm at 96dpi
+      const scale = Math.min(clientWidth / a4WidthPx, clientHeight / a4HeightPx, 1) || 1;
+      setA4Scale(scale);
+    };
+    const ro = new ResizeObserver(updateScale);
+    const t = setTimeout(() => {
+      if (a4ContainerRef.current) {
+        ro.observe(a4ContainerRef.current);
+        updateScale();
+      }
+    }, 50);
+    window.addEventListener('resize', updateScale);
+    return () => {
+      clearTimeout(t);
+      ro.disconnect();
+      window.removeEventListener('resize', updateScale);
+    };
+  }, [previewExpanded]);
 
   const aisles = useMemo(() => {
     const set = new Set<string>();
@@ -363,6 +404,15 @@ export default function PriceStickersPage() {
                   />
                   Show barcode
                 </label>
+                <label className="flex items-center gap-2.5 text-sm cursor-pointer text-slate-600 dark:text-slate-400">
+                  <input
+                    type="checkbox"
+                    checked={showBatchNumber}
+                    onChange={(e) => setShowBatchNumber(e.target.checked)}
+                    className="rounded border-slate-300 text-slate-800 focus:ring-slate-500"
+                  />
+                  Show batch
+                </label>
                 <div className="ml-auto flex gap-2">
                   <Button
                     variant="outline"
@@ -462,19 +512,30 @@ export default function PriceStickersPage() {
                     <Scissors className="w-4 h-4 text-slate-500" />
                     Preview
                   </h3>
-                  <span className="text-xs font-medium text-slate-500 bg-slate-100 dark:bg-slate-800/50 px-2.5 py-1 rounded-lg">
-                    {labelLayout.count} per page
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-slate-500 bg-slate-100 dark:bg-slate-800/50 px-2.5 py-1 rounded-lg">
+                      {labelLayout.count} per page
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPreviewExpanded(true)}
+                      className="h-9 rounded-lg border-slate-200 dark:border-slate-700"
+                    >
+                      <Maximize2 className="w-4 h-4 mr-1.5" />
+                      Expand to A4
+                    </Button>
+                  </div>
                 </div>
                 <div
-                  className="rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700/80 p-4 bg-slate-50/50 dark:bg-slate-900/20"
+                  className="border-2 border-dashed border-slate-200 dark:border-slate-700/80 p-4 bg-slate-50/50 dark:bg-slate-900/20"
                   style={{
                     aspectRatio: '210/297',
                     maxHeight: '420px',
                   }}
                 >
                   <div
-                    className="grid h-full w-full rounded-lg overflow-hidden"
+                    className="grid h-full w-full overflow-hidden"
                     style={{
                       gridTemplateColumns: `repeat(${labelLayout.cols}, 1fr)`,
                       gridTemplateRows: `repeat(${labelLayout.rows}, 1fr)`,
@@ -486,25 +547,30 @@ export default function PriceStickersPage() {
                       return (
                         <div
                           key={i}
-                          className="border border-slate-200 dark:border-slate-700 rounded-md p-2 bg-white dark:bg-slate-900 text-[10px] overflow-hidden flex flex-col justify-center shadow-sm"
+                          className="border border-slate-200 dark:border-slate-700 p-1 bg-white dark:bg-slate-900 text-[6px] overflow-hidden flex flex-col justify-center shadow-sm"
                         >
                           {item ? (
                             <>
-                              <p className="font-semibold leading-tight break-words">
+                              <p className="font-semibold leading-tight break-words text-[6px]">
                                 {getItemDisplayName(item.name, item.variant_name)}
                               </p>
-                              <p className="text-[#1c6a1e] font-bold">{formatPrice(item.current_sell_price)}</p>
+                              <p className="text-[#1c6a1e] font-bold text-[8px]">{formatPrice(item.current_sell_price)}</p>
                               {getAisleLabel(item) && (
-                                <p className="text-[8px] text-slate-500 mt-0.5">{getAisleLabel(item)}</p>
+                                <p className="text-[5px] text-slate-500 mt-0.5">{getAisleLabel(item)}</p>
+                              )}
+                              {showBatchNumber && (item as ItemWithCategory).batch_number && (
+                                <p className="text-[4px] text-slate-500">
+                                  Batch number {(item as ItemWithCategory).batch_number}
+                                </p>
                               )}
                               {showBarcode && item.barcode && (
-                                <p className="font-mono text-[8px] text-slate-500 break-all">
+                                <p className="font-mono text-[5px] text-slate-500 break-all">
                                   {item.barcode}
                                 </p>
                               )}
                             </>
                           ) : (
-                            <span className="text-slate-300 dark:text-slate-600">—</span>
+                            <span className="text-slate-300 dark:text-slate-600 text-[6px]">—</span>
                           )}
                         </div>
                       );
@@ -547,42 +613,50 @@ export default function PriceStickersPage() {
                   return (
                     <div
                       key={i}
-                      className="border border-slate-400 rounded-sm p-1.5 flex flex-col justify-center bg-white overflow-hidden min-w-0"
+                      className="border border-slate-400 p-1.5 flex flex-col justify-center bg-white overflow-hidden min-w-0"
                       style={{ minHeight: 0, boxSizing: 'border-box' }}
                     >
                       {item ? (
                         <>
                           <p
                             className="font-semibold leading-tight text-slate-900 overflow-hidden"
-                            style={{ fontSize: '9pt', wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                            style={{ fontSize: '10pt', wordBreak: 'break-word', overflowWrap: 'break-word' }}
                           >
                             {getItemDisplayName(item.name, item.variant_name)}
                           </p>
                           <p
                             className="text-[#1c6a1e] font-bold mt-0.5 shrink-0"
-                            style={{ fontSize: '12pt' }}
+                            style={{ fontSize: '14pt' }}
                           >
                             {formatPrice(item.current_sell_price)}
                           </p>
                           {getAisleLabel(item) && (
                             <p
                               className="text-slate-500 mt-0.5 shrink-0"
-                              style={{ fontSize: '7pt' }}
+                              style={{ fontSize: '8pt' }}
                             >
                               {getAisleLabel(item)}
+                            </p>
+                          )}
+                          {showBatchNumber && (item as ItemWithCategory).batch_number && (
+                            <p
+                              className="text-slate-500 mt-0.5 shrink-0"
+                              style={{ fontSize: '6pt' }}
+                            >
+                              Batch number {(item as ItemWithCategory).batch_number}
                             </p>
                           )}
                           {showBarcode && item.barcode && (
                             <p
                               className="font-mono text-slate-500 mt-0.5 overflow-hidden"
-                              style={{ fontSize: '7pt', wordBreak: 'break-all', overflowWrap: 'break-word' }}
+                              style={{ fontSize: '8pt', wordBreak: 'break-all', overflowWrap: 'break-word' }}
                             >
                               {item.barcode}
                             </p>
                           )}
                         </>
                       ) : (
-                        <span className="text-slate-300" style={{ fontSize: '9pt' }}>
+                        <span className="text-slate-300" style={{ fontSize: '10pt' }}>
                           —
                         </span>
                       )}
@@ -594,6 +668,102 @@ export default function PriceStickersPage() {
           ))}
         </div>
       </div>
+
+      {/* Full A4 preview drawer - slides in from right */}
+      <Drawer open={previewExpanded} onOpenChange={setPreviewExpanded} direction="right">
+        <DrawerContent className="!w-full sm:!w-[min(95vw,900px)] !max-w-none h-full max-h-screen flex flex-col border-l">
+          <DrawerHeader className="shrink-0 p-4 pr-12 bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800">
+            <DrawerClose asChild>
+              <Button variant="ghost" size="icon" className="absolute right-4 top-4">
+                <X className="w-5 h-5" />
+                <span className="sr-only">Close</span>
+              </Button>
+            </DrawerClose>
+            <DrawerTitle>Full A4 preview</DrawerTitle>
+          </DrawerHeader>
+          <div
+            ref={a4ContainerRef}
+            className="flex-1 min-h-0 flex items-center justify-center p-4 overflow-hidden"
+          >
+            <div
+              className="border-2 border-slate-200 dark:border-slate-700 bg-white shadow-2xl origin-center"
+              style={{
+                width: '210mm',
+                height: '297mm',
+                padding: '5mm',
+                boxSizing: 'border-box',
+                transform: `scale(${a4Scale})`,
+              }}
+            >
+              <div
+                className="grid w-full h-full overflow-hidden"
+                style={{
+                  gridTemplateColumns: `repeat(${labelLayout.cols}, minmax(0, 1fr))`,
+                  gridTemplateRows: `repeat(${labelLayout.rows}, minmax(0, 1fr))`,
+                  gap: '4mm',
+                  boxSizing: 'border-box',
+                }}
+              >
+                {Array.from({ length: labelLayout.count }).map((_, i) => {
+                  const item = selectedItems[i];
+                  return (
+                    <div
+                      key={i}
+                      className="border border-slate-300 p-1.5 flex flex-col justify-center bg-white overflow-hidden min-w-0"
+                      style={{ minHeight: 0, boxSizing: 'border-box' }}
+                    >
+                      {item ? (
+                        <>
+                          <p
+                            className="font-semibold leading-tight text-slate-900 overflow-hidden"
+                            style={{ fontSize: '10pt', wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                          >
+                            {getItemDisplayName(item.name, item.variant_name)}
+                          </p>
+                          <p
+                            className="text-[#1c6a1e] font-bold mt-0.5 shrink-0"
+                            style={{ fontSize: '14pt' }}
+                          >
+                            {formatPrice(item.current_sell_price)}
+                          </p>
+                          {getAisleLabel(item) && (
+                            <p
+                              className="text-slate-500 mt-0.5 shrink-0"
+                              style={{ fontSize: '8pt' }}
+                            >
+                              {getAisleLabel(item)}
+                            </p>
+                          )}
+                          {showBatchNumber && (item as ItemWithCategory).batch_number && (
+                            <p
+                              className="text-slate-500 mt-0.5 shrink-0"
+                              style={{ fontSize: '6pt' }}
+                            >
+                              Batch number {(item as ItemWithCategory).batch_number}
+                            </p>
+                          )}
+                          {showBarcode && item.barcode && (
+                            <p
+                              className="font-mono text-slate-500 mt-0.5 overflow-hidden"
+                              style={{ fontSize: '8pt', wordBreak: 'break-all', overflowWrap: 'break-word' }}
+                            >
+                              {item.barcode}
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-slate-300" style={{ fontSize: '10pt' }}>
+                          —
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       {/* Override @page for A4 when printing from this page */}
       <style

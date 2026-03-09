@@ -298,8 +298,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Enrich with FIFO batch_number for POS display (search/category sellable)
-    const needsBatchNumber = (search || (categoryId && sellableOnly)) && items.length > 0;
+    // Enrich with FIFO batch_number for POS display (search/category sellable) and price stickers (all sellable)
+    const needsBatchNumber =
+      (search || (categoryId && sellableOnly) || (all && sellableOnly)) &&
+      items.length > 0;
     if (needsBatchNumber) {
       const itemIds = items.map((i) => i.id);
       const batchRows = await query<{ item_id: string; batch_number: string }>(
