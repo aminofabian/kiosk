@@ -3,6 +3,7 @@ import { execute, queryOne } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
 import type { Expense, ExpenseCategory, ExpenseFrequency } from '@/lib/db/types';
+import { logActivity } from '@/lib/db/activity-log';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -136,6 +137,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       values
     );
 
+    logActivity({
+      businessId: auth.businessId,
+      action: 'update',
+      entityType: 'expense',
+      entityId: id,
+      entityNameSnapshot: existingExpense.name,
+      performedBy: auth.userId,
+    }).catch(() => {});
+
     return jsonResponse({
       success: true,
       message: 'Expense updated successfully',
@@ -157,8 +167,8 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
 
     // Check expense exists
-    const existingExpense = await queryOne<{ id: string }>(
-      `SELECT id FROM expenses WHERE id = ? AND business_id = ?`,
+    const existingExpense = await queryOne<{ id: string; name: string }>(
+      `SELECT id, name FROM expenses WHERE id = ? AND business_id = ?`,
       [id, auth.businessId]
     );
 
@@ -170,6 +180,15 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     }
 
     await execute(`DELETE FROM expenses WHERE id = ?`, [id]);
+
+    logActivity({
+      businessId: auth.businessId,
+      action: 'delete',
+      entityType: 'expense',
+      entityId: id,
+      entityNameSnapshot: existingExpense.name,
+      performedBy: auth.userId,
+    }).catch(() => {});
 
     return jsonResponse({
       success: true,

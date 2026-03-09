@@ -30,6 +30,7 @@ import {
   ScanBarcode,
   LayoutGrid,
   MapPin,
+  ScrollText,
 } from 'lucide-react';
 
 interface SubItem {
@@ -106,6 +107,7 @@ const BASE_SECTIONS: MenuSection[] = [
     items: [
       { href: '/admin/settings', label: 'Settings', icon: Settings, roles: ['owner', 'admin'] },
       { href: '/admin/shifts', label: 'Shifts', icon: Clock },
+      { href: '/admin/logs', label: 'Activity Log', icon: ScrollText, roles: ['owner', 'admin'] },
       { href: '/admin/reports/daily', label: 'Daily Report', icon: FileText, matchPath: '/admin/reports' },
       { href: '/admin/users', label: 'Users', icon: Users, roles: ['owner'] },
     ],

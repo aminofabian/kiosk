@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { execute, query } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
+import { logActivity } from '@/lib/db/activity-log';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -117,6 +118,15 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    logActivity({
+      businessId: auth.businessId,
+      action: 'update',
+      entityType: 'supplier',
+      entityId: id,
+      entityNameSnapshot: existing[0].name,
+      performedBy: auth.userId,
+    }).catch(() => {});
+
     return jsonResponse({
       success: true,
       message: 'Supplier updated successfully',
@@ -149,8 +159,8 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
 
-    const existing = await query<{ id: string }>(
-      `SELECT id FROM suppliers WHERE id = ? AND business_id = ?`,
+    const existing = await query<{ id: string; name: string }>(
+      `SELECT id, name FROM suppliers WHERE id = ? AND business_id = ?`,
       [id, auth.businessId]
     );
 
@@ -164,6 +174,15 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     await execute(`DELETE FROM supplier_products WHERE supplier_id = ?`, [id]);
     await execute(`UPDATE supplier_bills SET supplier_id = NULL WHERE supplier_id = ?`, [id]);
     await execute(`DELETE FROM suppliers WHERE id = ?`, [id]);
+
+    logActivity({
+      businessId: auth.businessId,
+      action: 'delete',
+      entityType: 'supplier',
+      entityId: id,
+      entityNameSnapshot: existing[0].name,
+      performedBy: auth.userId,
+    }).catch(() => {});
 
     return jsonResponse({
       success: true,

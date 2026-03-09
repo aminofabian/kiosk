@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { execute, queryOne } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
+import { logActivity } from '@/lib/db/activity-log';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -93,6 +94,16 @@ export async function POST(
         shiftId,
       ]
     );
+
+    logActivity({
+      businessId: auth.businessId,
+      action: 'close',
+      entityType: 'shift',
+      entityId: shiftId,
+      entityNameSnapshot: 'Shift closed',
+      details: { actualClosingCash, cashDifference },
+      performedBy: auth.userId,
+    }).catch(() => {});
 
     return jsonResponse({
       success: true,

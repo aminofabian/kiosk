@@ -4,6 +4,7 @@ import { generateUUID } from '@/lib/utils/uuid';
 import type { Category } from '@/lib/db/types';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import { logActivity } from '@/lib/db/activity-log';
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic';
@@ -125,6 +126,15 @@ export async function POST(request: NextRequest) {
         now,
       ]
     );
+
+    logActivity({
+      businessId: auth.businessId,
+      action: 'create',
+      entityType: 'category',
+      entityId: categoryId,
+      entityNameSnapshot: name.trim(),
+      performedBy: auth.userId,
+    }).catch(() => {});
 
     return jsonResponse({
       success: true,

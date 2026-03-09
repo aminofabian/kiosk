@@ -4,6 +4,7 @@ import { generateUUID } from '@/lib/utils/uuid';
 import { generateBatchNumber } from '@/lib/utils/batch-number';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import { logActivity } from '@/lib/db/activity-log';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -179,6 +180,17 @@ export async function POST(
        WHERE id = ?`,
       [newStatus, purchaseId]
     );
+
+    const item = await queryOne<{ name: string }>('SELECT name FROM items WHERE id = ? AND business_id = ?', [itemId, auth.businessId]);
+    logActivity({
+      businessId: auth.businessId,
+      action: 'update',
+      entityType: 'purchase',
+      entityId: purchaseId,
+      entityNameSnapshot: item?.name || `Item ${itemId.slice(0, 8)}`,
+      details: { usableQuantity, wastageQuantity: wastageQuantity || 0, buyPricePerUnit, purchaseStatus: newStatus },
+      performedBy: auth.userId,
+    }).catch(() => {});
 
     return jsonResponse({
       success: true,

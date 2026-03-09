@@ -4,6 +4,7 @@ import { generateUUID } from '@/lib/utils/uuid';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
 import type { Expense, ExpenseCategory, ExpenseFrequency } from '@/lib/db/types';
+import { logActivity } from '@/lib/db/activity-log';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -245,6 +246,16 @@ export async function POST(request: NextRequest) {
         ]
       );
     }
+
+    logActivity({
+      businessId: auth.businessId,
+      action: 'create',
+      entityType: 'expense',
+      entityId: expenseId,
+      entityNameSnapshot: name.trim(),
+      details: { amount, category, frequency },
+      performedBy: auth.userId,
+    }).catch(() => {});
 
     return jsonResponse({
       success: true,

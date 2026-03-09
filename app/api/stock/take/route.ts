@@ -3,6 +3,7 @@ import { execute, queryOne } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import { logActivity } from '@/lib/db/activity-log';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -98,12 +99,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const adjustmentCount = results.filter((r) => r.difference !== 0).length;
+    if (adjustmentCount > 0) {
+      logActivity({
+        businessId: auth.businessId,
+        action: 'update',
+        entityType: 'stock',
+        entityNameSnapshot: `Stock take: ${adjustmentCount} item(s) adjusted`,
+        details: { itemCount: items.length, adjustmentsCount: adjustmentCount, results },
+        performedBy: auth.userId,
+      }).catch(() => {});
+    }
+
     return jsonResponse({
       success: true,
       message: `Stock take completed for ${items.length} item(s)`,
       data: {
         processed: results.length,
-        adjustments: results.filter((r) => r.difference !== 0).length,
+        adjustments: adjustmentCount,
         results,
       },
     });

@@ -4,6 +4,7 @@ import { generateUUID } from '@/lib/utils/uuid';
 import type { Purchase } from '@/lib/db/types';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import { logActivity } from '@/lib/db/activity-log';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -102,6 +103,16 @@ export async function POST(request: NextRequest) {
         ]
       );
     }
+
+    logActivity({
+      businessId: auth.businessId,
+      action: 'create',
+      entityType: 'purchase',
+      entityId: purchaseId,
+      entityNameSnapshot: supplierName || `Purchase ${purchaseId.slice(0, 8)}`,
+      details: { totalAmount, itemCount: items.length },
+      performedBy: auth.userId,
+    }).catch(() => {});
 
     return jsonResponse({
       success: true,

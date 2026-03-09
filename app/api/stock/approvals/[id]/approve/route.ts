@@ -3,6 +3,7 @@ import { execute, queryOne } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import { logActivity } from '@/lib/db/activity-log';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -58,8 +59,8 @@ export async function POST(
     }
 
     // Get current item stock
-    const item = await queryOne<{ id: string; current_stock: number }>(
-      'SELECT id, current_stock FROM items WHERE id = ? AND business_id = ?',
+    const item = await queryOne<{ id: string; current_stock: number; name: string }>(
+      'SELECT id, current_stock, name FROM items WHERE id = ? AND business_id = ?',
       [request.item_id, auth.businessId]
     );
 
@@ -115,6 +116,16 @@ export async function POST(
        WHERE id = ? AND business_id = ?`,
       [actualStock, request.item_id, auth.businessId]
     );
+
+    logActivity({
+      businessId: auth.businessId,
+      action: 'approve',
+      entityType: 'stock',
+      entityId: request.item_id,
+      entityNameSnapshot: item.name,
+      details: { quantity: request.quantity, reason: request.reason, systemStock, actualStock, difference },
+      performedBy: auth.userId,
+    }).catch(() => {});
 
     return jsonResponse({
       success: true,

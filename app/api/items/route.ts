@@ -5,6 +5,7 @@ import { generateBatchNumber } from '@/lib/utils/batch-number';
 import type { Item } from '@/lib/db/types';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import { logActivity } from '@/lib/db/activity-log';
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic';
@@ -547,6 +548,17 @@ export async function POST(request: NextRequest) {
         [batchId, auth.businessId, itemId, batchNumber, stock, stock, buyPrice, now, now]
       );
     }
+
+    const displayName = variantName ? `${name.trim()} (${variantName.trim()})` : name.trim();
+    logActivity({
+      businessId: auth.businessId,
+      action: 'create',
+      entityType: 'item',
+      entityId: itemId,
+      entityNameSnapshot: displayName,
+      details: { isParent: !!isParent, initialStock: stock },
+      performedBy: auth.userId,
+    }).catch(() => {});
 
     return jsonResponse({
       success: true,

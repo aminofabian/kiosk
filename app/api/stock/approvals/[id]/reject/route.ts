@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { execute, queryOne } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import { logActivity } from '@/lib/db/activity-log';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -31,6 +32,7 @@ export async function POST(
     const approvalRequest = await queryOne<{
       id: string;
       business_id: string;
+      item_id: string;
       status: string;
     }>(
       `SELECT * FROM stock_approval_requests 
@@ -64,6 +66,15 @@ export async function POST(
        WHERE id = ?`,
       [auth.userId, now, rejection_reason || null, id]
     );
+
+    logActivity({
+      businessId: auth.businessId,
+      action: 'reject',
+      entityType: 'stock',
+      entityId: approvalRequest.item_id,
+      details: { rejection_reason: rejection_reason || null },
+      performedBy: auth.userId,
+    }).catch(() => {});
 
     return jsonResponse({
       success: true,

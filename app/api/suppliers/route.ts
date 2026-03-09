@@ -3,6 +3,7 @@ import { query, execute } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
+import { logActivity } from '@/lib/db/activity-log';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -126,6 +127,15 @@ export async function POST(request: NextRequest) {
         now,
       ]
     );
+
+    logActivity({
+      businessId: auth.businessId,
+      action: 'create',
+      entityType: 'supplier',
+      entityId: supplierId,
+      entityNameSnapshot: name.trim(),
+      performedBy: auth.userId,
+    }).catch(() => {});
 
     return jsonResponse({
       success: true,

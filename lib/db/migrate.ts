@@ -406,6 +406,13 @@ export async function runMigrations() {
       console.error('⚠ batch_tracking migration skipped:', error);
     }
 
+    try {
+      const { migrateActivityLog } = await import('./migrate-activity-log');
+      await migrateActivityLog();
+    } catch (error) {
+      console.error('⚠ activity_log migration skipped:', error);
+    }
+
     console.log('✅ Migration completed successfully!');
     return true;
   } catch (error) {

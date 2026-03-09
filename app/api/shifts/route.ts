@@ -4,6 +4,7 @@ import { generateUUID } from '@/lib/utils/uuid';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
 import type { Shift } from '@/lib/db/types';
+import { logActivity } from '@/lib/db/activity-log';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -104,6 +105,16 @@ export async function POST(request: NextRequest) {
         denominations?.denom_1000 || 0,
       ]
     );
+
+    logActivity({
+      businessId: auth.businessId,
+      action: 'open',
+      entityType: 'shift',
+      entityId: shiftId,
+      entityNameSnapshot: `Shift opened`,
+      details: { openingCash },
+      performedBy: auth.userId,
+    }).catch(() => {});
 
     return jsonResponse({
       success: true,

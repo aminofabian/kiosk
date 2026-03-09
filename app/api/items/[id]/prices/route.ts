@@ -4,6 +4,7 @@ import { generateUUID } from '@/lib/utils/uuid';
 import { generateBatchNumber } from '@/lib/utils/batch-number';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import { logActivity } from '@/lib/db/activity-log';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -35,8 +36,8 @@ export async function PATCH(
       );
     }
 
-    const item = await queryOne<{ id: string; current_stock: number; parent_item_id: string | null }>(
-      'SELECT id, current_stock, parent_item_id FROM items WHERE id = ? AND business_id = ?',
+    const item = await queryOne<{ id: string; current_stock: number; parent_item_id: string | null; name: string; variant_name: string | null }>(
+      'SELECT id, current_stock, parent_item_id, name, variant_name FROM items WHERE id = ? AND business_id = ?',
       [itemId, auth.businessId]
     );
 
@@ -125,6 +126,17 @@ export async function PATCH(
        ORDER BY received_at DESC LIMIT 1`,
       [itemId, auth.businessId]
     );
+
+    const displayName = item.variant_name ? `${item.name} (${item.variant_name})` : item.name;
+    logActivity({
+      businessId: auth.businessId,
+      action: 'update',
+      entityType: 'item',
+      entityId: itemId,
+      entityNameSnapshot: displayName,
+      details: { sellPrice: updatedItem?.current_sell_price, buyPrice: latestBatch?.buy_price_per_unit },
+      performedBy: auth.userId,
+    }).catch(() => {});
 
     return jsonResponse({
       success: true,

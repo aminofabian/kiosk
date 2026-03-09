@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { execute, queryOne } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import { logActivity } from '@/lib/db/activity-log';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -20,8 +21,8 @@ export async function PUT(
     const { name, icon, position, active } = body;
 
     // Verify category exists and belongs to business
-    const category = await queryOne<{ id: string }>(
-      'SELECT id FROM categories WHERE id = ? AND business_id = ?',
+    const category = await queryOne<{ id: string; name: string }>(
+      'SELECT id, name FROM categories WHERE id = ? AND business_id = ?',
       [categoryId, auth.businessId]
     );
 
@@ -63,6 +64,15 @@ export async function PUT(
       values
     );
 
+    logActivity({
+      businessId: auth.businessId,
+      action: 'update',
+      entityType: 'category',
+      entityId: categoryId,
+      entityNameSnapshot: category.name,
+      performedBy: auth.userId,
+    }).catch(() => {});
+
     return jsonResponse({
       success: true,
       message: 'Category updated successfully',
@@ -91,8 +101,8 @@ export async function DELETE(
     const { id: categoryId } = await params;
 
     // Verify category exists and belongs to business
-    const category = await queryOne<{ id: string }>(
-      'SELECT id FROM categories WHERE id = ? AND business_id = ?',
+    const category = await queryOne<{ id: string; name: string }>(
+      'SELECT id, name FROM categories WHERE id = ? AND business_id = ?',
       [categoryId, auth.businessId]
     );
 
@@ -118,6 +128,15 @@ export async function DELETE(
 
     // Soft delete (set active = 0)
     await execute('UPDATE categories SET active = 0 WHERE id = ?', [categoryId]);
+
+    logActivity({
+      businessId: auth.businessId,
+      action: 'delete',
+      entityType: 'category',
+      entityId: categoryId,
+      entityNameSnapshot: category.name,
+      performedBy: auth.userId,
+    }).catch(() => {});
 
     return jsonResponse({
       success: true,

@@ -5,6 +5,7 @@ import { generateBatchNumber } from '@/lib/utils/batch-number';
 import type { Item } from '@/lib/db/types';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import { logActivity } from '@/lib/db/activity-log';
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic';
@@ -497,6 +498,16 @@ export async function PUT(
     // In that case, if buyPriceNum was provided, use it directly
     const finalBuyPrice = latestBatch?.buy_price_per_unit ?? (buyPriceNum !== undefined ? buyPriceNum : null);
 
+    const displayName = updatedItem.variant_name ? `${updatedItem.name} (${updatedItem.variant_name})` : updatedItem.name;
+    logActivity({
+      businessId: auth.businessId,
+      action: 'update',
+      entityType: 'item',
+      entityId: itemId,
+      entityNameSnapshot: displayName,
+      performedBy: auth.userId,
+    }).catch(() => {});
+
     return jsonResponse({
       success: true,
       message: 'Item updated successfully',
@@ -566,6 +577,16 @@ export async function DELETE(
       'UPDATE items SET active = 0 WHERE id = ? AND business_id = ?',
       [itemId, auth.businessId]
     );
+
+    logActivity({
+      businessId: auth.businessId,
+      action: 'delete',
+      entityType: 'item',
+      entityId: itemId,
+      entityNameSnapshot: item.name,
+      details: { hasVariants },
+      performedBy: auth.userId,
+    }).catch(() => {});
 
     return jsonResponse({
       success: true,
