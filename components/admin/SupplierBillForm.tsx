@@ -41,6 +41,8 @@ import {
   ScanBarcode,
   RotateCcw,
   Layers,
+  Wallet,
+  CircleCheck,
 } from 'lucide-react';
 import { apiGet, apiPost, apiPatch } from '@/lib/utils/api-client';
 import { getItemDisplayName } from '@/lib/utils';
@@ -310,6 +312,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
   const [editSupplierError, setEditSupplierError] = useState<string | null>(null);
   const [supplierTypeFilter, setSupplierTypeFilter] = useState<string>('all');
   const [supplierPickerOpen, setSupplierPickerOpen] = useState(false);
+  const [supplierOwedFilter, setSupplierOwedFilter] = useState<'all' | 'owed' | 'cleared'>('all');
   const supplierSearchRef = useRef<HTMLInputElement>(null);
   const letterSectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [resettingStockItemIds, setResettingStockItemIds] = useState<Set<string>>(new Set());
@@ -449,17 +452,39 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
     paymentDetails,
   ]);
 
-  // Filtered suppliers based on search, sorted alphabetically by name
+  // Owed/cleared counts for filter chips
+  const { owedCount, clearedCount, totalOwedAmount } = useMemo(() => {
+    const owed = suppliers.filter((s) => s.owed_amount && s.owed_amount > 0);
+    const cleared = suppliers.filter((s) => !s.owed_amount || s.owed_amount === 0);
+    const total = owed.reduce((sum, s) => sum + (s.owed_amount || 0), 0);
+    return { owedCount: owed.length, clearedCount: cleared.length, totalOwedAmount: total };
+  }, [suppliers]);
+
+  // Filtered suppliers based on search + owed filter, sorted alphabetically (owed first when "all")
   const filteredSuppliers = useMemo(() => {
-    const list = !supplierSearch.trim()
+    let list = !supplierSearch.trim()
       ? suppliers
       : suppliers.filter(
           (s) =>
             s.name.toLowerCase().includes(supplierSearch.toLowerCase()) ||
             (s.contact_phone && s.contact_phone.includes(supplierSearch))
         );
-    return [...list].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-  }, [suppliers, supplierSearch]);
+    if (supplierOwedFilter === 'owed') {
+      list = list.filter((s) => s.owed_amount && s.owed_amount > 0);
+    } else if (supplierOwedFilter === 'cleared') {
+      list = list.filter((s) => !s.owed_amount || s.owed_amount === 0);
+    }
+    const sorted = [...list].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    if (supplierOwedFilter === 'all' && owedCount > 0) {
+      return sorted.sort((a, b) => {
+        const aOwed = (a.owed_amount || 0) > 0 ? 1 : 0;
+        const bOwed = (b.owed_amount || 0) > 0 ? 1 : 0;
+        if (aOwed !== bOwed) return bOwed - aOwed;
+        return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+      });
+    }
+    return sorted;
+  }, [suppliers, supplierSearch, supplierOwedFilter, owedCount]);
 
   // Group suppliers by first letter (for alphabetical picker when not searching)
   const suppliersByLetter = useMemo(() => {
@@ -1331,7 +1356,10 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
           open={supplierPickerOpen}
           onOpenChange={(open) => {
             setSupplierPickerOpen(open);
-            if (!open) setSupplierSearch('');
+            if (!open) {
+              setSupplierSearch('');
+              setSupplierOwedFilter('all');
+            }
           }}
           direction="right"
         >
@@ -1342,7 +1370,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
                 Select Supplier
               </DrawerTitle>
               <DrawerDescription className="text-xs mt-1">
-                Search by name or phone, or jump by letter
+                Search, filter by owed status, or jump by letter
               </DrawerDescription>
             </DrawerHeader>
 
@@ -1359,9 +1387,40 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
                     className="pl-9 h-9 text-sm border-slate-200 dark:border-slate-700 rounded-lg"
                   />
                 </div>
-                <div className="flex flex-wrap gap-1.5">
+
+                {/* Owed / Cleared filter chips */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-1 rounded-lg bg-slate-100 dark:bg-slate-800/60 p-0.5">
+                    {[
+                      { key: 'all' as const, label: 'All', count: suppliers.length },
+                      { key: 'owed' as const, label: 'Owed', count: owedCount, icon: Wallet },
+                      { key: 'cleared' as const, label: 'Cleared', count: clearedCount, icon: CircleCheck },
+                    ].map(({ key, label, count, icon: Icon }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setSupplierOwedFilter(key)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                          supplierOwedFilter === key
+                            ? key === 'owed'
+                              ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 shadow-sm'
+                              : key === 'cleared'
+                                ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-200 shadow-sm'
+                                : 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                        }`}
+                      >
+                        {Icon && <Icon className="w-3 h-3 shrink-0" />}
+                        <span>{label}</span>
+                        <span className={`tabular-nums ${supplierOwedFilter === key ? 'font-semibold' : 'opacity-75'}`}>
+                          {count}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
                   <Select value={supplierTypeFilter} onValueChange={setSupplierTypeFilter}>
-                    <SelectTrigger className="h-8 w-[130px] text-xs border-slate-200 dark:border-slate-700 rounded-lg">
+                    <SelectTrigger className="h-8 w-[120px] text-xs border-slate-200 dark:border-slate-700 rounded-lg">
                       <Tag className="w-3 h-3 mr-1 text-slate-400" />
                       <SelectValue placeholder="Type" />
                     </SelectTrigger>
@@ -1374,8 +1433,9 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
                       ))}
                     </SelectContent>
                   </Select>
-                  {availableLetters.length > 0 && !supplierSearch.trim() && (
-                    <div className="flex flex-wrap gap-0.5 max-h-8 overflow-y-auto">
+
+                  {availableLetters.length > 0 && !supplierSearch.trim() && supplierOwedFilter === 'all' && (
+                    <div className="flex flex-wrap gap-0.5 max-h-8 overflow-y-auto ml-auto">
                       {availableLetters.map((letter) => (
                         <button
                           key={letter}
@@ -1392,15 +1452,42 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
                     </div>
                   )}
                 </div>
+
+                {/* Total owed summary when viewing owed filter */}
+                {supplierOwedFilter === 'owed' && totalOwedAmount > 0 && (
+                  <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200/50 dark:border-amber-800/30">
+                    <Wallet className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                    <span className="text-xs font-medium text-amber-800 dark:text-amber-200">
+                      {owedCount} supplier{owedCount !== 1 ? 's' : ''} · {formatPrice(totalOwedAmount)} total owed
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Scrollable list — dense rows */}
               <div className="flex-1 overflow-y-auto overscroll-contain">
                 {filteredSuppliers.length === 0 ? (
-                  <div className="py-12 text-center">
+                  <div className="py-12 text-center px-4">
                     <p className="text-sm text-slate-500">
-                      {supplierSearch ? 'No suppliers match your search' : 'No suppliers yet'}
+                      {supplierSearch
+                        ? 'No suppliers match your search'
+                        : supplierOwedFilter === 'owed'
+                          ? 'No suppliers with outstanding balance'
+                          : supplierOwedFilter === 'cleared'
+                            ? 'No suppliers with zero balance'
+                            : 'No suppliers yet'}
                     </p>
+                    {supplierOwedFilter !== 'all' && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSupplierOwedFilter('all')}
+                        className="mt-2 text-xs text-[#1c6a1e] hover:text-[#2a8a30]"
+                      >
+                        Show all suppliers
+                      </Button>
+                    )}
                   </div>
                 ) : supplierSearch.trim() ? (
                   /* Flat list when searching */

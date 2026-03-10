@@ -250,7 +250,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
             <p className="text-xs text-amber-700 dark:text-amber-300">
               Your closing balance has been submitted for admin review. The shift will remain open until an admin approves or rejects your closing balance.
             </p>
-            {expectedCashAfterExpenses && (
+            {!isCashier && expectedCashAfterExpenses != null && (
               <div className="pt-2 border-t border-amber-200 dark:border-amber-800">
                 <p className="text-xs text-amber-600 dark:text-amber-400">
                   Expected: {formatPrice(expectedCashAfterExpenses)} | 
@@ -306,13 +306,10 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
                 Shift Information
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Opening Cash:</span>
-                <span className="font-bold text-slate-900 dark:text-white text-lg">
-                  {formatPrice(shift.opening_cash)}
-                </span>
-              </div>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">
+                Count the cash in your drawer and enter the amounts below. Your submission will be reviewed by an admin.
+              </p>
             </CardContent>
           </Card>
         ) : (
