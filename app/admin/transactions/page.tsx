@@ -16,7 +16,11 @@ import {
   Smartphone,
   CreditCard,
   DollarSign,
+  Undo2,
 } from 'lucide-react';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { apiPatch } from '@/lib/utils/api-client';
+import { toast } from 'sonner';
 
 const PAYMENT_ICONS: Record<string, typeof Wallet> = {
   cash: Wallet,
@@ -95,6 +99,8 @@ interface TransactionsData {
 
 function TransactionsContent() {
   const searchParams = useSearchParams();
+  const { user } = useCurrentUser();
+  const canVoid = user?.role === 'admin' || user?.role === 'owner';
 
   const todayStr = toDateStr(new Date());
   const yesterdayStr = (() => {
@@ -140,6 +146,7 @@ function TransactionsContent() {
   const [data, setData] = useState<TransactionsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [voidingSaleId, setVoidingSaleId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -158,6 +165,42 @@ function TransactionsContent() {
       setLoading(false);
     }
   }, [date]);
+
+  const handleVoid = useCallback(
+    (sale: Sale) => {
+      if (!canVoid || sale.status === 'voided') return;
+      toast(
+        `Void this transaction of ${formatPrice(sale.total_amount)}? Stock will be restored and the sale will be marked as voided.`,
+        {
+          action: {
+            label: 'Void',
+            onClick: async () => {
+              setVoidingSaleId(sale.id);
+              try {
+                const result = await apiPatch<{ saleId: string }>(
+                  `/api/sales/${sale.id}`,
+                  { action: 'void', reason: 'Admin void' }
+                );
+                if (result.success) {
+                  await fetchData();
+                  toast.success('Transaction voided');
+                } else {
+                  toast.error(result.message || 'Failed to void transaction');
+                }
+              } catch (err) {
+                console.error('Error voiding sale:', err);
+                toast.error('An error occurred while voiding the transaction.');
+              } finally {
+                setVoidingSaleId(null);
+              }
+            },
+          },
+          cancel: { label: 'Cancel', onClick: () => {} },
+        }
+      );
+    },
+    [canVoid, fetchData]
+  );
 
   useEffect(() => {
     fetchData();
@@ -380,13 +423,31 @@ function TransactionsContent() {
                               </span>
                             )}
                           </div>
-                          <span
-                            className={`text-lg font-semibold tabular-nums ${
-                              isVoided ? 'text-red-600 dark:text-red-400 line-through' : 'text-slate-900 dark:text-white'
-                            }`}
-                          >
-                            {formatPrice(sale.total_amount)}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`text-lg font-semibold tabular-nums ${
+                                isVoided ? 'text-red-600 dark:text-red-400 line-through' : 'text-slate-900 dark:text-white'
+                              }`}
+                            >
+                              {formatPrice(sale.total_amount)}
+                            </span>
+                            {canVoid && !isVoided && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 px-2 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
+                                onClick={() => handleVoid(sale)}
+                                disabled={voidingSaleId === sale.id}
+                                title="Void transaction"
+                              >
+                                {voidingSaleId === sale.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Undo2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            )}
+                          </div>
                         </div>
 
                         {/* Row 2: Items */}
