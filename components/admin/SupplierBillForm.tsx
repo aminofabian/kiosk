@@ -55,6 +55,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+} from '@/components/ui/drawer';
 import { toast } from 'sonner';
 
 interface Supplier {
@@ -67,6 +74,10 @@ interface Supplier {
   supplier_type?: string | null;
   preferred_payment_method?: string | null;
   payment_details?: string | null;
+  /** When supplier has unpaid bills */
+  owed_amount?: number;
+  owed_payment_details?: string | null;
+  owed_payment_method?: string | null;
 }
 
 interface BillLineItem {
@@ -298,6 +309,9 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
   const [isUpdatingSupplier, setIsUpdatingSupplier] = useState(false);
   const [editSupplierError, setEditSupplierError] = useState<string | null>(null);
   const [supplierTypeFilter, setSupplierTypeFilter] = useState<string>('all');
+  const [supplierPickerOpen, setSupplierPickerOpen] = useState(false);
+  const supplierSearchRef = useRef<HTMLInputElement>(null);
+  const letterSectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [resettingStockItemIds, setResettingStockItemIds] = useState<Set<string>>(new Set());
   const [productSearch, setProductSearch] = useState('');
   const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([]);
@@ -447,13 +461,31 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
     return [...list].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
   }, [suppliers, supplierSearch]);
 
+  // Group suppliers by first letter (for alphabetical picker when not searching)
+  const suppliersByLetter = useMemo(() => {
+    const groups: Record<string, Supplier[]> = {};
+    for (const s of filteredSuppliers) {
+      const letter = (s.name[0] || '#').toUpperCase();
+      const key = /[A-Z0-9]/.test(letter) ? letter : '#';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(s);
+    }
+    return groups;
+  }, [filteredSuppliers]);
+
+  const availableLetters = useMemo(
+    () => Object.keys(suppliersByLetter).sort((a, b) => (a === '#' ? 1 : b === '#' ? -1 : a.localeCompare(b))),
+    [suppliersByLetter]
+  );
+
   useEffect(() => {
     async function fetchSuppliers() {
       try {
         setLoadingSuppliers(true);
-        const url = supplierTypeFilter && supplierTypeFilter !== 'all'
+        const base = supplierTypeFilter && supplierTypeFilter !== 'all'
           ? `/api/suppliers?supplierType=${encodeURIComponent(supplierTypeFilter)}`
           : '/api/suppliers';
+        const url = `${base}${base.includes('?') ? '&' : '?'}includeOwed=true`;
         const result = await apiGet<Supplier[]>(url);
         if (result.success) {
           setSuppliers(result.data || []);
@@ -478,6 +510,13 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
     fetchSuppliers();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supplierTypeFilter]);
+
+  // Focus search when supplier picker opens
+  useEffect(() => {
+    if (supplierPickerOpen) {
+      setTimeout(() => supplierSearchRef.current?.focus(), 100);
+    }
+  }, [supplierPickerOpen]);
 
   // Fetch linked products when supplier changes (skip when restoring from draft or editing)
   useEffect(() => {
@@ -570,6 +609,8 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
     setSupplierName(supplier.name);
     setSupplierPhone(supplier.contact_phone || '');
     setUseManualSupplier(false);
+    setSupplierPickerOpen(false);
+    setSupplierSearch('');
   };
 
   const handleClearSupplier = () => {
@@ -1244,112 +1285,242 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
           </div>
         )}
 
-        {/* Supplier grid picker */}
+        {/* Compact supplier picker trigger */}
         {!supplierId && !useManualSupplier && (
-          <>
+          <div className="space-y-2">
             {loadingSuppliers ? (
-              <div className="flex items-center justify-center py-8 text-slate-500">
+              <div className="flex items-center justify-center py-6 text-slate-500">
                 <Loader2 className="w-5 h-5 animate-spin mr-2" />
                 <span className="text-sm">Loading suppliers...</span>
               </div>
             ) : (
-              <>
-                {/* Type filter + Search */}
-                <div className="flex flex-wrap items-center gap-2">
-                  {productTypes.length > 0 && (
-                    <Select value={supplierTypeFilter} onValueChange={setSupplierTypeFilter}>
-                      <SelectTrigger className="w-[140px] h-10 border-2 border-slate-200 dark:border-slate-700 rounded-xl text-sm">
-                        <Tag className="w-3.5 h-3.5 mr-1.5 text-slate-400" />
-                        <SelectValue placeholder="Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All types</SelectItem>
-                        {productTypes.map((t) => (
-                          <SelectItem key={t.key} value={t.key}>
-                            {t.emoji} {t.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                  {suppliers.length > 4 && (
-                    <div className="relative flex-1 min-w-[160px]">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <Input
-                        value={supplierSearch}
-                        onChange={(e) => setSupplierSearch(e.target.value)}
-                        placeholder="Search suppliers..."
-                        className="pl-9 h-10 border-2 border-slate-200 dark:border-slate-700 rounded-xl"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {/* Grid of supplier cards */}
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 pr-1">
-                  {filteredSuppliers.map((supplier) => {
-                    const colors = getSupplierColor(supplier.name);
-                    return (
-                      <button
-                        key={supplier.id}
-                        type="button"
-                        onClick={() => handleSelectSupplier(supplier)}
-                        className="group relative flex items-center gap-2.5 p-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 hover:shadow-md transition-all text-left"
-                        style={{
-                          // subtle accent on hover via inline style
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = colors.accent;
-                          e.currentTarget.style.backgroundColor = colors.bg;
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor = '';
-                          e.currentTarget.style.backgroundColor = '';
-                        }}
-                      >
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 transition-transform group-hover:scale-105"
-                          style={{ backgroundColor: colors.accent, color: '#fff' }}
-                        >
-                          {getInitials(supplier.name)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm text-slate-900 dark:text-white truncate">
-                            {supplier.name}
-                          </p>
-                          {supplier.contact_phone && (
-                            <p className="text-[10px] text-slate-400 truncate mt-0.5">
-                              {supplier.contact_phone}
-                            </p>
-                          )}
-                          {supplier.supplier_type && (() => {
-                            const t = productTypes.find((x) => x.key === supplier.supplier_type);
-                            return t ? (
-                              <span className="inline-block mt-1 text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ backgroundColor: `${t.color}20`, color: t.color }}>
-                                {t.emoji} {t.label}
-                              </span>
-                            ) : (
-                              <span className="inline-block mt-1 text-[10px] text-slate-400">{supplier.supplier_type}</span>
-                            );
-                          })()}
-                        </div>
-                        <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-500 shrink-0 transition-colors" />
-                      </button>
-                    );
-                  })}
-
-                  {filteredSuppliers.length === 0 && (
-                    <div className="col-span-full py-6 text-center">
-                      <p className="text-sm text-slate-400">
-                        {supplierSearch ? 'No suppliers match your search' : 'No suppliers yet'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </>
+              <div className="space-y-1.5">
+                <button
+                  type="button"
+                  onClick={() => setSupplierPickerOpen(true)}
+                  className="w-full flex items-center gap-3 p-3 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-900/40 hover:border-[#1c6a1e]/50 hover:bg-[#1c6a1e]/5 dark:hover:bg-[#1c6a1e]/10 transition-all text-left group"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-slate-200 dark:bg-slate-700 flex items-center justify-center group-hover:bg-[#1c6a1e]/20 transition-colors">
+                    <Building2 className="w-5 h-5 text-slate-500 group-hover:text-[#1c6a1e]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-700 dark:text-slate-300 text-sm">
+                      Select supplier
+                    </p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {suppliers.length} supplier{suppliers.length !== 1 ? 's' : ''} — tap to browse or search
+                    </p>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-[#1c6a1e] shrink-0" />
+                </button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleUseManual}
+                  className="h-7 text-xs text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                >
+                  Or enter supplier manually
+                </Button>
+              </div>
             )}
-          </>
+          </div>
         )}
+
+        {/* Supplier Picker Drawer — compact, search-first, supports hundreds */}
+        <Drawer
+          open={supplierPickerOpen}
+          onOpenChange={(open) => {
+            setSupplierPickerOpen(open);
+            if (!open) setSupplierSearch('');
+          }}
+          direction="right"
+        >
+          <DrawerContent className="!w-full sm:!w-[420px] md:!w-[480px] !max-w-[95vw] h-full max-h-screen z-[60] rounded-l-2xl flex flex-col">
+            <DrawerHeader className="shrink-0 border-b border-slate-200 dark:border-slate-800 px-4 py-3 space-y-0">
+              <DrawerTitle className="text-base font-bold flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-[#1c6a1e]" />
+                Select Supplier
+              </DrawerTitle>
+              <DrawerDescription className="text-xs mt-1">
+                Search by name or phone, or jump by letter
+              </DrawerDescription>
+            </DrawerHeader>
+
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              {/* Sticky search + filters */}
+              <div className="shrink-0 p-3 space-y-2 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/50">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <Input
+                    ref={supplierSearchRef}
+                    value={supplierSearch}
+                    onChange={(e) => setSupplierSearch(e.target.value)}
+                    placeholder="Search name or phone..."
+                    className="pl-9 h-9 text-sm border-slate-200 dark:border-slate-700 rounded-lg"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <Select value={supplierTypeFilter} onValueChange={setSupplierTypeFilter}>
+                    <SelectTrigger className="h-8 w-[130px] text-xs border-slate-200 dark:border-slate-700 rounded-lg">
+                      <Tag className="w-3 h-3 mr-1 text-slate-400" />
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All types</SelectItem>
+                      {productTypes.map((t) => (
+                        <SelectItem key={t.key} value={t.key}>
+                          {t.emoji} {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {availableLetters.length > 0 && !supplierSearch.trim() && (
+                    <div className="flex flex-wrap gap-0.5 max-h-8 overflow-y-auto">
+                      {availableLetters.map((letter) => (
+                        <button
+                          key={letter}
+                          type="button"
+                          onClick={() => {
+                            const el = letterSectionRefs.current[letter];
+                            el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+                          }}
+                          className="w-6 h-6 rounded text-[10px] font-semibold text-slate-500 hover:text-[#1c6a1e] hover:bg-[#1c6a1e]/10 transition-colors shrink-0"
+                        >
+                          {letter}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Scrollable list — dense rows */}
+              <div className="flex-1 overflow-y-auto overscroll-contain">
+                {filteredSuppliers.length === 0 ? (
+                  <div className="py-12 text-center">
+                    <p className="text-sm text-slate-500">
+                      {supplierSearch ? 'No suppliers match your search' : 'No suppliers yet'}
+                    </p>
+                  </div>
+                ) : supplierSearch.trim() ? (
+                  /* Flat list when searching */
+                  <div className="py-1">
+                    {filteredSuppliers.map((supplier) => {
+                      const colors = getSupplierColor(supplier.name);
+                      const owed = supplier.owed_amount && supplier.owed_amount > 0;
+                      return (
+                        <button
+                          key={supplier.id}
+                          type="button"
+                          onClick={() => handleSelectSupplier(supplier)}
+                          className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors text-left border-b border-slate-50 dark:border-slate-800/50 last:border-0"
+                        >
+                          <div
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0"
+                            style={{ backgroundColor: colors.accent, color: '#fff' }}
+                          >
+                            {getInitials(supplier.name)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm text-slate-900 dark:text-white truncate">
+                              {supplier.name}
+                            </p>
+                            {supplier.contact_phone && (
+                              <p className="text-[11px] text-slate-500 truncate">{supplier.contact_phone}</p>
+                            )}
+                            {owed && (
+                              <p className="text-[10px] mt-0.5 font-medium text-amber-600 dark:text-amber-400 truncate" title={supplier.owed_payment_details || undefined}>
+                                Owed {formatPrice(supplier.owed_amount!)}
+                                {supplier.owed_payment_details && ` · ${supplier.owed_payment_details}`}
+                              </p>
+                            )}
+                          </div>
+                          <Check className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  /* Grouped by letter when not searching */
+                  <div className="py-1">
+                    {availableLetters.map((letter) => (
+                      <div key={letter} ref={(el) => { letterSectionRefs.current[letter] = el; }}>
+                        <div className="sticky top-0 z-10 bg-slate-100/95 dark:bg-slate-900/95 backdrop-blur-sm py-1 px-3">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                            {letter}
+                          </span>
+                        </div>
+                        {suppliersByLetter[letter]?.map((supplier) => {
+                          const colors = getSupplierColor(supplier.name);
+                          const owed = supplier.owed_amount && supplier.owed_amount > 0;
+                          return (
+                            <button
+                              key={supplier.id}
+                              type="button"
+                              onClick={() => handleSelectSupplier(supplier)}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors text-left border-b border-slate-50 dark:border-slate-800/50 last:border-0"
+                            >
+                              <div
+                                className="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0"
+                                style={{ backgroundColor: colors.accent, color: '#fff' }}
+                              >
+                                {getInitials(supplier.name)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm text-slate-900 dark:text-white truncate">
+                                  {supplier.name}
+                                </p>
+                                {supplier.contact_phone && (
+                                  <p className="text-[11px] text-slate-500 truncate">{supplier.contact_phone}</p>
+                                )}
+                                {owed && (
+                                  <p className="text-[10px] mt-0.5 font-medium text-amber-600 dark:text-amber-400 truncate" title={supplier.owed_payment_details || undefined}>
+                                    Owed {formatPrice(supplier.owed_amount!)}
+                                    {supplier.owed_payment_details && ` · ${supplier.owed_payment_details}`}
+                                  </p>
+                                )}
+                              </div>
+                              <Check className="w-3.5 h-3.5 text-slate-300 shrink-0" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer actions */}
+              <div className="shrink-0 p-3 border-t border-slate-200 dark:border-slate-800 flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSupplierPickerOpen(false);
+                    setUseManualSupplier(true);
+                    setSupplierSearch('');
+                  }}
+                  className="flex-1 h-9 text-xs"
+                >
+                  Enter manually
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    setSupplierPickerOpen(false);
+                    setNewSupplierDialogOpen(true);
+                  }}
+                  className="flex-1 h-9 text-xs bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
+                >
+                  <Plus className="w-3 h-3 mr-1" />
+                  New supplier
+                </Button>
+              </div>
+            </div>
+          </DrawerContent>
+        </Drawer>
       </div>
 
       {/* ═══════════════ STEP 2: BILL ITEMS ═══════════════ */}

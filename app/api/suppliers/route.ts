@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const supplierType = searchParams.get('supplierType')?.trim() || null;
+    const includeOwed = searchParams.get('includeOwed') === 'true';
 
     let sql = `SELECT * FROM suppliers WHERE business_id = ? AND active = 1`;
     const params: (string | null)[] = [auth.businessId];
@@ -65,9 +66,61 @@ export async function GET(request: NextRequest) {
       payment_details?: string | null;
     }>(sql, params);
 
+    let data = suppliers;
+
+    if (includeOwed && suppliers.length > 0) {
+      const supplierIds = suppliers.map((s) => s.id);
+      const placeholders = supplierIds.map(() => '?').join(',');
+      const owedRows = await query<{
+        supplier_id: string;
+        total_owed: number;
+        payment_details: string | null;
+        preferred_payment_method: string | null;
+      }>(
+        `SELECT 
+          supplier_id,
+          SUM(amount) as total_owed,
+          (SELECT payment_details FROM supplier_bills sb2 
+           WHERE sb2.supplier_id = sb.supplier_id AND sb2.business_id = sb.business_id 
+             AND sb2.status IN ('pending','overdue') 
+           ORDER BY sb2.due_date ASC LIMIT 1) as payment_details,
+          (SELECT preferred_payment_method FROM supplier_bills sb2 
+           WHERE sb2.supplier_id = sb.supplier_id AND sb2.business_id = sb.business_id 
+             AND sb2.status IN ('pending','overdue') 
+           ORDER BY sb2.due_date ASC LIMIT 1) as preferred_payment_method
+        FROM supplier_bills sb
+        WHERE sb.business_id = ? AND sb.supplier_id IN (${placeholders})
+          AND sb.status IN ('pending', 'overdue')
+        GROUP BY sb.supplier_id`,
+        [auth.businessId, ...supplierIds]
+      );
+
+      const owedMap = new Map(
+        owedRows.map((r) => [
+          r.supplier_id,
+          {
+            totalOwed: Number(r.total_owed) || 0,
+            paymentDetails: r.payment_details || null,
+            preferredPaymentMethod: r.preferred_payment_method || null,
+          },
+        ])
+      );
+
+      data = suppliers.map((s) => {
+        const owed = owedMap.get(s.id);
+        if (!owed || owed.totalOwed <= 0) return s;
+        return {
+          ...s,
+          owed_amount: owed.totalOwed,
+          owed_payment_details: owed.paymentDetails,
+          owed_payment_method: owed.preferredPaymentMethod,
+        };
+      });
+    }
+
     return jsonResponse({
       success: true,
-      data: suppliers,
+      data,
     });
   } catch (error) {
     console.error('Error fetching suppliers:', error);
