@@ -48,10 +48,13 @@ interface SplitPaymentInput {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requirePermission('sell');
+    const body = await request.json();
+    const fromEdit = body.fromEdit === true;
+    const auth = fromEdit
+      ? await requirePermission('view_all_sales')
+      : await requirePermission('sell');
     if (isAuthResponse(auth)) return auth;
 
-    const body = await request.json();
     const {
       items,
       paymentMethod,
@@ -76,8 +79,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate split payments if split method is selected
-    if (paymentMethod === 'split') {
+    // Validate split payments if split method is selected (not supported for fromEdit)
+    if (paymentMethod === 'split' && !fromEdit) {
       if (!splitPayments || !Array.isArray(splitPayments) || splitPayments.length === 0) {
         return jsonResponse(
           { success: false, message: 'Split payments are required for split payment method' },
@@ -95,6 +98,12 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+    if (paymentMethod === 'split' && fromEdit) {
+      return jsonResponse(
+        { success: false, message: 'Split payment is not supported when editing a transaction' },
+        400
+      );
+    }
 
     const now = Math.floor(Date.now() / 1000);
     const saleId = generateUUID();
@@ -106,7 +115,7 @@ export async function POST(request: NextRequest) {
     );
 
     // Validate split payments total matches order total
-    if (paymentMethod === 'split' && splitPayments) {
+    if (paymentMethod === 'split' && splitPayments && !fromEdit) {
       const splitTotal = (splitPayments as SplitPaymentInput[]).reduce(
         (sum, p) => sum + p.amount,
         0
@@ -119,33 +128,35 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Get current open shift for user
-    const shift = await queryOne<{ id: string }>(
-      `SELECT id FROM shifts 
-       WHERE business_id = ? AND user_id = ? AND status = 'open'
-       ORDER BY started_at DESC
-       LIMIT 1`,
-      [auth.businessId, auth.userId]
-    );
-
-    const shiftId = shift?.id || null;
-
-    // Require an open shift for any cash payment so every shilling is tied to a drawer
-    const cashAmountForValidation =
-      paymentMethod === 'cash'
-        ? totalAmount
-        : paymentMethod === 'split' && splitPayments
-          ? (splitPayments as SplitPaymentInput[]).find((p) => p.method === 'cash')?.amount ?? 0
-          : 0;
-    if (cashAmountForValidation > 0 && !shiftId) {
-      return jsonResponse(
-        {
-          success: false,
-          message:
-            'You must have an open shift to record cash payments. Please open a shift first.',
-        },
-        400
+    // Get current open shift for user (skip for fromEdit - admin edit uses no shift)
+    let shiftId: string | null = null;
+    if (!fromEdit) {
+      const shift = await queryOne<{ id: string }>(
+        `SELECT id FROM shifts 
+         WHERE business_id = ? AND user_id = ? AND status = 'open'
+         ORDER BY started_at DESC
+         LIMIT 1`,
+        [auth.businessId, auth.userId]
       );
+      shiftId = shift?.id || null;
+
+      // Require an open shift for any cash payment so every shilling is tied to a drawer
+      const cashAmountForValidation =
+        paymentMethod === 'cash'
+          ? totalAmount
+          : paymentMethod === 'split' && splitPayments
+            ? (splitPayments as SplitPaymentInput[]).find((p) => p.method === 'cash')?.amount ?? 0
+            : 0;
+      if (cashAmountForValidation > 0 && !shiftId) {
+        return jsonResponse(
+          {
+            success: false,
+            message:
+              'You must have an open shift to record cash payments. Please open a shift first.',
+          },
+          400
+        );
+      }
     }
 
     // For credit payment: require either creditAccountId (existing creditor) or customerName (new)
