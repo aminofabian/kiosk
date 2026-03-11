@@ -16,7 +16,6 @@ import {
   Wallet,
   Smartphone,
   CreditCard,
-  DollarSign,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/utils/api-client';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
@@ -54,14 +53,12 @@ const PAYMENT_METHOD_ICONS: Record<string, typeof Wallet> = {
   cash: Wallet,
   mpesa: Smartphone,
   credit: CreditCard,
-  split: DollarSign,
 };
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: 'Cash',
   mpesa: 'M-Pesa',
   credit: 'Credit',
-  split: 'Split Payment',
 };
 
 const formatPrice = (price: number) =>

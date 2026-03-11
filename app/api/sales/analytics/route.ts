@@ -190,6 +190,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Get sales by payment method (filtered by itemType when provided)
+    // For non-itemType: break split payments into cash and mpesa (and credit) - no separate "split" row
     const salesByPaymentMethod = await query<{
       payment_method: string;
       count: number;
@@ -207,14 +208,29 @@ export async function GET(request: NextRequest) {
           GROUP BY s.payment_method
           ORDER BY total DESC`
         : `SELECT 
-            payment_method,
-            COUNT(*) as count,
-            SUM(total_amount) as total
-          FROM sales
-          WHERE business_id = ? AND status = 'completed' AND sale_date >= ?
-          GROUP BY payment_method
+            method as payment_method,
+            SUM(cnt) as count,
+            SUM(tot) as total
+          FROM (
+            SELECT 'cash' as method, COUNT(*) as cnt, COALESCE(SUM(total_amount), 0) as tot
+            FROM sales WHERE business_id = ? AND status = 'completed' AND sale_date >= ? AND payment_method = 'cash'
+            UNION ALL
+            SELECT 'mpesa', COUNT(*), COALESCE(SUM(total_amount), 0)
+            FROM sales WHERE business_id = ? AND status = 'completed' AND sale_date >= ? AND payment_method = 'mpesa'
+            UNION ALL
+            SELECT 'credit', COUNT(*), COALESCE(SUM(total_amount), 0)
+            FROM sales WHERE business_id = ? AND status = 'completed' AND sale_date >= ? AND payment_method = 'credit'
+            UNION ALL
+            SELECT sp.payment_method, COUNT(DISTINCT s.id), COALESCE(SUM(sp.amount), 0)
+            FROM sales s
+            JOIN sale_payments sp ON s.id = sp.sale_id
+            WHERE s.business_id = ? AND s.status = 'completed' AND s.sale_date >= ? AND s.payment_method = 'split'
+            GROUP BY sp.payment_method
+          ) sub
+          GROUP BY method
+          HAVING total > 0
           ORDER BY total DESC`,
-      itemType ? [auth.businessId, startDate, itemType] : [auth.businessId, startDate]
+      itemType ? [auth.businessId, startDate, itemType] : [auth.businessId, startDate, auth.businessId, startDate, auth.businessId, startDate, auth.businessId, startDate]
     );
 
     // Get top sellers
