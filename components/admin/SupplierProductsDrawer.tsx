@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import {
   Drawer,
   DrawerContent,
@@ -245,27 +244,33 @@ export function SupplierProductsDrawer({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="right">
-      <DrawerContent className="!w-full sm:!w-[520px] md:!w-[900px] lg:!w-[960px] !max-w-none h-full max-h-screen z-[52]">
-        <DrawerHeader className="border-b-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 relative pr-12 shrink-0">
+      <DrawerContent className="!w-full sm:!w-[520px] md:!w-[900px] lg:!w-[960px] !max-w-none h-full max-h-screen z-[52] shadow-xl border-l border-slate-200/80 dark:border-slate-700/50">
+        <DrawerHeader className="relative shrink-0 pb-4 bg-gradient-to-b from-emerald-50/80 to-white dark:from-emerald-950/30 dark:to-[#0f1a0d] border-b border-slate-200/60 dark:border-slate-800">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => onOpenChange(false)}
-            className="absolute right-4 top-4 h-10 w-10 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 border-2 border-slate-300 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-700 transition-all shadow-sm hover:shadow-md rounded-lg"
+            className="absolute right-4 top-4 h-9 w-9 rounded-full bg-white/80 dark:bg-slate-800/80 text-slate-500 hover:text-slate-700 hover:bg-white dark:hover:bg-slate-700 shadow-sm border border-slate-200/60 dark:border-slate-700 transition-all hover:scale-105"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </Button>
-          <DrawerTitle className="flex items-center gap-2 text-slate-900 dark:text-white pr-8">
-            <Building2 className="w-5 h-5 text-[#1c6a1e]" />
-            {supplier.name}
-          </DrawerTitle>
-          <DrawerDescription className="text-slate-600 dark:text-slate-400">
-            Manage linked products for this supplier
-          </DrawerDescription>
+          <div className="flex items-start gap-3 pr-10">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 text-[#1c6a1e]">
+              <Building2 className="h-5 w-5" />
+            </div>
+            <div>
+              <DrawerTitle className="text-lg font-semibold text-slate-900 dark:text-white tracking-tight">
+                {supplier.name}
+              </DrawerTitle>
+              <DrawerDescription className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                Manage which products this supplier provides
+              </DrawerDescription>
+            </div>
+          </div>
           {productTypes.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 pt-3 mt-3 border-t border-slate-200 dark:border-slate-700">
+            <div className="flex flex-wrap items-center gap-2 pt-4 mt-4 border-t border-slate-200/60 dark:border-slate-700/60">
               <Tag className="w-4 h-4 text-slate-400 shrink-0" />
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Quick type:</span>
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Supplier type:</span>
               {productTypes.map((t) => {
                 const isCurrent = supplier.supplier_type === t.key;
                 const isUpdating = settingType === t.key;
@@ -275,7 +280,7 @@ export function SupplierProductsDrawer({
                     type="button"
                     variant={isCurrent ? 'default' : 'outline'}
                     size="sm"
-                    className="h-8 text-xs"
+                    className="h-8 text-xs rounded-full transition-all"
                     style={isCurrent ? { backgroundColor: t.color, borderColor: t.color } : undefined}
                     disabled={!!settingType}
                     onClick={() => handleSetSupplierType(t.key)}
@@ -290,39 +295,38 @@ export function SupplierProductsDrawer({
           )}
         </DrawerHeader>
 
-        <div className="flex flex-col flex-1 min-h-0 bg-white dark:bg-[#0f1a0d]">
+        <div className="flex flex-col flex-1 min-h-0 bg-slate-50/30 dark:bg-[#0f1a0d]">
           {/* Supplier Info */}
-          <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 shrink-0">
-            <div className="flex flex-wrap gap-3 text-sm">
+          <div className="p-4 shrink-0 border-b border-slate-200/60 dark:border-slate-800">
+            <div className="flex flex-wrap gap-2 mb-3">
               {supplier.contact_phone && (
-                <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
-                  <Phone className="w-3.5 h-3.5" />
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 text-sm text-slate-600 dark:text-slate-300 shadow-sm">
+                  <Phone className="w-3.5 h-3.5 text-slate-400" />
                   <span>{supplier.contact_phone}</span>
                 </div>
               )}
               {supplier.contact_email && (
-                <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
-                  <Mail className="w-3.5 h-3.5" />
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 text-sm text-slate-600 dark:text-slate-300 shadow-sm">
+                  <Mail className="w-3.5 h-3.5 text-slate-400" />
                   <span>{supplier.contact_email}</span>
                 </div>
               )}
               {supplier.location && (
-                <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400">
-                  <MapPin className="w-3.5 h-3.5" />
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 text-sm text-slate-600 dark:text-slate-300 shadow-sm">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400" />
                   <span>{supplier.location}</span>
                 </div>
               )}
             </div>
-            {/* Quick actions */}
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2">
               {onCreateBill && (
                 <Button
                   onClick={() => onCreateBill(supplier.id, supplier.name)}
                   size="sm"
-                  className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
+                  className="rounded-lg bg-[#1c6a1e] hover:bg-[#165a18] text-white shadow-sm font-medium"
                 >
                   <Receipt className="w-4 h-4 mr-1.5" />
-                  New Bill for {supplier.name}
+                  New Bill
                 </Button>
               )}
               <Button
@@ -330,7 +334,7 @@ export function SupplierProductsDrawer({
                 size="sm"
                 onClick={handleDeleteSupplier}
                 disabled={deletingSupplier}
-                className="border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:border-red-300 dark:hover:border-red-800"
+                className="rounded-lg border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-red-600 hover:border-red-200 dark:hover:border-red-900/50 dark:hover:text-red-400 hover:bg-red-50/50 dark:hover:bg-red-950/20"
               >
                 {deletingSupplier ? (
                   <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
@@ -345,104 +349,102 @@ export function SupplierProductsDrawer({
           {/* Side-by-side: Linked Products | Add Products */}
           <div className="flex flex-1 min-h-0 md:flex-row flex-col">
             {/* Linked Products Column */}
-            <div className="flex flex-col flex-1 min-w-0 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-800">
-              <div className="p-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 shrink-0">
-                <div className="flex items-center gap-2">
-                  <Link2 className="w-4 h-4 text-[#1c6a1e]" />
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Linked Products
-                  </h3>
-                  <Badge
-                    variant="outline"
-                    className="text-xs bg-[#1c6a1e]/10 text-[#1c6a1e] border-[#1c6a1e]/30"
-                  >
+            <div className="flex flex-col flex-1 min-w-0 border-b md:border-b-0 md:border-r border-slate-200/60 dark:border-slate-800">
+              <div className="p-4 shrink-0 bg-white/60 dark:bg-slate-900/40 border-b border-slate-200/60 dark:border-slate-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20">
+                      <Link2 className="w-4 h-4 text-[#1c6a1e]" />
+                    </div>
+                    <h3 className="font-semibold text-slate-900 dark:text-white">
+                      Linked
+                    </h3>
+                  </div>
+                  <Badge className="rounded-full bg-[#1c6a1e]/15 dark:bg-[#1c6a1e]/25 text-[#1c6a1e] border-0 font-medium px-2.5">
                     {linkedProducts.length}
                   </Badge>
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto p-3">
+              <div className="flex-1 overflow-y-auto p-4">
                 {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-5 h-5 animate-spin text-[#1c6a1e]" />
-                    <span className="ml-2 text-sm text-slate-500">
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <Loader2 className="w-8 h-8 animate-spin text-[#1c6a1e]" />
+                    <span className="text-sm text-slate-500 dark:text-slate-400">
                       Loading products...
                     </span>
                   </div>
                 ) : linkedProducts.length === 0 ? (
-                  <div className="py-6 text-center">
-                    <Package className="w-10 h-10 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
+                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800/60 mb-4">
+                      <Package className="w-7 h-7 text-slate-400 dark:text-slate-500" />
+                    </div>
                     <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
                       No products linked yet
                     </p>
-                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                      Link products from the panel on the right
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 max-w-[200px]">
+                      Add products from the catalog on the right →
                     </p>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {linkedProducts.map((product) => (
-                      <Card
+                      <div
                         key={product.item_id}
-                        className="border-l-2 border-l-[#1c6a1e] bg-white dark:bg-slate-800/50"
+                        className="group flex items-center gap-3 rounded-xl border border-slate-200/80 dark:border-slate-700/60 bg-white dark:bg-slate-800/40 p-3.5 shadow-sm hover:shadow-md hover:border-[#1c6a1e]/30 dark:hover:border-[#1c6a1e]/40 transition-all duration-200"
                       >
-                        <CardContent className="p-3">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm text-slate-900 dark:text-white truncate">
-                                {getDisplayName(
-                                  product.item_name,
-                                  product.variant_name
-                                )}
-                              </p>
-                              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                <Badge
-                                  variant="outline"
-                                  className="text-[10px] px-1.5 py-0"
-                                >
-                                  {product.category_name}
-                                </Badge>
-                                <span className="text-[10px] text-slate-400">
-                                  {product.unit_type}
-                                </span>
-                                <span className="text-[10px] text-slate-400">
-                                  Sell: {formatPrice(product.current_sell_price)}
-                                </span>
-                                {product.default_cost_price !== null && (
-                                  <span className="text-[10px] text-amber-600 dark:text-amber-400">
-                                    Cost: {formatPrice(product.default_cost_price)}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleUnlinkProduct(product.item_id)}
-                              disabled={removingItemIds.has(product.item_id)}
-                              className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0"
-                            >
-                              {removingItemIds.has(product.item_id) ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <Trash2 className="w-3.5 h-3.5" />
-                              )}
-                            </Button>
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 text-[#1c6a1e]">
+                          <Package className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm text-slate-900 dark:text-white truncate">
+                            {getDisplayName(product.item_name, product.variant_name)}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <span className="inline-flex items-center rounded-md bg-slate-100 dark:bg-slate-700/50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-400">
+                              {product.category_name}
+                            </span>
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500">
+                              {product.unit_type}
+                            </span>
+                            <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
+                              {formatPrice(product.current_sell_price)}
+                            </span>
+                            {product.default_cost_price !== null && (
+                              <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                                Cost {formatPrice(product.default_cost_price)}
+                              </span>
+                            )}
                           </div>
-                        </CardContent>
-                      </Card>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleUnlinkProduct(product.item_id)}
+                          disabled={removingItemIds.has(product.item_id)}
+                          className="h-8 w-8 p-0 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0"
+                        >
+                          {removingItemIds.has(product.item_id) ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                        </Button>
+                      </div>
                     ))}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Add Products Column - always visible alongside */}
-            <div className="flex flex-col flex-1 min-w-0 min-h-[280px] md:min-h-0 bg-slate-50/50 dark:bg-slate-900/30">
-              <div className="p-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
+            {/* Add Products Column */}
+            <div className="flex flex-col flex-1 min-w-0 min-h-[280px] md:min-h-0 bg-white/40 dark:bg-slate-900/30">
+              <div className="p-4 shrink-0 border-b border-slate-200/60 dark:border-slate-800">
                 <div className="flex items-center gap-2 mb-3">
-                  <Plus className="w-4 h-4 text-[#1c6a1e]" />
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Add Products
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-200/80 dark:bg-slate-700/60">
+                    <Plus className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                  </div>
+                  <h3 className="font-semibold text-slate-900 dark:text-white">
+                    Add from catalog
                   </h3>
                 </div>
                 <div className="relative">
@@ -450,64 +452,65 @@ export function SupplierProductsDrawer({
                   <Input
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search products to link..."
-                    className="pl-9 h-9 border-2 border-slate-200 dark:border-slate-700 text-sm"
+                    placeholder="Search products..."
+                    className="pl-9 h-10 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 text-sm focus-visible:ring-[#1c6a1e]/50"
                   />
                 </div>
               </div>
-              <div className="flex-1 overflow-y-auto p-3">
+              <div className="flex-1 overflow-y-auto p-4">
                 {loadingItems ? (
-                  <div className="flex items-center justify-center py-6">
-                    <Loader2 className="w-5 h-5 animate-spin text-[#1c6a1e]" />
-                    <span className="ml-2 text-sm text-slate-500">
-                      Loading products...
+                  <div className="flex flex-col items-center justify-center py-12 gap-3">
+                    <Loader2 className="w-8 h-8 animate-spin text-[#1c6a1e]" />
+                    <span className="text-sm text-slate-500 dark:text-slate-400">
+                      Loading catalog...
                     </span>
                   </div>
                 ) : filteredAvailableItems.length === 0 ? (
-                  <div className="py-6 text-center">
-                    <p className="text-sm text-slate-500">
-                      {searchQuery
-                        ? 'No matching products found'
-                        : 'All products are already linked'}
+                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800/60 mb-4">
+                      <Search className="w-7 h-7 text-slate-400 dark:text-slate-500" />
+                    </div>
+                    <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                      {searchQuery ? 'No matches' : 'All linked'}
+                    </p>
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                      {searchQuery ? 'Try a different search' : 'Every product is already linked to this supplier'}
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     {filteredAvailableItems.slice(0, 50).map((item) => {
                       const isAdding = addingItemIds.has(item.id);
                       return (
                         <div
                           key={item.id}
-                          className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/30 hover:border-[#1c6a1e]/50 transition-colors"
+                          className="group flex items-center gap-3 rounded-xl border border-slate-200/80 dark:border-slate-700/60 bg-white dark:bg-slate-800/40 p-3 shadow-sm hover:shadow-md hover:border-[#1c6a1e]/30 dark:hover:border-[#1c6a1e]/40 transition-all duration-200"
                         >
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                            <p className="font-medium text-sm text-slate-900 dark:text-white truncate">
                               {getDisplayName(item.name, item.variant_name)}
                             </p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[10px] text-slate-400">
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500">
                                 {item.unit_type}
                               </span>
-                              <span className="text-[10px] text-slate-400">
-                                {item.item_type}
-                              </span>
-                              <span className="text-[10px] text-slate-400">
+                              <span className="text-[10px] text-slate-400 dark:text-slate-500">•</span>
+                              <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
                                 {formatPrice(item.current_sell_price)}
                               </span>
                             </div>
                           </div>
                           <Button
-                            variant="outline"
                             size="sm"
                             onClick={() => handleLinkProduct(item.id)}
                             disabled={isAdding}
-                            className="h-7 px-2.5 text-xs border-[#1c6a1e]/30 text-[#1c6a1e] hover:bg-[#1c6a1e]/10 shrink-0"
+                            className="h-8 rounded-lg bg-[#1c6a1e] hover:bg-[#165a18] text-white text-xs font-medium px-3 shrink-0 shadow-sm"
                           >
                             {isAdding ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
                             ) : (
                               <>
-                                <Check className="w-3 h-3 mr-1" />
+                                <Check className="w-3.5 h-3.5 mr-1.5" />
                                 Link
                               </>
                             )}
@@ -516,8 +519,8 @@ export function SupplierProductsDrawer({
                       );
                     })}
                     {filteredAvailableItems.length > 50 && (
-                      <p className="text-xs text-center text-slate-400 py-2">
-                        Showing 50 of {filteredAvailableItems.length}. Use search to narrow.
+                      <p className="text-xs text-center text-slate-400 dark:text-slate-500 py-3">
+                        Showing 50 of {filteredAvailableItems.length} — search to narrow
                       </p>
                     )}
                   </div>
