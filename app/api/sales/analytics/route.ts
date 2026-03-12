@@ -51,16 +51,35 @@ export async function GET(request: NextRequest) {
 
     // Calculate date range
     const now = Math.floor(Date.now() / 1000);
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayStartTs = Math.floor(todayStart.getTime() / 1000);
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+    const yesterdayStartTs = Math.floor(yesterdayStart.getTime() / 1000);
+
     let startDate = 0;
+    let endDate: number | null = null;
 
     switch (period) {
       case 'today':
-        const todayStart = new Date();
-        todayStart.setHours(0, 0, 0, 0);
-        startDate = Math.floor(todayStart.getTime() / 1000);
+        startDate = todayStartTs;
+        break;
+      case 'yesterday':
+        startDate = yesterdayStartTs;
+        endDate = todayStartTs;
         break;
       case '3days':
         startDate = now - (3 * 24 * 60 * 60);
+        break;
+      case '4days':
+        startDate = now - (4 * 24 * 60 * 60);
+        break;
+      case '5days':
+        startDate = now - (5 * 24 * 60 * 60);
+        break;
+      case '6days':
+        startDate = now - (6 * 24 * 60 * 60);
         break;
       case 'week':
         startDate = now - (7 * 24 * 60 * 60);
@@ -74,9 +93,20 @@ export async function GET(request: NextRequest) {
         break;
     }
 
+    const dateFilter = endDate != null
+      ? 's.sale_date >= ? AND s.sale_date < ?'
+      : 's.sale_date >= ?';
+    const dateFilterSales = endDate != null
+      ? 'sale_date >= ? AND sale_date < ?'
+      : 'sale_date >= ?';
+    const dateFilterCreated = endDate != null
+      ? 'ct.created_at >= ? AND ct.created_at < ?'
+      : 'ct.created_at >= ?';
+    const dateParams = endDate != null ? [startDate, endDate] : [startDate];
+
     // Build filters for item-level sales data
     let itemFilters = '';
-    const itemParams: (string | number)[] = [startDate, auth.businessId];
+    const itemParams: (string | number)[] = [...dateParams, auth.businessId];
 
     if (categoryId) {
       itemFilters += ' AND i.category_id = ?';
@@ -115,7 +145,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN categories c ON i.category_id = c.id
       LEFT JOIN items parent ON i.parent_item_id = parent.id
       ${siJoin}
-      LEFT JOIN sales s ON si.sale_id = s.id AND s.status = 'completed' AND s.sale_date >= ?
+      LEFT JOIN sales s ON si.sale_id = s.id AND s.status = 'completed' AND ${dateFilter}
       WHERE i.business_id = ? 
         AND i.active = 1
         AND (i.parent_item_id IS NOT NULL OR 
@@ -146,7 +176,7 @@ export async function GET(request: NextRequest) {
             COALESCE(SUM(si.profit), 0) as total_profit
           FROM sales s
           JOIN sale_items si ON s.id = si.sale_id
-          WHERE s.business_id = ? AND s.status = 'completed' AND s.sale_date >= ?
+          WHERE s.business_id = ? AND s.status = 'completed' AND ${dateFilter}
             AND COALESCE(si.item_type_snapshot, 'retail') = ?`
         : `SELECT 
             COUNT(DISTINCT s.id) as total_transactions,
@@ -156,8 +186,8 @@ export async function GET(request: NextRequest) {
             COALESCE(SUM(si.profit), 0) as total_profit
           FROM sales s
           JOIN sale_items si ON s.id = si.sale_id
-          WHERE s.business_id = ? AND s.status = 'completed' AND s.sale_date >= ?`,
-      itemType ? [auth.businessId, startDate, itemType] : [auth.businessId, startDate]
+          WHERE s.business_id = ? AND s.status = 'completed' AND ${dateFilter}`,
+      itemType ? [auth.businessId, ...dateParams, itemType] : [auth.businessId, ...dateParams]
     );
 
     const summaryData = summaryResult[0] || {
@@ -203,7 +233,7 @@ export async function GET(request: NextRequest) {
             COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total
           FROM sales s
           JOIN sale_items si ON s.id = si.sale_id
-          WHERE s.business_id = ? AND s.status = 'completed' AND s.sale_date >= ?
+          WHERE s.business_id = ? AND s.status = 'completed' AND ${dateFilter}
             AND COALESCE(si.item_type_snapshot, 'retail') = ?
           GROUP BY s.payment_method
           ORDER BY total DESC`
@@ -213,30 +243,79 @@ export async function GET(request: NextRequest) {
             SUM(tot) as total
           FROM (
             SELECT 'cash' as method, COUNT(*) as cnt, COALESCE(SUM(total_amount), 0) as tot
-            FROM sales WHERE business_id = ? AND status = 'completed' AND sale_date >= ? AND payment_method = 'cash'
+            FROM sales WHERE business_id = ? AND status = 'completed' AND ${dateFilterSales} AND payment_method = 'cash'
             UNION ALL
             SELECT 'mpesa', COUNT(*), COALESCE(SUM(total_amount), 0)
-            FROM sales WHERE business_id = ? AND status = 'completed' AND sale_date >= ? AND payment_method = 'mpesa'
+            FROM sales WHERE business_id = ? AND status = 'completed' AND ${dateFilterSales} AND payment_method = 'mpesa'
             UNION ALL
             SELECT 'credit', COUNT(*), COALESCE(SUM(total_amount), 0)
-            FROM sales WHERE business_id = ? AND status = 'completed' AND sale_date >= ? AND payment_method = 'credit'
+            FROM sales WHERE business_id = ? AND status = 'completed' AND ${dateFilterSales} AND payment_method = 'credit'
             UNION ALL
             SELECT sp.payment_method, COUNT(DISTINCT s.id), COALESCE(SUM(sp.amount), 0)
             FROM sales s
             JOIN sale_payments sp ON s.id = sp.sale_id
-            WHERE s.business_id = ? AND s.status = 'completed' AND s.sale_date >= ? AND s.payment_method = 'split'
+            WHERE s.business_id = ? AND s.status = 'completed' AND ${dateFilter} AND s.payment_method = 'split'
             GROUP BY sp.payment_method
           ) sub
           GROUP BY method
           HAVING total > 0
           ORDER BY total DESC`,
-      itemType ? [auth.businessId, startDate, itemType] : [auth.businessId, startDate, auth.businessId, startDate, auth.businessId, startDate, auth.businessId, startDate]
+      itemType ? [auth.businessId, ...dateParams, itemType] : [auth.businessId, ...dateParams, auth.businessId, ...dateParams, auth.businessId, ...dateParams, auth.businessId, ...dateParams]
     );
 
     // Get top sellers
     const topSellers = itemSales
       .filter((i) => i.total_quantity_sold > 0)
       .slice(0, 10);
+
+    // Get top sellers per item type (from sale_items snapshot)
+    const itemSalesByType = await query<{
+      item_id: string;
+      item_name: string;
+      item_type: string;
+      total_quantity_sold: number;
+      total_revenue: number;
+    }>(
+      `SELECT 
+        i.id as item_id,
+        i.name as item_name,
+        COALESCE(si.item_type_snapshot, 'retail') as item_type,
+        SUM(si.quantity_sold) as total_quantity_sold,
+        SUM(si.quantity_sold * si.sell_price_per_unit) as total_revenue
+      FROM sale_items si
+      JOIN sales s ON si.sale_id = s.id
+      JOIN items i ON si.item_id = i.id
+      WHERE s.business_id = ? AND s.status = 'completed' AND ${dateFilter}
+      GROUP BY i.id, i.name, COALESCE(si.item_type_snapshot, 'retail')
+      HAVING total_quantity_sold > 0
+      ORDER BY item_type, total_quantity_sold DESC`,
+      [auth.businessId, ...dateParams]
+    );
+
+    const topSellersByType: Record<string, { item_id: string; item_name: string; total_quantity_sold: number; total_revenue: number }[]> = {};
+    for (const row of itemSalesByType) {
+      if (!topSellersByType[row.item_type]) topSellersByType[row.item_type] = [];
+      if (topSellersByType[row.item_type].length < 5) {
+        topSellersByType[row.item_type].push({
+          item_id: row.item_id,
+          item_name: row.item_name,
+          total_quantity_sold: row.total_quantity_sold,
+          total_revenue: row.total_revenue,
+        });
+      }
+    }
+
+    // Get credit paid during period (payments collected against credit accounts)
+    const creditPaidResult = await query<{ total: number; count: number }>(
+      `SELECT 
+        COALESCE(SUM(ct.amount), 0) as total,
+        COUNT(*) as count
+      FROM credit_transactions ct
+      JOIN credit_accounts ca ON ct.credit_account_id = ca.id
+      WHERE ca.business_id = ? AND ct.type = 'payment' AND ${dateFilterCreated}`,
+      [auth.businessId, ...dateParams]
+    );
+    const creditPaid = creditPaidResult[0] || { total: 0, count: 0 };
 
     // Get items with no sales
     const noSalesItems = itemSales
@@ -261,10 +340,10 @@ export async function GET(request: NextRequest) {
         COALESCE(SUM(si.profit), 0) as profit
       FROM sale_items si
       JOIN sales s ON si.sale_id = s.id
-      WHERE s.business_id = ? AND s.status = 'completed' AND s.sale_date >= ?
+      WHERE s.business_id = ? AND s.status = 'completed' AND ${dateFilter}
       GROUP BY si.item_type_snapshot
       ORDER BY revenue DESC`,
-      [auth.businessId, startDate]
+      [auth.businessId, ...dateParams]
     );
 
     return jsonResponse({
@@ -273,6 +352,8 @@ export async function GET(request: NextRequest) {
         summary,
         items: itemSales,
         topSellers,
+        topSellersByType,
+        creditPaid: { total: creditPaid.total, count: creditPaid.count },
         noSalesItems,
         salesByPaymentMethod,
         salesByItemType,

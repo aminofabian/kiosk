@@ -44,7 +44,7 @@ import {
   Wallet,
   CircleCheck,
 } from 'lucide-react';
-import { apiGet, apiPost, apiPatch } from '@/lib/utils/api-client';
+import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/utils/api-client';
 import { getItemDisplayName } from '@/lib/utils';
 import { generateSupplierBatchNumber } from '@/lib/utils/batch-number-shared';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
@@ -829,10 +829,30 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
     ]);
   };
 
-  const removeLineItem = (id: string) => {
-    if (lineItems.length > 1) {
-      setLineItems(lineItems.filter((item) => item.id !== id));
+  const removeLineItem = async (id: string) => {
+    if (lineItems.length <= 1) return;
+    const item = lineItems.find((i) => i.id === id);
+    if (!item) return;
+
+    // If it's a linked product, unlink from database first
+    if (item.itemId && supplierId) {
+      try {
+        const result = await apiDelete(
+          `/api/suppliers/${supplierId}/products?itemId=${item.itemId}`
+        );
+        if (!result.success) {
+          toast.error(result.message || 'Failed to unlink product');
+          return;
+        }
+        toast.success('Product unlinked from supplier');
+      } catch (err) {
+        console.error('Error unlinking product:', err);
+        toast.error('Failed to unlink product from supplier');
+        return;
+      }
     }
+
+    setLineItems(lineItems.filter((i) => i.id !== id));
   };
 
   const [fillingBatchFor, setFillingBatchFor] = useState<string | null>(null);
