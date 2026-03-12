@@ -14,6 +14,7 @@ import {
   PackageCheck,
   Layers,
   TrendingUp,
+  TrendingDown,
   CreditCard,
   Clock,
   FileText,
@@ -99,6 +100,7 @@ const BASE_SECTIONS: MenuSection[] = [
     items: [
       { href: '/admin/expenses', label: 'Expenses', icon: Receipt },
       { href: '/admin/supplier-bills', label: 'Supplier Bills', icon: Receipt },
+      { href: '/admin/supplier-price-comparison', label: 'Compare Supplier Prices', icon: TrendingDown },
       { href: '/admin/credits', label: 'Credits', icon: CreditCard },
     ],
   },
@@ -186,6 +188,7 @@ export function AdminSidebar() {
           '/admin/credits',
           '/admin/expenses',
           '/admin/supplier-bills',
+          '/admin/supplier-price-comparison',
           '/admin/out-of-stock-requests',
         ];
         return (
