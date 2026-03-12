@@ -6,6 +6,7 @@ import type { Item } from '@/lib/db/types';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 import { logActivity } from '@/lib/db/activity-log';
+import { recordBuyingPrice } from '@/lib/db/buying-prices';
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic';
@@ -465,6 +466,12 @@ export async function PUT(
         );
         console.log('Batch insert result:', insertResult, 'rowsAffected:', insertResult.rowsAffected);
       }
+      await recordBuyingPrice({
+        itemId,
+        supplierId: null,
+        price: buyPriceNum,
+        setBy: auth.userId,
+      });
     } else {
       console.log('Buy price not provided or is invalid (outside parent/child check):', { buyPrice, buyPriceNum, undefined: buyPrice === undefined, null: buyPrice === null, isNaN: buyPriceNum !== undefined ? isNaN(buyPriceNum) : true });
     }

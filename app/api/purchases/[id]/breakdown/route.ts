@@ -5,6 +5,7 @@ import { generateBatchNumber } from '@/lib/utils/batch-number';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 import { logActivity } from '@/lib/db/activity-log';
+import { recordBuyingPrice } from '@/lib/db/buying-prices';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -96,6 +97,14 @@ export async function POST(
        WHERE id = ? AND business_id = ?`,
       [usableQuantity, itemId, auth.businessId]
     );
+
+    await recordBuyingPrice({
+      itemId,
+      supplierId,
+      price: buyPricePerUnit,
+      setBy: auth.userId,
+      notes: notes ? `Purchase breakdown: ${notes}` : 'Purchase breakdown',
+    });
 
     // If wastage > 0, create stock adjustment record
     if (wastageQuantity && wastageQuantity > 0) {

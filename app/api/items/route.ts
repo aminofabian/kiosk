@@ -6,6 +6,7 @@ import type { Item } from '@/lib/db/types';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 import { logActivity } from '@/lib/db/activity-log';
+import { recordBuyingPrice } from '@/lib/db/buying-prices';
 
 // Disable caching for this route
 export const dynamic = 'force-dynamic';
@@ -547,6 +548,12 @@ export async function POST(request: NextRequest) {
         ) VALUES (?, ?, ?, NULL, ?, 'active', NULL, ?, ?, ?, ?, ?)`,
         [batchId, auth.businessId, itemId, batchNumber, stock, stock, buyPrice, now, now]
       );
+      await recordBuyingPrice({
+        itemId,
+        supplierId: null,
+        price: buyPrice,
+        setBy: auth.userId,
+      });
     }
 
     const displayName = variantName ? `${name.trim()} (${variantName.trim()})` : name.trim();

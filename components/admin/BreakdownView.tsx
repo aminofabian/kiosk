@@ -242,6 +242,7 @@ export function BreakdownView({ purchase, items, purchaseId, onItemAdded }: Brea
               key={item.id}
               purchaseItem={item}
               purchaseId={purchase.id}
+              supplierId={purchase.supplier_id ?? undefined}
               onBreakdownComplete={onItemAdded}
             />
           ))}

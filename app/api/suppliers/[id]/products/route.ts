@@ -3,6 +3,7 @@ import { query, execute } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
+import { recordBuyingPrice } from '@/lib/db/buying-prices';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -145,12 +146,13 @@ export async function POST(
 
     const validItemIds = new Set(validItems.map((i) => i.id));
 
+    const now = Math.floor(Date.now() / 1000);
     let linked = 0;
     for (const item of items) {
       if (!validItemIds.has(item.itemId)) continue;
 
       try {
-        await execute(
+        const result = await execute(
           `INSERT OR IGNORE INTO supplier_products (id, supplier_id, item_id, default_cost_price)
            VALUES (?, ?, ?, ?)`,
           [
@@ -160,7 +162,18 @@ export async function POST(
             item.defaultCostPrice ?? null,
           ]
         );
-        linked++;
+        if (result.rowsAffected > 0) {
+          linked++;
+          if (item.defaultCostPrice != null && item.defaultCostPrice >= 0) {
+            await recordBuyingPrice({
+              itemId: item.itemId,
+              supplierId,
+              price: item.defaultCostPrice,
+              setBy: auth.userId,
+              effectiveFrom: now,
+            });
+          }
+        }
       } catch {
         // Skip duplicates silently
       }
@@ -233,6 +246,15 @@ export async function PATCH(
        WHERE supplier_id = ? AND item_id = ?`,
       [defaultCostPrice ?? null, supplierId, itemId]
     );
+
+    if (defaultCostPrice != null && defaultCostPrice >= 0) {
+      await recordBuyingPrice({
+        itemId,
+        supplierId,
+        price: defaultCostPrice,
+        setBy: auth.userId,
+      });
+    }
 
     return jsonResponse({
       success: true,

@@ -26,7 +26,10 @@ import {
   Receipt,
   Check,
   Tag,
+  Pencil,
+  History,
 } from 'lucide-react';
+import Link from 'next/link';
 import { apiGet, apiPost, apiDelete, apiPatch } from '@/lib/utils/api-client';
 import { getItemDisplayName } from '@/lib/utils';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
@@ -52,6 +55,7 @@ interface LinkedProduct {
   item_type: string;
   current_sell_price: number;
   default_cost_price: number | null;
+  last_buy_price?: number | null;
 }
 
 interface AllItem {
@@ -92,6 +96,9 @@ export function SupplierProductsDrawer({
   const [searchQuery, setSearchQuery] = useState('');
   const [addingItemIds, setAddingItemIds] = useState<Set<string>>(new Set());
   const [removingItemIds, setRemovingItemIds] = useState<Set<string>>(new Set());
+  const [editingCostItemId, setEditingCostItemId] = useState<string | null>(null);
+  const [editingCostValue, setEditingCostValue] = useState('');
+  const [savingCostItemId, setSavingCostItemId] = useState<string | null>(null);
 
   const fetchLinkedProducts = useCallback(async () => {
     if (!supplier) return;
@@ -172,6 +179,39 @@ export function SupplierProductsDrawer({
         next.delete(itemId);
         return next;
       });
+    }
+  };
+
+  const handleUpdateCost = async (itemId: string) => {
+    if (!supplier) return;
+    const num = parseFloat(editingCostValue);
+    if (isNaN(num) || num < 0) {
+      toast.error('Enter a valid cost (≥ 0)');
+      return;
+    }
+    setSavingCostItemId(itemId);
+    try {
+      const result = await apiPatch<{ success: boolean }>(
+        `/api/suppliers/${supplier.id}/products`,
+        { itemId, defaultCostPrice: num }
+      );
+      if (result.success) {
+        setLinkedProducts((prev) =>
+          prev.map((p) =>
+            p.item_id === itemId ? { ...p, default_cost_price: num } : p
+          )
+        );
+        setEditingCostItemId(null);
+        setEditingCostValue('');
+        toast.success('Cost updated');
+      } else {
+        toast.error(result.message || 'Failed to update cost');
+      }
+    } catch (err) {
+      console.error('Error updating cost:', err);
+      toast.error('Failed to update cost');
+    } finally {
+      setSavingCostItemId(null);
     }
   };
 
@@ -409,11 +449,72 @@ export function SupplierProductsDrawer({
                             <span className="text-[10px] font-medium text-slate-600 dark:text-slate-300">
                               {formatPrice(product.current_sell_price)}
                             </span>
-                            {product.default_cost_price !== null && (
-                              <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400">
-                                Cost {formatPrice(product.default_cost_price)}
-                              </span>
+                            {editingCostItemId === product.item_id ? (
+                              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={editingCostValue}
+                                  onChange={(e) => setEditingCostValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleUpdateCost(product.item_id);
+                                    if (e.key === 'Escape') {
+                                      setEditingCostItemId(null);
+                                      setEditingCostValue('');
+                                    }
+                                  }}
+                                  className="h-6 w-20 text-[10px] px-1.5 py-0"
+                                  autoFocus
+                                />
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 w-6 p-0"
+                                  onClick={() => handleUpdateCost(product.item_id)}
+                                  disabled={savingCostItemId === product.item_id}
+                                >
+                                  {savingCostItemId === product.item_id ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Check className="w-3 h-3 text-green-600" />
+                                  )}
+                                </Button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingCostItemId(product.item_id);
+                                  setEditingCostValue(
+                                    product.default_cost_price != null
+                                      ? String(product.default_cost_price)
+                                      : product.last_buy_price != null
+                                        ? String(product.last_buy_price)
+                                        : ''
+                                  );
+                                }}
+                                className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 rounded px-1 -mx-1 transition-colors"
+                              >
+                                {product.default_cost_price !== null ? (
+                                  <>Cost {formatPrice(product.default_cost_price)}</>
+                                ) : product.last_buy_price != null ? (
+                                  <>Last {formatPrice(product.last_buy_price)}</>
+                                ) : (
+                                  <>Set cost</>
+                                )}
+                                <Pencil className="w-2.5 h-2.5 opacity-60" />
+                              </button>
                             )}
+                            <Link
+                              href={`/admin/items/${product.item_id}/edit`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-slate-400 hover:text-[#1c6a1e] inline-flex items-center gap-0.5"
+                              title="View item & cost history"
+                            >
+                              <History className="w-2.5 h-2.5" />
+                            </Link>
                           </div>
                         </div>
                         <Button

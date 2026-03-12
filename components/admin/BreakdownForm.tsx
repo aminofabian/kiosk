@@ -14,10 +14,11 @@ import { apiGet, apiPost } from '@/lib/utils/api-client';
 interface BreakdownFormProps {
   purchaseItem: PurchaseItem & { item_name?: string; item_unit_type?: string };
   purchaseId: string;
+  supplierId?: string;
   onBreakdownComplete?: () => void;
 }
 
-export function BreakdownForm({ purchaseItem, purchaseId, onBreakdownComplete }: BreakdownFormProps) {
+export function BreakdownForm({ purchaseItem, purchaseId, supplierId, onBreakdownComplete }: BreakdownFormProps) {
   const router = useRouter();
   const [itemId, setItemId] = useState<string>(purchaseItem.item_id || '__none__');
   const [usableQuantity, setUsableQuantity] = useState<string>('');
@@ -25,8 +26,28 @@ export function BreakdownForm({ purchaseItem, purchaseId, onBreakdownComplete }:
   const [buyPricePerUnit, setBuyPricePerUnit] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [items, setItems] = useState<Item[]>([]);
+  const [supplierProducts, setSupplierProducts] = useState<{ item_id: string; default_cost_price: number | null }[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchSupplierProducts() {
+      if (!supplierId) return;
+      try {
+        const result = await apiGet<{ item_id: string; default_cost_price: number | null }[]>(
+          `/api/suppliers/${supplierId}/products`
+        );
+        if (result.success && result.data) {
+          setSupplierProducts(
+            result.data.map((p) => ({ item_id: p.item_id, default_cost_price: p.default_cost_price }))
+          );
+        }
+      } catch (err) {
+        console.error('Error fetching supplier products:', err);
+      }
+    }
+    fetchSupplierProducts();
+  }, [supplierId]);
 
   useEffect(() => {
     async function fetchItems() {
@@ -53,6 +74,16 @@ export function BreakdownForm({ purchaseItem, purchaseId, onBreakdownComplete }:
       }
     }
   }, [usableQuantity, purchaseItem.amount]);
+
+  // Prefill buy price from supplier's default cost when item is selected
+  useEffect(() => {
+    if (itemId && itemId !== '__none__' && supplierProducts.length > 0) {
+      const sp = supplierProducts.find((p) => p.item_id === itemId);
+      if (sp?.default_cost_price != null && sp.default_cost_price > 0) {
+        setBuyPricePerUnit(sp.default_cost_price.toFixed(2));
+      }
+    }
+  }, [itemId, supplierProducts]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

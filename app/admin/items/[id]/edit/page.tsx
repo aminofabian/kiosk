@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { ItemForm } from '@/components/admin/ItemForm';
+import { ItemSupplierCosts } from '@/components/admin/ItemSupplierCosts';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
@@ -101,6 +102,9 @@ export default function EditItemPage() {
             item_type: item.item_type,
           }}
         />
+        <div className="mt-6">
+          <ItemSupplierCosts itemId={item.id} itemName={item.name} />
+        </div>
       </div>
     </AdminLayout>
   );

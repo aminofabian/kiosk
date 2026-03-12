@@ -365,6 +365,13 @@ export async function runMigrations() {
     }
 
     try {
+      const { migrateBuyingPrices } = await import('./migrate-buying-prices');
+      await migrateBuyingPrices();
+    } catch (error) {
+      console.error('⚠ buying_prices migration skipped:', error);
+    }
+
+    try {
       const { migrateSuppliersPayment } = await import('./migrate-suppliers-payment');
       await migrateSuppliersPayment();
     } catch (error) {

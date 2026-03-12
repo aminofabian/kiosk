@@ -96,6 +96,7 @@ interface BillLineItem {
   unitType?: string; // e.g. kg, piece (display only)
   sellPrice?: number; // current sell price (display only)
   showPackaging?: boolean; // UI: whether packaging row is expanded
+  priceSource?: 'default' | 'last'; // when prefilled: from supplier default or last purchase
 }
 
 export interface SupplierBillInitialData {
@@ -567,6 +568,11 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
               : product.last_buy_price != null
                 ? product.last_buy_price
                 : null;
+            const priceSource = product.default_cost_price != null
+              ? ('default' as const)
+              : product.last_buy_price != null
+                ? ('last' as const)
+                : undefined;
             return {
               id: `linked-${index}-${Date.now()}`,
               description: displayName,
@@ -579,6 +585,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
               currentStock: product.current_stock,
               unitType: product.unit_type,
               sellPrice: product.current_sell_price,
+              priceSource,
             };
           });
           // Merge: preserve existing entries with content, add linked products not already in list
@@ -1830,19 +1837,26 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
                       />
 
                       {/* Buy price input */}
-                      <Input
-                        type="number"
-                        value={item.amount}
-                        onChange={(e) => updateLineItem(item.id, 'amount', e.target.value)}
-                        placeholder="0.00"
-                        min="0"
-                        step="0.01"
-                        className={`h-8 text-sm text-center border rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
-                          item.amount
-                            ? 'border-[#1c6a1e]/40 bg-[#1c6a1e]/5 font-semibold'
-                            : 'border-amber-400 bg-amber-50/50 dark:bg-amber-950/20'
-                        }`}
-                      />
+                      <div className="flex flex-col gap-0.5">
+                        <Input
+                          type="number"
+                          value={item.amount}
+                          onChange={(e) => updateLineItem(item.id, 'amount', e.target.value)}
+                          placeholder="0.00"
+                          min="0"
+                          step="0.01"
+                          className={`h-8 text-sm text-center border rounded-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                            item.amount
+                              ? 'border-[#1c6a1e]/40 bg-[#1c6a1e]/5 font-semibold'
+                              : 'border-amber-400 bg-amber-50/50 dark:bg-amber-950/20'
+                          }`}
+                        />
+                        {item.itemId && item.priceSource && (
+                          <span className="text-[9px] text-slate-400 dark:text-slate-500">
+                            {item.priceSource === 'default' ? 'From supplier' : 'From last purchase'}
+                          </span>
+                        )}
+                      </div>
 
                       {/* Row total */}
                       <div className="text-right">
@@ -2164,6 +2178,11 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
                               : 'border-amber-400 bg-amber-50/50'
                           }`}
                         />
+                        {item.itemId && item.priceSource && (
+                          <span className="text-[9px] text-slate-400 dark:text-slate-500 block mt-0.5">
+                            {item.priceSource === 'default' ? 'From supplier' : 'From last purchase'}
+                          </span>
+                        )}
                       </div>
                       <div>
                         <label className="text-[10px] font-medium text-slate-400 mb-0.5 block">Total</label>

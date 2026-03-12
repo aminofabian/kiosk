@@ -5,6 +5,7 @@ import { generateBatchNumber } from '@/lib/utils/batch-number';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 import { logActivity } from '@/lib/db/activity-log';
+import { recordBuyingPrice } from '@/lib/db/buying-prices';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -113,6 +114,12 @@ export async function PATCH(
           [batchId, auth.businessId, itemId, batchNumber, stockToUse, stockToUse, buyPriceNum, now, now]
         );
       }
+      await recordBuyingPrice({
+        itemId,
+        supplierId: null,
+        price: buyPriceNum,
+        setBy: auth.userId,
+      });
     }
 
     const updatedItem = await queryOne<{ current_sell_price: number }>(

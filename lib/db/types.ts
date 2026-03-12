@@ -128,10 +128,22 @@ export interface SellingPrice {
   created_at: number;
 }
 
+export interface BuyingPrice {
+  id: string;
+  item_id: string;
+  supplier_id: string | null;
+  price: number;
+  effective_from: number;
+  set_by: string | null;
+  notes: string | null;
+  created_at: number;
+}
+
 export interface Purchase {
   id: string;
   business_id: string;
   recorded_by: string;
+  supplier_id: string | null;
   supplier_name: string | null;
   purchase_date: number; // Unix timestamp
   total_amount: number;

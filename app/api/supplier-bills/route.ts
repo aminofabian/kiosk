@@ -6,6 +6,7 @@ import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
 import type { SupplierBill } from '@/lib/db/types';
 import { logActivity } from '@/lib/db/activity-log';
+import { recordBuyingPrice } from '@/lib/db/buying-prices';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -248,6 +249,14 @@ export async function POST(request: NextRequest) {
            WHERE id = ? AND business_id = ?`,
           [stockItem.quantity, stockItem.itemId, auth.businessId]
         );
+
+        await recordBuyingPrice({
+          itemId: stockItem.itemId,
+          supplierId: supplierId || null,
+          price: stockItem.costPricePerUnit,
+          setBy: auth.userId,
+          notes: `Supplier bill: ${billDescription.trim()}`,
+        });
 
         stockUpdated++;
       }

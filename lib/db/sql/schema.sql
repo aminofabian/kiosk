@@ -154,6 +154,26 @@ CREATE INDEX IF NOT EXISTS idx_suppliers_business_id ON suppliers(business_id);
 CREATE INDEX IF NOT EXISTS idx_suppliers_active ON suppliers(business_id, active);
 
 -- ============================================
+-- 6.5. buying_prices (Cost Price History)
+-- ============================================
+CREATE TABLE IF NOT EXISTS buying_prices (
+  id TEXT PRIMARY KEY,
+  item_id TEXT NOT NULL,
+  supplier_id TEXT,
+  price REAL NOT NULL,
+  effective_from INTEGER NOT NULL DEFAULT (unixepoch()),
+  set_by TEXT,
+  notes TEXT,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
+  FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL,
+  FOREIGN KEY (set_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_buying_prices_item_supplier ON buying_prices(item_id, supplier_id);
+CREATE INDEX IF NOT EXISTS idx_buying_prices_effective ON buying_prices(item_id, supplier_id, effective_from DESC);
+
+-- ============================================
 -- 7. purchases (Buying Trips)
 -- ============================================
 CREATE TABLE IF NOT EXISTS purchases (
