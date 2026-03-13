@@ -75,7 +75,9 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
 
   const isValid =
     paymentMethod === 'credit'
-      ? total > 0 && (customerName.trim().length > 0 || creditAccountId != null)
+      ? total > 0 &&
+        customerPhone.trim().length > 0 &&
+        (customerName.trim().length > 0 || creditAccountId != null)
       : paymentMethod === 'cash'
         ? cashAmount >= total && total > 0
         : paymentMethod === 'mpesa'
@@ -310,7 +312,11 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
 
     if (!isValid) {
       if (paymentMethod === 'credit') {
-        setError('Select an existing creditor or enter customer name');
+        setError(
+          !customerPhone.trim()
+            ? 'Enter phone number first'
+            : 'Select an existing customer or enter name for new customer'
+        );
       } else if (paymentMethod === 'cash') {
         setError('Please enter a valid cash amount');
       } else if (paymentMethod === 'mpesa') {

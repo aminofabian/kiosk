@@ -172,11 +172,47 @@ export async function POST(request: NextRequest) {
             400
           );
         }
-      } else if (!customerName || customerName.trim().length === 0) {
-        return jsonResponse(
-          { success: false, message: 'Select an existing creditor or enter customer name' },
-          400
-        );
+      } else {
+        if (!customerPhone || customerPhone.trim().length === 0) {
+          return jsonResponse(
+            { success: false, message: 'Phone number is required for credit payments' },
+            400
+          );
+        }
+        if (!customerName || customerName.trim().length === 0) {
+          return jsonResponse(
+            { success: false, message: 'Customer name is required for new credit account' },
+            400
+          );
+        }
+        // Prevent duplicate: an account with this phone already exists
+        const coreDigits = customerPhone.replace(/\D/g, '');
+        const digits =
+          coreDigits.startsWith('254') && coreDigits.length >= 12
+            ? coreDigits.slice(-9)
+            : coreDigits.startsWith('0') && coreDigits.length >= 10
+              ? coreDigits.slice(1)
+              : coreDigits.length >= 9
+                ? coreDigits.slice(-9)
+                : coreDigits;
+        if (digits.length >= 6) {
+          const existingByPhone = await queryOne<{ id: string }>(
+            `SELECT id FROM credit_accounts 
+             WHERE business_id = ? AND customer_phone IS NOT NULL
+             AND customer_phone LIKE ?`,
+            [auth.businessId, `%${digits}%`]
+          );
+          if (existingByPhone) {
+            return jsonResponse(
+              {
+                success: false,
+                message:
+                  'A customer with this phone number already exists. Please select them from the list.',
+              },
+              400
+            );
+          }
+        }
       }
     }
 
