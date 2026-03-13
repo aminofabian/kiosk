@@ -74,6 +74,7 @@ import { Settings } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { apiGet } from '@/lib/utils/api-client';
 import { apiGetOffline } from '@/lib/offline/api-offline';
+import { searchItemsOffline } from '@/lib/offline/search';
 import { ShopTypeSelector } from '@/components/pos/ShopTypeSelector';
 import { getShopType, shouldShowCategory } from '@/lib/utils/shop-type';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
@@ -435,7 +436,7 @@ export default function POSPage() {
   const suggestCacheRef = useRef<Map<string, { data: typeof searchSuggestions; ts: number }>>(new Map());
   const SUGGEST_CACHE_TTL = 30_000; // 30 seconds
 
-  // Fetch search suggestions using lightweight /api/items/suggest endpoint
+  // Fetch search suggestions: offline = cached search, online = /api/items/suggest
   useEffect(() => {
     if (suggestionsAbortRef.current) {
       suggestionsAbortRef.current.abort();
@@ -454,8 +455,23 @@ export default function POSPage() {
     }
 
     const cacheKey = searchQuery.toLowerCase().trim();
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
 
-    // Check cache first
+    // Offline: search cached items
+    if (isOffline) {
+      setLoadingSuggestions(true);
+      searchItemsOffline(searchQuery, 10)
+        .then((suggestions) => {
+          setSearchSuggestions(suggestions);
+          setShowSuggestions(suggestions.length > 0);
+          setSelectedSuggestionIndex(-1);
+        })
+        .catch((err) => console.error('Offline search error:', err))
+        .finally(() => setLoadingSuggestions(false));
+      return;
+    }
+
+    // Online: check in-memory cache first
     const cached = suggestCacheRef.current.get(cacheKey);
     if (cached && Date.now() - cached.ts < SUGGEST_CACHE_TTL) {
       setSearchSuggestions(cached.data);
@@ -493,9 +509,7 @@ export default function POSPage() {
             parent_name: item.parent_name,
             sibling_count: item.sibling_count,
           }));
-          // Cache the result
           suggestCacheRef.current.set(cacheKey, { data: suggestions, ts: Date.now() });
-          // Evict old entries (keep max 50)
           if (suggestCacheRef.current.size > 50) {
             const oldest = [...suggestCacheRef.current.entries()].sort((a, b) => a[1].ts - b[1].ts)[0];
             if (oldest) suggestCacheRef.current.delete(oldest[0]);
@@ -514,7 +528,6 @@ export default function POSPage() {
       }
     }
 
-    // Fire immediately — debounce is already handled by the 100ms useDebounce on searchQuery
     fetchSuggestions();
     return () => {
       controller.abort();

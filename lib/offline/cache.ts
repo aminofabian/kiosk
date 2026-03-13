@@ -17,6 +17,7 @@ export interface CacheEntry<T> {
 
 type CacheKey =
   | 'categories'
+  | 'items:all'
   | `items:category:${string}`
   | `items:id:${string}`
   | `items:barcode:${string}`
@@ -87,6 +88,15 @@ export async function getItemByBarcode(barcode: string): Promise<Item | undefine
 
 export async function setItemByBarcode(barcode: string, item: Item): Promise<void> {
   await setCache(`items:barcode:${barcode}` as CacheKey, item);
+}
+
+export async function getAllItems(): Promise<Item[] | undefined> {
+  const entry = await getFromCache<Item[]>('items:all');
+  return entry?.data;
+}
+
+export async function setAllItems(items: Item[]): Promise<void> {
+  await setCache('items:all', items);
 }
 
 export async function getCurrentShift(): Promise<Shift | null | undefined> {

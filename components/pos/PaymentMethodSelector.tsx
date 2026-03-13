@@ -35,7 +35,7 @@ export function PaymentMethodSelector({
       label: 'M-Pesa',
       icon: <Smartphone className="h-6 w-6" />,
       color: 'from-orange-600 to-yellow-600',
-      requiresOnline: true,
+      description: 'Mark as Paid works offline',
     },
     {
       value: 'credit',

@@ -5,6 +5,7 @@ import {
   setItemsByCategory,
   setItem,
   setItemByBarcode,
+  setAllItems,
   setCurrentShift,
   setCredits,
   setLastSyncAt,
@@ -181,6 +182,7 @@ export async function preloadOfflineData(): Promise<PreloadResult> {
           await setItemByBarcode(item.barcode.trim(), item);
         }
       }
+      await setAllItems(items);
     }
 
     // 3. Fetch current shift

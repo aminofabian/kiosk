@@ -202,18 +202,23 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
     setIsProcessing(true);
 
     try {
-      // Offline: only cash is supported; queue the sale
+      // Offline: cash and M-Pesa (Mark as Paid) supported; queue the sale
       if (!isOnline) {
-        if (paymentMethod !== 'cash') {
-          setError('Only cash payments work offline. Please connect to use other methods.');
+        if (paymentMethod !== 'cash' && paymentMethod !== 'mpesa') {
+          setError('Only Cash and M-Pesa (Mark as Paid) work offline.');
           setIsProcessing(false);
           return;
         }
-        const cachedShift = await getCurrentShift();
-        if (!cachedShift?.id) {
-          setError('Open a shift when online first to record cash sales offline.');
-          setIsProcessing(false);
-          return;
+        // Cash requires an open shift; M-Pesa does not
+        let shiftId: string | null = null;
+        if (paymentMethod === 'cash') {
+          const cachedShift = await getCurrentShift();
+          if (!cachedShift?.id) {
+            setError('Open a shift when online first to record cash sales offline.');
+            setIsProcessing(false);
+            return;
+          }
+          shiftId = cachedShift.id;
         }
         const localId = await addPendingSale({
           items: items.map((item) => ({
@@ -224,9 +229,9 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
             unitType: item.unitType,
             inventoryBatchId: item.inventoryBatchId || undefined,
           })),
-          paymentMethod: 'cash',
-          cashReceived: cashAmount,
-          shiftId: cachedShift.id,
+          paymentMethod,
+          cashReceived: paymentMethod === 'cash' ? cashAmount : undefined,
+          shiftId,
           totalAmount: total,
         });
         clearCart();
@@ -298,8 +303,8 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
       return;
     }
 
-    if (!isOnline && paymentMethod !== 'cash') {
-      setError('Only cash payments work offline. Please connect to use M-Pesa, credit, or split.');
+    if (!isOnline && paymentMethod !== 'cash' && paymentMethod !== 'mpesa') {
+      setError('Only Cash and M-Pesa (Mark as Paid) work offline. Credit and Split require connection.');
       return;
     }
 
@@ -359,11 +364,11 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
     }
   }, [paymentMethod]);
 
-  // When offline, clear non-cash payment method selection
+  // When offline, clear payment methods that require connection (credit, split)
   useEffect(() => {
-    if (!isOnline && paymentMethod && paymentMethod !== 'cash') {
+    if (!isOnline && paymentMethod && paymentMethod !== 'cash' && paymentMethod !== 'mpesa') {
       setPaymentMethod(null);
-      setError('Only cash works offline. Please select Cash.');
+      setError('Only Cash and M-Pesa (Mark as Paid) work offline.');
     }
   }, [isOnline, paymentMethod]);
 
@@ -616,7 +621,9 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
                         M-Pesa Payment
                       </p>
                       <p className="text-xs text-orange-600">
-                        Use the buttons below to process M-Pesa payment
+                        {isOnline
+                          ? 'Use the buttons below to process M-Pesa payment'
+                          : 'Offline: Use "Mark as Paid" to record the sale. It will sync when connected.'}
                       </p>
                       <p className="text-xs font-semibold text-orange-700 mt-2">
                         Amount: {formatPrice(total)}
@@ -668,7 +675,8 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
                     await initiateMpesaPayment();
                   }}
                   className="flex items-center justify-center gap-2 border-orange-300 hover:bg-orange-50"
-                  disabled={isProcessing || isMpesaInitiating}
+                  disabled={isProcessing || isMpesaInitiating || !isOnline}
+                  title={!isOnline ? 'Requires connection' : undefined}
                 >
                   {isMpesaInitiating ? (
                     <>
@@ -702,7 +710,9 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
                 </Button>
               </div>
               <p className="text-[10px] text-muted-foreground text-center">
-                &quot;Online Payment&quot; for Pesapal STK Push • &quot;Mark as Paid&quot; for manual confirmation
+                {isOnline
+                  ? '"Online Payment" for Pesapal STK Push • "Mark as Paid" for manual confirmation'
+                  : 'Offline: "Mark as Paid" only — syncs when connected'}
               </p>
             </>
           )}
