@@ -14,6 +14,9 @@ import { CreditForm } from './CreditForm';
 import { SplitPaymentForm, type SplitPayment } from './SplitPaymentForm';
 import type { PaymentMethod } from '@/lib/constants';
 import { apiPost, apiGet } from '@/lib/utils/api-client';
+import { useOnlineStatus } from '@/lib/hooks/use-online-status';
+import { getCurrentShift } from '@/lib/offline/cache';
+import { addPendingSale } from '@/lib/offline/queue';
 
 type MpesaStatus = 'idle' | 'sending' | 'waiting' | 'success' | 'failed' | 'timeout';
 
@@ -43,6 +46,7 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
   const { clearCart } = useCartStore();
   const items = useCartItems();
   const total = useCartTotal();
+  const isOnline = useOnlineStatus();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
   const [cashReceived, setCashReceived] = useState<string>('');
   const [customerName, setCustomerName] = useState<string>('');
@@ -198,7 +202,44 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
     setIsProcessing(true);
 
     try {
-      // Build the request body based on payment method
+      // Offline: only cash is supported; queue the sale
+      if (!isOnline) {
+        if (paymentMethod !== 'cash') {
+          setError('Only cash payments work offline. Please connect to use other methods.');
+          setIsProcessing(false);
+          return;
+        }
+        const cachedShift = await getCurrentShift();
+        if (!cachedShift?.id) {
+          setError('Open a shift when online first to record cash sales offline.');
+          setIsProcessing(false);
+          return;
+        }
+        const localId = await addPendingSale({
+          items: items.map((item) => ({
+            itemId: item.itemId,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            unitType: item.unitType,
+            inventoryBatchId: item.inventoryBatchId || undefined,
+          })),
+          paymentMethod: 'cash',
+          cashReceived: cashAmount,
+          shiftId: cachedShift.id,
+          totalAmount: total,
+        });
+        clearCart();
+        if (onSaleComplete) {
+          onSaleComplete(localId);
+        } else {
+          router.push(`/pos/receipt/${localId}?print=true&offline=1`);
+        }
+        setIsProcessing(false);
+        return;
+      }
+
+      // Online: normal API flow
       const requestBody: Record<string, unknown> = {
         items: items.map((item) => ({
           itemId: item.itemId,
@@ -257,6 +298,11 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
       return;
     }
 
+    if (!isOnline && paymentMethod !== 'cash') {
+      setError('Only cash payments work offline. Please connect to use M-Pesa, credit, or split.');
+      return;
+    }
+
     if (!isValid) {
       if (paymentMethod === 'credit') {
         setError('Select an existing creditor or enter customer name');
@@ -312,6 +358,14 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
       setCreditAccountId(null);
     }
   }, [paymentMethod]);
+
+  // When offline, clear non-cash payment method selection
+  useEffect(() => {
+    if (!isOnline && paymentMethod && paymentMethod !== 'cash') {
+      setPaymentMethod(null);
+      setError('Only cash works offline. Please select Cash.');
+    }
+  }, [isOnline, paymentMethod]);
 
   if (items.length === 0) {
     return (
@@ -501,6 +555,7 @@ export function CheckoutForm({ onBackToCart, onContinueShopping, onSaleComplete 
               <PaymentMethodSelector
                 selectedMethod={paymentMethod}
                 onSelectMethod={setPaymentMethod}
+                disabledWhenOffline={!isOnline}
               />
 
               {paymentMethod === 'cash' && (

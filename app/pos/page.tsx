@@ -73,6 +73,7 @@ import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { Settings } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { apiGet } from '@/lib/utils/api-client';
+import { apiGetOffline } from '@/lib/offline/api-offline';
 import { ShopTypeSelector } from '@/components/pos/ShopTypeSelector';
 import { getShopType, shouldShowCategory } from '@/lib/utils/shop-type';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
@@ -260,7 +261,7 @@ export default function POSPage() {
     setBarcodeScanStatus({ scanning: true, lastScanned: barcode, error: null, success: false });
     
     try {
-      const result = await apiGet<Item>(`/api/items/barcode/${encodeURIComponent(barcode)}`);
+      const result = await apiGetOffline<Item>(`/api/items/barcode/${encodeURIComponent(barcode)}`);
       
       if (result.success && result.data) {
         setBarcodeScanStatus({ scanning: false, lastScanned: barcode, error: null, success: true });
@@ -323,8 +324,7 @@ export default function POSPage() {
       setSearchSuggestions([]);
       
       try {
-        const response = await fetch(`/api/items/${selectedSuggestion.id}`);
-        const result = await response.json();
+        const result = await apiGetOffline<Item>(`/api/items/${selectedSuggestion.id}`);
         if (result.success && result.data) {
           setSelectedItem(result.data);
           setDialogOpen(true);
@@ -363,7 +363,7 @@ export default function POSPage() {
 
   const fetchCategories = useCallback(async () => {
     try {
-      const result = await apiGet<Category[]>('/api/categories');
+      const result = await apiGetOffline<Category[]>('/api/categories');
       if (result.success) {
         setCategories(result.data ?? []);
       }
@@ -394,6 +394,13 @@ export default function POSPage() {
   useEffect(() => {
     loadPosInsights();
   }, [loadPosInsights]);
+
+  // Cache current shift for offline sales (when online)
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      apiGetOffline<import('@/lib/db/types').Shift | null>('/api/shifts/current').catch(() => {});
+    }
+  }, []);
 
   // Soft refresh: re-fetch insights + categories + items without full reload (keeps cart)
   const handleRefresh = useCallback(async () => {
@@ -537,8 +544,7 @@ export default function POSPage() {
     
     // Fetch the full item details and open the dialog
     try {
-      const response = await fetch(`/api/items/${suggestion.id}`, { cache: 'no-store' });
-      const result = await response.json();
+      const result = await apiGetOffline<Item>(`/api/items/${suggestion.id}`);
       if (result.success && result.data) {
         setSelectedItem(result.data);
         setDialogOpen(true);
@@ -1389,7 +1395,7 @@ export default function POSPage() {
     async function fetchDrawerCategoryItems() {
       try {
         setDrawerItemsLoading(true);
-        const result = await apiGet<Item[]>(`/api/items?categoryId=${drawerCategoryId}`);
+        const result = await apiGetOffline<Item[]>(`/api/items?categoryId=${drawerCategoryId}`);
         if (result.success) {
           const allItems: Item[] = result.data ?? [];
           
@@ -1640,7 +1646,7 @@ export default function POSPage() {
     async function fetchCategoryItems() {
       try {
         setItemsLoading(true);
-        const result = await apiGet<Item[]>(`/api/items?categoryId=${selectedCategoryId}`);
+        const result = await apiGetOffline<Item[]>(`/api/items?categoryId=${selectedCategoryId}`);
         if (result.success) {
           const allItems: Item[] = result.data ?? [];
           

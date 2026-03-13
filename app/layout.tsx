@@ -3,6 +3,7 @@ import { SessionProvider } from "@/components/providers/SessionProvider";
 import { DynamicMetaTags } from "@/components/DynamicMetaTags";
 import { Toaster } from "sonner";
 import { getCurrentUser } from "@/lib/auth";
+import { SerwistProvider } from "./serwist";
 import "./globals.css";
 
 export const viewport: Viewport = {
@@ -44,11 +45,13 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className="font-sans antialiased">
-        <SessionProvider>
-          <DynamicMetaTags />
-          {children}
-          <Toaster position="top-center" richColors closeButton />
-        </SessionProvider>
+        <SerwistProvider swUrl="/sw.js" disable={process.env.NODE_ENV === "development"}>
+          <SessionProvider>
+            <DynamicMetaTags />
+            {children}
+            <Toaster position="top-center" richColors closeButton />
+          </SessionProvider>
+        </SerwistProvider>
       </body>
     </html>
   );

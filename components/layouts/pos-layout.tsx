@@ -1,4 +1,10 @@
-import { ReactNode } from 'react';
+'use client';
+
+import { ReactNode, useEffect } from 'react';
+import { OfflineBanner } from '@/components/pos/OfflineBanner';
+import { SyncOnReconnect } from '@/components/pos/SyncOnReconnect';
+import { SyncForOfflineButton } from '@/components/pos/SyncForOfflineButton';
+import { preloadOfflineData } from '@/lib/offline/sync';
 
 interface POSLayoutProps {
   children: ReactNode;
@@ -6,8 +12,19 @@ interface POSLayoutProps {
 }
 
 export function POSLayout({ children, header }: POSLayoutProps) {
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      preloadOfflineData().catch((err) => console.error('preloadOfflineData:', err));
+    }
+  }, []);
+
   return (
-    <div className="flex flex-col h-screen w-screen bg-[#f6f8f6] dark:bg-[#0f1a0d]">
+    <div className="relative flex flex-col h-screen w-screen bg-[#f6f8f6] dark:bg-[#0f1a0d]">
+      <SyncOnReconnect />
+      <OfflineBanner />
+      <div className="absolute top-2 right-2 z-10 flex">
+        <SyncForOfflineButton />
+      </div>
       {header && (
         <header className="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1c2e18] shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           {header}

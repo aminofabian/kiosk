@@ -6,6 +6,9 @@ import { POSLayout } from '@/components/layouts/pos-layout';
 import { Receipt } from '@/components/pos/Receipt';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import { getPendingSaleById } from '@/lib/offline/queue';
+
+const isOfflineSaleId = (id: string) => id.startsWith('local-');
 
 export default function ReceiptPage() {
   const params = useParams();
@@ -18,16 +21,45 @@ export default function ReceiptPage() {
   const hasPrintedRef = useRef(false);
 
   useEffect(() => {
-    async function fetchReceipt() {
+    async function loadReceipt() {
+      if (!saleId) return;
       try {
         setLoading(true);
-        const response = await fetch(`/api/sales/${saleId}`);
-        const result = await response.json();
 
-        if (result.success) {
-          setReceiptData(result.data);
+        if (isOfflineSaleId(saleId)) {
+          const pending = await getPendingSaleById(saleId);
+          if (pending) {
+            const saleDate = Math.floor(pending.createdAt / 1000);
+            setReceiptData({
+              sale: {
+                id: pending.id,
+                sale_date: saleDate,
+                payment_method: pending.paymentMethod,
+                total_amount: pending.totalAmount,
+                business_name: 'POS',
+                user_name: null,
+              },
+              items: pending.items.map((item, i) => ({
+                id: `${item.itemId}-${i}`,
+                item_id: item.itemId,
+                item_name: item.name,
+                quantity_sold: item.quantity,
+                sell_price_per_unit: item.price,
+                item_unit_type: item.unitType || 'piece',
+              })),
+              splitPayments: [],
+            });
+          } else {
+            setError('Offline receipt not found');
+          }
         } else {
-          setError(result.message || 'Failed to load receipt');
+          const response = await fetch(`/api/sales/${saleId}`);
+          const result = await response.json();
+          if (result.success) {
+            setReceiptData(result.data);
+          } else {
+            setError(result.message || 'Failed to load receipt');
+          }
         }
       } catch (err) {
         setError('Failed to load receipt');
@@ -37,9 +69,7 @@ export default function ReceiptPage() {
       }
     }
 
-    if (saleId) {
-      fetchReceipt();
-    }
+    loadReceipt();
   }, [saleId]);
 
   // Auto-print receipt after successful payment
@@ -93,11 +123,20 @@ export default function ReceiptPage() {
     );
   }
 
+  const isOfflineReceipt = isOfflineSaleId(saleId);
+
   return (
     <POSLayout
       header={
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Receipt</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold">Receipt</h1>
+            {isOfflineReceipt && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                Offline — will sync when connected
+              </span>
+            )}
+          </div>
           <div className="flex gap-2">
             <Button
               variant="outline"

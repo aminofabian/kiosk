@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Banknote, Coins, ChevronDown, ChevronUp, Clock, CheckCircle2, Send } from 'lucide-react';
 import { apiGet, apiPost } from '@/lib/utils/api-client';
+import { apiGetOffline } from '@/lib/offline/api-offline';
 import type { Shift, BalanceApprovalRequest } from '@/lib/db/types';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 
@@ -56,7 +57,7 @@ export function ShiftOpenForm() {
     async function run() {
       try {
         const [currentResult, pendingResult] = await Promise.all([
-          apiGet<Shift>('/api/shifts/current'),
+          apiGetOffline<Shift>('/api/shifts/current'),
           apiGet<BalanceApprovalRequest[]>('/api/balance/approvals?status=pending'),
         ]);
 

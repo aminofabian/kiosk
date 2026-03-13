@@ -8,11 +8,13 @@ import { CreditCard, Wallet, Smartphone, Split } from 'lucide-react';
 interface PaymentMethodSelectorProps {
   selectedMethod: PaymentMethod | null;
   onSelectMethod: (method: PaymentMethod) => void;
+  disabledWhenOffline?: boolean;
 }
 
 export function PaymentMethodSelector({
   selectedMethod,
   onSelectMethod,
+  disabledWhenOffline = false,
 }: PaymentMethodSelectorProps) {
   const methods: Array<{
     value: PaymentMethod;
@@ -20,6 +22,7 @@ export function PaymentMethodSelector({
     icon: React.ReactNode;
     color: string;
     description?: string;
+    requiresOnline?: boolean;
   }> = [
     {
       value: 'cash',
@@ -32,12 +35,14 @@ export function PaymentMethodSelector({
       label: 'M-Pesa',
       icon: <Smartphone className="h-6 w-6" />,
       color: 'from-orange-600 to-yellow-600',
+      requiresOnline: true,
     },
     {
       value: 'credit',
       label: 'Credit',
       icon: <CreditCard className="h-6 w-6" />,
       color: 'from-blue-600 to-indigo-600',
+      requiresOnline: true,
     },
     {
       value: 'split',
@@ -45,6 +50,7 @@ export function PaymentMethodSelector({
       icon: <Split className="h-6 w-6" />,
       color: 'from-purple-600 to-pink-600',
       description: 'Multiple methods',
+      requiresOnline: true,
     },
   ];
 
@@ -53,13 +59,16 @@ export function PaymentMethodSelector({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {methods.map((method) => {
           const isSelected = selectedMethod === method.value;
+          const isDisabled = disabledWhenOffline && method.requiresOnline;
           return (
             <Button
               key={method.value}
               type="button"
               variant={isSelected ? 'default' : 'outline'}
               size="touch"
-              onClick={() => onSelectMethod(method.value)}
+              disabled={isDisabled}
+              onClick={() => !isDisabled && onSelectMethod(method.value)}
+              title={isDisabled ? 'Requires connection' : undefined}
               className={`flex flex-col items-center justify-center h-24 gap-1 ${
                 isSelected
                   ? method.value === 'cash'

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { Category } from '@/lib/db/types';
 import { shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
+import { apiGetOffline } from '@/lib/offline/api-offline';
 
 interface CategoryListProps {
   onSelectCategory: (categoryId: string | null) => void;
@@ -23,6 +24,9 @@ export function CategoryList({
 
   // Use prop categories if available
   const categories = propCategories || localCategories;
+  const isOfflineEmpty =
+    error &&
+    (error.includes('Offline') || error.includes('No cached') || error.includes('Network'));
 
   useEffect(() => {
     // Skip fetch if categories provided via props
@@ -34,11 +38,11 @@ export function CategoryList({
     async function fetchCategories() {
       try {
         setLoading(true);
-        const response = await fetch('/api/categories');
-        const result = await response.json();
+        setError(null);
+        const result = await apiGetOffline<Category[]>('/api/categories');
 
         if (result.success) {
-          setLocalCategories(result.data);
+          setLocalCategories(result.data ?? []);
         } else {
           setError(result.message || 'Failed to load categories');
         }
@@ -71,8 +75,17 @@ export function CategoryList({
 
   if (error) {
     return (
-      <div className="px-4 sm:px-6 py-3 flex items-center gap-2 text-red-500">
-        <span className="text-sm font-medium">Failed to load categories</span>
+      <div className="px-4 sm:px-6 py-3 flex flex-col gap-1">
+        <span className="text-sm font-medium text-red-500">
+          {isOfflineEmpty
+            ? 'No products cached for offline use'
+            : 'Failed to load categories'}
+        </span>
+        {isOfflineEmpty && (
+          <span className="text-xs text-muted-foreground">
+            Connect to the internet and tap &quot;Sync for offline&quot; to download products.
+          </span>
+        )}
       </div>
     );
   }
