@@ -54,6 +54,8 @@ import {
   PhoneCall,
   Package,
   ListChecks,
+  FileDown,
+  Copy,
 } from 'lucide-react';
 import { apiGet, apiPost, apiDelete } from '@/lib/utils/api-client';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
@@ -130,9 +132,10 @@ function parseBillItems(text: string, totalAmount: number): Array<{ description:
 interface SupplierBillsListProps {
   onSupplierClick?: (supplier: SupplierFromTable) => void;
   onAddBill?: () => void;
+  onReplicateBill?: (bill: SupplierBillWithDetails) => void;
 }
 
-export function SupplierBillsList({ onSupplierClick, onAddBill }: SupplierBillsListProps) {
+export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill }: SupplierBillsListProps) {
   const { productTypes } = useItemTypes();
   const { user } = useCurrentUser();
   const canDeleteBills = user?.role === 'admin' || user?.role === 'owner';
@@ -298,6 +301,78 @@ export function SupplierBillsList({ onSupplierClick, onAddBill }: SupplierBillsL
     if (d === 1) return 'Due tomorrow';
     if (d <= 7) return `Due in ${d}d`;
     return null;
+  };
+
+  const escapeHtml = (s: string) =>
+    String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+
+  const handleDownloadBillPDF = (bill: SupplierBillWithDetails) => {
+    const items = parseBillItems(bill.bill_description, bill.amount);
+    const itemsHtml = items
+      .map(
+        (item) => `
+      <tr>
+        <td class="py-2 px-3 text-left text-sm">${escapeHtml(item.description)}</td>
+        <td class="py-2 px-3 text-center text-sm">${escapeHtml(item.quantity)}</td>
+        <td class="py-2 px-3 text-right text-sm">${formatPrice(parseFloat(item.unitPrice))}</td>
+        <td class="py-2 px-3 text-right text-sm font-medium">${formatPrice(item.total)}</td>
+      </tr>`
+      )
+      .join('');
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (!printWindow) return;
+    printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Order - ${escapeHtml(bill.supplier_name)}</title>
+  <style>
+    @page { size: A4; margin: 15mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; color: #1e293b; background: white; line-height: 1.5; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .header { border-bottom: 2px solid #1c6a1e; padding-bottom: 12px; margin-bottom: 20px; }
+    .header h1 { font-size: 20px; font-weight: 800; color: #0f172a; margin-bottom: 4px; }
+    .header p { font-size: 11px; color: #64748b; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th { text-align: left; padding: 8px 12px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; border-bottom: 1px solid #e2e8f0; }
+    th.text-right, td.text-right { text-align: right; }
+    th.text-center, td.text-center { text-align: center; }
+    .total-row { font-weight: 700; font-size: 14px; border-top: 2px solid #1c6a1e; padding-top: 12px; margin-top: 12px; }
+    .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div class="header">
+      <h1>Order / Bill</h1>
+      <p><strong>${escapeHtml(bill.supplier_name)}</strong>${bill.supplier_phone ? ` · ${escapeHtml(bill.supplier_phone)}` : ''}</p>
+      <p>${formatDate(bill.created_at)}</p>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th class="text-center">Qty</th>
+          <th class="text-right">Unit Price</th>
+          <th class="text-right">Total</th>
+        </tr>
+      </thead>
+      <tbody>${itemsHtml}</tbody>
+    </table>
+    <div class="total-row flex justify-between" style="display: flex; justify-content: space-between; margin-top: 16px;">
+      <span>Total</span>
+      <span>${formatPrice(bill.amount)}</span>
+    </div>
+    ${bill.notes ? `<div class="footer">Notes: ${escapeHtml(bill.notes)}</div>` : ''}
+  </div>
+  <script>window.onload=function(){setTimeout(function(){window.print();window.close();},300);};</script>
+</body>
+</html>`);
+    printWindow.document.close();
   };
 
   const getStatusBadge = (bill: SupplierBillWithDetails) => {
@@ -1266,42 +1341,64 @@ export function SupplierBillsList({ onSupplierClick, onAddBill }: SupplierBillsL
                       )}
 
                       {/* Actions */}
-                      {bill.status !== 'paid' && bill.status !== 'cancelled' && (
-                        <div className="flex items-center gap-2 pt-1">
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <Button
+                          onClick={() => handleDownloadBillPDF(bill)}
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs border-slate-300 dark:border-slate-600"
+                        >
+                          <FileDown className="w-3.5 h-3.5 mr-1" />
+                          PDF
+                        </Button>
+                        {onReplicateBill && (
                           <Button
-                            onClick={() => setEditingBill(bill)}
+                            onClick={() => onReplicateBill(bill)}
                             variant="outline"
                             size="sm"
-                            className="h-8 text-xs border-slate-300 dark:border-slate-600 flex-1"
+                            className="h-8 text-xs border-[#1c6a1e]/50 text-[#1c6a1e] hover:bg-[#1c6a1e]/10 dark:border-[#2a8a30]/50 dark:text-[#2a8a30]"
                           >
-                            <Pencil className="w-3.5 h-3.5 mr-1" />
-                            Edit
+                            <Copy className="w-3.5 h-3.5 mr-1" />
+                            Replicate
                           </Button>
-                          <Button
-                            onClick={() => handleMarkAsPaid(bill)}
-                            className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs flex-1"
-                            size="sm"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                            Pay
-                          </Button>
-                          {canDeleteBills && (
+                        )}
+                        {bill.status !== 'paid' && bill.status !== 'cancelled' && (
+                          <>
                             <Button
-                              onClick={() => handleDeleteBill(bill)}
+                              onClick={() => setEditingBill(bill)}
                               variant="outline"
                               size="sm"
-                              disabled={deletingBillId === bill.id}
-                              className="h-8 text-xs border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400"
+                              className="h-8 text-xs border-slate-300 dark:border-slate-600 flex-1"
                             >
-                              {deletingBillId === bill.id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <Trash2 className="w-3.5 h-3.5" />
-                              )}
+                              <Pencil className="w-3.5 h-3.5 mr-1" />
+                              Edit
                             </Button>
-                          )}
-                        </div>
-                      )}
+                            <Button
+                              onClick={() => handleMarkAsPaid(bill)}
+                              className="bg-green-600 hover:bg-green-700 text-white h-8 text-xs flex-1"
+                              size="sm"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                              Pay
+                            </Button>
+                            {canDeleteBills && (
+                              <Button
+                                onClick={() => handleDeleteBill(bill)}
+                                variant="outline"
+                                size="sm"
+                                disabled={deletingBillId === bill.id}
+                                className="h-8 text-xs border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400"
+                              >
+                                {deletingBillId === bill.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                )}
+                              </Button>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -1450,41 +1547,63 @@ export function SupplierBillsList({ onSupplierClick, onAddBill }: SupplierBillsL
 
                         {/* Actions */}
                         <td className="px-4 py-3 text-right">
-                          {bill.status !== 'paid' && bill.status !== 'cancelled' && (
-                            <div className="flex items-center justify-end gap-1">
+                          <div className="flex items-center justify-end gap-1 flex-wrap">
+                            <Button
+                              onClick={() => handleDownloadBillPDF(bill)}
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400"
+                              title="Download PDF"
+                            >
+                              <FileDown className="w-3.5 h-3.5" />
+                            </Button>
+                            {onReplicateBill && (
                               <Button
-                                onClick={() => setEditingBill(bill)}
+                                onClick={() => onReplicateBill(bill)}
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 px-2 text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400"
+                                className="h-8 px-2 text-xs text-[#1c6a1e] hover:text-[#238b26] dark:text-[#2a8a30]"
+                                title="Replicate order"
                               >
-                                <Pencil className="w-3.5 h-3.5" />
+                                <Copy className="w-3.5 h-3.5" />
                               </Button>
-                              <Button
-                                onClick={() => handleMarkAsPaid(bill)}
-                                size="sm"
-                                className="bg-green-600 hover:bg-green-700 text-white h-8 px-3 text-xs"
-                              >
-                                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                                Pay
-                              </Button>
-                              {canDeleteBills && (
+                            )}
+                            {bill.status !== 'paid' && bill.status !== 'cancelled' && (
+                              <>
                                 <Button
-                                  onClick={() => handleDeleteBill(bill)}
+                                  onClick={() => setEditingBill(bill)}
                                   variant="ghost"
                                   size="sm"
-                                  disabled={deletingBillId === bill.id}
-                                  className="h-8 px-2 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                  className="h-8 px-2 text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400"
                                 >
-                                  {deletingBillId === bill.id ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  )}
+                                  <Pencil className="w-3.5 h-3.5" />
                                 </Button>
-                              )}
-                            </div>
-                          )}
+                                <Button
+                                  onClick={() => handleMarkAsPaid(bill)}
+                                  size="sm"
+                                  className="bg-green-600 hover:bg-green-700 text-white h-8 px-3 text-xs"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                                  Pay
+                                </Button>
+                                {canDeleteBills && (
+                                  <Button
+                                    onClick={() => handleDeleteBill(bill)}
+                                    variant="ghost"
+                                    size="sm"
+                                    disabled={deletingBillId === bill.id}
+                                    className="h-8 px-2 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                  >
+                                    {deletingBillId === bill.id ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    )}
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -1612,31 +1731,56 @@ export function SupplierBillsList({ onSupplierClick, onAddBill }: SupplierBillsL
                       {formatPrice(viewingBillItems.amount)}
                     </span>
                   </div>
-                  {viewingBillItems.status !== 'paid' && viewingBillItems.status !== 'cancelled' && (
-                    <div className="flex gap-2 pt-4">
+                  <div className="flex flex-wrap gap-2 pt-4">
+                    <Button
+                      onClick={() => handleDownloadBillPDF(viewingBillItems)}
+                      variant="outline"
+                      size="sm"
+                      className="border-slate-300 dark:border-slate-600"
+                    >
+                      <FileDown className="w-4 h-4 mr-2" />
+                      Download PDF
+                    </Button>
+                    {onReplicateBill && (
                       <Button
                         onClick={() => {
+                          onReplicateBill(viewingBillItems);
                           setViewingBillItems(null);
-                          setEditingBill(viewingBillItems);
-                        }}
-                        className="flex-1 bg-[#1c6a1e] hover:bg-[#238b26] text-white"
-                      >
-                        <Pencil className="w-4 h-4 mr-2" />
-                        Edit bill
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          setViewingBillItems(null);
-                          handleMarkAsPaid(viewingBillItems);
                         }}
                         variant="outline"
-                        className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400"
+                        size="sm"
+                        className="border-[#1c6a1e]/50 text-[#1c6a1e] hover:bg-[#1c6a1e]/10 dark:border-[#2a8a30]/50 dark:text-[#2a8a30]"
                       >
-                        <CheckCircle2 className="w-4 h-4 mr-2" />
-                        Mark as paid
+                        <Copy className="w-4 h-4 mr-2" />
+                        Replicate order
                       </Button>
-                    </div>
-                  )}
+                    )}
+                    {viewingBillItems.status !== 'paid' && viewingBillItems.status !== 'cancelled' && (
+                      <>
+                        <Button
+                          onClick={() => {
+                            setViewingBillItems(null);
+                            setEditingBill(viewingBillItems);
+                          }}
+                          className="flex-1 bg-[#1c6a1e] hover:bg-[#238b26] text-white"
+                        >
+                          <Pencil className="w-4 h-4 mr-2" />
+                          Edit bill
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            setViewingBillItems(null);
+                            handleMarkAsPaid(viewingBillItems);
+                          }}
+                          variant="outline"
+                          className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400"
+                        >
+                          <CheckCircle2 className="w-4 h-4 mr-2" />
+                          Mark as paid
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               );
             })()}

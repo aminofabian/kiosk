@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { SupplierBillsList } from '@/components/admin/SupplierBillsList';
-import { SupplierBillForm } from '@/components/admin/SupplierBillForm';
+import { SupplierBillForm, type SupplierBillInitialData } from '@/components/admin/SupplierBillForm';
 import { SupplierProductsDrawer } from '@/components/admin/SupplierProductsDrawer';
 import {
   Drawer,
@@ -38,6 +38,8 @@ function SupplierBillsPageContent() {
   const [supplierDrawerOpen, setSupplierDrawerOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<SupplierForDrawer | null>(null);
   const [linkedProductsRefreshKey, setLinkedProductsRefreshKey] = useState(0);
+  // Replicate past order: open new bill form with items from existing bill
+  const [replicateInitialData, setReplicateInitialData] = useState<SupplierBillInitialData | null>(null);
 
   // Check if we should open the drawer from URL query parameter
   useEffect(() => {
@@ -53,6 +55,7 @@ function SupplierBillsPageContent() {
     setDrawerOpen(false);
     setPreSelectedSupplierId(undefined);
     setPreSelectedSupplierName(undefined);
+    setReplicateInitialData(null);
     // Trigger refresh of the list by changing the key
     setRefreshKey((prev) => prev + 1);
   };
@@ -60,6 +63,36 @@ function SupplierBillsPageContent() {
   const handleOpenNewBill = () => {
     setPreSelectedSupplierId(undefined);
     setPreSelectedSupplierName(undefined);
+    setReplicateInitialData(null);
+    setDrawerOpen(true);
+  };
+
+  const handleReplicateBill = (bill: {
+    supplier_id: string | null;
+    supplier_name: string;
+    supplier_phone: string | null;
+    bill_description: string;
+    amount: number;
+    due_date: number;
+    notes: string | null;
+    preferred_payment_method: string | null;
+    payment_details: string | null;
+  }) => {
+    const now = Math.floor(Date.now() / 1000);
+    const dueDate = bill.due_date > now ? bill.due_date : now + 7 * 86400; // Use original if future, else 7 days from now
+    setReplicateInitialData({
+      supplierId: bill.supplier_id,
+      supplierName: bill.supplier_name,
+      supplierPhone: bill.supplier_phone ?? '',
+      billDescription: bill.bill_description,
+      amount: bill.amount,
+      dueDate,
+      notes: bill.notes ?? '',
+      preferredPaymentMethod: bill.preferred_payment_method,
+      paymentDetails: bill.payment_details,
+    });
+    setPreSelectedSupplierId(bill.supplier_id ?? undefined);
+    setPreSelectedSupplierName(bill.supplier_name);
     setDrawerOpen(true);
   };
 
@@ -119,6 +152,7 @@ function SupplierBillsPageContent() {
             key={refreshKey}
             onSupplierClick={handleSupplierClick}
             onAddBill={handleOpenNewBill}
+            onReplicateBill={handleReplicateBill}
           />
 
           {/* Supplier Products Drawer */}
@@ -161,11 +195,15 @@ function SupplierBillsPageContent() {
               </DrawerHeader>
               <div className="flex-1 min-h-0 overflow-y-auto p-6">
                 <SupplierBillForm
-                  key={preSelectedSupplierId || 'default'}
+                  key={replicateInitialData ? `replicate-${replicateInitialData.supplierName}-${replicateInitialData.amount}` : preSelectedSupplierId || 'default'}
                   onSuccess={handleSuccess}
-                  onCancel={() => setDrawerOpen(false)}
+                  onCancel={() => {
+                    setDrawerOpen(false);
+                    setReplicateInitialData(null);
+                  }}
                   preSelectedSupplierId={preSelectedSupplierId}
                   linkedProductsRefreshKey={linkedProductsRefreshKey}
+                  initialData={replicateInitialData ?? undefined}
                   onOpenManageLinkProducts={(supplier) => {
                     setSelectedSupplier({
                       ...supplier,

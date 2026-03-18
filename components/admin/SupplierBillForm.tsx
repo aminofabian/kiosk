@@ -325,11 +325,11 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
   const [showDraftChoiceDialog, setShowDraftChoiceDialog] = useState(false);
   const pendingDraftRef = useRef<SupplierBillDraft | null>(null);
 
-  // On mount: if draft exists and we're not pre-selecting a supplier, ask user to resume or start fresh (skip when editing)
+  // On mount: if draft exists and we're not pre-selecting a supplier, ask user to resume or start fresh (skip when editing or replicating)
   useEffect(() => {
     if (isEditMode) return;
-    if (preSelectedSupplierId) {
-      // Creating bill for specific supplier: start fresh, clear any draft
+    if (preSelectedSupplierId || (initialData && !billId)) {
+      // Creating bill for specific supplier or replicating: start fresh, clear any draft
       clearDraft();
       return;
     }
@@ -340,26 +340,28 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
     }
   }, [preSelectedSupplierId, isEditMode]);
 
-  // Initialize form from initialData when editing
+  // Initialize form from initialData when editing or when replicating (create from template)
   useEffect(() => {
-    if (!isEditMode || !initialData) return;
-    setSupplierId(initialData.supplierId || '');
-    setSupplierName(initialData.supplierName);
-    setSupplierPhone(initialData.supplierPhone || '');
-    setUseManualSupplier(!initialData.supplierId);
-    // Parse bill_description back into line items (handles multi-line format from formatBillDescription)
-    setLineItems(
-      parseBillDescriptionToLineItems(initialData.billDescription, initialData.amount)
-    );
-    setDueDateTime(toDateTimeLocal(initialData.dueDate));
-    setNotes(initialData.notes || '');
-    setSelectedPaymentMethods(
-      initialData.preferredPaymentMethod
-        ? initialData.preferredPaymentMethod.split(',').map((s) => s.trim()).filter(Boolean)
-        : []
-    );
-    setPaymentDetails(initialData.paymentDetails || '');
-  }, [isEditMode, initialData]);
+    if (!initialData) return;
+    if (isEditMode || !billId) {
+      setSupplierId(initialData.supplierId || '');
+      setSupplierName(initialData.supplierName);
+      setSupplierPhone(initialData.supplierPhone || '');
+      setUseManualSupplier(!initialData.supplierId);
+      // Parse bill_description back into line items (handles multi-line format from formatBillDescription)
+      setLineItems(
+        parseBillDescriptionToLineItems(initialData.billDescription, initialData.amount)
+      );
+      setDueDateTime(toDateTimeLocal(initialData.dueDate));
+      setNotes(initialData.notes || '');
+      setSelectedPaymentMethods(
+        initialData.preferredPaymentMethod
+          ? initialData.preferredPaymentMethod.split(',').map((s) => s.trim()).filter(Boolean)
+          : []
+      );
+      setPaymentDetails(initialData.paymentDetails || '');
+    }
+  }, [isEditMode, billId, initialData]);
 
   const handleResumeDraft = () => {
     const draft = pendingDraftRef.current;
