@@ -56,6 +56,8 @@ import {
   ListChecks,
   FileDown,
   Copy,
+  FilePen,
+  Plus,
 } from 'lucide-react';
 import { apiGet, apiPost, apiDelete } from '@/lib/utils/api-client';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
@@ -168,6 +170,10 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
   } | null>(null);
   const [suppliersByDayLoading, setSuppliersByDayLoading] = useState(false);
   const [callDaySelector, setCallDaySelector] = useState<number>(() => new Date().getDay());
+  const [pdfEditorState, setPdfEditorState] = useState<{
+    bill: SupplierBillWithDetails;
+    items: Array<{ id: string; description: string; quantity: string; unitPrice: string }>;
+  } | null>(null);
 
   // ── Helpers ──────────────────────────────────────────
 
@@ -310,26 +316,35 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
 
-  const handleDownloadBillPDF = (bill: SupplierBillWithDetails) => {
-    const items = parseBillItems(bill.bill_description, bill.amount);
+  const handleDownloadBillPDF = (
+    bill: SupplierBillWithDetails,
+    blankColumns = false,
+    editedItems?: Array<{ description: string; quantity: string; unitPrice: string; total: number }>
+  ) => {
+    const items = editedItems ?? parseBillItems(bill.bill_description, bill.amount);
     const itemsHtml = items
       .map(
         (item) => `
       <tr>
         <td class="py-2 px-3 text-left text-sm">${escapeHtml(item.description)}</td>
-        <td class="py-2 px-3 text-center text-sm">${escapeHtml(item.quantity)}</td>
-        <td class="py-2 px-3 text-right text-sm">${formatPrice(parseFloat(item.unitPrice))}</td>
-        <td class="py-2 px-3 text-right text-sm font-medium">${formatPrice(item.total)}</td>
+        <td class="py-2 px-3 text-center text-sm">${blankColumns ? '' : escapeHtml(item.quantity)}</td>
+        <td class="py-2 px-3 text-right text-sm">${blankColumns ? '' : formatPrice(parseFloat(item.unitPrice))}</td>
+        <td class="py-2 px-3 text-right text-sm font-medium">${blankColumns ? '' : formatPrice(item.total)}</td>
       </tr>`
       )
       .join('');
+    const title = blankColumns ? 'Order Template' : 'Order / Bill';
+    const totalAmount = items.reduce((sum, i) => sum + (i.total ?? 0), 0);
+    const totalHtml = blankColumns
+      ? '<div class="total-row flex justify-between" style="display: flex; justify-content: space-between; margin-top: 16px;"><span>Total</span><span></span></div>'
+      : `<div class="total-row flex justify-between" style="display: flex; justify-content: space-between; margin-top: 16px;"><span>Total</span><span>${formatPrice(totalAmount)}</span></div>`;
     const printWindow = window.open('', '_blank', 'width=800,height=600');
     if (!printWindow) return;
     printWindow.document.write(`<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Order - ${escapeHtml(bill.supplier_name)}</title>
+  <title>${title} - ${escapeHtml(bill.supplier_name)}</title>
   <style>
     @page { size: A4; margin: 15mm; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -348,7 +363,7 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
 <body>
   <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
     <div class="header">
-      <h1>Order / Bill</h1>
+      <h1>${title}</h1>
       <p><strong>${escapeHtml(bill.supplier_name)}</strong>${bill.supplier_phone ? ` · ${escapeHtml(bill.supplier_phone)}` : ''}</p>
       <p>${formatDate(bill.created_at)}</p>
     </div>
@@ -363,16 +378,70 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
       </thead>
       <tbody>${itemsHtml}</tbody>
     </table>
-    <div class="total-row flex justify-between" style="display: flex; justify-content: space-between; margin-top: 16px;">
-      <span>Total</span>
-      <span>${formatPrice(bill.amount)}</span>
-    </div>
+    ${totalHtml}
     ${bill.notes ? `<div class="footer">Notes: ${escapeHtml(bill.notes)}</div>` : ''}
   </div>
   <script>window.onload=function(){setTimeout(function(){window.print();window.close();},300);};</script>
 </body>
 </html>`);
     printWindow.document.close();
+  };
+
+  const openPdfEditor = (bill: SupplierBillWithDetails) => {
+    const parsed = parseBillItems(bill.bill_description, bill.amount);
+    setPdfEditorState({
+      bill,
+      items: parsed.map((p, i) => ({
+        id: `pdf-edit-${i}-${Date.now()}`,
+        description: p.description,
+        quantity: p.quantity,
+        unitPrice: p.unitPrice,
+      })),
+    });
+  };
+
+  const updatePdfEditorItem = (id: string, field: 'description' | 'quantity' | 'unitPrice', value: string) => {
+    if (!pdfEditorState) return;
+    setPdfEditorState({
+      ...pdfEditorState,
+      items: pdfEditorState.items.map((it) =>
+        it.id === id ? { ...it, [field]: value } : it
+      ),
+    });
+  };
+
+  const addPdfEditorItem = () => {
+    if (!pdfEditorState) return;
+    setPdfEditorState({
+      ...pdfEditorState,
+      items: [
+        ...pdfEditorState.items,
+        { id: `pdf-edit-new-${Date.now()}`, description: '', quantity: '1', unitPrice: '0' },
+      ],
+    });
+  };
+
+  const removePdfEditorItem = (id: string) => {
+    if (!pdfEditorState) return;
+    const next = pdfEditorState.items.filter((it) => it.id !== id);
+    if (next.length === 0) return;
+    setPdfEditorState({ ...pdfEditorState, items: next });
+  };
+
+  const getPdfEditorItemsForDownload = () => {
+    if (!pdfEditorState) return undefined;
+    return pdfEditorState.items
+      .filter((it) => it.description.trim())
+      .map((it) => {
+        const qty = parseFloat(it.quantity) || 0;
+        const unit = parseFloat(it.unitPrice) || 0;
+        return {
+          description: it.description.trim(),
+          quantity: it.quantity,
+          unitPrice: it.unitPrice,
+          total: qty * unit,
+        };
+      });
   };
 
   const getStatusBadge = (bill: SupplierBillWithDetails) => {
@@ -1343,6 +1412,15 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
                       {/* Actions */}
                       <div className="flex flex-wrap items-center gap-2 pt-1">
                         <Button
+                          onClick={() => openPdfEditor(bill)}
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs border-[#1c6a1e]/50 text-[#1c6a1e] hover:bg-[#1c6a1e]/10 dark:border-[#2a8a30]/50 dark:text-[#2a8a30]"
+                        >
+                          <FilePen className="w-3.5 h-3.5 mr-1" />
+                          Edit & Download
+                        </Button>
+                        <Button
                           onClick={() => handleDownloadBillPDF(bill)}
                           variant="outline"
                           size="sm"
@@ -1350,6 +1428,15 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
                         >
                           <FileDown className="w-3.5 h-3.5 mr-1" />
                           PDF
+                        </Button>
+                        <Button
+                          onClick={() => handleDownloadBillPDF(bill, true)}
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs border-slate-300 dark:border-slate-600"
+                          title="Blank template"
+                        >
+                          Blank
                         </Button>
                         {onReplicateBill && (
                           <Button
@@ -1549,6 +1636,15 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1 flex-wrap">
                             <Button
+                              onClick={() => openPdfEditor(bill)}
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-xs text-[#1c6a1e] hover:text-[#238b26] dark:text-[#2a8a30]"
+                              title="Edit & Download"
+                            >
+                              <FilePen className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
                               onClick={() => handleDownloadBillPDF(bill)}
                               variant="ghost"
                               size="sm"
@@ -1556,6 +1652,15 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
                               title="Download PDF"
                             >
                               <FileDown className="w-3.5 h-3.5" />
+                            </Button>
+                            <Button
+                              onClick={() => handleDownloadBillPDF(bill, true)}
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400"
+                              title="Download blank template (Qty, Unit Price, Total empty)"
+                            >
+                              <FileText className="w-3.5 h-3.5" />
                             </Button>
                             {onReplicateBill && (
                               <Button
@@ -1733,6 +1838,16 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
                   </div>
                   <div className="flex flex-wrap gap-2 pt-4">
                     <Button
+                      onClick={() => {
+                        openPdfEditor(viewingBillItems);
+                        setViewingBillItems(null);
+                      }}
+                      className="bg-[#1c6a1e] hover:bg-[#238b26] text-white"
+                    >
+                      <FilePen className="w-4 h-4 mr-2" />
+                      Edit & Download
+                    </Button>
+                    <Button
                       onClick={() => handleDownloadBillPDF(viewingBillItems)}
                       variant="outline"
                       size="sm"
@@ -1740,6 +1855,16 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
                     >
                       <FileDown className="w-4 h-4 mr-2" />
                       Download PDF
+                    </Button>
+                    <Button
+                      onClick={() => handleDownloadBillPDF(viewingBillItems, true)}
+                      variant="outline"
+                      size="sm"
+                      className="border-slate-300 dark:border-slate-600"
+                      title="Download with blank Qty, Unit Price, and Total for supplier to fill"
+                    >
+                      <FileDown className="w-4 h-4 mr-2" />
+                      Download blank
                     </Button>
                     {onReplicateBill && (
                       <Button
@@ -1784,6 +1909,151 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
                 </div>
               );
             })()}
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* ═══════════ PDF EDITOR DRAWER (Edit before download) ═══════════ */}
+      <Drawer open={!!pdfEditorState} onOpenChange={(open) => !open && setPdfEditorState(null)} direction="right">
+        <DrawerContent className="!w-full sm:!w-[560px] !max-w-full h-full max-h-screen z-[53] rounded-l-2xl">
+          <DrawerHeader className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/60 relative pr-12">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setPdfEditorState(null)}
+              className="absolute right-4 top-4 h-10 w-10 rounded-lg"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+            <div className="pr-8">
+              <DrawerTitle className="flex items-center gap-2 text-slate-900 dark:text-white">
+                <FilePen className="w-5 h-5 text-[#1c6a1e]" />
+                Edit before download
+              </DrawerTitle>
+              <DrawerDescription className="text-slate-600 dark:text-slate-400 mt-1">
+                {pdfEditorState && (
+                  <>Adjust items, then download PDF. Changes are for the PDF only.</>
+                )}
+              </DrawerDescription>
+            </div>
+          </DrawerHeader>
+          <div className="flex-1 min-h-0 overflow-y-auto p-5">
+            {pdfEditorState && (
+              <div className="space-y-4">
+                <p className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  {pdfEditorState.bill.supplier_name}
+                </p>
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-x-auto">
+                  <div className="min-w-[420px]">
+                    <div className="grid grid-cols-[1fr_70px_90px_90px_40px] gap-2 px-3 py-2 bg-slate-100 dark:bg-slate-800/60 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                      <span>Item</span>
+                      <span className="text-center">Qty</span>
+                      <span className="text-right">Unit</span>
+                      <span className="text-right">Total</span>
+                      <span></span>
+                    </div>
+                    {pdfEditorState.items.map((item) => {
+                      const qty = parseFloat(item.quantity) || 0;
+                      const unit = parseFloat(item.unitPrice) || 0;
+                      const total = qty * unit;
+                      return (
+                        <div
+                          key={item.id}
+                          className="grid grid-cols-[1fr_70px_90px_90px_40px] gap-2 items-center px-3 py-2 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/40"
+                        >
+                        <Input
+                          value={item.description}
+                          onChange={(e) => updatePdfEditorItem(item.id, 'description', e.target.value)}
+                          placeholder="Description"
+                          className="h-8 text-sm border-slate-200 dark:border-slate-600"
+                        />
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={item.quantity}
+                          onChange={(e) => updatePdfEditorItem(item.id, 'quantity', e.target.value)}
+                          className="h-8 text-sm text-center border-slate-200 dark:border-slate-600"
+                        />
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={item.unitPrice}
+                          onChange={(e) => updatePdfEditorItem(item.id, 'unitPrice', e.target.value)}
+                          className="h-8 text-sm text-right border-slate-200 dark:border-slate-600"
+                        />
+                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300 text-right">
+                          {formatPrice(total)}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removePdfEditorItem(item.id)}
+                          className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addPdfEditorItem}
+                  className="w-full border-dashed border-slate-300 dark:border-slate-600"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add item
+                </Button>
+                <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700">
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Total</span>
+                  <span className="text-lg font-bold text-slate-900 dark:text-white">
+                    {formatPrice(
+                      pdfEditorState.items.reduce((s, it) => {
+                        const q = parseFloat(it.quantity) || 0;
+                        const u = parseFloat(it.unitPrice) || 0;
+                        return s + q * u;
+                      }, 0)
+                    )}
+                  </span>
+                </div>
+                <div className="flex gap-2 pt-4">
+                  <Button
+                    onClick={() => {
+                      const items = getPdfEditorItemsForDownload();
+                      if (items && items.length > 0) {
+                        handleDownloadBillPDF(pdfEditorState.bill, false, items);
+                        setPdfEditorState(null);
+                      } else {
+                        toast.error('Add at least one item with a description');
+                      }
+                    }}
+                    className="flex-1 bg-[#1c6a1e] hover:bg-[#238b26] text-white"
+                  >
+                    <FileDown className="w-4 h-4 mr-2" />
+                    Download PDF
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      const items = getPdfEditorItemsForDownload();
+                      if (items && items.length > 0) {
+                        handleDownloadBillPDF(pdfEditorState.bill, true, items);
+                        setPdfEditorState(null);
+                      } else {
+                        toast.error('Add at least one item with a description');
+                      }
+                    }}
+                    variant="outline"
+                    className="border-slate-300 dark:border-slate-600"
+                  >
+                    <FilePen className="w-4 h-4 mr-2" />
+                    Download blank
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </DrawerContent>
       </Drawer>

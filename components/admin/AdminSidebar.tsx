@@ -64,6 +64,7 @@ const BASE_SECTIONS: MenuSection[] = [
   {
     label: 'Analytics',
     items: [
+      { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
       {
         href: '/admin/sales',
         label: 'Sales',
