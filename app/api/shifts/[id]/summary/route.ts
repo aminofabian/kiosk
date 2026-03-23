@@ -133,6 +133,17 @@ export async function GET(
       [auth.businessId, shiftInfo.started_at, endTime]
     );
 
+    // Daily expenses only (e.g. lunch, petty cash) - not monthly rent/salaries
+    // Only frequency='daily' with include_in_drawer=1 affects the drawer
+    const dailyDrawerExpenses = await query<{ id: string; name: string; amount: number }>(
+      `SELECT id, name, amount FROM expenses
+       WHERE business_id = ? AND active = 1 AND frequency = 'daily'
+         AND COALESCE(include_in_drawer, 1) = 1
+       ORDER BY name`,
+      [auth.businessId]
+    );
+    const dailyOperatingCost = dailyDrawerExpenses.reduce((sum, e) => sum + e.amount, 0);
+
     return jsonResponse({
       success: true,
       data: {
@@ -144,6 +155,8 @@ export async function GET(
         creditPayments: creditPayments || { count: 0, total: 0 },
         cashExpenses: cashExpensesSummary || { count: 0, total: 0 },
         expensesList: expensesList || [],
+        dailyOperatingCost,
+        dailyDrawerExpenses: dailyDrawerExpenses || [],
       },
     });
   } catch (error) {

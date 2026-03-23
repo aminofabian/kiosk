@@ -358,6 +358,13 @@ export async function runMigrations() {
     }
 
     try {
+      const { migrateExpensesIncludeInDrawer } = await import('./migrate-expenses-include-in-drawer');
+      await migrateExpensesIncludeInDrawer();
+    } catch (error) {
+      console.error('⚠ expenses include_in_drawer migration skipped:', error);
+    }
+
+    try {
       const { migrateSupplierProducts } = await import('./migrate-supplier-products');
       await migrateSupplierProducts();
     } catch (error) {

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { execute, queryOne } from '@/lib/db';
+import { execute, query, queryOne } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
 import { logActivity } from '@/lib/db/activity-log';
@@ -52,9 +52,16 @@ export async function POST(
     }
 
     const now = Math.floor(Date.now() / 1000);
-    
-    // Calculate expected cash after expenses
-    const expectedAfterExpenses = shift.expected_closing_cash - (cashExpenses || 0);
+
+    // Daily operating cost (lunch, etc.) - same as shift summary
+    const dailyRows = await query<{ amount: number }>(
+      `SELECT amount FROM expenses WHERE business_id = ? AND active = 1 AND frequency = 'daily' AND COALESCE(include_in_drawer, 1) = 1`,
+      [auth.businessId]
+    );
+    const dailyOperatingCost = dailyRows.reduce((s, r) => s + r.amount, 0);
+
+    // Expected = opening+in - withdrawals - daily expenses
+    const expectedAfterExpenses = shift.expected_closing_cash - (cashExpenses || 0) - dailyOperatingCost;
     const cashDifference = actualClosingCash - expectedAfterExpenses;
 
     // Update shift with closing info and denominations

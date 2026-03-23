@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Banknote, Coins, ChevronDown, ChevronUp, Clock, CheckCircle2, Send } from 'lucide-react';
+import { Loader2, Banknote, Coins, ChevronDown, ChevronUp, Clock, CheckCircle2, Send, TrendingDown } from 'lucide-react';
 import { apiGet, apiPost } from '@/lib/utils/api-client';
 import { apiGetOffline } from '@/lib/offline/api-offline';
 import type { Shift, BalanceApprovalRequest } from '@/lib/db/types';
@@ -48,6 +48,7 @@ export function ShiftOpenForm() {
   const [pendingOpeningCount, setPendingOpeningCount] = useState(0);
   const [requiresApproval, setRequiresApproval] = useState(false);
   const [submittedForApproval, setSubmittedForApproval] = useState(false);
+  const [previousDeficit, setPreviousDeficit] = useState<number | null>(null);
 
   // Cashiers MUST submit for approval, admin/owner can open directly or submit for approval
   const isCashier = user?.role === 'cashier';
@@ -63,6 +64,21 @@ export function ShiftOpenForm() {
 
         if (currentResult.success && currentResult.data) {
           setHasOpenShift(true);
+          const openShift = currentResult.data;
+          const closingRequests = (pendingResult.success && pendingResult.data)
+            ? pendingResult.data.filter((r: BalanceApprovalRequest) => r.balance_type === 'closing' && r.shift_id === openShift.id)
+            : [];
+          const pendingClosing = closingRequests[0];
+          if (pendingClosing?.expected_amount != null) {
+            const diff = pendingClosing.amount - pendingClosing.expected_amount;
+            if (diff < 0) setPreviousDeficit(diff);
+          } else {
+            const lastClosedResult = await apiGet<{ cash_difference: number | null }>('/api/shifts/last-closed');
+            if (lastClosedResult.success && lastClosedResult.data?.cash_difference != null) {
+              const diff = lastClosedResult.data.cash_difference;
+              if (diff < 0) setPreviousDeficit(diff);
+            }
+          }
         } else {
           setHasOpenShift(false);
           // No open shift: prefill opening form from last closed shift denominations
@@ -221,16 +237,36 @@ export function ShiftOpenForm() {
     return (
       <div className="flex flex-col items-center justify-center h-full p-6">
         <div className="text-center space-y-4 max-w-md">
-          <div className="w-20 h-20 mx-auto bg-[#1c6a1e]/10 rounded-2xl flex items-center justify-center">
-            <span className="text-4xl">✅</span>
+          <div className="w-20 h-20 mx-auto bg-amber-100 dark:bg-amber-900/30 rounded-2xl flex items-center justify-center">
+            <Clock className="w-10 h-10 text-amber-600 dark:text-amber-400" />
           </div>
-          <h2 className="text-2xl font-bold">Shift Already Open</h2>
+          <h2 className="text-2xl font-bold">Pending Closing Shift</h2>
           <p className="text-muted-foreground">
-            You already have an open shift. Please close it before opening a new one.
+            You have an open shift that must be closed before opening a new one.
           </p>
-          <Button onClick={() => router.push('/pos')} size="touch">
-            Go to POS
-          </Button>
+          {previousDeficit !== null && previousDeficit < 0 && (
+            <div className="w-full p-4 rounded-lg border-2 border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 flex items-center justify-center gap-2">
+              <TrendingDown className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0" />
+              <div className="text-left">
+                <p className="text-sm font-semibold text-red-800 dark:text-red-200">Previous deficit</p>
+                <p className="text-lg font-black text-red-600 dark:text-red-400">
+                  {formatPrice(Math.abs(previousDeficit))} short
+                </p>
+              </div>
+            </div>
+          )}
+          <div className="flex flex-col sm:flex-row gap-3 w-full">
+            <Button
+              onClick={() => router.push('/pos/shift/close')}
+              size="touch"
+              className="flex-1 bg-amber-600 hover:bg-amber-700"
+            >
+              Close Shift
+            </Button>
+            <Button onClick={() => router.push('/pos')} variant="outline" size="touch" className="flex-1">
+              Go to POS
+            </Button>
+          </div>
         </div>
       </div>
     );

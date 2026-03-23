@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { execute, queryOne } from '@/lib/db';
+import { execute, query, queryOne } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
 import type { Shift } from '@/lib/db/types';
@@ -237,7 +237,12 @@ export async function PATCH(
       newActualClosingCash !== null &&
       (body.actualClosingCash !== undefined || body.cashExpenses !== undefined)
     ) {
-      const expectedAfterExpenses = shift.expected_closing_cash - newCashExpenses;
+      const dailyRows = await query<{ amount: number }>(
+        `SELECT amount FROM expenses WHERE business_id = ? AND active = 1 AND frequency = 'daily' AND COALESCE(include_in_drawer, 1) = 1`,
+        [auth.businessId]
+      );
+      const dailyOperatingCost = dailyRows.reduce((s, r) => s + r.amount, 0);
+      const expectedAfterExpenses = shift.expected_closing_cash - newCashExpenses - dailyOperatingCost;
       const cashDifference = newActualClosingCash - expectedAfterExpenses;
       updates.push('cash_difference = ?');
       values.push(cashDifference);

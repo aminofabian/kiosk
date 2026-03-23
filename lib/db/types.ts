@@ -358,6 +358,7 @@ export interface Expense {
   start_date: number;
   notes: string | null;
   active: number;
+  include_in_drawer?: number; // 1 = include in cash drawer, 0 = exclude
   created_at: number;
   created_by: string | null;
 }

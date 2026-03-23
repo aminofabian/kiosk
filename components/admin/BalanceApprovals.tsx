@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +19,7 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
+  Download,
 } from 'lucide-react';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { toast } from 'sonner';
@@ -40,6 +41,8 @@ interface ShiftSummary {
   };
   creditPayments: { count: number; total: number };
   cashExpenses: { count: number; total: number };
+  dailyOperatingCost?: number;
+  dailyDrawerExpenses?: Array<{ id: string; name: string; amount: number }>;
   expensesList?: Array<{
     id: string;
     name: string;
@@ -87,6 +90,7 @@ export function BalanceApprovals() {
   const [showRejectDialog, setShowRejectDialog] = useState<Record<string, boolean>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [shiftSummaries, setShiftSummaries] = useState<Record<string, ShiftSummary>>({});
+  const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     // Cashiers should not see balance approval summaries
@@ -206,6 +210,64 @@ export function BalanceApprovals() {
 
   const formatPrice = (amount: number) => {
     return `KES ${amount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  };
+
+  const handleDownloadPDF = (requestId: string, startedAt?: number | null) => {
+    const el = cardRefs.current[requestId];
+    if (!el) return;
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!printWindow) return;
+    const html = el.innerHTML;
+    const dateStr = startedAt
+      ? new Date(startedAt * 1000).toLocaleString('en-KE', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      : new Date().toLocaleDateString('en-KE');
+    const title = `Closing Balance Approval - ${dateStr}`;
+    printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${title}</title>
+  <style>
+    @page { size: A4; margin: 12mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; color: #1e293b; background: white; line-height: 1.5; padding: 20px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    [data-pdf-hide] { display: none !important; }
+    .flex { display: flex; } .flex-col { flex-direction: column; } .flex-1 { flex: 1; } .items-center { align-items: center; } .items-start { align-items: start; } .justify-between { justify-content: space-between; }
+    .gap-1 { gap: 4px; } .gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .gap-4 { gap: 16px; }
+    .space-y-2 > * + * { margin-top: 8px; } .space-y-3 > * + * { margin-top: 12px; } .space-y-4 > * + * { margin-top: 16px; }
+    .p-3 { padding: 12px; } .p-4 { padding: 16px; } .p-5 { padding: 20px; } .px-2 { padding-left: 8px; padding-right: 8px; }
+    .mb-1 { margin-bottom: 4px; } .mb-2 { margin-bottom: 8px; } .mb-4 { margin-bottom: 16px; } .mt-1 { margin-top: 4px; } .mt-2 { margin-top: 8px; }
+    .text-xs { font-size: 11px; } .text-sm { font-size: 12px; } .text-lg { font-size: 18px; } .text-xl { font-size: 20px; } .text-2xl { font-size: 22px; }
+    .font-medium { font-weight: 500; } .font-semibold { font-weight: 600; } .font-bold { font-weight: 700; } .font-black { font-weight: 900; }
+    .rounded-lg { border-radius: 8px; } .rounded-xl { border-radius: 12px; }
+    .border { border: 1px solid #e2e8f0; } .border-2 { border: 2px solid #e2e8f0; } .border-t { border-top: 1px solid #e2e8f0; }
+    .bg-slate-50 { background: #f8fafc; } .bg-slate-800 { background: #1e293b; } .bg-white { background: white; }
+    .bg-green-50 { background: #f0fdf4; } .bg-green-100 { background: #dcfce7; } .bg-green-900\\/20 { background: rgba(22,163,74,0.1); }
+    .bg-blue-100 { background: #dbeafe; } .bg-blue-900\\/30 { background: rgba(37,99,235,0.3); }
+    .bg-red-50 { background: #fef2f2; } .bg-red-50\\/50 { background: rgba(254,242,242,0.5); } .bg-red-950\\/20 { background: rgba(127,29,29,0.1); }
+    .bg-amber-50 { background: #fffbeb; } .bg-amber-50\\/50 { background: rgba(255,251,235,0.5); } .bg-amber-950\\/20 { background: rgba(120,53,15,0.1); }
+    .text-slate-400 { color: #94a3b8; } .text-slate-500 { color: #64748b; } .text-slate-600 { color: #475569; } .text-slate-700 { color: #334155; } .text-slate-900 { color: #0f172a; }
+    .text-green-500 { color: #22c55e; } .text-green-600 { color: #16a34a; } .text-red-600 { color: #dc2626; } .text-blue-600 { color: #2563eb; }
+    .text-\\[\\#1c6a1e\\] { color: #1c6a1e; }
+    .bg-\\[\\#1c6a1e\\]\\/10 { background: rgba(28,106,30,0.1); } .bg-\\[\\#1c6a1e\\]\\/20 { background: rgba(28,106,30,0.2); }
+    .border-\\[\\#1c6a1e\\]\\/30 { border-color: rgba(28,106,30,0.3); }
+    .grid { display: grid; } .grid-cols-2 { grid-template-columns: repeat(2,1fr); } .grid-cols-3 { grid-template-columns: repeat(3,1fr); }
+    button { display: none; }
+  </style>
+</head>
+<body>
+  <h1 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">${title}</h1>
+  <div style="max-width: 600px;">${html}</div>
+  <script>window.onload=function(){setTimeout(function(){window.print();window.close();},300);};</script>
+</body>
+</html>`);
+    printWindow.document.close();
   };
 
   const getDenominationBreakdown = (request: BalanceApprovalRequestWithDetails) => {
@@ -389,10 +451,11 @@ export function BalanceApprovals() {
           const isExpanded = expandedId === request.id;
           const isOpening = request.balance_type === 'opening';
           const denomBreakdown = getDenominationBreakdown(request);
-          // For closing: use recalculated expected (includes split payments) when we have shift summary
+          // For closing: use recalculated expected (includes split payments + daily expenses) when we have shift summary
           const summary = shiftSummaries[request.id];
+          const dailyOpCost = summary?.dailyOperatingCost ?? 0;
           const recalculatedExpected = !isOpening && summary
-            ? (request.shift_opening_cash || 0) + summary.sales.total + summary.creditPayments.total - summary.cashExpenses.total
+            ? (request.shift_opening_cash || 0) + summary.sales.total + summary.creditPayments.total - summary.cashExpenses.total - dailyOpCost
             : null;
           const expectedForDiff = recalculatedExpected ?? request.expected_amount ?? 0;
           const hasExpected = (recalculatedExpected !== null || (request.expected_amount !== null && request.expected_amount !== undefined));
@@ -402,7 +465,10 @@ export function BalanceApprovals() {
             <Card key={request.id} className="bg-white dark:bg-[#1c2e18] border border-slate-200 dark:border-slate-800">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 space-y-3">
+                  <div
+                    ref={(el) => { cardRefs.current[request.id] = el; }}
+                    className="flex-1 space-y-3"
+                  >
                     <div className="flex items-center gap-3">
                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                         isOpening 
@@ -520,14 +586,46 @@ export function BalanceApprovals() {
                               )}
 
                               {shiftSummaries[request.id].cashExpenses.total > 0 && (
-                                <div className="flex justify-between text-sm">
-                                  <span className="text-slate-600 dark:text-slate-400 flex items-center gap-2">
-                                    <TrendingDown className="w-4 h-4 text-red-500" />
-                                    Cash Expenses ({shiftSummaries[request.id].cashExpenses.count}):
-                                  </span>
-                                  <span className="font-bold text-red-600">
-                                    - {formatPrice(shiftSummaries[request.id].cashExpenses.total)}
-                                  </span>
+                                <div className="space-y-1 p-3 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50">
+                                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                                    Cash out (withdrawals)
+                                  </p>
+                                  {(shiftSummaries[request.id].expensesList?.length ?? 0) > 0 ? (
+                                    <>
+                                      {shiftSummaries[request.id].expensesList!.map((e) => (
+                                        <div key={e.id} className="flex justify-between text-sm">
+                                          <span className="text-slate-700 dark:text-slate-300">{e.name}{e.notes ? ` — ${e.notes}` : ''}</span>
+                                          <span className="font-medium text-red-600">- {formatPrice(e.amount)}</span>
+                                        </div>
+                                      ))}
+                                      <div className="flex justify-between text-sm font-semibold pt-1 border-t border-amber-200 dark:border-amber-900/50 mt-1">
+                                        <span className="text-slate-600 dark:text-slate-400">Total:</span>
+                                        <span className="text-red-600">- {formatPrice(shiftSummaries[request.id].cashExpenses.total)}</span>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className="flex justify-between text-sm">
+                                      <span className="text-slate-600 dark:text-slate-400">Withdrawals:</span>
+                                      <span className="font-medium text-red-600">- {formatPrice(shiftSummaries[request.id].cashExpenses.total)}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {(shiftSummaries[request.id].dailyOperatingCost ?? 0) > 0 && (
+                                <div className="space-y-1 p-3 rounded-lg bg-red-50/50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50">
+                                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">
+                                    Daily expenses (lunch, etc.)
+                                  </p>
+                                  {shiftSummaries[request.id].dailyDrawerExpenses?.map((e) => (
+                                    <div key={e.id} className="flex justify-between text-sm">
+                                      <span className="text-slate-700 dark:text-slate-300">{e.name}</span>
+                                      <span className="font-medium text-red-600">- {formatPrice(e.amount)}</span>
+                                    </div>
+                                  ))}
+                                  <div className="flex justify-between text-sm font-semibold pt-1 border-t border-red-200 dark:border-red-900/50 mt-1">
+                                    <span className="text-slate-600 dark:text-slate-400">Total:</span>
+                                    <span className="text-red-600">- {formatPrice(shiftSummaries[request.id].dailyOperatingCost ?? 0)}</span>
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -591,6 +689,16 @@ export function BalanceApprovals() {
                                   - {formatPrice(shiftSummaries[request.id].cashExpenses.total)}
                                 </span>
                               </div>
+                              {(shiftSummaries[request.id].dailyOperatingCost ?? 0) > 0 && (
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-slate-600 dark:text-slate-400">
+                                    - Daily Expenses (lunch, etc.):
+                                  </span>
+                                  <span className="font-medium text-red-600">
+                                    - {formatPrice(shiftSummaries[request.id].dailyOperatingCost ?? 0)}
+                                  </span>
+                                </div>
+                              )}
                               <div className="border-t border-slate-300 dark:border-slate-600 pt-2 mt-2">
                                 <div className="flex justify-between items-center">
                                   <span className="font-bold text-slate-900 dark:text-white">
@@ -601,7 +709,7 @@ export function BalanceApprovals() {
                                   </span>
                                 </div>
                                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 italic">
-                                  Formula: Opening + Full Cash + Split Cash + Credit Payments - Expenses = Expected
+                                  Formula: Opening + Cash In − Withdrawals − Daily Expenses = Expected
                                 </p>
                               </div>
                             </div>
@@ -637,50 +745,6 @@ export function BalanceApprovals() {
                               </div>
                             </div>
 
-                           {/* Expenses List */}
-                           {(shiftSummaries[request.id]?.expensesList?.length ?? 0) > 0 && (
-                              <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800">
-                                <p className="text-sm font-semibold text-red-900 dark:text-red-100 mb-3 flex items-center gap-2">
-                                  <TrendingDown className="w-4 h-4" />
-                                  Expenses Generated During This Shift ({shiftSummaries[request.id]?.expensesList?.length})
-                                </p>
-                                <div className="space-y-2">
-                                  {shiftSummaries[request.id]?.expensesList?.map((expense) => (
-                                    <div
-                                      key={expense.id}
-                                      className="flex justify-between items-start p-2 bg-white dark:bg-slate-800 rounded border border-red-200 dark:border-red-800"
-                                    >
-                                      <div className="flex-1">
-                                        <p className="text-sm font-medium text-slate-900 dark:text-white">
-                                          {expense.name}
-                                        </p>
-                                        {expense.notes && (
-                                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                                            {expense.notes}
-                                          </p>
-                                        )}
-                                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                                          {formatDate(expense.created_at)} • {expense.category}
-                                        </p>
-                                      </div>
-                                      <p className="text-sm font-bold text-red-600 dark:text-red-400 ml-3">
-                                        - {formatPrice(expense.amount)}
-                                      </p>
-                                    </div>
-                                  ))}
-                                </div>
-                                <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-800">
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-sm font-semibold text-red-900 dark:text-red-100">
-                                      Total Expenses:
-                                    </span>
-                                    <span className="text-lg font-black text-red-600 dark:text-red-400">
-                                      {formatPrice(shiftSummaries[request.id].cashExpenses.total)}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
                           </>
                         )}
                       </div>
@@ -722,6 +786,8 @@ export function BalanceApprovals() {
                     {denomBreakdown.length > 0 && (
                       <div>
                         <button
+                          type="button"
+                          data-pdf-hide
                           onClick={() => setExpandedId(isExpanded ? null : request.id)}
                           className="text-sm text-[#1c6a1e] hover:underline flex items-center gap-1"
                         >
@@ -744,7 +810,7 @@ export function BalanceApprovals() {
                     )}
 
                     {showReject && (
-                      <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800">
+                      <div data-pdf-hide className="mt-4 p-4 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-200 dark:border-red-800">
                         <Label htmlFor={`reject-${request.id}`} className="text-sm font-semibold text-red-900 dark:text-red-100 mb-2 block">
                           Rejection Reason (Optional)
                         </Label>
@@ -808,6 +874,17 @@ export function BalanceApprovals() {
                         <XCircle className="w-4 h-4 mr-2" />
                         Reject
                       </Button>
+                      {!isOpening && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownloadPDF(request.id, request.shift_started_at)}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Download PDF
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>

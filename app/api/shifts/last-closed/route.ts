@@ -14,6 +14,7 @@ type LastClosedShift = {
   closing_denom_200: number;
   closing_denom_500: number;
   closing_denom_1000: number;
+  cash_difference: number | null;
 };
 
 export async function OPTIONS() {
@@ -25,15 +26,17 @@ export async function GET() {
     const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
 
+    // Last closed shift in the business (any user) - for deficit display and denomination prefill
     const shift = await queryOne<LastClosedShift>(
       `SELECT id,
         closing_denom_1, closing_denom_5, closing_denom_10, closing_denom_20, closing_denom_40,
-        closing_denom_50, closing_denom_100, closing_denom_200, closing_denom_500, closing_denom_1000
+        closing_denom_50, closing_denom_100, closing_denom_200, closing_denom_500, closing_denom_1000,
+        cash_difference
        FROM shifts
-       WHERE business_id = ? AND user_id = ? AND status = 'closed'
+       WHERE business_id = ? AND status = 'closed'
        ORDER BY ended_at DESC
        LIMIT 1`,
-      [auth.businessId, auth.userId]
+      [auth.businessId]
     );
 
     return jsonResponse({

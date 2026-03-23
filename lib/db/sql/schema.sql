@@ -435,6 +435,7 @@ CREATE TABLE IF NOT EXISTS expenses (
   start_date INTEGER NOT NULL,
   notes TEXT,
   active INTEGER NOT NULL DEFAULT 1,
+  include_in_drawer INTEGER NOT NULL DEFAULT 1,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   created_by TEXT,
   FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,

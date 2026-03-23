@@ -52,7 +52,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const { id } = await params;
     const body = await request.json();
-    const { name, category, amount, frequency, startDate, notes, active } = body;
+    const { name, category, amount, frequency, startDate, notes, active, includeInDrawer } = body;
 
     // Check expense exists
     const existingExpense = await queryOne<Expense>(
@@ -122,6 +122,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (active !== undefined) {
       updates.push('active = ?');
       values.push(active ? 1 : 0);
+    }
+
+    if (includeInDrawer !== undefined) {
+      updates.push('include_in_drawer = ?');
+      values.push(includeInDrawer ? 1 : 0);
     }
 
     if (updates.length === 0) {

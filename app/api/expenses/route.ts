@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
     if (isAuthResponse(auth)) return auth;
 
     const body = await request.json();
-    const { name, category, amount, frequency, startDate, notes } = body;
+    const { name, category, amount, frequency, startDate, notes, includeInDrawer } = body;
 
     if (!name || !category || !amount || !frequency) {
       return jsonResponse(
@@ -211,40 +211,90 @@ export async function POST(request: NextRequest) {
     
     console.log(`[Expenses API POST] hasCreatedByColumn: ${hasCreatedByColumn}, User role: ${auth.role}, User ID: ${auth.userId}`);
 
+    const includeInDrawerVal = includeInDrawer !== false ? 1 : 0;
+
     if (hasCreatedByColumn) {
-      await execute(
-        `INSERT INTO expenses (id, business_id, name, category, amount, frequency, start_date, notes, active, created_at, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-        [
-          expenseId,
-          auth.businessId,
-          name.trim(),
-          category as ExpenseCategory,
-          amount,
-          frequency as ExpenseFrequency,
-          expenseStartDate,
-          notes?.trim() || null,
-          now,
-          auth.userId,
-        ]
-      );
+      try {
+        await execute(
+          `INSERT INTO expenses (id, business_id, name, category, amount, frequency, start_date, notes, active, include_in_drawer, created_at, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+          [
+            expenseId,
+            auth.businessId,
+            name.trim(),
+            category as ExpenseCategory,
+            amount,
+            frequency as ExpenseFrequency,
+            expenseStartDate,
+            notes?.trim() || null,
+            includeInDrawerVal,
+            now,
+            auth.userId,
+          ]
+        );
+      } catch (insertError) {
+        // Fallback if include_in_drawer column doesn't exist yet
+        if (String(insertError).includes('include_in_drawer')) {
+          await execute(
+            `INSERT INTO expenses (id, business_id, name, category, amount, frequency, start_date, notes, active, created_at, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+            [
+              expenseId,
+              auth.businessId,
+              name.trim(),
+              category as ExpenseCategory,
+              amount,
+              frequency as ExpenseFrequency,
+              expenseStartDate,
+              notes?.trim() || null,
+              now,
+              auth.userId,
+            ]
+          );
+        } else {
+          throw insertError;
+        }
+      }
       console.log(`[Expenses API] Created expense ${expenseId} with created_by=${auth.userId} (role: ${auth.role})`);
     } else {
-      await execute(
-        `INSERT INTO expenses (id, business_id, name, category, amount, frequency, start_date, notes, active, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
-        [
-          expenseId,
-          auth.businessId,
-          name.trim(),
-          category as ExpenseCategory,
-          amount,
-          frequency as ExpenseFrequency,
-          expenseStartDate,
-          notes?.trim() || null,
-          now,
-        ]
-      );
+      try {
+        await execute(
+          `INSERT INTO expenses (id, business_id, name, category, amount, frequency, start_date, notes, active, include_in_drawer, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+          [
+            expenseId,
+            auth.businessId,
+            name.trim(),
+            category as ExpenseCategory,
+            amount,
+            frequency as ExpenseFrequency,
+            expenseStartDate,
+            notes?.trim() || null,
+            includeInDrawerVal,
+            now,
+          ]
+        );
+      } catch (insertError) {
+        if (String(insertError).includes('include_in_drawer')) {
+          await execute(
+            `INSERT INTO expenses (id, business_id, name, category, amount, frequency, start_date, notes, active, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+            [
+              expenseId,
+              auth.businessId,
+              name.trim(),
+              category as ExpenseCategory,
+              amount,
+              frequency as ExpenseFrequency,
+              expenseStartDate,
+              notes?.trim() || null,
+              now,
+            ]
+          );
+        } else {
+          throw insertError;
+        }
+      }
     }
 
     logActivity({

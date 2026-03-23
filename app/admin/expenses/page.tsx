@@ -54,6 +54,7 @@ interface Expense {
   notes: string | null;
   active: number;
   daily_cost: number;
+  include_in_drawer?: number; // 1 = in cash drawer, 0 = excluded
 }
 
 interface ExpenseSummary {
@@ -105,6 +106,7 @@ export default function ExpensesPage() {
     frequency: 'monthly' as ExpenseFrequency,
     startDate: new Date().toISOString().split('T')[0],
     notes: '',
+    includeInDrawer: true,
   });
 
   const fetchExpenses = async () => {
@@ -141,6 +143,7 @@ export default function ExpensesPage() {
       frequency: 'monthly',
       startDate: new Date().toISOString().split('T')[0],
       notes: '',
+      includeInDrawer: true,
     });
     setFormError('');
     setDrawerOpen(true);
@@ -157,6 +160,7 @@ export default function ExpensesPage() {
       frequency: expense.frequency,
       startDate: new Date(expense.start_date * 1000).toISOString().split('T')[0],
       notes: expense.notes || '',
+      includeInDrawer: (expense.include_in_drawer ?? 1) === 1,
     });
     setFormError('');
     setMenuOpenId(null);
@@ -184,6 +188,7 @@ export default function ExpensesPage() {
           frequency: formData.frequency,
           startDate: formData.startDate,
           notes: formData.notes || null,
+          includeInDrawer: formData.includeInDrawer,
         });
         if (result.success) {
           setDrawerOpen(false);
@@ -199,6 +204,7 @@ export default function ExpensesPage() {
           frequency: formData.frequency,
           startDate: formData.startDate,
           notes: formData.notes || null,
+          includeInDrawer: formData.includeInDrawer,
         });
         if (result.success) {
           setDrawerOpen(false);
@@ -305,6 +311,8 @@ export default function ExpensesPage() {
   const fixedExpenses = filteredExpenses.filter((e) => e.category === 'fixed' && e.active === 1);
   const variableExpenses = filteredExpenses.filter((e) => e.category === 'variable' && e.active === 1);
   const inactiveExpenses = filteredExpenses.filter((e) => e.active === 0);
+  // Always show actual daily expenses (ignore time/status filters)
+  const dailyDrawerExpenses = (data?.expenses ?? []).filter((e) => e.frequency === 'daily' && e.active === 1);
 
   return (
     <AdminLayout>
@@ -465,6 +473,61 @@ export default function ExpensesPage() {
                         <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(data.summary.weeklyOperatingCost)}</p>
                       </div>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Daily expenses (cash drawer) - admin can choose which to include */}
+              {!isCashier && dailyDrawerExpenses.length > 0 && (
+                <div className="space-y-3">
+                  <div className="pb-3 border-b-2 border-[#1c6a1e]/30">
+                    <div className="flex items-center gap-3 mb-1">
+                      <Wallet className="w-5 h-5 text-[#1c6a1e]" />
+                      <h2 className="text-lg font-black text-slate-900 dark:text-white">Daily expenses (cash drawer)</h2>
+                      <Badge variant="outline" className="border-[#1c6a1e]/50 bg-[#1c6a1e]/10 text-[#1c6a1e]">
+                        {dailyDrawerExpenses.filter((e) => (e.include_in_drawer ?? 1) === 1).length} in drawer
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      These are deducted from expected cash when closing a shift. Edit to exclude any.
+                    </p>
+                  </div>
+                  <div className="grid gap-3">
+                    {dailyDrawerExpenses.map((expense) => (
+                      <div
+                        key={expense.id}
+                        className="flex items-center justify-between gap-4 p-4 rounded-lg border-2 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="w-10 h-10 flex items-center justify-center bg-[#1c6a1e]/10 rounded-lg">
+                            <Wallet className="w-5 h-5 text-[#1c6a1e]" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900 dark:text-white">{expense.name}</p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400">
+                              {formatPrice(expense.amount)}/day
+                            </p>
+                          </div>
+                          <Badge
+                            variant={((expense.include_in_drawer ?? 1) === 1) ? 'default' : 'secondary'}
+                            className={((expense.include_in_drawer ?? 1) === 1)
+                              ? 'bg-[#1c6a1e]/20 text-[#1c6a1e] border-[#1c6a1e]/40'
+                              : 'bg-slate-200 dark:bg-slate-700 text-slate-500 border-slate-300'}
+                          >
+                            {((expense.include_in_drawer ?? 1) === 1) ? 'In drawer' : 'Excluded'}
+                          </Badge>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditDrawer(expense)}
+                          className="shrink-0"
+                        >
+                          <Pencil className="w-4 h-4 mr-1" />
+                          Edit
+                        </Button>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -712,6 +775,26 @@ export default function ExpensesPage() {
                   />
                 </div>
 
+                {formData.frequency === 'daily' && (
+                  <div className="flex items-start gap-3 p-4 rounded-lg border-2 border-[#1c6a1e]/30 bg-[#1c6a1e]/5">
+                    <input
+                      type="checkbox"
+                      id="include_in_drawer"
+                      checked={formData.includeInDrawer}
+                      onChange={(e) => setFormData({ ...formData, includeInDrawer: e.target.checked })}
+                      className="mt-1 w-4 h-4 rounded border-slate-300 text-[#1c6a1e focus:ring-[#1c6a1e]"
+                    />
+                    <div>
+                      <Label htmlFor="include_in_drawer" className="text-slate-700 dark:text-slate-300 font-bold cursor-pointer">
+                        Include in cash drawer
+                      </Label>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Deducted from expected cash when closing a shift. Uncheck to exclude (e.g. if paid separately).
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {formError && (
                   <div className="p-3 border-2 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm">
                     {formError}
@@ -802,6 +885,18 @@ function ExpenseCard({
               <Badge variant="outline" className="text-[9px] border-slate-300 dark:border-slate-600">
                 {FREQUENCY_LABELS[expense.frequency]}
               </Badge>
+              {expense.frequency === 'daily' && (
+                <Badge
+                  variant="outline"
+                  className={`text-[9px] ${
+                    (expense.include_in_drawer ?? 1) === 1
+                      ? 'border-[#1c6a1e]/50 bg-[#1c6a1e]/10 text-[#1c6a1e]'
+                      : 'border-slate-300 dark:border-slate-600 text-slate-500'
+                  }`}
+                >
+                  {(expense.include_in_drawer ?? 1) === 1 ? 'In drawer' : 'Excluded'}
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               {formatPrice(expense.amount)} {expense.frequency}

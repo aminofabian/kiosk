@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { execute, queryOne } from '@/lib/db';
+import { execute, query, queryOne } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
@@ -169,8 +169,19 @@ export async function POST(
         );
       }
 
-      // Calculate expected cash after expenses
-      const expectedAfterExpenses = shift.expected_closing_cash - (approvalRequest.cash_expenses || 0);
+      // Expected = opening+in - withdrawals - daily expenses
+      // Use expected_amount from request when provided (includes daily expenses); else recalc with daily
+      let expectedAfterExpenses: number;
+      if (approvalRequest.expected_amount != null) {
+        expectedAfterExpenses = approvalRequest.expected_amount;
+      } else {
+        const dailyRows = await query<{ amount: number }>(
+          `SELECT amount FROM expenses WHERE business_id = ? AND active = 1 AND frequency = 'daily' AND COALESCE(include_in_drawer, 1) = 1`,
+          [auth.businessId]
+        );
+        const dailyOperatingCost = dailyRows.reduce((s, r) => s + r.amount, 0);
+        expectedAfterExpenses = shift.expected_closing_cash - (approvalRequest.cash_expenses || 0) - dailyOperatingCost;
+      }
       const cashDifference = approvalRequest.amount - expectedAfterExpenses;
 
       // Close the shift

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -21,10 +21,14 @@ import {
   AlertCircle,
   Clock,
   Send,
+  Trash2,
+  Wallet,
+  Download,
 } from 'lucide-react';
 import type { Shift, BalanceApprovalRequest } from '@/lib/db/types';
-import { apiGet, apiPost } from '@/lib/utils/api-client';
+import { apiGet, apiPost, apiDelete } from '@/lib/utils/api-client';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { toast } from 'sonner';
 
 const DENOMINATIONS = [
   { value: 1000, label: '1000', icon: Banknote, color: 'bg-emerald-100 dark:bg-emerald-900 border-emerald-300' },
@@ -55,6 +59,8 @@ interface ShiftSummary {
   };
   creditPayments: { count: number; total: number };
   cashExpenses: { count: number; total: number };
+  dailyOperatingCost?: number;
+  dailyDrawerExpenses?: Array<{ id: string; name: string; amount: number }>;
 }
 
 interface CreateBalanceApprovalResponse {
@@ -75,23 +81,24 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
   const [pendingClosingCount, setPendingClosingCount] = useState(0);
   const [requiresApproval, setRequiresApproval] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [deletingExpenseId, setDeletingExpenseId] = useState<string | null>(null);
+  const closingBalanceRef = useRef<HTMLDivElement>(null);
 
   // Cashiers MUST submit for approval, admin/owner can close directly or submit for approval
   const isCashier = user?.role === 'cashier';
   const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner';
 
-  useEffect(() => {
-    async function fetchSalesSummary() {
-      try {
-        const result = await apiGet<ShiftSummary>(`/api/shifts/${shift.id}/summary`);
-        if (result.success) {
-          setSalesSummary(result.data ?? null);
-        }
-      } catch (err) {
-        console.error('Error fetching sales summary:', err);
-      }
+  const refetchSummary = async () => {
+    try {
+      const result = await apiGet<ShiftSummary>(`/api/shifts/${shift.id}/summary`);
+      if (result.success) setSalesSummary(result.data ?? null);
+    } catch (err) {
+      console.error('Error fetching shift summary:', err);
     }
+  };
 
+  useEffect(() => {
+    refetchSummary();
     async function checkPendingApproval() {
       try {
         const result = await apiGet<BalanceApprovalRequest[]>('/api/balance/approvals?status=pending');
@@ -104,13 +111,73 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
         console.error('Error checking pending approval:', err);
       }
     }
-
-    fetchSalesSummary();
     checkPendingApproval();
   }, [shift.id]);
 
+  const handleDeleteDailyExpense = async (expenseId: string) => {
+    if (!isAdminOrOwner) return;
+    setDeletingExpenseId(expenseId);
+    try {
+      const result = await apiDelete(`/api/expenses/${expenseId}`);
+      if (result.success) {
+        await refetchSummary();
+        toast.success('Expense deleted');
+      } else {
+        toast.error(result.message || 'Failed to delete expense');
+      }
+    } catch (err) {
+      console.error('Error deleting expense:', err);
+      toast.error('Failed to delete expense');
+    } finally {
+      setDeletingExpenseId(null);
+    }
+  };
+
   const formatPrice = (price: number) => {
     return `KES ${price.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  };
+
+  const handleDownloadPDF = () => {
+    if (!closingBalanceRef.current) return;
+    const printWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!printWindow) return;
+    const html = closingBalanceRef.current.innerHTML;
+    const title = `Cash Drawer Closing Balance - ${formatDate(shift.started_at)}`;
+    printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${title}</title>
+  <style>
+    @page { size: A4; margin: 12mm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; color: #1e293b; background: white; line-height: 1.5; padding: 20px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .print-hidden, button[type="button"]:has(svg), [data-pdf-hide] { display: none !important; }
+    .flex { display: flex; } .flex-col { flex-direction: column; } .items-center { align-items: center; } .justify-between { justify-content: space-between; }
+    .gap-2 { gap: 8px; } .gap-4 { gap: 16px; } .space-y-2 > * + * { margin-top: 8px; } .space-y-3 > * + * { margin-top: 12px; } .space-y-4 > * + * { margin-top: 16px; }
+    .p-3 { padding: 12px; } .p-4 { padding: 16px; } .px-2 { padding-left: 8px; padding-right: 8px; }
+    .mb-1 { margin-bottom: 4px; } .mb-2 { margin-bottom: 8px; } .mt-1 { margin-top: 4px; }
+    .text-xs { font-size: 11px; } .text-sm { font-size: 12px; } .text-lg { font-size: 18px; } .text-xl { font-size: 20px; }
+    .font-medium { font-weight: 500; } .font-semibold { font-weight: 600; } .font-bold { font-weight: 700; } .font-black { font-weight: 900; }
+    .rounded-lg { border-radius: 8px; } .rounded-xl { border-radius: 12px; }
+    .border { border: 1px solid #e2e8f0; } .border-2 { border: 2px solid #e2e8f0; }
+    .bg-slate-50 { background: #f8fafc; } .bg-slate-800 { background: #1e293b; }
+    .bg-green-50 { background: #f0fdf4; } .bg-green-900\\/20 { background: rgba(22,163,74,0.1); }
+    .bg-red-50 { background: #fef2f2; } .bg-red-950\\/20 { background: rgba(127,29,29,0.1); }
+    .bg-amber-50 { background: #fffbeb; } .bg-amber-950\\/20 { background: rgba(120,53,15,0.1); }
+    .text-slate-400 { color: #94a3b8; } .text-slate-600 { color: #475569; } .text-slate-700 { color: #334155; } .text-slate-900 { color: #0f172a; }
+    .text-green-600 { color: #16a34a; } .text-red-600 { color: #dc2626; }
+    .text-\\[\\#1c6a1e\\] { color: #1c6a1e; }
+    .bg-\\[\\#1c6a1e\\]\\/10 { background: rgba(28,106,30,0.1); } .border-\\[\\#1c6a1e\\]\\/20 { border-color: rgba(28,106,30,0.2); }
+  </style>
+</head>
+<body>
+  <h1 style="font-size: 18px; font-weight: 800; margin-bottom: 16px;">${title}</h1>
+  <div style="max-width: 600px;">${html}</div>
+  <script>window.onload=function(){setTimeout(function(){window.print();window.close();},300);};</script>
+</body>
+</html>`);
+    printWindow.document.close();
   };
 
   const formatDate = (timestamp: number) => {
@@ -131,15 +198,17 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
   }, [denominations]);
 
   // Calculate expected cash in drawer:
-  // Formula: Opening Cash + Cash Received - Cash Given Out = Expected Cash
+  // Formula: Opening Cash + Cash Received - Cash Given Out - Daily Expenses = Expected Cash
   // - Cash Received = Cash Sales + Cash Credit Payments
-  // - Cash Given Out = Cash Expenses/Withdrawals during shift
+  // - Cash Given Out = Cash Expenses/Withdrawals during shift (one-time)
+  // - Daily Expenses = Daily recurring expenses (e.g. lunch, petty cash) — not monthly rent
   const cashSales = salesSummary?.sales?.total || 0;
   const creditPayments = salesSummary?.creditPayments?.total || 0;
   const cashIn = cashSales + creditPayments; // Total cash received during shift
-  const cashExpenses = salesSummary?.cashExpenses?.total || 0; // Total cash given out (expenses/withdrawals)
+  const cashExpenses = salesSummary?.cashExpenses?.total || 0; // Cash withdrawals during shift
+  const dailyOperatingCost = salesSummary?.dailyOperatingCost ?? 0; // Daily operating expenses
   const expectedCashBeforeExpenses = shift.opening_cash + cashIn;
-  const expectedCashAfterExpenses = expectedCashBeforeExpenses - cashExpenses; // Final expected amount
+  const expectedCashAfterExpenses = expectedCashBeforeExpenses - cashExpenses - dailyOperatingCost;
   const cashDifference = totalCash - expectedCashAfterExpenses; // Actual vs Expected difference
 
   const updateDenomination = (value: number, count: number) => {
@@ -288,6 +357,19 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
   return (
     <div className="flex items-center justify-center min-h-full p-4 pb-24">
       <div className="w-full max-w-2xl space-y-4">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-lg font-semibold">Closing Balance</h2>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadPDF}
+            className="shrink-0"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Download PDF
+          </Button>
+        </div>
         {pendingClosingCount > 0 && (
           <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex items-start gap-2">
             <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
@@ -297,6 +379,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
             </p>
           </div>
         )}
+        <div ref={closingBalanceRef}>
         {/* Shift Summary - Simplified for cashiers, detailed for admin/owner */}
         {isCashier ? (
           <Card className="border-2 border-slate-200 dark:border-slate-700">
@@ -382,13 +465,82 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
                     )}
                     
                     {cashExpenses > 0 && (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground flex items-center gap-2">
-                          <TrendingDown className="w-4 h-4 text-red-500" />
-                          Cash Expenses ({salesSummary.cashExpenses?.count || 0}):
-                        </span>
-                        <span className="font-bold text-red-600">- {formatPrice(cashExpenses)}</span>
+                      <div className="space-y-1 p-3 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50">
+                        <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2 flex items-center gap-2">
+                          <TrendingDown className="w-3.5 h-3.5" />
+                          Cash out (withdrawals during shift)
+                        </p>
+                        {salesSummary.expensesList && salesSummary.expensesList.length > 0 ? (
+                          <>
+                            {salesSummary.expensesList.map((e) => (
+                              <div key={e.id} className="flex justify-between text-sm">
+                                <span className="text-slate-700 dark:text-slate-300">{e.name}{e.notes ? ` — ${e.notes}` : ''}</span>
+                                <span className="font-medium text-red-600">- {formatPrice(e.amount)}</span>
+                              </div>
+                            ))}
+                            <div className="flex justify-between text-sm font-semibold pt-1 border-t border-amber-200 dark:border-amber-900/50 mt-1">
+                              <span className="text-slate-600 dark:text-slate-400">Total:</span>
+                              <span className="text-red-600">- {formatPrice(cashExpenses)}</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-slate-600 dark:text-slate-400">Withdrawals:</span>
+                            <span className="font-medium text-red-600">- {formatPrice(cashExpenses)}</span>
+                          </div>
+                        )}
                       </div>
+                    )}
+                    {dailyOperatingCost > 0 && (
+                      <>
+                        {salesSummary.dailyDrawerExpenses && salesSummary.dailyDrawerExpenses.length > 0 && (
+                          <div className="space-y-2 p-3 rounded-lg bg-red-50/50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/50">
+                            <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2 flex items-center gap-2">
+                              <Wallet className="w-3.5 h-3.5" />
+                              Daily expenses (in drawer)
+                            </p>
+                            {salesSummary.dailyDrawerExpenses.map((e) => (
+                              <div key={e.id} className="flex items-center justify-between gap-2 text-sm">
+                                <span className="text-slate-700 dark:text-slate-300">{e.name}</span>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-red-600">- {formatPrice(e.amount)}</span>
+                                  {isAdminOrOwner && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      data-pdf-hide
+                                      className="h-7 w-7 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 shrink-0"
+                                      onClick={() => handleDeleteDailyExpense(e.id)}
+                                      disabled={deletingExpenseId === e.id}
+                                      title="Delete expense"
+                                    >
+                                      {deletingExpenseId === e.id ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                      ) : (
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      )}
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                            <div className="flex justify-between text-sm font-semibold pt-1 border-t border-red-200 dark:border-red-900/50 mt-1">
+                              <span className="text-slate-600 dark:text-slate-400">Total:</span>
+                              <span className="text-red-600">- {formatPrice(dailyOperatingCost)}</span>
+                            </div>
+                          </div>
+                        )}
+                        {(!salesSummary.dailyDrawerExpenses || salesSummary.dailyDrawerExpenses.length === 0) && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground flex items-center gap-2">
+                              <TrendingDown className="w-4 h-4 text-red-500" />
+                              Daily Expenses:
+                            </span>
+                            <span className="font-bold text-red-600">- {formatPrice(dailyOperatingCost)}</span>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                   <Separator />
@@ -438,11 +590,15 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">- Cash Given Out (Expenses/Withdrawals):</span>
-                  <span className="font-medium text-red-600">
-                    - {formatPrice(cashExpenses)}
-                  </span>
+                  <span className="text-muted-foreground">- Withdrawals (cash out):</span>
+                  <span className="font-medium text-red-600">- {formatPrice(cashExpenses)}</span>
                 </div>
+                {dailyOperatingCost > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">- Daily expenses:</span>
+                    <span className="font-medium text-red-600">- {formatPrice(dailyOperatingCost)}</span>
+                  </div>
+                )}
                 <Separator />
                 <div className="flex justify-between items-center">
                   <span className="font-bold text-slate-900 dark:text-white">Expected Cash in Drawer:</span>
@@ -451,7 +607,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 italic">
-                  Formula: Opening + Full Cash + Split Cash + Credit Payments - Expenses = Expected
+                  Formula: Opening + Cash In − Withdrawals − Daily Expenses = Expected
                 </p>
               </div>
             </CardContent>
@@ -593,7 +749,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
                   </div>
                 </div>
               ) : isAdminOrOwner ? (
-                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg space-y-3">
+                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg space-y-3" data-pdf-hide>
                   <Label className="text-sm font-medium flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
@@ -619,6 +775,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
 
               <Button
                 type="submit"
+                data-pdf-hide
                 size="touch"
                 disabled={isSubmitting || totalCash === 0}
                 className={`w-full font-bold ${
@@ -644,6 +801,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
             </form>
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );
