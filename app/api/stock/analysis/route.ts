@@ -69,6 +69,7 @@ export async function GET(request: NextRequest) {
               AND ib3.business_id = ib1.business_id
               AND ib3.received_at = ib1.received_at
           )
+        GROUP BY ib1.item_id
       ) first_batch ON i.id = first_batch.item_id
       LEFT JOIN (
         SELECT item_id, SUM(initial_quantity) as total_ever_stocked
@@ -92,6 +93,8 @@ export async function GET(request: NextRequest) {
       [auth.businessId, auth.businessId, auth.businessId]
     );
 
+    const saneQty = (q: number) => (typeof q === 'number' && q >= 0 && q <= 1e6) ? q : 0;
+
     // Calculate overall stock metrics
     let totalInitialStock = 0;
     let totalCurrentStock = 0;
@@ -103,27 +106,28 @@ export async function GET(request: NextRequest) {
     let stableItems = 0;
 
     const items = itemAnalysis.map((item) => {
-      const stockChange = item.current_stock - item.initial_stock;
-      const stockChangePercent = item.initial_stock > 0 
-        ? ((item.current_stock - item.initial_stock) / item.initial_stock) * 100
+      const initialStock = saneQty(item.initial_stock);
+      const stockChange = item.current_stock - initialStock;
+      const stockChangePercent = initialStock > 0 
+        ? ((item.current_stock - initialStock) / initialStock) * 100
         : (item.current_stock > 0 ? 100 : null);
       
-      const initialValue = item.initial_stock * item.current_sell_price;
+      const initialValue = initialStock * item.current_sell_price;
       const currentValue = item.current_stock * item.current_sell_price;
 
       let trend: 'growing' | 'shrinking' | 'stable' | 'new' = 'new';
       
-      if (item.initial_stock > 0) {
+      if (initialStock > 0) {
         itemsWithInitialData++;
-        totalInitialStock += item.initial_stock;
+        totalInitialStock += initialStock;
         totalCurrentStock += item.current_stock;
         totalInitialValue += initialValue;
         totalCurrentValue += currentValue;
 
-        if (item.current_stock > item.initial_stock) {
+        if (item.current_stock > initialStock) {
           trend = 'growing';
           growingItems++;
-        } else if (item.current_stock < item.initial_stock) {
+        } else if (item.current_stock < initialStock) {
           trend = 'shrinking';
           shrinkingItems++;
         } else {
@@ -142,7 +146,7 @@ export async function GET(request: NextRequest) {
         variantName: item.variant_name,
         unitType: item.unit_type,
         categoryName: item.category_name,
-        initialStock: item.initial_stock,
+        initialStock,
         currentStock: item.current_stock,
         stockChange,
         stockChangePercent,

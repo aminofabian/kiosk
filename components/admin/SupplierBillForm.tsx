@@ -43,6 +43,7 @@ import {
   Layers,
   Wallet,
   CircleCheck,
+  CalendarClock,
 } from 'lucide-react';
 import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/utils/api-client';
 import { getItemDisplayName } from '@/lib/utils';
@@ -92,6 +93,7 @@ interface BillLineItem {
   packagingUnitQty: string; // items per package as string for input (e.g., "18")
   itemId?: string; // linked product item ID (for stock updates)
   batchNumber?: string; // optional custom batch/lot number (e.g. TOM-20260308-01)
+  expiryDate?: string; // optional expiry date as YYYY-MM-DD string
   currentStock?: number; // current stock level (display only)
   unitType?: string; // e.g. kg, piece (display only)
   sellPrice?: number; // current sell price (display only)
@@ -141,7 +143,7 @@ interface SupplierBillDraft {
   supplierId: string;
   supplierName: string;
   supplierPhone: string;
-  lineItems: Pick<BillLineItem, 'id' | 'description' | 'quantity' | 'amount' | 'packages' | 'packagingUnitName' | 'packagingUnitQty' | 'itemId' | 'batchNumber' | 'currentStock' | 'unitType' | 'sellPrice' | 'showPackaging'>[];
+  lineItems: Pick<BillLineItem, 'id' | 'description' | 'quantity' | 'amount' | 'packages' | 'packagingUnitName' | 'packagingUnitQty' | 'itemId' | 'batchNumber' | 'expiryDate' | 'currentStock' | 'unitType' | 'sellPrice' | 'showPackaging'>[];
   dueDateTime: string;
   notes: string;
   useManualSupplier: boolean;
@@ -430,6 +432,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
         packagingUnitQty: item.packagingUnitQty,
         itemId: item.itemId,
         batchNumber: item.batchNumber,
+        expiryDate: item.expiryDate,
         currentStock: item.currentStock,
         unitType: item.unitType,
         sellPrice: item.sellPrice,
@@ -924,7 +927,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
     }
   };
 
-  const updateLineItem = (id: string, field: 'description' | 'quantity' | 'amount' | 'packages' | 'packagingUnitName' | 'packagingUnitQty' | 'batchNumber', value: string) => {
+  const updateLineItem = (id: string, field: 'description' | 'quantity' | 'amount' | 'packages' | 'packagingUnitName' | 'packagingUnitQty' | 'batchNumber' | 'expiryDate', value: string) => {
     setLineItems(
       lineItems.map((item) => {
         if (item.id !== id) return item;
@@ -1088,6 +1091,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
             quantity: parseFloat(item.quantity),
             costPricePerUnit: parseFloat(item.amount),
             batchNumber: item.batchNumber?.trim() || undefined,
+            expiryDate: item.expiryDate ? Math.floor(new Date(item.expiryDate).getTime() / 1000) : undefined,
           }));
 
         const result = await apiPost('/api/supplier-bills', {
@@ -1783,14 +1787,14 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
                         {/* Meta row for linked items */}
                         {item.itemId && (
                           <div className="flex flex-wrap items-center gap-3 mt-0.5 ml-4">
-                            <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 h-6 rounded-md border border-emerald-200/80 dark:border-emerald-900/50 bg-white/80 dark:bg-slate-900/70 px-2">
                               <Layers className="w-2.5 h-2.5 text-[#1c6a1e] dark:text-emerald-400 shrink-0 -mt-px" />
                               <Input
                                 type="text"
                                 value={item.batchNumber ?? ''}
                                 onChange={(e) => updateLineItem(item.id, 'batchNumber', e.target.value)}
                                 placeholder={batchNumberMap[item.id] || 'e.g. CADBU-001'}
-                                className="h-6 w-28 text-[10px] font-mono border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 placeholder:text-slate-400"
+                                className="h-6 w-28 text-[10px] font-mono bg-transparent border-0 focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:outline-none placeholder:text-slate-400"
                               />
                               <Button
                                 type="button"
@@ -1803,6 +1807,16 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
                               >
                                 {fillingBatchFor === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Fill'}
                               </Button>
+                            </div>
+                            <div className="flex items-center gap-1.5 h-6 rounded-md border border-amber-200/80 dark:border-amber-900/50 bg-white/80 dark:bg-slate-900/70 px-2">
+                              <CalendarClock className="w-2.5 h-2.5 text-amber-500 dark:text-amber-400 shrink-0 -mt-px" />
+                              <Input
+                                type="date"
+                                value={item.expiryDate ?? ''}
+                                onChange={(e) => updateLineItem(item.id, 'expiryDate', e.target.value)}
+                                className="h-6 w-32 text-[10px] bg-transparent border-0 focus-visible:ring-2 focus-visible:ring-amber-500/30 focus-visible:outline-none placeholder:text-slate-400"
+                                title="Expiry date (optional)"
+                              />
                             </div>
                             <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
                               <Warehouse className="w-2.5 h-2.5 inline mr-0.5 -mt-px" />
@@ -2031,14 +2045,14 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
                     {/* Mobile meta */}
                     {item.itemId && (
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]">
-                        <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                        <div className="flex items-center gap-1.5 w-full sm:w-auto rounded-md border border-emerald-200/80 dark:border-emerald-900/50 bg-white/80 dark:bg-slate-900/70 h-6 px-2">
                           <Layers className="w-2.5 h-2.5 text-[#1c6a1e] dark:text-emerald-400 shrink-0" />
                           <Input
                             type="text"
                             value={item.batchNumber ?? ''}
                             onChange={(e) => updateLineItem(item.id, 'batchNumber', e.target.value)}
                             placeholder={batchNumberMap[item.id] || 'Lot (optional)'}
-                            className="h-6 flex-1 min-w-0 max-w-32 text-[10px] font-mono border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 placeholder:text-slate-400"
+                            className="h-6 flex-1 min-w-0 max-w-32 text-[10px] font-mono bg-transparent border-0 focus-visible:ring-2 focus-visible:ring-emerald-500/30 focus-visible:outline-none placeholder:text-slate-400"
                           />
                           <Button
                             type="button"
@@ -2051,6 +2065,16 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
                           >
                             {fillingBatchFor === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Fill'}
                           </Button>
+                        </div>
+                        <div className="flex items-center gap-1.5 w-full sm:w-auto rounded-md border border-amber-200/80 dark:border-amber-900/50 bg-white/80 dark:bg-slate-900/70 h-6 px-2">
+                          <CalendarClock className="w-2.5 h-2.5 text-amber-500 dark:text-amber-400 shrink-0" />
+                          <Input
+                            type="date"
+                            value={item.expiryDate ?? ''}
+                            onChange={(e) => updateLineItem(item.id, 'expiryDate', e.target.value)}
+                            className="h-6 flex-1 min-w-0 max-w-36 text-[10px] bg-transparent border-0 focus-visible:ring-2 focus-visible:ring-amber-500/30 focus-visible:outline-none placeholder:text-slate-400"
+                            title="Expiry date (optional)"
+                          />
                         </div>
                         <span className="text-blue-600 dark:text-blue-400 font-medium">
                           <Warehouse className="w-2.5 h-2.5 inline mr-0.5 -mt-px" />

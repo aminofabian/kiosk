@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { AdminLayout } from '@/components/layouts/admin-layout';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,16 +27,18 @@ import {
   TrendingDown,
   Building2,
   Zap,
-  Calendar,
   Pencil,
   Trash2,
   MoreVertical,
   X,
-  DollarSign,
-  Target,
   AlertTriangle,
   Wallet,
-  ArrowRight,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  ArrowDownWideNarrow,
+  Clock,
+  Sparkles,
 } from 'lucide-react';
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/utils/api-client';
 import type { ExpenseCategory, ExpenseFrequency } from '@/lib/db/types';
@@ -54,7 +55,8 @@ interface Expense {
   notes: string | null;
   active: number;
   daily_cost: number;
-  include_in_drawer?: number; // 1 = in cash drawer, 0 = excluded
+  include_in_drawer?: number;
+  created_at: number;
 }
 
 interface ExpenseSummary {
@@ -73,6 +75,58 @@ interface ExpenseData {
 }
 
 type DrawerMode = 'create' | 'edit';
+type TabFilter = 'all' | 'fixed' | 'variable';
+type TimePeriod = 'today' | 'yesterday' | '3days' | 'week' | 'month' | 'all';
+
+const TIME_PERIOD_CONFIG: { key: TimePeriod; label: string; shortLabel: string }[] = [
+  { key: 'today', label: 'Today', shortLabel: 'Today' },
+  { key: 'yesterday', label: 'Yesterday', shortLabel: 'Yest.' },
+  { key: '3days', label: 'Past 3 Days', shortLabel: '3 Days' },
+  { key: 'week', label: 'This Week', shortLabel: 'Week' },
+  { key: 'month', label: 'This Month', shortLabel: 'Month' },
+  { key: 'all', label: 'All Time', shortLabel: 'All' },
+];
+
+function getTimeBoundary(period: TimePeriod): number {
+  const now = new Date();
+  switch (period) {
+    case 'today': {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      return Math.floor(start.getTime() / 1000);
+    }
+    case 'yesterday': {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      return Math.floor(start.getTime() / 1000);
+    }
+    case '3days': {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2);
+      return Math.floor(start.getTime() / 1000);
+    }
+    case 'week': {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+      return Math.floor(start.getTime() / 1000);
+    }
+    case 'month': {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      return Math.floor(start.getTime() / 1000);
+    }
+    case 'all':
+      return 0;
+  }
+}
+
+function formatRelativeTime(unixTs: number): string {
+  const now = Math.floor(Date.now() / 1000);
+  const diff = now - unixTs;
+
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 172800) return 'yesterday';
+  if (diff < 604800) return `${Math.floor(diff / 86400)} days ago`;
+  const date = new Date(unixTs * 1000);
+  return date.toLocaleDateString('en-KE', { day: 'numeric', month: 'short' });
+}
 
 const FREQUENCY_LABELS: Record<ExpenseFrequency, string> = {
   daily: 'Daily',
@@ -82,9 +136,12 @@ const FREQUENCY_LABELS: Record<ExpenseFrequency, string> = {
   'one-time': 'One-Time',
 };
 
-const CATEGORY_LABELS: Record<ExpenseCategory, string> = {
-  fixed: 'Fixed',
-  variable: 'Variable',
+const FREQUENCY_SHORTHAND: Record<ExpenseFrequency, string> = {
+  daily: '/day',
+  weekly: '/wk',
+  monthly: '/mo',
+  yearly: '/yr',
+  'one-time': 'once',
 };
 
 export default function ExpensesPage() {
@@ -99,6 +156,12 @@ export default function ExpensesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [tabFilter, setTabFilter] = useState<TabFilter>('all');
+  const [showInactive, setShowInactive] = useState(false);
+  const [timePeriod, setTimePeriod] = useState<TimePeriod>('today');
+
   const [formData, setFormData] = useState({
     name: '',
     category: 'fixed' as ExpenseCategory,
@@ -133,6 +196,55 @@ export default function ExpensesPage() {
     return `KES ${price.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
   };
 
+  const formatCompact = (price: number) => {
+    if (price >= 1000) {
+      return `KES ${(price / 1000).toFixed(price % 1000 === 0 ? 0 : 1)}k`;
+    }
+    return `KES ${price.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  };
+
+  // Filtered & sorted expenses
+  const { activeExpenses, inactiveExpenses, drawerExpenses, recentlyAdded, recentCounts } = useMemo(() => {
+    if (!data) return { activeExpenses: [], inactiveExpenses: [], drawerExpenses: [], recentlyAdded: [], recentCounts: {} as Record<TimePeriod, number> };
+
+    const active = data.expenses
+      .filter((e) => e.active === 1)
+      .filter((e) => {
+        if (tabFilter === 'fixed') return e.category === 'fixed';
+        if (tabFilter === 'variable') return e.category === 'variable';
+        return true;
+      })
+      .filter((e) => {
+        if (!searchQuery) return true;
+        return e.name.toLowerCase().includes(searchQuery.toLowerCase());
+      })
+      .sort((a, b) => b.daily_cost - a.daily_cost);
+
+    const inactive = data.expenses
+      .filter((e) => e.active === 0)
+      .filter((e) => {
+        if (!searchQuery) return true;
+        return e.name.toLowerCase().includes(searchQuery.toLowerCase());
+      });
+
+    const drawer = data.expenses.filter(
+      (e) => e.frequency === 'daily' && e.active === 1 && (e.include_in_drawer ?? 1) === 1
+    );
+
+    const boundary = getTimeBoundary(timePeriod);
+    const recent = data.expenses
+      .filter((e) => e.created_at >= boundary)
+      .sort((a, b) => b.created_at - a.created_at);
+
+    const counts = {} as Record<TimePeriod, number>;
+    for (const p of TIME_PERIOD_CONFIG) {
+      const b = getTimeBoundary(p.key);
+      counts[p.key] = data.expenses.filter((e) => e.created_at >= b).length;
+    }
+
+    return { activeExpenses: active, inactiveExpenses: inactive, drawerExpenses: drawer, recentlyAdded: recent, recentCounts: counts };
+  }, [data, tabFilter, searchQuery, timePeriod]);
+
   const openCreateDrawer = () => {
     setDrawerMode('create');
     setSelectedExpense(null);
@@ -150,7 +262,7 @@ export default function ExpensesPage() {
   };
 
   const openEditDrawer = (expense: Expense) => {
-    if (isCashier) return; // Cashiers cannot edit expenses
+    if (isCashier) return;
     setDrawerMode('edit');
     setSelectedExpense(expense);
     setFormData({
@@ -224,13 +336,11 @@ export default function ExpensesPage() {
     setMenuOpenId(null);
     try {
       const result = await apiPut(`/api/expenses/${expense.id}`, {
-        active: expense.active === 1 ? false : true,
+        active: expense.active !== 1,
       });
-      if (result.success) {
-        fetchExpenses();
-      }
+      if (result.success) fetchExpenses();
     } catch {
-      // Handle error silently
+      /* handled silently */
     }
   };
 
@@ -257,143 +367,44 @@ export default function ExpensesPage() {
     });
   };
 
-  const [timeFilter, setTimeFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-
-  // Helper function to check if expense is within time range
-  const isWithinTimeRange = (expense: Expense, range: string): boolean => {
-    if (range === 'all') return true;
-    
-    const now = Math.floor(Date.now() / 1000);
-    const expenseDate = expense.start_date;
-    const daysDiff = Math.floor((now - expenseDate) / (24 * 60 * 60));
-    
-    switch (range) {
-      case 'today':
-        return daysDiff === 0;
-      case '3days':
-        return daysDiff <= 3;
-      case 'week':
-        return daysDiff <= 7;
-      case 'month':
-        return daysDiff <= 30;
-      default:
-        return true;
-    }
-  };
-
-  // Helper function to check if expense matches status filter
-  const matchesStatusFilter = (expense: Expense, status: string): boolean => {
-    if (status === 'all') return true;
-    
-    switch (status) {
-      case 'active':
-        return expense.active === 1;
-      case 'inactive':
-        return expense.active === 0;
-      case 'urgent':
-        // Urgent: high daily cost (> 1000) or one-time expenses
-        return expense.daily_cost > 1000 || expense.frequency === 'one-time';
-      case 'recurring':
-        return expense.frequency !== 'one-time' && expense.active === 1;
-      case 'one-time':
-        return expense.frequency === 'one-time';
-      default:
-        return true;
-    }
-  };
-
-  // Apply filters
-  const filteredExpenses = data?.expenses.filter((e) => 
-    isWithinTimeRange(e, timeFilter) && matchesStatusFilter(e, statusFilter)
-  ) || [];
-
-  const fixedExpenses = filteredExpenses.filter((e) => e.category === 'fixed' && e.active === 1);
-  const variableExpenses = filteredExpenses.filter((e) => e.category === 'variable' && e.active === 1);
-  const inactiveExpenses = filteredExpenses.filter((e) => e.active === 0);
-  // Always show actual daily expenses (ignore time/status filters)
-  const dailyDrawerExpenses = (data?.expenses ?? []).filter((e) => e.frequency === 'daily' && e.active === 1);
+  const fixedPct = data && data.summary.dailyOperatingCost > 0
+    ? Math.round((data.summary.fixedDailyCost / data.summary.dailyOperatingCost) * 100)
+    : 0;
+  const variablePct = 100 - fixedPct;
 
   return (
     <AdminLayout>
       <div className="min-h-screen">
-        {/* Header */}
+        {/* ── Header ── */}
         <div className="sticky top-0 z-10 bg-white/95 dark:bg-[#0f1a0d]/95 backdrop-blur-lg border-b-2 border-slate-200 dark:border-slate-800">
           <div className="px-4 md:px-6 py-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-[#1c6a1e] flex items-center justify-center">
                   <Receipt className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white">Operating Expenses</h1>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Track your daily cost of running the business</p>
+                  <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white">Expenses</h1>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Your cost of doing business
+                  </p>
                 </div>
               </div>
-              <Button
-                onClick={openCreateDrawer}
-                className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white rounded-lg"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Expense
-              </Button>
-            </div>
-            
-            {/* Filters */}
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-slate-500" />
-                <Select value={timeFilter} onValueChange={setTimeFilter}>
-                  <SelectTrigger className="w-[140px] h-9 border-2 border-slate-200 dark:border-slate-700">
-                    <SelectValue placeholder="Time period" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Time</SelectItem>
-                    <SelectItem value="today">Today</SelectItem>
-                    <SelectItem value="3days">Past 3 Days</SelectItem>
-                    <SelectItem value="week">This Week</SelectItem>
-                    <SelectItem value="month">This Month</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <Target className="w-4 h-4 text-slate-500" />
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[140px] h-9 border-2 border-slate-200 dark:border-slate-700">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
-                    <SelectItem value="urgent">Urgent</SelectItem>
-                    <SelectItem value="recurring">Recurring</SelectItem>
-                    <SelectItem value="one-time">One-Time</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              {(timeFilter !== 'all' || statusFilter !== 'all') && (
+              {!isCashier && (
                 <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setTimeFilter('all');
-                    setStatusFilter('all');
-                  }}
-                  className="h-9"
+                  onClick={openCreateDrawer}
+                  className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white rounded-lg"
                 >
-                  <X className="w-4 h-4 mr-1" />
-                  Clear Filters
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Expense
                 </Button>
               )}
             </div>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="p-4 md:p-6 pb-24 md:pb-6 max-w-7xl mx-auto">
+        {/* ── Content ── */}
+        <div className="p-4 md:p-6 pb-24 md:pb-6 max-w-5xl mx-auto">
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-center space-y-4">
@@ -410,233 +421,424 @@ export default function ExpensesPage() {
               </div>
             </div>
           ) : data && (
-            <div className="space-y-5">
-              {/* Summary Cards - Hidden for cashiers */}
+            <div className="space-y-6">
+
+              {/* ═══════════════════════════════════════════
+                  SECTION 1 — The Survival Number
+                  "How much does it cost me to keep the doors open?"
+                  ═══════════════════════════════════════════ */}
               {!isCashier && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Daily Operating Cost - THE KEY NUMBER */}
-                  <div className="border-2 border-[#1c6a1e] bg-[#1c6a1e] p-3.5 md:col-span-1">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="w-10 h-10 bg-white/20 flex items-center justify-center">
-                        <Target className="w-5 h-5 text-white" />
-                      </div>
-                      <Badge className="bg-white/20 text-white border-0 text-[9px]">
-                        Survival Rate
-                      </Badge>
-                    </div>
-                    <p className="text-white/80 text-[9px] font-bold uppercase tracking-wide mb-1">Daily Operating Cost</p>
-                    <p className="text-xl font-black text-white mb-1">{formatPrice(data.summary.dailyOperatingCost)}</p>
-                    <p className="text-white/70 text-[10px]">
-                      You must make at least this much profit daily to survive
+                <div className="border-2 border-[#1c6a1e] bg-[#1c6a1e] p-5">
+                  <p className="text-white/70 text-[10px] font-bold uppercase tracking-widest mb-1">
+                    Daily Operating Cost
+                  </p>
+                  <div className="flex items-end gap-4 flex-wrap">
+                    <p className="text-3xl md:text-4xl font-black text-white leading-none">
+                      {formatPrice(data.summary.dailyOperatingCost)}
                     </p>
+                    <p className="text-white/60 text-sm font-medium pb-0.5">per day</p>
                   </div>
+                  <p className="text-white/50 text-xs mt-2 max-w-md">
+                    You need at least this much in daily profit to break even.
+                  </p>
 
-                  {/* Fixed vs Variable Split */}
-                  <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
-                    <div className="flex items-center gap-3 mb-3 pb-3 border-b-2 border-slate-200 dark:border-slate-700">
-                      <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                        <Building2 className="w-4 h-4 text-[#1c6a1e]" />
-                      </div>
-                      <div>
-                        <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Fixed Costs</p>
-                        <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(data.summary.fixedDailyCost)}/day</p>
-                      </div>
+                  {/* Weekly / Monthly on the same row */}
+                  <div className="flex gap-6 mt-4 pt-4 border-t border-white/20">
+                    <div>
+                      <p className="text-white/50 text-[10px] font-bold uppercase tracking-wide">Weekly</p>
+                      <p className="text-lg font-black text-white">{formatCompact(data.summary.weeklyOperatingCost)}</p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                        <Zap className="w-4 h-4 text-[#1c6a1e]" />
-                      </div>
-                      <div>
-                        <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Variable Costs</p>
-                        <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(data.summary.variableDailyCost)}/day</p>
-                      </div>
+                    <div>
+                      <p className="text-white/50 text-[10px] font-bold uppercase tracking-wide">Monthly</p>
+                      <p className="text-lg font-black text-white">{formatCompact(data.summary.monthlyOperatingCost)}</p>
+                    </div>
+                    <div className="ml-auto text-right">
+                      <p className="text-white/50 text-[10px] font-bold uppercase tracking-wide">Active</p>
+                      <p className="text-lg font-black text-white">{data.summary.activeCount} <span className="text-sm font-medium text-white/50">expenses</span></p>
                     </div>
                   </div>
+                </div>
+              )}
 
-                  {/* Monthly Projection */}
-                  <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3.5">
-                    <div className="flex items-center gap-3 mb-3 pb-3 border-b-2 border-slate-200 dark:border-slate-700">
-                      <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                        <Calendar className="w-4 h-4 text-[#1c6a1e]" />
-                      </div>
-                      <div>
-                        <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Monthly Total</p>
-                        <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(data.summary.monthlyOperatingCost)}</p>
-                      </div>
+              {/* ═══════════════════════════════════════════
+                  SECTION 2 — Fixed vs Variable Breakdown
+                  Visual bar + numbers so you see where money goes
+                  ═══════════════════════════════════════════ */}
+              {!isCashier && data.summary.dailyOperatingCost > 0 && (
+                <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-3">
+                    Cost Breakdown
+                  </p>
+
+                  {/* Visual bar */}
+                  <div className="flex h-3 rounded-full overflow-hidden mb-3">
+                    {fixedPct > 0 && (
+                      <div
+                        className="bg-[#1c6a1e] transition-all duration-500"
+                        style={{ width: `${fixedPct}%` }}
+                      />
+                    )}
+                    {variablePct > 0 && (
+                      <div
+                        className="bg-emerald-300 dark:bg-emerald-500 transition-all duration-500"
+                        style={{ width: `${variablePct}%` }}
+                      />
+                    )}
+                  </div>
+
+                  {/* Legend row */}
+                  <div className="flex items-center justify-between gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-sm bg-[#1c6a1e]" />
+                      <span className="font-bold text-slate-700 dark:text-slate-300">Fixed</span>
+                      <span className="text-slate-500 dark:text-slate-400">
+                        {formatCompact(data.summary.fixedDailyCost)}/day
+                      </span>
+                      <span className="text-slate-400 dark:text-slate-500 text-xs">({fixedPct}%)</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-slate-100 dark:bg-slate-700 flex items-center justify-center">
-                        <Wallet className="w-4 h-4 text-[#1c6a1e]" />
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-sm bg-emerald-300 dark:bg-emerald-500" />
+                      <span className="font-bold text-slate-700 dark:text-slate-300">Variable</span>
+                      <span className="text-slate-500 dark:text-slate-400">
+                        {formatCompact(data.summary.variableDailyCost)}/day
+                      </span>
+                      <span className="text-slate-400 dark:text-slate-500 text-xs">({variablePct}%)</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ═══════════════════════════════════════════
+                  SECTION 3 — Cash Drawer Deductions
+                  Quick glance: what gets pulled from the register
+                  ═══════════════════════════════════════════ */}
+              {!isCashier && drawerExpenses.length > 0 && (
+                <div className="border-2 border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-4">
+                  <div className="flex items-start gap-3">
+                    <Wallet className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <p className="font-bold text-amber-900 dark:text-amber-200 text-sm">
+                          Cash Drawer Deductions
+                        </p>
+                        <p className="font-black text-amber-900 dark:text-amber-200">
+                          {formatPrice(drawerExpenses.reduce((sum, e) => sum + e.amount, 0))}/day
+                        </p>
                       </div>
-                      <div>
-                        <p className="text-[9px] text-slate-500 dark:text-slate-400 uppercase font-bold">Weekly Total</p>
-                        <p className="text-lg font-black text-slate-900 dark:text-white">{formatPrice(data.summary.weeklyOperatingCost)}</p>
+                      <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+                        Deducted from expected cash at shift close:
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {drawerExpenses.map((e) => (
+                          <Badge
+                            key={e.id}
+                            variant="outline"
+                            className="border-amber-400 dark:border-amber-600 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 text-xs"
+                          >
+                            {e.name} &middot; {formatPrice(e.amount)}
+                          </Badge>
+                        ))}
                       </div>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Daily expenses (cash drawer) - admin can choose which to include */}
-              {!isCashier && dailyDrawerExpenses.length > 0 && (
-                <div className="space-y-3">
-                  <div className="pb-3 border-b-2 border-[#1c6a1e]/30">
-                    <div className="flex items-center gap-3 mb-1">
-                      <Wallet className="w-5 h-5 text-[#1c6a1e]" />
-                      <h2 className="text-lg font-black text-slate-900 dark:text-white">Daily expenses (cash drawer)</h2>
-                      <Badge variant="outline" className="border-[#1c6a1e]/50 bg-[#1c6a1e]/10 text-[#1c6a1e]">
-                        {dailyDrawerExpenses.filter((e) => (e.include_in_drawer ?? 1) === 1).length} in drawer
-                      </Badge>
+              {/* ═══════════════════════════════════════════
+                  SECTION 4 — Recently Added Timeline
+                  "What expenses were added today / this week?"
+                  ═══════════════════════════════════════════ */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <Clock className="w-4 h-4 text-[#1c6a1e]" />
+                  <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wide">
+                    Recently Added
+                  </h2>
+                </div>
+
+                {/* Time period pills */}
+                <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+                  {TIME_PERIOD_CONFIG.map((p) => {
+                    const count = recentCounts[p.key] ?? 0;
+                    const isActive = timePeriod === p.key;
+                    return (
+                      <button
+                        key={p.key}
+                        onClick={() => setTimePeriod(p.key)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                          isActive
+                            ? 'bg-[#1c6a1e] text-white shadow-sm'
+                            : count > 0
+                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                              : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        <span className="hidden sm:inline">{p.label}</span>
+                        <span className="sm:hidden">{p.shortLabel}</span>
+                        {count > 0 && (
+                          <span className={`min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-black ${
+                            isActive
+                              ? 'bg-white/25 text-white'
+                              : 'bg-[#1c6a1e]/10 text-[#1c6a1e]'
+                          }`}>
+                            {count}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Recently added results */}
+                {recentlyAdded.length > 0 ? (
+                  <div className="space-y-2">
+                    {/* Summary line */}
+                    <div className="flex items-center justify-between px-1">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        <span className="font-bold text-slate-700 dark:text-slate-300">{recentlyAdded.length}</span>
+                        {' '}expense{recentlyAdded.length !== 1 ? 's' : ''} added{' '}
+                        <span className="font-medium">{timePeriod === 'all' ? 'total' : TIME_PERIOD_CONFIG.find(p => p.key === timePeriod)?.label.toLowerCase()}</span>
+                      </p>
+                      {timePeriod !== 'all' && (() => {
+                        const recentDailyCost = recentlyAdded
+                          .filter((e) => e.active === 1 && e.frequency !== 'one-time')
+                          .reduce((sum, e) => sum + e.daily_cost, 0);
+                        if (recentDailyCost > 0) {
+                          return (
+                            <p className="text-xs font-bold text-[#1c6a1e]">
+                              +{formatPrice(recentDailyCost)}/day impact
+                            </p>
+                          );
+                        }
+                        return null;
+                      })()}
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      These are deducted from expected cash when closing a shift. Edit to exclude any.
-                    </p>
-                  </div>
-                  <div className="grid gap-3">
-                    {dailyDrawerExpenses.map((expense) => (
+
+                    {/* Recent expense cards */}
+                    {recentlyAdded.map((expense) => (
                       <div
                         key={expense.id}
-                        className="flex items-center justify-between gap-4 p-4 rounded-lg border-2 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                        className="flex items-center gap-3 p-3 border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 transition-colors cursor-pointer"
+                        onClick={() => !isCashier && openEditDrawer(expense)}
                       >
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="w-10 h-10 flex items-center justify-center bg-[#1c6a1e]/10 rounded-lg">
-                            <Wallet className="w-5 h-5 text-[#1c6a1e]" />
-                          </div>
-                          <div>
-                            <p className="font-bold text-slate-900 dark:text-white">{expense.name}</p>
-                            <p className="text-sm text-slate-500 dark:text-slate-400">
-                              {formatPrice(expense.amount)}/day
-                            </p>
-                          </div>
-                          <Badge
-                            variant={((expense.include_in_drawer ?? 1) === 1) ? 'default' : 'secondary'}
-                            className={((expense.include_in_drawer ?? 1) === 1)
-                              ? 'bg-[#1c6a1e]/20 text-[#1c6a1e] border-[#1c6a1e]/40'
-                              : 'bg-slate-200 dark:bg-slate-700 text-slate-500 border-slate-300'}
-                          >
-                            {((expense.include_in_drawer ?? 1) === 1) ? 'In drawer' : 'Excluded'}
-                          </Badge>
+                        <div className={`w-8 h-8 flex items-center justify-center flex-shrink-0 rounded ${
+                          expense.category === 'fixed'
+                            ? 'bg-slate-100 dark:bg-slate-700'
+                            : 'bg-emerald-50 dark:bg-emerald-900/30'
+                        }`}>
+                          {expense.category === 'fixed' ? (
+                            <Building2 className="w-3.5 h-3.5 text-[#1c6a1e]" />
+                          ) : (
+                            <Zap className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          )}
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openEditDrawer(expense)}
-                          className="shrink-0"
-                        >
-                          <Pencil className="w-4 h-4 mr-1" />
-                          Edit
-                        </Button>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                              {expense.name}
+                            </p>
+                            {expense.active === 0 && (
+                              <Badge variant="outline" className="text-[9px] border-slate-300 text-slate-400">Inactive</Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+                            <span>{formatRelativeTime(expense.created_at)}</span>
+                            <span>&middot;</span>
+                            <span>{FREQUENCY_LABELS[expense.frequency]}</span>
+                          </div>
+                        </div>
+
+                        <div className="text-right flex-shrink-0">
+                          {expense.frequency === 'one-time' ? (
+                            <p className="text-sm font-black text-blue-600 dark:text-blue-400">
+                              {formatPrice(expense.amount)}
+                            </p>
+                          ) : (
+                            <>
+                              <p className="text-sm font-black text-[#1c6a1e]">
+                                {formatPrice(expense.daily_cost)}<span className="text-[9px] font-bold text-slate-400">/day</span>
+                              </p>
+                              <p className="text-[10px] text-slate-400">
+                                {formatPrice(expense.amount)} {FREQUENCY_SHORTHAND[expense.frequency]}
+                              </p>
+                            </>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-
-              {/* Fixed Expenses */}
-              {fixedExpenses.length > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 pb-3 border-b-2 border-slate-200 dark:border-slate-800">
-                    <Building2 className="w-5 h-5 text-[#1c6a1e]" />
-                    <h2 className="text-lg font-black text-slate-900 dark:text-white">Fixed Expenses</h2>
-                    <Badge variant="outline" className="border-slate-300 dark:border-slate-600">
-                      {fixedExpenses.length}
-                    </Badge>
+                ) : (
+                  <div className="text-center py-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
+                    <Sparkles className="w-6 h-6 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      No expenses added {timePeriod === 'today' ? 'today' : timePeriod === 'yesterday' ? 'since yesterday' : TIME_PERIOD_CONFIG.find(p => p.key === timePeriod)?.label.toLowerCase()}
+                    </p>
                   </div>
-                  <div className="grid gap-3">
-                    {fixedExpenses.map((expense) => (
-                      <ExpenseCard
-                        key={expense.id}
-                        expense={expense}
-                        menuOpenId={menuOpenId}
-                        setMenuOpenId={setMenuOpenId}
-                        onEdit={openEditDrawer}
-                        onToggle={handleToggleActive}
-                        onDelete={handleDelete}
-                        formatPrice={formatPrice}
-                        isCashier={isCashier}
-                      />
+                )}
+              </div>
+
+              {/* ═══════════════════════════════════════════
+                  SECTION 5 — All Active Expenses (master list)
+                  Sorted by daily cost (biggest first) so you
+                  immediately see what matters most.
+                  ═══════════════════════════════════════════ */}
+              <div className="space-y-3">
+                {/* Filter bar */}
+                <div className="flex items-center gap-3 flex-wrap">
+                  {/* Category tabs */}
+                  <div className="flex border-2 border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden">
+                    {(['all', 'fixed', 'variable'] as TabFilter[]).map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => setTabFilter(tab)}
+                        className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition-colors ${
+                          tabFilter === tab
+                            ? 'bg-[#1c6a1e] text-white'
+                            : 'bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
+                        }`}
+                      >
+                        {tab === 'all' ? 'All' : tab === 'fixed' ? 'Fixed' : 'Variable'}
+                      </button>
                     ))}
                   </div>
-                </div>
-              )}
 
-              {/* Variable Expenses */}
-              {variableExpenses.length > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 pb-3 border-b-2 border-slate-200 dark:border-slate-800">
-                    <Zap className="w-5 h-5 text-[#1c6a1e]" />
-                    <h2 className="text-lg font-black text-slate-900 dark:text-white">Variable Expenses</h2>
-                    <Badge variant="outline" className="border-slate-300 dark:border-slate-600">
-                      {variableExpenses.length}
-                    </Badge>
+                  {/* Search */}
+                  <div className="relative flex-1 min-w-[180px] max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <Input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search expenses..."
+                      className="pl-9 h-9 border-2 border-slate-200 dark:border-slate-700"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
-                  <div className="grid gap-3">
-                    {variableExpenses.map((expense) => (
-                      <ExpenseCard
-                        key={expense.id}
-                        expense={expense}
-                        menuOpenId={menuOpenId}
-                        setMenuOpenId={setMenuOpenId}
-                        onEdit={openEditDrawer}
-                        onToggle={handleToggleActive}
-                        onDelete={handleDelete}
-                        formatPrice={formatPrice}
-                        isCashier={isCashier}
-                      />
-                    ))}
+
+                  <div className="flex items-center gap-1.5 text-xs text-slate-400 ml-auto">
+                    <ArrowDownWideNarrow className="w-3.5 h-3.5" />
+                    <span>Highest cost first</span>
                   </div>
                 </div>
-              )}
 
-              {/* Inactive Expenses */}
+                {/* Section label */}
+                <div className="flex items-center justify-between pt-1">
+                  <h2 className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                    Active Expenses
+                    <span className="ml-2 text-slate-400 dark:text-slate-500">
+                      ({activeExpenses.length})
+                    </span>
+                  </h2>
+                </div>
+
+                {/* Expense list */}
+                {activeExpenses.length > 0 ? (
+                  <div className="space-y-2">
+                    {activeExpenses.map((expense, idx) => {
+                      const costShare = data.summary.dailyOperatingCost > 0
+                        ? (expense.daily_cost / data.summary.dailyOperatingCost) * 100
+                        : 0;
+
+                      return (
+                        <ExpenseRow
+                          key={expense.id}
+                          expense={expense}
+                          rank={idx + 1}
+                          costShare={costShare}
+                          menuOpenId={menuOpenId}
+                          setMenuOpenId={setMenuOpenId}
+                          onEdit={openEditDrawer}
+                          onToggle={handleToggleActive}
+                          onDelete={handleDelete}
+                          formatPrice={formatPrice}
+                          isCashier={isCashier}
+                        />
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center py-10 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-lg">
+                    {searchQuery || tabFilter !== 'all' ? (
+                      <>
+                        <Search className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                        <p className="text-sm text-slate-500 dark:text-slate-400">No expenses match your filter</p>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={() => { setSearchQuery(''); setTabFilter('all'); }}
+                          className="mt-1 text-[#1c6a1e]"
+                        >
+                          Clear filters
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Receipt className="w-10 h-10 text-slate-300 dark:text-slate-600 mx-auto mb-3" />
+                        <p className="font-bold text-slate-700 dark:text-slate-300 mb-1">No expenses yet</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto mb-4">
+                          Add expenses like rent, salaries, and utilities to understand your true daily cost of running the business.
+                        </p>
+                        {!isCashier && (
+                          <Button onClick={openCreateDrawer} className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white rounded-lg">
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Your First Expense
+                          </Button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* ═══════════════════════════════════════════
+                  SECTION 6 — Inactive / Paused Expenses
+                  Collapsed by default — out of the way
+                  ═══════════════════════════════════════════ */}
               {inactiveExpenses.length > 0 && (
-                <div className="space-y-3 opacity-60">
-                  <div className="flex items-center gap-3 pb-3 border-b-2 border-slate-200 dark:border-slate-800">
-                    <TrendingDown className="w-5 h-5 text-slate-400" />
-                    <h2 className="text-lg font-black text-slate-500 dark:text-slate-400">Inactive Expenses</h2>
-                    <Badge variant="outline" className="border-slate-300 dark:border-slate-600">
+                <div>
+                  <button
+                    onClick={() => setShowInactive(!showInactive)}
+                    className="flex items-center gap-2 text-sm text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors w-full py-2"
+                  >
+                    {showInactive ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    <TrendingDown className="w-4 h-4" />
+                    <span className="font-bold">Inactive Expenses</span>
+                    <Badge variant="outline" className="border-slate-300 dark:border-slate-600 text-[10px]">
                       {inactiveExpenses.length}
                     </Badge>
-                  </div>
-                  <div className="grid gap-3">
-                    {inactiveExpenses.map((expense) => (
-                      <ExpenseCard
-                        key={expense.id}
-                        expense={expense}
-                        menuOpenId={menuOpenId}
-                        setMenuOpenId={setMenuOpenId}
-                        onEdit={openEditDrawer}
-                        onToggle={handleToggleActive}
-                        onDelete={handleDelete}
-                        formatPrice={formatPrice}
-                        isCashier={isCashier}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Empty State */}
-              {data.expenses.length === 0 && (
-                <div className="text-center py-16 border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8">
-                  <div className="w-20 h-20 mx-auto bg-slate-100 dark:bg-slate-700 flex items-center justify-center mb-4">
-                    <Receipt className="w-10 h-10 text-slate-400" />
-                  </div>
-                  <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2">No expenses yet</h3>
-                  <p className="text-slate-500 dark:text-slate-400 mb-6 max-w-md mx-auto">
-                    Add your operating expenses like rent, salaries, utilities to understand your true daily cost of running the business.
-                  </p>
-                  <Button onClick={openCreateDrawer} className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white rounded-lg">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Your First Expense
-                  </Button>
+                  </button>
+                  {showInactive && (
+                    <div className="space-y-2 mt-2 opacity-60">
+                      {inactiveExpenses.map((expense) => (
+                        <ExpenseRow
+                          key={expense.id}
+                          expense={expense}
+                          costShare={0}
+                          menuOpenId={menuOpenId}
+                          setMenuOpenId={setMenuOpenId}
+                          onEdit={openEditDrawer}
+                          onToggle={handleToggleActive}
+                          onDelete={handleDelete}
+                          formatPrice={formatPrice}
+                          isCashier={isCashier}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Add/Edit Expense Drawer */}
+        {/* ── Add/Edit Expense Drawer ── */}
         <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
           <DrawerContent className="!w-full sm:!w-[500px] !max-w-none h-full max-h-screen">
             <DrawerHeader className="border-b-2 border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 relative pr-12">
@@ -653,8 +855,8 @@ export default function ExpensesPage() {
                 {drawerMode === 'create' ? 'Add Expense' : 'Edit Expense'}
               </DrawerTitle>
               <DrawerDescription className="text-slate-600 dark:text-slate-400">
-                {drawerMode === 'create' 
-                  ? 'Add a recurring operating expense' 
+                {drawerMode === 'create'
+                  ? 'Add a recurring operating expense'
                   : `Update ${selectedExpense?.name}`}
               </DrawerDescription>
             </DrawerHeader>
@@ -697,8 +899,8 @@ export default function ExpensesPage() {
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-slate-500">
-                      {formData.category === 'fixed' 
-                        ? 'Same cost regardless of sales' 
+                      {formData.category === 'fixed'
+                        ? 'Same cost regardless of sales'
                         : 'Changes based on usage'}
                     </p>
                   </div>
@@ -749,7 +951,7 @@ export default function ExpensesPage() {
                   {formData.amount && parseFloat(formData.amount) > 0 && formData.frequency === 'one-time' && (
                     <div className="border-2 border-blue-500 bg-blue-50 dark:bg-blue-950/20 p-3">
                       <p className="text-sm font-bold text-blue-700 dark:text-blue-300">
-                        One-time expense - {formatPrice(parseFloat(formData.amount))} total
+                        One-time expense &mdash; {formatPrice(parseFloat(formData.amount))} total
                       </p>
                     </div>
                   )}
@@ -782,7 +984,7 @@ export default function ExpensesPage() {
                       id="include_in_drawer"
                       checked={formData.includeInDrawer}
                       onChange={(e) => setFormData({ ...formData, includeInDrawer: e.target.checked })}
-                      className="mt-1 w-4 h-4 rounded border-slate-300 text-[#1c6a1e focus:ring-[#1c6a1e]"
+                      className="mt-1 w-4 h-4 rounded border-slate-300 text-[#1c6a1e] focus:ring-[#1c6a1e]"
                     />
                     <div>
                       <Label htmlFor="include_in_drawer" className="text-slate-700 dark:text-slate-300 font-bold cursor-pointer">
@@ -831,7 +1033,6 @@ export default function ExpensesPage() {
           </DrawerContent>
         </Drawer>
 
-        {/* Click outside to close menu */}
         {menuOpenId && (
           <div className="fixed inset-0 z-0" onClick={() => setMenuOpenId(null)} />
         )}
@@ -840,9 +1041,11 @@ export default function ExpensesPage() {
   );
 }
 
-// Expense Card Component
-interface ExpenseCardProps {
+// ─── Expense Row ─────────────────────────────────────────
+interface ExpenseRowProps {
   expense: Expense;
+  rank?: number;
+  costShare: number;
   menuOpenId: string | null;
   setMenuOpenId: (id: string | null) => void;
   onEdit: (expense: Expense) => void;
@@ -852,8 +1055,10 @@ interface ExpenseCardProps {
   isCashier?: boolean;
 }
 
-function ExpenseCard({
+function ExpenseRow({
   expense,
+  rank,
+  costShare,
   menuOpenId,
   setMenuOpenId,
   onEdit,
@@ -861,67 +1066,90 @@ function ExpenseCard({
   onDelete,
   formatPrice,
   isCashier = false,
-}: ExpenseCardProps) {
+}: ExpenseRowProps) {
+  const isOneTime = expense.frequency === 'one-time';
+  const isInDrawer = expense.frequency === 'daily' && (expense.include_in_drawer ?? 1) === 1;
+
   return (
-    <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className={`w-10 h-10 flex items-center justify-center flex-shrink-0 border-2 ${
-            expense.category === 'fixed' 
-              ? 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700' 
-              : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700'
+    <div className="border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 hover:border-slate-300 dark:hover:border-slate-600 transition-colors">
+      <div className="flex items-center gap-3">
+        {/* Rank */}
+        {rank != null && (
+          <div className={`w-7 h-7 flex items-center justify-center flex-shrink-0 text-xs font-black rounded ${
+            rank <= 3
+              ? 'bg-[#1c6a1e]/10 text-[#1c6a1e]'
+              : 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
           }`}>
-            {expense.category === 'fixed' ? (
-              <Building2 className="w-4 h-4 text-[#1c6a1e]" />
-            ) : (
-              <Zap className="w-4 h-4 text-[#1c6a1e]" />
-            )}
+            {rank}
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-0.5">
-              <h3 className="font-black text-sm text-slate-900 dark:text-white truncate">
-                {expense.name}
-              </h3>
-              <Badge variant="outline" className="text-[9px] border-slate-300 dark:border-slate-600">
-                {FREQUENCY_LABELS[expense.frequency]}
-              </Badge>
-              {expense.frequency === 'daily' && (
-                <Badge
-                  variant="outline"
-                  className={`text-[9px] ${
-                    (expense.include_in_drawer ?? 1) === 1
-                      ? 'border-[#1c6a1e]/50 bg-[#1c6a1e]/10 text-[#1c6a1e]'
-                      : 'border-slate-300 dark:border-slate-600 text-slate-500'
-                  }`}
-                >
-                  {(expense.include_in_drawer ?? 1) === 1 ? 'In drawer' : 'Excluded'}
-                </Badge>
-              )}
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              {formatPrice(expense.amount)} {expense.frequency}
-            </p>
-          </div>
+        )}
+
+        {/* Icon */}
+        <div className={`w-9 h-9 flex items-center justify-center flex-shrink-0 border-2 ${
+          expense.category === 'fixed'
+            ? 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700'
+            : 'border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/30'
+        }`}>
+          {expense.category === 'fixed' ? (
+            <Building2 className="w-4 h-4 text-[#1c6a1e]" />
+          ) : (
+            <Zap className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          )}
         </div>
-        <div className="flex items-center gap-3">
-          <div className="text-right border-r-2 border-slate-200 dark:border-slate-700 pr-3">
-            {expense.frequency === 'one-time' ? (
-              <>
-                <p className="text-lg font-black text-blue-600 dark:text-blue-400">
-                  {formatPrice(expense.amount)}
-                </p>
-                <p className="text-[9px] text-slate-400 uppercase font-bold">one-time</p>
-              </>
-            ) : (
-              <>
-                <p className="text-lg font-black text-[#1c6a1e]">
-                  {formatPrice(expense.daily_cost)}
-                </p>
-                <p className="text-[9px] text-slate-400 uppercase font-bold">/day</p>
-              </>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-bold text-sm text-slate-900 dark:text-white truncate">
+              {expense.name}
+            </h3>
+            <Badge variant="outline" className="text-[9px] border-slate-300 dark:border-slate-600">
+              {FREQUENCY_LABELS[expense.frequency]}
+            </Badge>
+            {isInDrawer && (
+              <Badge
+                variant="outline"
+                className="text-[9px] border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+              >
+                <Wallet className="w-3 h-3 mr-0.5" /> Drawer
+              </Badge>
             )}
           </div>
-          <div className="relative">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {formatPrice(expense.amount)} {FREQUENCY_SHORTHAND[expense.frequency]}
+            {expense.notes && <span className="ml-1.5 text-slate-400 dark:text-slate-500">&middot; {expense.notes}</span>}
+          </p>
+        </div>
+
+        {/* Daily cost + share */}
+        <div className="text-right flex-shrink-0 min-w-[90px]">
+          {isOneTime ? (
+            <>
+              <p className="text-base font-black text-blue-600 dark:text-blue-400">
+                {formatPrice(expense.amount)}
+              </p>
+              <p className="text-[9px] text-slate-400 uppercase font-bold">one-time</p>
+            </>
+          ) : (
+            <>
+              <p className="text-base font-black text-[#1c6a1e]">
+                {formatPrice(expense.daily_cost)}
+              </p>
+              <div className="flex items-center justify-end gap-1.5">
+                <p className="text-[9px] text-slate-400 uppercase font-bold">/day</p>
+                {costShare > 0 && (
+                  <span className="text-[9px] text-slate-400 font-medium">
+                    ({costShare.toFixed(costShare >= 10 ? 0 : 1)}%)
+                  </span>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Actions */}
+        {!isCashier && (
+          <div className="relative flex-shrink-0">
             <Button
               variant="ghost"
               size="icon"
@@ -930,14 +1158,13 @@ function ExpenseCard({
             >
               <MoreVertical className="w-3.5 h-3.5" />
             </Button>
-            {menuOpenId === expense.id && !isCashier && (
-              <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 shadow-xl z-10 py-1">
+            {menuOpenId === expense.id && (
+              <div className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 shadow-xl z-10 py-1 rounded-lg">
                 <button
                   className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2"
                   onClick={() => onEdit(expense)}
                 >
-                  <Pencil className="w-4 h-4" />
-                  Edit
+                  <Pencil className="w-4 h-4" /> Edit
                 </button>
                 <button
                   className="w-full px-4 py-2 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2"
@@ -950,14 +1177,27 @@ function ExpenseCard({
                   className="w-full px-4 py-2 text-left text-sm text-red-600 dark:text-red-400 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2"
                   onClick={() => onDelete(expense)}
                 >
-                  <Trash2 className="w-4 h-4" />
-                  Delete
+                  <Trash2 className="w-4 h-4" /> Delete
                 </button>
               </div>
             )}
           </div>
-        </div>
+        )}
       </div>
+
+      {/* Cost share bar — only for active non-one-time expenses */}
+      {costShare > 0 && !isOneTime && (
+        <div className="mt-2 ml-[calc(1.75rem+0.75rem+2.25rem+0.75rem)]">
+          <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                expense.category === 'fixed' ? 'bg-[#1c6a1e]' : 'bg-emerald-400 dark:bg-emerald-500'
+              }`}
+              style={{ width: `${Math.min(costShare, 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

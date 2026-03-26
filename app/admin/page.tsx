@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { useExpiryNotifications } from '@/lib/hooks/use-expiry-notifications';
 import { ShopTypeSelector } from '@/components/pos/ShopTypeSelector';
 import { getShopType } from '@/lib/utils/shop-type';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
@@ -56,6 +57,9 @@ import {
   Receipt,
   BarChart3,
   Clock,
+  CalendarClock,
+  Bell,
+  BellRing,
 } from 'lucide-react';
 
 type ButtonTheme = 'brand' | 'blue' | 'amber' | 'rose' | 'violet' | 'slate';
@@ -594,6 +598,8 @@ function WithdrawalForm({ onSuccess }: WithdrawalFormProps) {
 export default function AdminDashboardPage() {
   const { user } = useCurrentUser();
   const router = useRouter();
+  const isAdminOrOwner = user?.role === 'admin' || user?.role === 'owner';
+  const { permission: notifPermission, requestPermission } = useExpiryNotifications(!!isAdminOrOwner);
   const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
   const [itemDrawerOpen, setItemDrawerOpen] = useState(false);
   const [stockAdjustDrawerOpen, setStockAdjustDrawerOpen] = useState(false);
@@ -619,6 +625,19 @@ export default function AdminDashboardPage() {
   const [statsLoading, setStatsLoading] = useState(true);
   const { productTypes, itemTypeKeys } = useItemTypes();
   const [shopType, setShopType] = useState<string>(() => getShopType());
+
+  interface ExpiringBatch {
+    id: string;
+    batch_number: string | null;
+    item_name: string;
+    unit_type: string;
+    supplier_name: string | null;
+    quantity_remaining: number;
+    expiry_date: number;
+    received_at: number;
+  }
+  const [expiringBatches, setExpiringBatches] = useState<{ expired: ExpiringBatch[]; expiringSoon: ExpiringBatch[] } | null>(null);
+  const [expiryBannerDismissed, setExpiryBannerDismissed] = useState(false);
 
   useEffect(() => {
     if (itemTypeKeys.length > 0) {
@@ -703,6 +722,19 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     fetchStats();
   }, [user?.role]);
+
+  useEffect(() => {
+    if (user && (user.role === 'admin' || user.role === 'owner')) {
+      fetch('/api/batches/expiring')
+        .then((res) => res.json())
+        .then((result) => {
+          if (result.success && result.data) {
+            setExpiringBatches(result.data);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user]);
 
   const visibleButtons = ACTION_BUTTONS.filter((button) => {
     // If button has specific roles, check if user role is included
@@ -921,6 +953,91 @@ export default function AdminDashboardPage() {
               className="w-full sm:w-auto"
             />
           </header>
+
+          {/* Expiry warnings */}
+          {!expiryBannerDismissed && expiringBatches && (expiringBatches.expired.length > 0 || expiringBatches.expiringSoon.length > 0) && (
+            <div className="w-full space-y-2">
+              {expiringBatches.expired.length > 0 && (
+                <div className="relative rounded-xl border border-red-200 dark:border-red-800/60 bg-red-50 dark:bg-red-950/40 p-3 sm:p-4">
+                  <button
+                    onClick={() => setExpiryBannerDismissed(true)}
+                    className="absolute top-2 right-2 p-1 rounded-md text-red-400 hover:text-red-600 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                  <div className="flex items-start gap-2.5 pr-6">
+                    <AlertCircle className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-red-700 dark:text-red-300">
+                        {expiringBatches.expired.length} batch{expiringBatches.expired.length !== 1 ? 'es' : ''} expired
+                      </p>
+                      <p className="text-[11px] text-red-600/80 dark:text-red-400/80 mt-0.5 line-clamp-2">
+                        {expiringBatches.expired.slice(0, 3).map((b) => b.item_name).join(', ')}
+                        {expiringBatches.expired.length > 3 && ` +${expiringBatches.expired.length - 3} more`}
+                      </p>
+                      <Link href="/admin/batches" className="inline-flex items-center gap-1 text-[11px] font-medium text-red-600 dark:text-red-400 hover:underline mt-1">
+                        View in Stock Lots <ArrowRight className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {expiringBatches.expiringSoon.length > 0 && (
+                <div className="relative rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50 dark:bg-amber-950/40 p-3 sm:p-4">
+                  {expiringBatches.expired.length === 0 && (
+                    <button
+                      onClick={() => setExpiryBannerDismissed(true)}
+                      className="absolute top-2 right-2 p-1 rounded-md text-amber-400 hover:text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <div className="flex items-start gap-2.5 pr-6">
+                    <CalendarClock className="w-4 h-4 text-amber-500 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">
+                        {expiringBatches.expiringSoon.length} batch{expiringBatches.expiringSoon.length !== 1 ? 'es' : ''} expiring soon
+                      </p>
+                      <p className="text-[11px] text-amber-600/80 dark:text-amber-400/80 mt-0.5 line-clamp-2">
+                        {expiringBatches.expiringSoon.slice(0, 3).map((b) => {
+                          const daysLeft = Math.ceil((b.expiry_date - Date.now() / 1000) / 86400);
+                          return `${b.item_name} (${daysLeft}d)`;
+                        }).join(', ')}
+                        {expiringBatches.expiringSoon.length > 3 && ` +${expiringBatches.expiringSoon.length - 3} more`}
+                      </p>
+                      <Link href="/admin/batches" className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 dark:text-amber-400 hover:underline mt-1">
+                        View in Stock Lots <ArrowRight className="w-3 h-3" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Notification permission prompt */}
+          {isAdminOrOwner && notifPermission === 'default' && (
+            <div className="w-full rounded-xl border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-[#1c2e18] p-3 sm:p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+                  <Bell className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-slate-700 dark:text-slate-300">Get notified when stock is about to expire</p>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Browser notifications for expiring batches</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={requestPermission}
+                  className="shrink-0 text-xs h-8 px-3 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/30"
+                >
+                  <BellRing className="w-3.5 h-3.5 mr-1.5" />
+                  Enable
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Primary CTA: Open POS */}
           <section className="w-full">

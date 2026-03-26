@@ -122,6 +122,7 @@ export function AdminSidebar() {
   const { user } = useCurrentUser();
   const { productTypes } = useItemTypes();
   const [billNotificationCount, setBillNotificationCount] = useState(0);
+  const [expiryNotificationCount, setExpiryNotificationCount] = useState(0);
 
   const SECTIONS: MenuSection[] = useMemo(() => {
     const subItemsFromTypes: SubItem[] = productTypes.map((t) => ({
@@ -156,6 +157,16 @@ export function AdminSidebar() {
           if (result.success && result.data) {
             const count = (result.data.overdue?.count || 0) + (result.data.upcoming?.count || 0);
             setBillNotificationCount(count);
+          }
+        })
+        .catch(() => {});
+
+      apiGet<{ expired: unknown[]; expiringSoon: unknown[]; totalCount: number }>(
+        '/api/batches/expiring'
+      )
+        .then((result) => {
+          if (result.success && result.data) {
+            setExpiryNotificationCount(result.data.totalCount || 0);
           }
         })
         .catch(() => {});
@@ -223,6 +234,8 @@ export function AdminSidebar() {
               const expanded = hasSubItems && isExpanded(item.href);
               const showBadge =
                 item.href === '/admin/supplier-bills' && billNotificationCount > 0;
+              const showExpiryBadge =
+                item.href === '/admin/batches' && expiryNotificationCount > 0;
 
               return (
                 <div key={item.href}>
@@ -253,6 +266,11 @@ export function AdminSidebar() {
                       {showBadge && (
                         <span className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center shrink-0">
                           {billNotificationCount > 99 ? '99+' : billNotificationCount}
+                        </span>
+                      )}
+                      {showExpiryBadge && (
+                        <span className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center justify-center shrink-0">
+                          {expiryNotificationCount > 99 ? '99+' : expiryNotificationCount}
                         </span>
                       )}
 

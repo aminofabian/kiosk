@@ -18,11 +18,19 @@ import {
   Search,
   ChevronRight,
   Package,
-  TrendingUp,
   Ban,
   Check,
   Calendar,
   User,
+  ArrowDown,
+  ArrowUp,
+  Warehouse,
+  Receipt,
+  TrendingUp,
+  Clock,
+  ShoppingCart,
+  AlertTriangle,
+  CalendarClock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -66,6 +74,14 @@ const formatDate = (ts: number) =>
     day: 'numeric',
   });
 
+const formatDateTime = (ts: number) => {
+  const d = new Date(ts * 1000);
+  return {
+    date: d.toLocaleDateString('en-KE', { month: 'short', day: 'numeric', year: 'numeric' }),
+    time: d.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' }),
+  };
+};
+
 const statusColors: Record<string, string> = {
   active: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
   depleted: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
@@ -87,7 +103,8 @@ export default function BatchesPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (statusFilter) params.set('status', statusFilter);
+      const apiStatus = statusFilter === 'expiring' ? 'active' : statusFilter;
+      if (apiStatus) params.set('status', apiStatus);
       const result = await apiGet<Batch[]>(
         `/api/batches?${params.toString()}`
       );
@@ -154,7 +171,15 @@ export default function BatchesPage() {
     }
   };
 
+  const now = Math.floor(Date.now() / 1000);
+
   const filtered = batches.filter((b) => {
+    if (statusFilter === 'expiring') {
+      if (!b.expiry_date || b.quantity_remaining <= 0) return false;
+      const shelfLife = b.expiry_date - b.received_at;
+      const threshold = b.expiry_date - shelfLife / 4;
+      if (now < threshold) return false;
+    }
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
@@ -204,6 +229,7 @@ export default function BatchesPage() {
               >
                 <option value="">All statuses</option>
                 <option value="active">Active</option>
+                <option value="expiring">Expiring Soon</option>
                 <option value="depleted">Depleted</option>
                 <option value="deactivated">Deactivated</option>
               </select>
@@ -325,132 +351,299 @@ export default function BatchesPage() {
                 Stock Lot Details
               </DrawerTitle>
             </DrawerHeader>
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto">
               {detailLoading ? (
                 <div className="flex items-center justify-center py-16">
                   <Loader2 className="w-8 h-8 animate-spin text-[#1c6a1e]" />
                 </div>
               ) : selectedBatch ? (
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="font-semibold text-slate-900 dark:text-white mb-1">
-                      {selectedBatch.item_name}
-                    </h3>
-                    <p className="text-sm text-slate-500">
-                      {selectedBatch.batch_number || selectedBatch.id.slice(0, 8)}
-                    </p>
-                    <Badge
-                      className={`mt-2 ${statusColors[selectedBatch.status] || ''}`}
-                    >
-                      {selectedBatch.status}
-                    </Badge>
-                  </div>
+                (() => {
+                  const b = selectedBatch;
+                  const totalInvestment = b.buy_price_per_unit * b.initial_quantity;
+                  const cogs = b.buy_price_per_unit * b.quantity_sold;
+                  const revenue = b.revenue;
+                  const grossProfit = revenue - cogs;
+                  const unsoldStockValue = b.buy_price_per_unit * b.quantity_remaining;
+                  const soldPct = b.initial_quantity > 0 ? (b.quantity_sold / b.initial_quantity) * 100 : 0;
+                  const remainPct = b.initial_quantity > 0 ? (b.quantity_remaining / b.initial_quantity) * 100 : 0;
+                  const lostQty = b.initial_quantity - b.quantity_sold - b.quantity_remaining;
+                  const lostPct = b.initial_quantity > 0 ? (lostQty / b.initial_quantity) * 100 : 0;
+                  const lostValue = b.buy_price_per_unit * lostQty;
+                  const margin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
+                  const avgSellPrice = b.quantity_sold > 0 ? revenue / b.quantity_sold : 0;
+                  const markup = b.buy_price_per_unit > 0 ? ((avgSellPrice - b.buy_price_per_unit) / b.buy_price_per_unit) * 100 : 0;
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                      <p className="text-xs text-slate-500 uppercase tracking-wider">
-                        Quantity
-                      </p>
-                      <p className="font-semibold">
-                        {selectedBatch.quantity_remaining} /{' '}
-                        {selectedBatch.initial_quantity}{' '}
-                        {selectedBatch.item_unit_type}
-                      </p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                      <p className="text-xs text-slate-500 uppercase tracking-wider">
-                        Cost/unit
-                      </p>
-                      <p className="font-semibold">
-                        {formatPrice(selectedBatch.buy_price_per_unit)}
-                      </p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20">
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-                        Profit
-                      </p>
-                      <p className="font-semibold text-emerald-700 dark:text-emerald-300">
-                        {formatPrice(selectedBatch.profit)}
-                      </p>
-                    </div>
-                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                      <p className="text-xs text-slate-500 uppercase tracking-wider">
-                        Revenue
-                      </p>
-                      <p className="font-semibold">
-                        {formatPrice(selectedBatch.revenue)}
-                      </p>
-                    </div>
-                  </div>
-
-                  {selectedBatch.supplier_name && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <User className="w-4 h-4 text-slate-400" />
-                      <span>Supplier: {selectedBatch.supplier_name}</span>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2 text-sm text-slate-500">
-                    <Calendar className="w-4 h-4" />
-                    <span>Received: {formatDate(selectedBatch.received_at)}</span>
-                  </div>
-
-                  {selectedBatch.salesHistory &&
-                    selectedBatch.salesHistory.length > 0 && (
-                      <div>
-                        <h4 className="font-medium mb-2">Sales History</h4>
-                        <div className="space-y-2 max-h-48 overflow-y-auto">
-                          {selectedBatch.salesHistory.map((sale) => (
-                            <div
-                              key={sale.sale_id}
-                              className="flex justify-between text-sm py-2 border-b border-slate-100 dark:border-slate-800 last:border-0"
-                            >
-                              <span>
-                                {sale.quantity_sold}{' '}
-                                {selectedBatch.item_unit_type} •{' '}
-                                {formatDate(sale.sale_date)}
-                              </span>
-                              <span className="font-medium text-emerald-600">
-                                +{formatPrice(sale.profit)}
-                              </span>
+                  return (
+                    <div className="space-y-0">
+                      {/* Hero Card */}
+                      <div className="bg-gradient-to-br from-[#1c6a1e] to-[#145216] p-5 text-white">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <h3 className="text-lg font-bold truncate">{b.item_name}</h3>
+                            <p className="text-white/60 text-sm font-mono mt-0.5">
+                              LOT {b.batch_number || b.id.slice(0, 8).toUpperCase()}
+                            </p>
+                          </div>
+                          <Badge className={`shrink-0 ${b.status === 'active' ? 'bg-emerald-400/20 text-emerald-100 border border-emerald-400/30' : b.status === 'depleted' ? 'bg-white/10 text-white/70 border border-white/20' : 'bg-amber-400/20 text-amber-100 border border-amber-400/30'}`}>
+                            {b.status}
+                          </Badge>
+                        </div>
+                        <div className="mt-4 grid grid-cols-3 gap-3">
+                          <div>
+                            <p className="text-white/50 text-[11px] uppercase tracking-wider">Buy Price</p>
+                            <p className="text-sm font-semibold mt-0.5">{formatPrice(b.buy_price_per_unit)}<span className="text-white/50 font-normal">/{b.item_unit_type}</span></p>
+                          </div>
+                          {b.quantity_sold > 0 && (
+                            <div>
+                              <p className="text-white/50 text-[11px] uppercase tracking-wider">Avg Sell</p>
+                              <p className="text-sm font-semibold mt-0.5">{formatPrice(avgSellPrice)}<span className="text-white/50 font-normal">/{b.item_unit_type}</span></p>
                             </div>
-                          ))}
+                          )}
+                          <div>
+                            <p className="text-white/50 text-[11px] uppercase tracking-wider">Received</p>
+                            <p className="text-sm font-semibold mt-0.5">{formatDate(b.received_at)}</p>
+                          </div>
+                        </div>
+                        {b.supplier_name && (
+                          <div className="mt-3 flex items-center gap-1.5 text-white/60 text-xs">
+                            <User className="w-3.5 h-3.5" />
+                            <span>{b.supplier_name}</span>
+                          </div>
+                        )}
+                        {b.expiry_date && (
+                          <div className="mt-1.5 flex items-center gap-1.5 text-xs">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span className={b.expiry_date * 1000 < Date.now() ? 'text-red-300' : 'text-white/60'}>
+                              {b.expiry_date * 1000 < Date.now() ? 'Expired' : 'Expires'}: {formatDate(b.expiry_date)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-4 space-y-5">
+                        {/* Stock Gauge */}
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                              <Warehouse className="w-4 h-4 text-slate-400" />
+                              Stock Breakdown
+                            </h4>
+                            <span className="text-xs text-slate-500">{b.initial_quantity} {b.item_unit_type} total</span>
+                          </div>
+                          <div className="h-3 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex">
+                            {soldPct > 0 && <div className="bg-emerald-500 transition-all" style={{ width: `${soldPct}%` }} />}
+                            {lostPct > 0 && <div className="bg-red-400 transition-all" style={{ width: `${lostPct}%` }} />}
+                            {remainPct > 0 && <div className="bg-blue-400 transition-all" style={{ width: `${remainPct}%` }} />}
+                          </div>
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                            <div className="flex items-center gap-1.5 text-xs">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                              <span className="text-slate-600 dark:text-slate-400">Sold: <span className="font-semibold text-slate-800 dark:text-slate-200">{b.quantity_sold}</span></span>
+                            </div>
+                            {lostQty > 0 && (
+                              <div className="flex items-center gap-1.5 text-xs">
+                                <span className="w-2 h-2 rounded-full bg-red-400" />
+                                <span className="text-slate-600 dark:text-slate-400">Lost/Waste: <span className="font-semibold text-red-600 dark:text-red-400">{lostQty}</span></span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-1.5 text-xs">
+                              <span className="w-2 h-2 rounded-full bg-blue-400" />
+                              <span className="text-slate-600 dark:text-slate-400">Remaining: <span className="font-semibold text-slate-800 dark:text-slate-200">{b.quantity_remaining}</span></span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Financial Flow */}
+                        <div>
+                          <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 mb-3">
+                            <Receipt className="w-4 h-4 text-slate-400" />
+                            Financial Summary
+                          </h4>
+                          <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                            {/* Investment */}
+                            <div className="flex items-center justify-between px-4 py-3 bg-slate-50 dark:bg-slate-800/50">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-lg bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
+                                  <ArrowDown className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Total Investment</p>
+                                  <p className="text-[11px] text-slate-400">{b.initial_quantity} × {formatPrice(b.buy_price_per_unit)}</p>
+                                </div>
+                              </div>
+                              <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{formatPrice(totalInvestment)}</p>
+                            </div>
+
+                            <div className="h-px bg-slate-200 dark:bg-slate-700" />
+
+                            {/* Revenue */}
+                            <div className="flex items-center justify-between px-4 py-3">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                                  <ArrowUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Revenue</p>
+                                  <p className="text-[11px] text-slate-400">{b.quantity_sold} {b.item_unit_type} sold</p>
+                                </div>
+                              </div>
+                              <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatPrice(revenue)}</p>
+                            </div>
+
+                            <div className="h-px bg-slate-200 dark:bg-slate-700" />
+
+                            {/* COGS */}
+                            <div className="flex items-center justify-between px-4 py-3">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-7 h-7 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center">
+                                  <ShoppingCart className="w-3.5 h-3.5 text-orange-600 dark:text-orange-400" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Cost of Goods Sold</p>
+                                  <p className="text-[11px] text-slate-400">{b.quantity_sold} × {formatPrice(b.buy_price_per_unit)}</p>
+                                </div>
+                              </div>
+                              <p className="text-sm font-bold text-slate-600 dark:text-slate-300">−{formatPrice(cogs)}</p>
+                            </div>
+
+                            {/* Loss row if stock was lost */}
+                            {lostQty > 0 && (
+                              <>
+                                <div className="h-px bg-slate-200 dark:bg-slate-700" />
+                                <div className="flex items-center justify-between px-4 py-3 bg-red-50/50 dark:bg-red-900/10">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-7 h-7 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                                      <AlertTriangle className="w-3.5 h-3.5 text-red-500 dark:text-red-400" />
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-medium text-red-700 dark:text-red-300">Stock Loss</p>
+                                      <p className="text-[11px] text-red-400">{lostQty} {b.item_unit_type} unaccounted</p>
+                                    </div>
+                                  </div>
+                                  <p className="text-sm font-bold text-red-600 dark:text-red-400">−{formatPrice(lostValue)}</p>
+                                </div>
+                              </>
+                            )}
+
+                            <div className="h-px bg-slate-200 dark:bg-slate-700" />
+
+                            {/* Profit */}
+                            <div className={`flex items-center justify-between px-4 py-3.5 ${grossProfit >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/15' : 'bg-red-50 dark:bg-red-900/15'}`}>
+                              <div className="flex items-center gap-2.5">
+                                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${grossProfit >= 0 ? 'bg-emerald-200 dark:bg-emerald-800/50' : 'bg-red-200 dark:bg-red-800/50'}`}>
+                                  <TrendingUp className={`w-3.5 h-3.5 ${grossProfit >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`} />
+                                </div>
+                                <div>
+                                  <p className={`text-sm font-semibold ${grossProfit >= 0 ? 'text-emerald-800 dark:text-emerald-200' : 'text-red-800 dark:text-red-200'}`}>
+                                    Gross Profit
+                                  </p>
+                                  {revenue > 0 && (
+                                    <p className={`text-[11px] ${grossProfit >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                                      {margin.toFixed(1)}% margin{b.quantity_sold > 0 ? ` · ${markup.toFixed(0)}% markup` : ''}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <p className={`text-base font-extrabold ${grossProfit >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`}>
+                                {grossProfit >= 0 ? '' : '−'}{formatPrice(grossProfit)}
+                              </p>
+                            </div>
+
+                            {/* Unsold value */}
+                            {b.quantity_remaining > 0 && (
+                              <>
+                                <div className="h-px bg-slate-200 dark:bg-slate-700" />
+                                <div className="flex items-center justify-between px-4 py-2.5 bg-blue-50/50 dark:bg-blue-900/10">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-7 h-7 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                                      <Package className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Unsold Stock Value</p>
+                                      <p className="text-[11px] text-blue-400">{b.quantity_remaining} {b.item_unit_type} × {formatPrice(b.buy_price_per_unit)}</p>
+                                    </div>
+                                  </div>
+                                  <p className="text-sm font-bold text-blue-600 dark:text-blue-400">{formatPrice(unsoldStockValue)}</p>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Sales History */}
+                        {b.salesHistory && b.salesHistory.length > 0 && (
+                          <div>
+                            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 mb-3">
+                              <ShoppingCart className="w-4 h-4 text-slate-400" />
+                              Sales History
+                              <span className="ml-auto text-xs font-normal text-slate-400">{b.salesHistory.length} transaction{b.salesHistory.length !== 1 ? 's' : ''}</span>
+                            </h4>
+                            <div className="space-y-0 max-h-64 overflow-y-auto pr-1 divide-y divide-slate-100 dark:divide-slate-800">
+                              {b.salesHistory.map((sale) => {
+                                const saleTotal = sale.quantity_sold * sale.sell_price_per_unit;
+                                const dt = formatDateTime(sale.sale_date);
+                                return (
+                                  <div
+                                    key={sale.sale_id}
+                                    className="flex items-center justify-between py-2.5 px-1"
+                                  >
+                                    <div>
+                                      <p className="text-sm text-slate-700 dark:text-slate-200">{dt.date} <span className="text-slate-400 dark:text-slate-500">{dt.time}</span></p>
+                                      <p className="text-xs text-slate-400 mt-0.5">{sale.quantity_sold} {b.item_unit_type}</p>
+                                    </div>
+                                    <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{formatPrice(saleTotal)}</p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* No sales message */}
+                        {(!b.salesHistory || b.salesHistory.length === 0) && (
+                          <div className="text-center py-6">
+                            <ShoppingCart className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
+                            <p className="text-sm text-slate-400">No sales recorded for this lot yet</p>
+                          </div>
+                        )}
+
+                        {/* Actions */}
+                        <div className="pt-2 pb-4">
+                          {b.status === 'active' && b.quantity_remaining > 0 && (
+                            <Button
+                              variant="outline"
+                              className="w-full border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/20"
+                              onClick={handleDeactivate}
+                              disabled={deactivating}
+                            >
+                              {deactivating ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Ban className="w-4 h-4 mr-2" />
+                              )}
+                              Deactivate Lot
+                            </Button>
+                          )}
+
+                          {b.status === 'deactivated' && (
+                            <Button
+                              className="w-full bg-[#1c6a1e] hover:bg-[#2a8a30]"
+                              onClick={handleDeactivate}
+                              disabled={deactivating}
+                            >
+                              {deactivating ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Check className="w-4 h-4 mr-2" />
+                              )}
+                              Reactivate Lot
+                            </Button>
+                          )}
                         </div>
                       </div>
-                    )}
-
-                  {selectedBatch.status === 'active' &&
-                    selectedBatch.quantity_remaining > 0 && (
-                      <Button
-                        variant="outline"
-                        className="w-full border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-400 dark:hover:bg-amber-900/20"
-                        onClick={handleDeactivate}
-                        disabled={deactivating}
-                      >
-                        {deactivating ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Ban className="w-4 h-4 mr-2" />
-                        )}
-                        Deactivate batch
-                      </Button>
-                    )}
-
-                  {selectedBatch.status === 'deactivated' && (
-                    <Button
-                      className="w-full bg-[#1c6a1e] hover:bg-[#2a8a30]"
-                      onClick={handleDeactivate}
-                      disabled={deactivating}
-                    >
-                      {deactivating ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Check className="w-4 h-4 mr-2" />
-                      )}
-                      Reactivate batch
-                    </Button>
-                  )}
-                </div>
+                    </div>
+                  );
+                })()
               ) : (
                 <p className="text-slate-500 text-center py-8">
                   No batch selected

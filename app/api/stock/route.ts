@@ -54,6 +54,7 @@ export async function GET() {
                AND ib3.business_id = ib1.business_id
                AND ib3.received_at = ib1.received_at
            )
+         GROUP BY ib1.item_id
        ) first_batch ON i.id = first_batch.item_id
        LEFT JOIN (
          SELECT 
@@ -77,6 +78,7 @@ export async function GET() {
                AND ib3.received_at = ib1.received_at
                AND ib3.quantity_remaining > 0
            )
+         GROUP BY ib1.item_id
        ) current_batch ON i.id = current_batch.item_id
        LEFT JOIN (
          SELECT sp1.item_id, sp1.price
@@ -133,9 +135,12 @@ export async function GET() {
       });
     }
 
+    const sanePrice = (p: number) => (typeof p === 'number' && p >= 0 && p <= 1e8) ? p : 0;
+    const saneQty = (q: number) => (typeof q === 'number' && q >= 0 && q <= 1e6) ? q : 0;
+
     // Calculate growth data for each item
     const itemsWithGrowth = items.map(item => {
-      const initialStock = item.initial_stock ?? 0;
+      const initialStock = saneQty(item.initial_stock ?? 0);
       const currentStock = item.current_stock;
       const stockChange = currentStock - initialStock;
       const stockChangePercent = initialStock > 0 
@@ -143,17 +148,15 @@ export async function GET() {
         : (currentStock > 0 ? 100 : null);
       
       // Get current buy price (from batch with stock, or most recent batch, or fallback to initial)
-      const currentBuyPrice = item.current_buy_price ?? buyPriceMap.get(item.id) ?? item.initial_buy_price ?? 0;
+      const currentBuyPrice = sanePrice(item.current_buy_price ?? buyPriceMap.get(item.id) ?? item.initial_buy_price ?? 0);
       
       // Calculate values
       // Initial value uses buy price from first batch (cost basis at start)
-      const initialBuyPrice = item.initial_buy_price ?? 0;
+      const initialBuyPrice = sanePrice(item.initial_buy_price ?? 0);
       const initialValue = initialStock * initialBuyPrice;
       
       // Initial sales value uses initial sell price (or current as fallback)
-      // Clamp to sane range to avoid garbage from bad DB data (e.g. timestamp in price column)
       const rawInitialSellPrice = item.initial_sell_price ?? item.current_sell_price;
-      const sanePrice = (p: number) => (typeof p === 'number' && p >= 0 && p <= 1e8) ? p : 0;
       const initialSellPrice = sanePrice(rawInitialSellPrice);
       const initialSalesValue = initialStock * initialSellPrice;
       

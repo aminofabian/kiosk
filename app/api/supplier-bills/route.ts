@@ -145,6 +145,7 @@ export async function POST(request: NextRequest) {
         quantity: number;
         costPricePerUnit: number;
         batchNumber?: string;
+        expiryDate?: number;
       }>;
       preferredPaymentMethod?: string;
       paymentDetails?: string;
@@ -226,8 +227,8 @@ export async function POST(request: NextRequest) {
           `INSERT INTO inventory_batches (
             id, business_id, item_id, source_breakdown_id, batch_number, status,
             supplier_id, initial_quantity, quantity_remaining, buy_price_per_unit,
-            received_at, created_at
-          ) VALUES (?, ?, ?, NULL, ?, 'active', ?, ?, ?, ?, ?, ?)`,
+            received_at, expiry_date, created_at
+          ) VALUES (?, ?, ?, NULL, ?, 'active', ?, ?, ?, ?, ?, ?, ?)`,
           [
             batchId,
             auth.businessId,
@@ -238,6 +239,7 @@ export async function POST(request: NextRequest) {
             stockItem.quantity,
             stockItem.costPricePerUnit,
             now,
+            stockItem.expiryDate || null,
             now,
           ]
         );
