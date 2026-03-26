@@ -59,6 +59,15 @@ interface ShiftSummary {
   };
   creditPayments: { count: number; total: number };
   cashExpenses: { count: number; total: number };
+  expensesList?: Array<{
+    id: string;
+    name: string;
+    amount: number;
+    category: string;
+    created_at: number;
+    created_by: string | null;
+    notes: string | null;
+  }>;
   dailyOperatingCost?: number;
   dailyDrawerExpenses?: Array<{ id: string; name: string; amount: number }>;
 }
