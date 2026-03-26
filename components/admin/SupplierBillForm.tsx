@@ -1787,7 +1787,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
                         {/* Meta row for linked items */}
                         {item.itemId && (
                           <div className="flex flex-wrap items-center gap-3 mt-0.5 ml-4">
-                        <div className="flex items-center gap-1.5 h-6 rounded-md border border-emerald-200/80 dark:border-emerald-900/50 bg-white/80 dark:bg-slate-900/70 px-2">
+                        <div className="flex items-center gap-1.5 h-6 border border-emerald-200/80 dark:border-emerald-900/50 bg-white/80 dark:bg-slate-900/70 px-2">
                               <Layers className="w-2.5 h-2.5 text-[#1c6a1e] dark:text-emerald-400 shrink-0 -mt-px" />
                               <Input
                                 type="text"
@@ -1808,7 +1808,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
                                 {fillingBatchFor === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Fill'}
                               </Button>
                             </div>
-                            <div className="flex items-center gap-1.5 h-6 rounded-md border border-amber-200/80 dark:border-amber-900/50 bg-white/80 dark:bg-slate-900/70 px-2">
+                            <div className="flex items-center gap-1.5 h-6 border border-amber-200/80 dark:border-amber-900/50 bg-white/80 dark:bg-slate-900/70 px-2">
                               <CalendarClock className="w-2.5 h-2.5 text-amber-500 dark:text-amber-400 shrink-0 -mt-px" />
                               <Input
                                 type="date"
@@ -2045,7 +2045,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
                     {/* Mobile meta */}
                     {item.itemId && (
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px]">
-                        <div className="flex items-center gap-1.5 w-full sm:w-auto rounded-md border border-emerald-200/80 dark:border-emerald-900/50 bg-white/80 dark:bg-slate-900/70 h-6 px-2">
+                        <div className="flex items-center gap-1.5 w-full sm:w-auto border border-emerald-200/80 dark:border-emerald-900/50 bg-white/80 dark:bg-slate-900/70 h-6 px-2">
                           <Layers className="w-2.5 h-2.5 text-[#1c6a1e] dark:text-emerald-400 shrink-0" />
                           <Input
                             type="text"
@@ -2066,7 +2066,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
                             {fillingBatchFor === item.id ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Fill'}
                           </Button>
                         </div>
-                        <div className="flex items-center gap-1.5 w-full sm:w-auto rounded-md border border-amber-200/80 dark:border-amber-900/50 bg-white/80 dark:bg-slate-900/70 h-6 px-2">
+                        <div className="flex items-center gap-1.5 w-full sm:w-auto border border-amber-200/80 dark:border-amber-900/50 bg-white/80 dark:bg-slate-900/70 h-6 px-2">
                           <CalendarClock className="w-2.5 h-2.5 text-amber-500 dark:text-amber-400 shrink-0" />
                           <Input
                             type="date"
