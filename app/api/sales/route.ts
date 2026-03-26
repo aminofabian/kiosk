@@ -46,6 +46,14 @@ interface SplitPaymentInput {
   customerPhone?: string;
 }
 
+const extractPhoneDigits = (phone: string) => {
+  const coreDigits = phone.replace(/\D/g, '');
+  if (coreDigits.startsWith('254') && coreDigits.length >= 12) return coreDigits.slice(-9);
+  if (coreDigits.startsWith('0') && coreDigits.length >= 10) return coreDigits.slice(1);
+  if (coreDigits.length >= 9) return coreDigits.slice(-9);
+  return coreDigits;
+};
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -88,11 +96,11 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Check that each credit payment has a customer name
+      // Check that each credit payment has a phone number
       for (const payment of splitPayments as SplitPaymentInput[]) {
-        if (payment.method === 'credit' && (!payment.customerName || payment.customerName.trim().length === 0)) {
+        if (payment.method === 'credit' && (!payment.customerPhone || payment.customerPhone.trim().length === 0)) {
           return jsonResponse(
-            { success: false, message: 'Customer name is required for credit payments' },
+            { success: false, message: 'Customer phone is required for credit payments' },
             400
           );
         }
@@ -445,18 +453,29 @@ export async function POST(request: NextRequest) {
 
     // Handle credit account creation if payment is credit or split with credit
     const handleCreditPayment = async (creditCustomerName: string, creditCustomerPhone: string | null, creditAmount: number) => {
-      // Find existing credit account by phone or name
-      const creditAccount = await queryOne<{ id: string; total_credit: number }>(
-        `SELECT id, total_credit FROM credit_accounts 
-         WHERE business_id = ? 
-         AND (customer_phone = ? OR (customer_phone IS NULL AND customer_name = ?))
-         LIMIT 1`,
-        [
-          auth.businessId,
-          creditCustomerPhone,
-          creditCustomerName,
-        ]
-      );
+      // Match by normalized phone first; fallback to name-only records if no phone provided
+      const phoneDigits = creditCustomerPhone ? extractPhoneDigits(creditCustomerPhone) : '';
+      let creditAccount: { id: string; total_credit: number } | null = null;
+
+      if (phoneDigits.length >= 6) {
+        creditAccount = await queryOne<{ id: string; total_credit: number }>(
+          `SELECT id, total_credit FROM credit_accounts
+           WHERE business_id = ?
+           AND customer_phone IS NOT NULL
+           AND customer_phone LIKE ?
+           LIMIT 1`,
+          [auth.businessId, `%${phoneDigits}%`]
+        );
+      } else if (creditCustomerName.trim().length > 0) {
+        creditAccount = await queryOne<{ id: string; total_credit: number }>(
+          `SELECT id, total_credit FROM credit_accounts
+           WHERE business_id = ?
+           AND customer_phone IS NULL
+           AND customer_name = ?
+           LIMIT 1`,
+          [auth.businessId, creditCustomerName]
+        );
+      }
 
       let creditAccountId: string;
 
@@ -539,10 +558,40 @@ export async function POST(request: NextRequest) {
     // Handle credit for split payment with credit portion
     if (paymentMethod === 'split' && splitPayments) {
       const creditPayment = (splitPayments as SplitPaymentInput[]).find(p => p.method === 'credit');
-      if (creditPayment && creditPayment.customerName && creditPayment.amount > 0) {
+      if (creditPayment && creditPayment.customerPhone && creditPayment.amount > 0) {
+        const splitCreditPhone = creditPayment.customerPhone.trim();
+        const splitCreditName = (creditPayment.customerName || '').trim();
+        const digits = extractPhoneDigits(splitCreditPhone);
+        if (digits.length < 6) {
+          return jsonResponse(
+            { success: false, message: 'Enter a valid customer phone for split credit payment' },
+            400
+          );
+        }
+
+        // For split-credit: use phone to find existing customer; create only when missing.
+        const existingByPhone = await queryOne<{ customer_name: string }>(
+          `SELECT customer_name FROM credit_accounts
+           WHERE business_id = ?
+           AND customer_phone IS NOT NULL
+           AND customer_phone LIKE ?
+           LIMIT 1`,
+          [auth.businessId, `%${digits}%`]
+        );
+
+        if (!existingByPhone && splitCreditName.length === 0) {
+          return jsonResponse(
+            {
+              success: false,
+              message: 'Customer name is required to create a new split credit account',
+            },
+            400
+          );
+        }
+
         await handleCreditPayment(
-          creditPayment.customerName,
-          creditPayment.customerPhone || null,
+          existingByPhone?.customer_name || splitCreditName,
+          splitCreditPhone,
           creditPayment.amount
         );
       }

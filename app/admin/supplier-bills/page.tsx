@@ -170,7 +170,7 @@ function SupplierBillsPageContent() {
 
           {/* New Supplier Bill Drawer */}
           <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
-            <DrawerContent className="!w-full sm:!w-[900px] !max-w-none h-full max-h-screen z-[51] rounded-l-2xl">
+            <DrawerContent className="!w-full sm:!w-[900px] !max-w-none h-full max-h-screen z-[51]">
               <DrawerHeader className="border-b border-slate-200 dark:border-slate-800 bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-[#1c2e18] relative pr-12">
                 <Button
                   variant="ghost"
