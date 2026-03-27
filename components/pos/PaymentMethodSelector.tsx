@@ -1,7 +1,5 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import type { PaymentMethod } from '@/lib/constants';
 import { CreditCard, Wallet, Smartphone, Split } from 'lucide-react';
 
@@ -11,84 +9,76 @@ interface PaymentMethodSelectorProps {
   disabledWhenOffline?: boolean;
 }
 
+const methods: Array<{
+  value: PaymentMethod;
+  label: string;
+  icon: typeof Wallet;
+  selectedClass: string;
+  requiresOnline?: boolean;
+}> = [
+  {
+    value: 'cash',
+    label: 'Cash',
+    icon: Wallet,
+    selectedClass:
+      'bg-white dark:bg-slate-700 shadow-sm ring-1 ring-emerald-300 dark:ring-emerald-700 text-emerald-700 dark:text-emerald-400',
+  },
+  {
+    value: 'mpesa',
+    label: 'M-Pesa',
+    icon: Smartphone,
+    selectedClass:
+      'bg-white dark:bg-slate-700 shadow-sm ring-1 ring-orange-300 dark:ring-orange-700 text-orange-700 dark:text-orange-400',
+  },
+  {
+    value: 'credit',
+    label: 'Credit',
+    icon: CreditCard,
+    selectedClass:
+      'bg-white dark:bg-slate-700 shadow-sm ring-1 ring-blue-300 dark:ring-blue-700 text-blue-700 dark:text-blue-400',
+    requiresOnline: true,
+  },
+  {
+    value: 'split',
+    label: 'Split',
+    icon: Split,
+    selectedClass:
+      'bg-white dark:bg-slate-700 shadow-sm ring-1 ring-purple-300 dark:ring-purple-700 text-purple-700 dark:text-purple-400',
+    requiresOnline: true,
+  },
+];
+
 export function PaymentMethodSelector({
   selectedMethod,
   onSelectMethod,
   disabledWhenOffline = false,
 }: PaymentMethodSelectorProps) {
-  const methods: Array<{
-    value: PaymentMethod;
-    label: string;
-    icon: React.ReactNode;
-    color: string;
-    description?: string;
-    requiresOnline?: boolean;
-  }> = [
-    {
-      value: 'cash',
-      label: 'Cash',
-      icon: <Wallet className="h-6 w-6" />,
-      color: 'bg-[#1c6a1e]',
-    },
-    {
-      value: 'mpesa',
-      label: 'M-Pesa',
-      icon: <Smartphone className="h-6 w-6" />,
-      color: 'from-orange-600 to-yellow-600',
-      description: 'Mark as Paid works offline',
-    },
-    {
-      value: 'credit',
-      label: 'Credit',
-      icon: <CreditCard className="h-6 w-6" />,
-      color: 'from-blue-600 to-indigo-600',
-      requiresOnline: true,
-    },
-    {
-      value: 'split',
-      label: 'Split',
-      icon: <Split className="h-6 w-6" />,
-      color: 'from-purple-600 to-pink-600',
-      description: 'Multiple methods',
-      requiresOnline: true,
-    },
-  ];
-
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {methods.map((method) => {
-          const isSelected = selectedMethod === method.value;
-          const isDisabled = disabledWhenOffline && method.requiresOnline;
-          return (
-            <Button
-              key={method.value}
-              type="button"
-              variant={isSelected ? 'default' : 'outline'}
-              size="touch"
-              disabled={isDisabled}
-              onClick={() => !isDisabled && onSelectMethod(method.value)}
-              title={isDisabled ? 'Requires connection' : undefined}
-              className={`flex flex-col items-center justify-center h-24 gap-1 ${
-                isSelected
-                  ? method.value === 'cash'
-                    ? `${method.color} text-white border-0 shadow-lg`
-                    : `bg-gradient-to-br ${method.color} text-white border-0 shadow-lg`
-                  : 'hover:shadow-md'
-              }`}
-            >
-              {method.icon}
-              <span className="text-sm font-semibold">{method.label}</span>
-              {method.description && (
-                <span className={`text-xs ${isSelected ? 'text-white/80' : 'text-muted-foreground'}`}>
-                  {method.description}
-                </span>
-              )}
-            </Button>
-          );
-        })}
-      </div>
+    <div className="grid grid-cols-4 gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl">
+      {methods.map((method) => {
+        const isSelected = selectedMethod === method.value;
+        const isDisabled = disabledWhenOffline && method.requiresOnline;
+        const Icon = method.icon;
+        return (
+          <button
+            key={method.value}
+            type="button"
+            disabled={isDisabled}
+            onClick={() => onSelectMethod(method.value)}
+            title={isDisabled ? 'Requires connection' : undefined}
+            className={`flex flex-col items-center gap-1 py-2.5 rounded-lg text-xs font-semibold transition-all ${
+              isSelected
+                ? method.selectedClass
+                : isDisabled
+                  ? 'text-slate-300 dark:text-slate-600 cursor-not-allowed'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-700/50'
+            }`}
+          >
+            <Icon className="h-4 w-4" />
+            <span>{method.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
-

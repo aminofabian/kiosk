@@ -1,8 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Minus, Plus } from 'lucide-react';
 import type { UnitType } from '@/lib/constants';
 
@@ -21,21 +19,22 @@ export function QuantityInput({
   max,
   min = 0,
 }: QuantityInputProps) {
-  // Weight/volume items and portion-sellable items (piece, bunch) support decimals
   const supportsFractions = ['kg', 'g', 'litre', 'ml', 'piece', 'bunch'].includes(unitType);
-  const step = supportsFractions ? 0.1 : 1;
+  const [useDecimalStep, setUseDecimalStep] = useState(false);
+  const step = supportsFractions && useDecimalStep ? 0.1 : 1;
+  const precision = supportsFractions && useDecimalStep ? 1 : 0;
 
   const handleIncrement = () => {
     const newValue = value + step;
     if (max === undefined || newValue <= max) {
-      onChange(Number(newValue.toFixed(supportsFractions ? 1 : 0)));
+      onChange(Number(newValue.toFixed(precision)));
     }
   };
 
   const handleDecrement = () => {
     const newValue = value - step;
     if (newValue >= min) {
-      onChange(Number(newValue.toFixed(supportsFractions ? 1 : 0)));
+      onChange(Number(newValue.toFixed(precision)));
     }
   };
 
@@ -52,96 +51,134 @@ export function QuantityInput({
   };
 
   if (supportsFractions) {
-    // Decimal keypad for weight items
+    const fractionQuickPicks = [
+      { label: '1/2', value: 0.5 },
+      { label: '1/4', value: 0.25 },
+      { label: '1/8', value: 0.125 },
+      { label: '1/10', value: 0.1 },
+      { label: '1', value: 1 },
+      { label: '3/2', value: 1.5 },
+      { label: '2', value: 2 },
+      { label: '1/16', value: 0.0625 },
+      { label: '1/20', value: 0.05 },
+    ];
+
     return (
-      <div className="space-y-3">
-        <div className="flex items-center gap-2">
-          <Button
+      <div className="space-y-2">
+        <div className="flex items-center gap-1">
+          <button
             type="button"
-            variant="outline"
-            size="icon-touch"
+            onClick={() => setUseDecimalStep(false)}
+            className={`h-6 px-2 rounded-md text-[10px] font-semibold transition-colors ${
+              !useDecimalStep
+                ? 'bg-[#1c6a1e] text-white'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            Step 1
+          </button>
+          <button
+            type="button"
+            onClick={() => setUseDecimalStep(true)}
+            className={`h-6 px-2 rounded-md text-[10px] font-semibold transition-colors ${
+              useDecimalStep
+                ? 'bg-[#1c6a1e] text-white'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+            }`}
+          >
+            Step 0.1
+          </button>
+        </div>
+
+        {/* Compact stepper */}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
             onClick={handleDecrement}
             disabled={value <= min}
-            className="rounded-full"
+            className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors shrink-0"
           >
-            <Minus className="h-5 w-5" />
-          </Button>
-          <Input
+            <Minus className="h-3.5 w-3.5" />
+          </button>
+          <input
             type="number"
             value={value || ''}
             onChange={handleInputChange}
             step={step}
             min={min}
             max={max}
-            className="text-center text-lg font-semibold h-12 touch-target"
-            placeholder="0.0"
+            placeholder="0"
+            style={{ WebkitAppearance: 'none', MozAppearance: 'textfield' }}
+            className="h-8 w-14 text-center text-sm font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
-          <Button
+          <button
             type="button"
-            variant="outline"
-            size="icon-touch"
             onClick={handleIncrement}
             disabled={max !== undefined && value >= max}
-            className="rounded-full"
+            className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors shrink-0"
           >
-            <Plus className="h-5 w-5" />
-          </Button>
+            <Plus className="h-3.5 w-3.5" />
+          </button>
         </div>
-        <div className="grid grid-cols-3 gap-2">
-          {[0.5, 1, 1.5, 2, 2.5, 3].map((quickValue) => (
-            <Button
-              key={quickValue}
+
+        {/* Quick-pick pills */}
+        <div className="flex flex-wrap gap-1.5">
+          {fractionQuickPicks.map((qv) => {
+            const isSelected = Math.abs(value - qv.value) < 0.0001;
+            return (
+            <button
+              key={qv.label}
               type="button"
-              variant="outline"
-              size="touch"
               onClick={() => {
-                if (max === undefined || quickValue <= max) {
-                  onChange(quickValue);
-                }
+                if ((max === undefined || qv.value <= max) && qv.value >= min) onChange(qv.value);
               }}
-              className="text-sm"
+              className={`h-8 px-2.5 rounded-lg text-xs font-semibold transition-all leading-none ${
+                isSelected
+                  ? 'bg-[#1c6a1e] text-white shadow-sm'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
             >
-              {quickValue} {unitType}
-            </Button>
-          ))}
+              <span>{qv.label}</span>
+              <span className={`ml-1 text-[10px] ${isSelected ? 'text-white/80' : 'text-slate-400 dark:text-slate-500'}`}>
+                {unitType}
+              </span>
+            </button>
+            );
+          })}
         </div>
       </div>
     );
   }
 
-  // +/- buttons for count items
+  // Count items — compact stepper
   return (
-    <div className="flex items-center gap-3">
-      <Button
+    <div className="flex items-center gap-1">
+      <button
         type="button"
-        variant="outline"
-        size="icon-touch"
         onClick={handleDecrement}
         disabled={value <= min}
-        className="rounded-full"
+        className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors shrink-0"
       >
-        <Minus className="h-5 w-5" />
-      </Button>
-      <Input
+        <Minus className="h-3.5 w-3.5" />
+      </button>
+      <input
         type="number"
         value={value || ''}
         onChange={handleInputChange}
         step={step}
         min={min}
         max={max}
-        className="text-center text-2xl font-bold h-16 w-24 touch-target"
+        style={{ WebkitAppearance: 'none', MozAppearance: 'textfield' }}
+        className="h-8 w-14 text-center text-sm font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
       />
-      <Button
+      <button
         type="button"
-        variant="outline"
-        size="icon-touch"
         onClick={handleIncrement}
         disabled={max !== undefined && value >= max}
-        className="rounded-full"
+        className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors shrink-0"
       >
-        <Plus className="h-5 w-5" />
-      </Button>
+        <Plus className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
-

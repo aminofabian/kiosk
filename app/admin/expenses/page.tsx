@@ -376,7 +376,9 @@ export default function ExpensesPage() {
     <AdminLayout>
       <div className="min-h-screen">
         {/* ── Header ── */}
-        <div className="sticky top-0 z-10 bg-white/95 dark:bg-[#0f1a0d]/95 backdrop-blur-lg border-b-2 border-slate-200 dark:border-slate-800">
+        <div
+          className="sticky top-0 z-10 border-b-2 border-slate-200 dark:border-slate-800 bg-[rgba(255,255,255,0.96)] dark:bg-[rgba(15,26,13,0.96)] [backdrop-filter:blur(12px)] [-webkit-backdrop-filter:blur(12px)]"
+        >
           <div className="px-4 md:px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -390,15 +392,14 @@ export default function ExpensesPage() {
                   </p>
                 </div>
               </div>
-              {!isCashier && (
-                <Button
-                  onClick={openCreateDrawer}
-                  className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white rounded-lg"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Expense
-                </Button>
-              )}
+              <Button
+                type="button"
+                onClick={openCreateDrawer}
+                className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white rounded-lg"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Expense
+              </Button>
             </div>
           </div>
         </div>
@@ -785,12 +786,14 @@ export default function ExpensesPage() {
                         <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm mx-auto mb-4">
                           Add expenses like rent, salaries, and utilities to understand your true daily cost of running the business.
                         </p>
-                        {!isCashier && (
-                          <Button onClick={openCreateDrawer} className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white rounded-lg">
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Your First Expense
-                          </Button>
-                        )}
+                        <Button
+                          type="button"
+                          onClick={openCreateDrawer}
+                          className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white rounded-lg"
+                        >
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Your First Expense
+                        </Button>
                       </>
                     )}
                   </div>
