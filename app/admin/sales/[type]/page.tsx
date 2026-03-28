@@ -26,11 +26,33 @@ import {
   PackageX,
   Scale,
   X,
+  Pencil,
+  FileDown,
+  History,
 } from 'lucide-react';
-import { apiFetch } from '@/lib/utils/api-client';
+import { apiFetch, apiPost } from '@/lib/utils/api-client';
 import { getItemDisplayName } from '@/lib/utils';
 import Link from 'next/link';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import type { AdjustmentReason } from '@/lib/constants';
+import { ADJUSTMENT_REASONS, isDiscreteUnitType, type UnitType } from '@/lib/constants';
+import { toast } from 'sonner';
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -124,6 +146,17 @@ const formatHour = (hour: number) => {
   return `${hour - 12} PM`;
 };
 
+/** Local calendar date as YYYY-MM-DD. `daysAgo` 0 = today. Uses noon to reduce DST edge cases. */
+function getLocalDateKeyDaysAgo(daysAgo: number): string {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() - daysAgo);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 const UNIT_LABELS: Record<string, string> = {
   kg: 'kg',
   g: 'g',
@@ -133,6 +166,208 @@ const UNIT_LABELS: Record<string, string> = {
   litre: 'L',
   ml: 'ml',
 };
+
+const ADJUSTMENT_REASON_LABELS: Record<AdjustmentReason, string> = {
+  restock: 'Restock / New Delivery',
+  spoilage: 'Spoilage',
+  theft: 'Theft',
+  counting_error: 'Counting Error',
+  damage: 'Damage',
+  other: 'Other',
+};
+
+function slugFilePart(s: string) {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '') || 'products';
+}
+
+async function downloadTodaysProductsPdf(opts: {
+  typeLabel: string;
+  periodLabel: string;
+  products: DailyProduct[];
+}) {
+  // Portrait A4 + larger type: on phones, “fit width” maps the page’s narrow edge to the
+  // screen, so portrait reads much larger than landscape; body text is bumped for legibility.
+  const { default: jsPDF } = await import('jspdf');
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 12;
+  const contentW = pageW - margin * 2;
+  const footerH = 14;
+
+  const palette = {
+    accent: [22, 163, 74] as const,
+    ink: [15, 23, 42] as const,
+    muted: [100, 116, 139] as const,
+    headerBg: [241, 245, 249] as const,
+    headerInk: [51, 65, 85] as const,
+    border: [226, 232, 240] as const,
+    zebra: [248, 250, 252] as const,
+  };
+
+  const rowH = 10;
+  const headerH = 11;
+  const headerBlockH = 26;
+  const colConfirmCx = pageW - margin - 5;
+  const colStockR = pageW - margin - 17;
+  const colQtyR = pageW - margin - 54;
+  const colNameL = margin + 14;
+  const colNameMaxW = Math.max(42, colQtyR - colNameL - 6);
+  const colNumCx = margin + 7;
+  const rowTickBoxMm = 4.2;
+
+  const truncateName = (t: string) => {
+    let s = t;
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    while (s.length > 1 && doc.getTextWidth(s) > colNameMaxW) {
+      s = s.length > 4 ? `${s.slice(0, -4)}…` : '…';
+    }
+    return s;
+  };
+
+  const rowBaseline = (rowY: number) => rowY + rowH * 0.65;
+
+  const drawPageHeader = (yy: number) => {
+    doc.setFillColor(...palette.accent);
+    doc.rect(margin, yy, 3.5, headerBlockH, 'F');
+
+    doc.setTextColor(...palette.ink);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text(opts.typeLabel, margin + 8, yy + 8);
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...palette.muted);
+    doc.text('Products sold — quantity & stock', margin + 8, yy + 15);
+
+    const printed = new Date().toLocaleString('en-KE', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+    doc.setFontSize(9);
+    doc.text(printed, pageW - margin, yy + 7, { align: 'right' });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(...palette.accent);
+    doc.text(opts.periodLabel, pageW - margin, yy + 15, { align: 'right' });
+
+    doc.setTextColor(...palette.ink);
+    return yy + headerBlockH + 5;
+  };
+
+  const drawTableHeader = (yy: number) => {
+    doc.setFillColor(...palette.headerBg);
+    doc.setDrawColor(...palette.border);
+    doc.setLineWidth(0.25);
+    doc.rect(margin, yy, contentW, headerH, 'FD');
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...palette.headerInk);
+    const hy = yy + 7.5;
+    doc.text('#', colNumCx, hy, { align: 'center' });
+    doc.text('Product', colNameL, hy);
+    doc.text('Qty sold', colQtyR, hy, { align: 'right' });
+    doc.text('Stock', colStockR, hy, { align: 'right' });
+    doc.setFontSize(10);
+    doc.text('Tick', colConfirmCx, hy, { align: 'center' });
+
+    return yy + headerH;
+  };
+
+  let y = drawPageHeader(margin);
+  y = drawTableHeader(y);
+
+  opts.products.forEach((p, idx) => {
+    if (y + rowH > pageH - margin - footerH) {
+      doc.addPage();
+      y = drawPageHeader(margin);
+      y = drawTableHeader(y);
+    }
+
+    if (idx % 2 === 1) {
+      doc.setFillColor(...palette.zebra);
+      doc.rect(margin, y, contentW, rowH, 'F');
+    }
+
+    doc.setDrawColor(...palette.border);
+    doc.setLineWidth(0.1);
+    doc.line(margin, y + rowH, pageW - margin, y + rowH);
+
+    const name = getItemDisplayName(p.item_name, p.variant_name);
+    const u = UNIT_LABELS[p.unit_type] || p.unit_type;
+    const by = rowBaseline(y);
+
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...palette.ink);
+    doc.text(String(idx + 1), colNumCx, by, { align: 'center' });
+    doc.text(truncateName(name), colNameL, by);
+    doc.text(`${formatNumber(p.total_quantity_sold)} ${u}`, colQtyR, by, { align: 'right' });
+    doc.text(`${formatNumber(p.current_stock)} ${u}`, colStockR, by, { align: 'right' });
+
+    const boxX = colConfirmCx - rowTickBoxMm / 2;
+    const boxY = y + (rowH - rowTickBoxMm) / 2;
+    doc.setDrawColor(...palette.ink);
+    doc.setLineWidth(0.35);
+    doc.rect(boxX, boxY, rowTickBoxMm, rowTickBoxMm);
+
+    y += rowH;
+  });
+
+  doc.setDrawColor(...palette.border);
+  doc.setLineWidth(0.25);
+  doc.line(margin, y, pageW - margin, y);
+
+  y += 6;
+  const summaryH = 12;
+  if (y + summaryH > pageH - margin - footerH) {
+    doc.addPage();
+    y = drawPageHeader(margin);
+  }
+
+  doc.setFillColor(...palette.headerBg);
+  doc.setDrawColor(...palette.border);
+  doc.setLineWidth(0.25);
+  doc.roundedRect(margin, y, contentW, summaryH, 1.2, 1.2, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(...palette.headerInk);
+  const totalLabel = `Total: ${opts.products.length} product${opts.products.length === 1 ? '' : 's'}`;
+  doc.text(totalLabel, margin + 5, y + 8);
+
+  y += summaryH + 6;
+  const noteText =
+    'Tick each box in the table (required) to confirm that row’s quantity sold and stock figures are correct.';
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(...palette.muted);
+  const noteLines = doc.splitTextToSize(noteText, contentW);
+  const noteBlockH = noteLines.length * 4.8 + 2;
+  if (y + noteBlockH > pageH - margin - footerH) {
+    doc.addPage();
+    y = drawPageHeader(margin);
+  }
+  doc.text(noteLines, margin, y + 4);
+
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...palette.muted);
+    doc.text(`Page ${i} of ${totalPages}`, pageW / 2, pageH - 8, { align: 'center' });
+  }
+
+  const datePart = slugFilePart(opts.periodLabel);
+  doc.save(`${slugFilePart(opts.typeLabel)}-products-${datePart}.pdf`);
+}
 
 // ─── Component ───────────────────────────────────────────────────
 
@@ -155,6 +390,12 @@ export default function SalesByTypePage() {
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [dayProducts, setDayProducts] = useState<Record<string, DailyProduct[]>>({});
   const [loadingDayProducts, setLoadingDayProducts] = useState<string | null>(null);
+  const [stockEditProduct, setStockEditProduct] = useState<DailyProduct | null>(null);
+  const [stockEditValue, setStockEditValue] = useState('');
+  const [stockEditReason, setStockEditReason] = useState<AdjustmentReason>('counting_error');
+  const [stockEditNotes, setStockEditNotes] = useState('');
+  const [stockSaving, setStockSaving] = useState(false);
+  const [pdfLoading, setPdfLoading] = useState(false);
 
   useEffect(() => {
     if (!typesLoading && itemTypeKeys.length > 0 && type && !itemTypeKeys.includes(type)) {
@@ -263,6 +504,103 @@ export default function SalesByTypePage() {
     p.category_name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const productsPeriodLabel = selectedDate
+    ? dailySales.find((d) => d.date_key === selectedDate)?.date_label ?? selectedDate
+    : 'Today';
+
+  const yesterdayDateKey = getLocalDateKeyDaysAgo(1);
+  const productsListTitle =
+    selectedDate === null
+      ? "Today's products"
+      : productsPeriodLabel === 'Yesterday'
+        ? "Yesterday's products"
+        : `Products · ${productsPeriodLabel}`;
+
+  const openStockEdit = (p: DailyProduct) => {
+    setStockEditProduct(p);
+    const discrete = isDiscreteUnitType(p.unit_type as UnitType);
+    const cur = Number(p.current_stock) || 0;
+    setStockEditValue(discrete ? String(Math.round(cur)) : String(cur));
+    setStockEditReason('counting_error');
+    setStockEditNotes('');
+  };
+
+  const closeStockEdit = () => {
+    setStockEditProduct(null);
+    setStockSaving(false);
+  };
+
+  const submitStockEdit = async () => {
+    if (!stockEditProduct) return;
+    const discrete = isDiscreteUnitType(stockEditProduct.unit_type as UnitType);
+    const newVal = discrete ? parseInt(stockEditValue, 10) : parseFloat(stockEditValue);
+    if (Number.isNaN(newVal) || newVal < 0) {
+      toast.error('Enter a valid stock amount (0 or greater)');
+      return;
+    }
+    const current = Number(stockEditProduct.current_stock) || 0;
+    const diff = newVal - current;
+    const epsilon = discrete ? 1 : 0.0001;
+    if (Math.abs(diff) < epsilon) {
+      toast.message('No change to stock');
+      closeStockEdit();
+      return;
+    }
+    setStockSaving(true);
+    const adjustmentType = diff > 0 ? 'increase' : 'decrease';
+    const quantity = Math.abs(diff);
+    const result = await apiPost<{
+      requiresApproval?: boolean;
+      actualStock?: number;
+    }>('/api/stock/adjust', {
+      itemId: stockEditProduct.item_id,
+      adjustmentType,
+      quantity,
+      reason: stockEditReason,
+      notes: stockEditNotes.trim() || null,
+    });
+    setStockSaving(false);
+    if (!result.success) {
+      toast.error(result.message || 'Could not update stock');
+      return;
+    }
+    if (result.data?.requiresApproval) {
+      toast.info('Submitted for approval', {
+        description: 'Stock change is pending admin approval.',
+      });
+      closeStockEdit();
+      return;
+    }
+    const actualStock = result.data?.actualStock ?? newVal;
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        dailyProducts: prev.dailyProducts.map((dp) =>
+          dp.item_id === stockEditProduct.item_id ? { ...dp, current_stock: actualStock } : dp
+        ),
+      };
+    });
+    toast.success('Stock updated');
+    closeStockEdit();
+  };
+
+  const handleDownloadPdf = async () => {
+    if (filteredProducts.length === 0) return;
+    try {
+      setPdfLoading(true);
+      await downloadTodaysProductsPdf({
+        typeLabel,
+        periodLabel: productsPeriodLabel,
+        products: filteredProducts,
+      });
+    } catch {
+      toast.error('Could not create PDF');
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   // Best hour
   const bestHour = hourlySales.reduce<HourlySales | null>(
     (best, h) => (!best || h.revenue > best.revenue ? h : best), null
@@ -298,6 +636,13 @@ export default function SalesByTypePage() {
                   </h1>
                   <p className="text-sm text-slate-500 dark:text-slate-400">
                     Last {days} days &bull; {formatNumber(summary.totalTransactions)} transactions
+                    {selectedDate ? (
+                      <span className="text-slate-600 dark:text-slate-300">
+                        {' '}
+                        &bull; Product list &amp; hourly:{' '}
+                        <span className="font-semibold text-green-700 dark:text-green-400">{productsPeriodLabel}</span>
+                      </span>
+                    ) : null}
                   </p>
                 </div>
               </div>
@@ -306,8 +651,8 @@ export default function SalesByTypePage() {
               </Button>
             </div>
 
-            {/* Period Selector */}
-            <div className="flex flex-wrap items-center gap-2">
+            {/* Period + day filter (list & hourly) */}
+            <div className="flex flex-wrap items-center gap-2 gap-y-2">
               {[
                 { label: '7 Days', value: 7 },
                 { label: '14 Days', value: 14 },
@@ -324,6 +669,30 @@ export default function SalesByTypePage() {
                   {opt.label}
                 </Button>
               ))}
+              <div className="hidden sm:block w-px h-6 bg-slate-200 dark:bg-slate-600 mx-0.5 shrink-0" aria-hidden />
+              <span className="w-full sm:w-auto text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:mr-1">
+                List &amp; hourly
+              </span>
+              <Button
+                type="button"
+                variant={selectedDate === null ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedDate(null)}
+                className={`h-8 text-xs ${selectedDate === null ? 'bg-slate-700 hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500' : ''}`}
+              >
+                <CalendarDays className="w-3.5 h-3.5 mr-1" />
+                Today
+              </Button>
+              <Button
+                type="button"
+                variant={selectedDate === yesterdayDateKey ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedDate(yesterdayDateKey)}
+                className={`h-8 text-xs ${selectedDate === yesterdayDateKey ? 'bg-slate-700 hover:bg-slate-800 dark:bg-slate-600 dark:hover:bg-slate-500' : ''}`}
+              >
+                <History className="w-3.5 h-3.5 mr-1" />
+                Yesterday
+              </Button>
             </div>
           </div>
         </div>
@@ -543,7 +912,7 @@ export default function SalesByTypePage() {
                 <CardTitle className="text-base font-bold flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-green-600" />
-                    Hourly Sales Pattern {selectedDate ? '' : '(Today)'}
+                    Hourly sales — {productsPeriodLabel}
                   </span>
                   {bestHour && (
                     <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 border-0 text-[10px]">
@@ -626,24 +995,44 @@ export default function SalesByTypePage() {
           {/* ═══ TODAY'S PRODUCTS SOLD ═══ */}
           <Card className="border-2 border-slate-200 dark:border-slate-700">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold flex items-center justify-between">
-                <span className="flex items-center gap-2">
+              <CardTitle className="text-base font-bold flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <span className="flex items-center gap-2 flex-wrap">
                   <ShoppingCart className="w-4 h-4 text-green-600" />
-                  Today&apos;s Products ({todayProducts.length})
+                  {productsListTitle} ({todayProducts.length})
+                  <Badge variant="outline" className="text-[9px] font-normal text-slate-500 border-slate-200 dark:border-slate-600">
+                    {productsPeriodLabel}
+                  </Badge>
                 </span>
-                <div className="relative w-48">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search..."
-                    className="pl-8 h-8 text-xs border-slate-200 dark:border-slate-700"
-                  />
-                  {searchQuery && (
-                    <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2">
-                      <X className="w-3.5 h-3.5 text-slate-400" />
-                    </button>
-                  )}
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs shrink-0"
+                    onClick={handleDownloadPdf}
+                    disabled={filteredProducts.length === 0 || pdfLoading}
+                  >
+                    {pdfLoading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <FileDown className="w-3.5 h-3.5" />
+                    )}
+                    <span className="ml-1.5">PDF</span>
+                  </Button>
+                  <div className="relative flex-1 sm:flex-initial sm:w-48 min-w-0 max-w-full">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    <Input
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search..."
+                      className="pl-8 h-8 text-xs border-slate-200 dark:border-slate-700"
+                    />
+                    {searchQuery && (
+                      <button type="button" onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                        <X className="w-3.5 h-3.5 text-slate-400" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </CardTitle>
             </CardHeader>
@@ -652,7 +1041,9 @@ export default function SalesByTypePage() {
                 <div className="flex flex-col items-center justify-center py-12">
                   <PackageX className="w-8 h-8 text-slate-300 mb-2" />
                   <p className="text-sm text-slate-400">
-                    {searchQuery ? 'No products match your search' : `No ${typeLabel.toLowerCase()} products sold today`}
+                    {searchQuery
+                      ? 'No products match your search'
+                      : `No ${typeLabel.toLowerCase()} products sold ${selectedDate ? `on ${productsPeriodLabel}` : 'today'}`}
                   </p>
                 </div>
               ) : (
@@ -666,6 +1057,7 @@ export default function SalesByTypePage() {
                         <th className="text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider px-4 py-2.5">Profit</th>
                         <th className="text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider px-4 py-2.5">Avg Price</th>
                         <th className="text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider px-4 py-2.5">Stock</th>
+                        <th className="text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2 py-2.5 w-14">Update</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -719,6 +1111,18 @@ export default function SalesByTypePage() {
                                 </span>
                               )}
                             </td>
+                            <td className="px-2 py-2.5 text-center">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-slate-500 hover:text-green-600"
+                                onClick={() => openStockEdit(p)}
+                                title="Update stock"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                            </td>
                           </tr>
                         );
                       })}
@@ -762,7 +1166,7 @@ export default function SalesByTypePage() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base font-bold flex items-center gap-2">
                     <ArrowUpRight className="w-4 h-4 text-green-500" />
-                    Top Earners Today
+                    Top earners — {productsPeriodLabel}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -852,6 +1256,76 @@ export default function SalesByTypePage() {
               </CardContent>
             </Card>
           )}
+
+          <Dialog
+            open={!!stockEditProduct}
+            onOpenChange={(open) => {
+              if (!open) closeStockEdit();
+            }}
+          >
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Update stock</DialogTitle>
+              </DialogHeader>
+              {stockEditProduct && (
+                <div className="space-y-4 pt-1">
+                  <p className="text-sm text-slate-600 dark:text-slate-400 truncate">
+                    {getItemDisplayName(stockEditProduct.item_name, stockEditProduct.variant_name)}
+                  </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="stock-edit-qty">
+                      New quantity ({UNIT_LABELS[stockEditProduct.unit_type] || stockEditProduct.unit_type})
+                    </Label>
+                    <Input
+                      id="stock-edit-qty"
+                      type="text"
+                      inputMode={isDiscreteUnitType(stockEditProduct.unit_type as UnitType) ? 'numeric' : 'decimal'}
+                      value={stockEditValue}
+                      onChange={(e) => setStockEditValue(e.target.value)}
+                      className="font-mono"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Reason</Label>
+                    <Select
+                      value={stockEditReason}
+                      onValueChange={(v) => setStockEditReason(v as AdjustmentReason)}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ADJUSTMENT_REASONS.map((r) => (
+                          <SelectItem key={r} value={r}>
+                            {ADJUSTMENT_REASON_LABELS[r]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="stock-edit-notes">Notes (optional)</Label>
+                    <Textarea
+                      id="stock-edit-notes"
+                      rows={2}
+                      value={stockEditNotes}
+                      onChange={(e) => setStockEditNotes(e.target.value)}
+                      placeholder="e.g. physical count"
+                      className="resize-none text-sm"
+                    />
+                  </div>
+                  <DialogFooter className="gap-2 sm:gap-0">
+                    <Button type="button" variant="outline" onClick={closeStockEdit} disabled={stockSaving}>
+                      Cancel
+                    </Button>
+                    <Button type="button" onClick={() => void submitStockEdit()} disabled={stockSaving}>
+                      {stockSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+                    </Button>
+                  </DialogFooter>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </AdminLayout>
