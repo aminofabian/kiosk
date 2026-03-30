@@ -758,6 +758,8 @@ export function ItemForm({
   const [itemType, setItemType] = useState<string>(initialData?.item_type || productTypes[0]?.key || 'retail');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  /** Synchronous guard — state updates are async, so a second submit can fire before `isSubmitting` paints. */
+  const submitInFlightRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [parentSearchQuery, setParentSearchQuery] = useState('');
@@ -968,6 +970,7 @@ export function ItemForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitInFlightRef.current) return;
     setError(null);
 
     // Validate category
@@ -1038,25 +1041,34 @@ export function ItemForm({
       return;
     }
 
-    // Check for duplicate barcode if provided
-    if (barcode && barcode.trim()) {
-      const barcodeCheck = await apiGet<Item>(`/api/items/barcode/${encodeURIComponent(barcode.trim())}`);
-      if (barcodeCheck.success && barcodeCheck.data) {
-        // If editing, allow the same barcode for the current item
-        if (itemId && barcodeCheck.data.id === itemId) {
-          // Same item, same barcode - this is fine
-        } else {
-          // Different item has this barcode - error
-          setError(`A product with barcode "${barcode.trim()}" already exists (${barcodeCheck.data.name}). Please use a different barcode or remove it.`);
-          return;
-        }
-      }
-      // If barcodeCheck.success is false, the barcode doesn't exist, which is what we want
-    }
-
+    submitInFlightRef.current = true;
     setIsSubmitting(true);
 
     try {
+      // Check for duplicate barcode if provided (after lock so UI greys immediately and no double-create)
+      if (barcode && barcode.trim()) {
+        let barcodeCheck: Awaited<ReturnType<typeof apiGet<Item>>>;
+        try {
+          barcodeCheck = await apiGet<Item>(`/api/items/barcode/${encodeURIComponent(barcode.trim())}`);
+        } catch (bcErr) {
+          console.error('Barcode check error:', bcErr);
+          setError('Could not verify barcode. Please try again.');
+          submitInFlightRef.current = false;
+          setIsSubmitting(false);
+          return;
+        }
+        if (barcodeCheck.success && barcodeCheck.data) {
+          if (itemId && barcodeCheck.data.id === itemId) {
+            // Same item, same barcode - ok
+          } else {
+            setError(`A product with barcode "${barcode.trim()}" already exists (${barcodeCheck.data.name}). Please use a different barcode or remove it.`);
+            submitInFlightRef.current = false;
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+
       let finalCategoryId = categoryId;
 
       // If custom category, create it first
@@ -1065,6 +1077,7 @@ export function ItemForm({
 
         if (!categoryResult.success) {
           setError(categoryResult.message || 'Failed to create category');
+          submitInFlightRef.current = false;
           setIsSubmitting(false);
           return;
         }
@@ -1083,6 +1096,7 @@ export function ItemForm({
             setCategorySearchQuery('');
           } else {
             setError('Category was created but could not be found');
+            submitInFlightRef.current = false;
             setIsSubmitting(false);
             return;
           }
@@ -1205,6 +1219,8 @@ export function ItemForm({
           }
         }
 
+        submitInFlightRef.current = false;
+        setIsSubmitting(false);
         if (onSuccess) {
           onSuccess(finalItem);
         } else {
@@ -1212,11 +1228,13 @@ export function ItemForm({
         }
       } else {
         setError(result.message || 'Failed to save item');
+        submitInFlightRef.current = false;
         setIsSubmitting(false);
       }
     } catch (err) {
       console.error('Item save error:', err);
       setError('An error occurred. Please try again.');
+      submitInFlightRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -1242,7 +1260,11 @@ export function ItemForm({
 
   return (
     <div className="max-w-2xl mx-auto py-4">
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form
+        onSubmit={handleSubmit}
+        className={`space-y-6 transition-opacity ${isSubmitting ? 'opacity-60' : ''}`}
+        aria-busy={isSubmitting}
+      >
         {/* Step indicator - only for new items */}
         {useSteps && (
           <div className="flex items-center gap-0 mb-6 p-1.5 rounded-2xl bg-slate-100/80 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50">
@@ -1255,12 +1277,14 @@ export function ItemForm({
                 <div key={stepNum} className="flex items-center flex-1 min-w-0">
                   <button
                     type="button"
+                    disabled={isSubmitting}
                     onClick={() => setFormStep(stepNum)}
                     className={`
                       flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-200 flex-1
                       ${isActive ? 'bg-white dark:bg-slate-700 text-[#1c6a1e] shadow-sm ring-1 ring-slate-200/50 dark:ring-slate-600' : ''}
                       ${isComplete ? 'text-[#1c6a1e] dark:text-emerald-400' : ''}
                       ${!isActive && !isComplete ? 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300' : ''}
+                      ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}
                     `}
                   >
                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isActive ? 'bg-[#1c6a1e] text-white' : isComplete ? 'bg-[#1c6a1e]/20 text-[#1c6a1e] dark:bg-emerald-500/20' : 'bg-slate-200/60 dark:bg-slate-700/60'}`}>
