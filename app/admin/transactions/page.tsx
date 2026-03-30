@@ -18,6 +18,7 @@ import {
   DollarSign,
   Undo2,
   Pencil,
+  Printer,
 } from 'lucide-react';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { apiPatch } from '@/lib/utils/api-client';
@@ -434,6 +435,22 @@ function TransactionsContent() {
                             >
                               {formatPrice(sale.total_amount)}
                             </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 px-2 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                              onClick={() => {
+                                window.open(
+                                  `/pos/receipt/${sale.id}?print=true`,
+                                  '_blank',
+                                  'noopener,noreferrer'
+                                );
+                              }}
+                              title="Reprint receipt"
+                            >
+                              <Printer className="h-4 w-4" />
+                              <span className="sr-only">Reprint receipt</span>
+                            </Button>
                             {canVoid && !isVoided && (
                               <>
                                 <Button
