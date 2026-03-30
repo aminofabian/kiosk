@@ -22,41 +22,6 @@ interface ReceiptProps {
   splitPayments?: SplitPayment[];
 }
 
-/** Deterministic pseudo-barcode stripes from sale id (decorative, not scannable). */
-function barcodeStripes(seed: string): number[] {
-  const s = seed.replace(/-/g, '');
-  const widths: number[] = [];
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-  }
-  for (let i = 0; i < 80; i++) {
-    const rot = h >>> 13;
-    h = Math.imul(h ^ rot, 1274126177) >>> 0;
-    widths.push((h % 3) + 1);
-  }
-  return widths;
-}
-
-function ReceiptBarcode({ seed }: { seed: string }) {
-  /* Fewer, thinner bars so total width never exceeds narrow thermal paper */
-  const stripes = barcodeStripes(seed).slice(0, 52);
-  return (
-    <div
-      className="flex w-full max-w-full justify-center gap-0 my-3 print:my-1.5 h-10 print:h-8 items-stretch overflow-hidden"
-      aria-hidden
-    >
-      {stripes.map((w, i) => (
-        <div
-          key={i}
-          className="shrink-0 bg-black"
-          style={{ width: `${Math.min(w, 2)}px`, minWidth: `${Math.min(w, 2)}px` }}
-        />
-      ))}
-    </div>
-  );
-}
-
 function receiptTitle(method: Sale['payment_method']): string {
   switch (method) {
     case 'cash':
@@ -181,8 +146,6 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
             </div>
           </div>
 
-          <ReceiptBarcode seed={sale.id} />
-
           <div className="border-t border-dotted border-black my-2 print:my-1.5" />
 
           {/* Line items — name left, line total right */}
@@ -207,11 +170,6 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
                   {item.item_unit_type && (
                     <div className="text-[10px] print:text-[9px] text-black mt-0.5 pl-0">
                       @ {formatPrice(item.sell_price_per_unit)}/{item.item_unit_type}
-                    </div>
-                  )}
-                  {item.batch_number && (
-                    <div className="text-[10px] print:text-[9px] text-black">
-                      Lot: {item.batch_number}
                     </div>
                   )}
                 </div>
