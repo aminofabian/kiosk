@@ -47,6 +47,19 @@ interface DailyProduct {
   min_stock_level: number | null;
 }
 
+/** Start of the next calendar day after `dateYmd` (YYYY-MM-DD), server local TZ, as Unix seconds. */
+function startOfNextLocalDayUnix(dateYmd: string): number {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateYmd.trim());
+  if (!m) return Math.floor(Date.now() / 1000);
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const next = new Date(y, mo - 1, d);
+  next.setDate(next.getDate() + 1);
+  next.setHours(0, 0, 0, 0);
+  return Math.floor(next.getTime() / 1000);
+}
+
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth();
@@ -84,7 +97,6 @@ export async function GET(request: NextRequest) {
     );
 
     // Hourly breakdown for today (or selected date)
-    const targetDate = selectedDate || 'now';
     const hourlyDateFilter = selectedDate
       ? `DATE(s.sale_date, 'unixepoch', 'localtime') = ?`
       : `DATE(s.sale_date, 'unixepoch', 'localtime') = DATE('now', 'localtime')`;
@@ -127,7 +139,8 @@ export async function GET(request: NextRequest) {
       [auth.businessId, startDate, itemType]
     );
 
-    // Products sold on selected date (or today)
+    // Products sold on selected date (or today). For a past date, stock is estimated at end of
+    // that day by rolling back completed sales, adjustments, and batch receipts since then.
     const productsDateFilter = selectedDate
       ? `DATE(s.sale_date, 'unixepoch', 'localtime') = ?`
       : `DATE(s.sale_date, 'unixepoch', 'localtime') = DATE('now', 'localtime')`;
@@ -135,8 +148,61 @@ export async function GET(request: NextRequest) {
       ? [auth.businessId, itemType, selectedDate]
       : [auth.businessId, itemType];
 
-    const dailyProducts = await query<DailyProduct>(
-      `SELECT 
+    const dailyProductsSqlBase = `
+      FROM sales s
+      JOIN sale_items si ON s.id = si.sale_id
+      JOIN items i ON si.item_id = i.id
+      LEFT JOIN categories c ON i.category_id = c.id
+      WHERE s.business_id = ? AND s.status = 'completed'
+        AND COALESCE(si.item_type_snapshot, 'retail') = ?
+        AND ${productsDateFilter}`;
+
+    let dailyProducts: DailyProduct[];
+
+    if (selectedDate) {
+      const boundary = startOfNextLocalDayUnix(selectedDate);
+      dailyProducts = await query<DailyProduct>(
+        `SELECT 
+        i.id as item_id,
+        i.name as item_name,
+        i.variant_name,
+        COALESCE(c.name, 'Uncategorized') as category_name,
+        i.unit_type,
+        COALESCE(SUM(si.quantity_sold), 0) as total_quantity_sold,
+        COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
+        COALESCE(SUM(si.profit), 0) as total_profit,
+        COALESCE(AVG(si.sell_price_per_unit), 0) as avg_sell_price,
+        COUNT(DISTINCT s.id) as transaction_count,
+        max(0,
+          i.current_stock
+          + COALESCE((SELECT SUM(si2.quantity_sold) FROM sale_items si2
+              INNER JOIN sales s2 ON s2.id = si2.sale_id
+              WHERE si2.item_id = i.id AND s2.business_id = ?
+                AND s2.status = 'completed' AND s2.sale_date >= ?
+                AND COALESCE(si2.item_type_snapshot, 'retail') = ?), 0)
+          - COALESCE((SELECT SUM(sa.difference) FROM stock_adjustments sa
+              WHERE sa.item_id = i.id AND sa.business_id = ? AND sa.created_at >= ?), 0)
+          - COALESCE((SELECT SUM(ib.initial_quantity) FROM inventory_batches ib
+              WHERE ib.item_id = i.id AND ib.business_id = ? AND ib.created_at >= ?), 0)
+        ) as current_stock,
+        i.min_stock_level
+      ${dailyProductsSqlBase}
+      GROUP BY i.id, i.name, i.variant_name, c.name, i.unit_type, i.current_stock, i.min_stock_level
+      ORDER BY total_revenue DESC`,
+        [
+          auth.businessId,
+          boundary,
+          itemType,
+          auth.businessId,
+          boundary,
+          auth.businessId,
+          boundary,
+          ...productsParams,
+        ]
+      );
+    } else {
+      dailyProducts = await query<DailyProduct>(
+        `SELECT 
         i.id as item_id,
         i.name as item_name,
         i.variant_name,
@@ -149,17 +215,12 @@ export async function GET(request: NextRequest) {
         COUNT(DISTINCT s.id) as transaction_count,
         i.current_stock,
         i.min_stock_level
-      FROM sales s
-      JOIN sale_items si ON s.id = si.sale_id
-      JOIN items i ON si.item_id = i.id
-      LEFT JOIN categories c ON i.category_id = c.id
-      WHERE s.business_id = ? AND s.status = 'completed'
-        AND COALESCE(si.item_type_snapshot, 'retail') = ?
-        AND ${productsDateFilter}
+      ${dailyProductsSqlBase}
       GROUP BY i.id, i.name, i.variant_name, c.name, i.unit_type, i.current_stock, i.min_stock_level
       ORDER BY total_revenue DESC`,
-      productsParams
-    );
+        productsParams
+      );
+    }
 
     // Overall summary for the period
     const periodSummary = dailySales.reduce(

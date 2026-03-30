@@ -607,6 +607,15 @@
     color-adjust: exact;
   }
   
+  /* POS shell uses h-screen + overflow; allow long receipts to span multiple pages */
+  body:has(#receipt-to-print) .relative.flex.flex-col.h-screen,
+  body:has(#receipt-to-print) main {
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+  
   /* Reset body for direct printing */
   html, body {
     margin: 0 !important;
@@ -645,10 +654,10 @@
     margin: 0 !important;
     padding: 0 !important;
     background: white !important;
-    page-break-inside: avoid !important;
-    page-break-after: avoid !important;
-    page-break-before: avoid !important;
-    overflow: hidden !important;
+    /* Allow page breaks inside long receipts (avoid was forcing a single clipped page) */
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+    overflow: visible !important;
   }
   
   /* Keep layout properties for receipt content */
@@ -660,12 +669,17 @@
     display: flex !important;
   }
   
-  /* Prevent text overflow */
+  /* Let content wrap and paginate (hidden/nowrap clipped multi-page output) */
   #receipt-to-print span,
   #receipt-to-print p,
   #receipt-to-print div {
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+  }
+  
+  /* Single-line metadata rows stay on one line (exclude item name .flex-1) */
+  #receipt-to-print .flex.justify-between > span:not(.flex-1) {
     white-space: nowrap !important;
   }
   

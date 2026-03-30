@@ -67,7 +67,7 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
     >
       {/* On-screen: wider, more readable. Print: also larger for standard A4 printing. */}
       <div
-        className="w-full max-w-sm sm:max-w-md bg-white print:w-full print:max-w-lg print:mr-0 shadow-lg print:shadow-none rounded-lg print:rounded-none overflow-hidden font-mono text-black"
+        className="w-full max-w-sm sm:max-w-md bg-white print:w-full print:max-w-lg print:mr-0 shadow-lg print:shadow-none rounded-lg print:rounded-none overflow-hidden print:overflow-visible font-mono text-black"
         style={{ color: '#000000', WebkitTextFillColor: '#000000' } as React.CSSProperties}
       >
         {/* Receipt Container */}
