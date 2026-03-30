@@ -600,7 +600,8 @@
   /* Page settings for thermal receipt - optimized for direct printer output */
   @page {
     size: 72mm auto;
-    margin: 0mm 2mm;
+    /* Minimal margin — thermal drivers often clip the last mm if layout is too wide */
+    margin: 0;
     /* Ensure printer-friendly settings */
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -624,11 +625,12 @@
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
     color-adjust: exact !important;
-    width: 72mm !important;
-    max-width: 72mm !important;
+    /* Slightly under nominal 72mm so content stays inside physical print area */
+    width: 68mm !important;
+    max-width: 68mm !important;
     height: auto !important;
     overflow: visible !important;
-    font-size: 10px !important;
+    font-size: 9px !important;
   }
   
   /* Show receipt and all its parents - force visibility */
@@ -649,15 +651,28 @@
     position: relative !important;
     left: 0 !important;
     top: 0 !important;
-    width: 72mm !important;
-    max-width: 72mm !important;
+    width: 68mm !important;
+    max-width: 68mm !important;
     margin: 0 !important;
     padding: 0 !important;
     background: white !important;
+    box-sizing: border-box !important;
     /* Allow page breaks inside long receipts (avoid was forcing a single clipped page) */
     break-inside: auto !important;
     page-break-inside: auto !important;
     overflow: visible !important;
+  }
+
+  #receipt-to-print *,
+  #receipt-to-print *::before,
+  #receipt-to-print *::after {
+    box-sizing: border-box !important;
+  }
+
+  /* Flex/grid children must be allowed to shrink so right column is not pushed off-paper */
+  #receipt-to-print .flex > .min-w-0,
+  #receipt-to-print .flex > .receipt-col-main {
+    min-width: 0 !important;
   }
   
   /* Keep layout properties for receipt content */
@@ -678,9 +693,17 @@
     white-space: normal !important;
   }
   
-  /* Single-line metadata rows stay on one line (exclude item name .flex-1) */
-  #receipt-to-print .flex.justify-between > span:not(.flex-1) {
+  /* Allow values to wrap — nowrap caused right-edge clipping on 72mm thermal */
+  #receipt-to-print .receipt-meta-row .receipt-meta-val {
+    white-space: normal !important;
+    text-align: right !important;
+    word-break: break-all !important;
+  }
+
+  #receipt-to-print .receipt-amount {
     white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    text-align: right !important;
   }
   
   /* Allow wrapping for item names on their own line */

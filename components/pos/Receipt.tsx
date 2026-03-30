@@ -39,17 +39,18 @@ function barcodeStripes(seed: string): number[] {
 }
 
 function ReceiptBarcode({ seed }: { seed: string }) {
-  const stripes = barcodeStripes(seed);
+  /* Fewer, thinner bars so total width never exceeds narrow thermal paper */
+  const stripes = barcodeStripes(seed).slice(0, 52);
   return (
     <div
-      className="flex w-full justify-center gap-0 my-3 print:my-2 h-11 print:h-9 items-stretch overflow-hidden"
+      className="flex w-full max-w-full justify-center gap-0 my-3 print:my-1.5 h-10 print:h-8 items-stretch overflow-hidden"
       aria-hidden
     >
       {stripes.map((w, i) => (
         <div
           key={i}
           className="shrink-0 bg-black"
-          style={{ width: `${w}px`, minWidth: `${w}px` }}
+          style={{ width: `${Math.min(w, 2)}px`, minWidth: `${Math.min(w, 2)}px` }}
         />
       ))}
     </div>
@@ -102,6 +103,22 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
     });
   };
 
+  /** Compact for thermal — avoids clipping on ~72mm paper */
+  const formatDateThermal = (timestamp: number) => {
+    const d = new Date(timestamp * 1000);
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yy = String(d.getFullYear()).slice(-2);
+    return `${dd}/${mm}/${yy}`;
+  };
+
+  const formatTimeThermal = (timestamp: number) => {
+    const d = new Date(timestamp * 1000);
+    const h = String(d.getHours()).padStart(2, '0');
+    const m = String(d.getMinutes()).padStart(2, '0');
+    return `${h}:${m}`;
+  };
+
   const subtotal = items.reduce(
     (sum, item) => sum + item.quantity_sold * item.sell_price_per_unit,
     0
@@ -112,15 +129,15 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
   return (
     <div
       id="receipt-to-print"
-      className="receipt-print-container p-4 print:p-3 flex justify-center bg-[#e8e8e8] print:bg-white"
+      className="receipt-print-container p-4 print:p-0 flex justify-center bg-[#e8e8e8] print:bg-white"
       style={{ color: '#000000', WebkitTextFillColor: '#000000' } as React.CSSProperties}
     >
       <div
-        className="w-full max-w-[280px] sm:max-w-[300px] bg-[#f0f0f0] print:bg-white print:w-full print:max-w-none shadow-md print:shadow-none rounded-sm print:rounded-none overflow-hidden print:overflow-visible font-mono text-black"
+        className="w-full max-w-[280px] sm:max-w-[300px] bg-[#f0f0f0] print:bg-white print:w-full print:max-w-full shadow-md print:shadow-none rounded-sm print:rounded-none overflow-hidden print:overflow-visible font-mono text-black"
         style={{ color: '#000000', WebkitTextFillColor: '#000000' } as React.CSSProperties}
       >
         <div
-          className="px-3 py-4 print:px-2 print:py-3 text-[13px] print:text-[11px] leading-snug text-black"
+          className="px-3 py-4 print:px-1.5 print:py-2 text-[13px] print:text-[9px] leading-snug text-black"
           style={{
             color: '#000000',
             WebkitTextFillColor: '#000000',
@@ -129,30 +146,38 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
           } as React.CSSProperties}
         >
           {/* Header — centered, thermal style */}
-          <div className="text-center uppercase tracking-wide text-black">
-            <p className="text-[15px] print:text-[13px] font-black leading-tight mb-1 text-black">
+          <div className="text-center uppercase tracking-wide text-black print:tracking-tight">
+            <p className="text-[15px] print:text-[11px] font-black leading-tight mb-1 text-black">
               {storeName}
             </p>
-            <p className="text-[11px] print:text-[10px] font-semibold normal-case tracking-normal mb-2 text-black">
+            <p className="text-[11px] print:text-[9px] font-semibold normal-case tracking-normal mb-1.5 print:mb-1 text-black">
               Fresh n More
             </p>
-            <p className="text-[12px] print:text-[11px] font-black mb-3 text-black">
+            <p className="text-[12px] print:text-[9px] font-black mb-2 print:mb-1.5 text-black leading-tight px-0.5">
               {receiptTitle(sale.payment_method)}
             </p>
           </div>
 
           <div className="space-y-0.5 mb-1 text-black">
-            <div className="flex justify-between gap-2">
-              <span className="text-black">Date:</span>
-              <span className="text-black tabular-nums">{formatDateShort(sale.sale_date)}</span>
+            <div className="receipt-meta-row grid grid-cols-[auto_minmax(0,1fr)] gap-x-1.5 print:gap-x-1 items-baseline">
+              <span className="text-black shrink-0">Date:</span>
+              <span className="receipt-meta-val text-black tabular-nums text-right">
+                <span className="print:hidden">{formatDateShort(sale.sale_date)}</span>
+                <span className="hidden print:inline">{formatDateThermal(sale.sale_date)}</span>
+              </span>
             </div>
-            <div className="flex justify-between gap-2">
-              <span className="text-black">Time:</span>
-              <span className="text-black tabular-nums">{formatTime(sale.sale_date)}</span>
+            <div className="receipt-meta-row grid grid-cols-[auto_minmax(0,1fr)] gap-x-1.5 print:gap-x-1 items-baseline">
+              <span className="text-black shrink-0">Time:</span>
+              <span className="receipt-meta-val text-black tabular-nums text-right">
+                <span className="print:hidden">{formatTime(sale.sale_date)}</span>
+                <span className="hidden print:inline">{formatTimeThermal(sale.sale_date)}</span>
+              </span>
             </div>
-            <div className="flex justify-between gap-2 text-[11px] print:text-[10px]">
-              <span className="text-black">Receipt#</span>
-              <span className="font-bold text-black tabular-nums">{sale.id.slice(0, 8).toUpperCase()}</span>
+            <div className="receipt-meta-row grid grid-cols-[auto_minmax(0,1fr)] gap-x-1.5 print:gap-x-1 items-baseline text-[11px] print:text-[9px]">
+              <span className="text-black shrink-0">Rcpt#</span>
+              <span className="receipt-meta-val font-bold text-black tabular-nums text-right break-all">
+                {sale.id.slice(0, 8).toUpperCase()}
+              </span>
             </div>
           </div>
 
@@ -168,14 +193,14 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
                 item.quantity_sold !== 1 ? ` ×${item.quantity_sold}` : '';
               return (
                 <div key={item.id} className="text-black">
-                  <div className="flex justify-between gap-2 items-baseline">
-                    <span className="flex-1 min-w-0 text-left text-black leading-tight">
+                  <div className="flex flex-row justify-between gap-1.5 print:flex-col print:items-stretch print:gap-0.5 items-baseline">
+                    <span className="receipt-col-main flex-1 min-w-0 text-left text-black leading-tight">
                       {item.item_name}
                       {qtyLabel && (
                         <span className="font-bold text-black">{qtyLabel}</span>
                       )}
                     </span>
-                    <span className="shrink-0 tabular-nums font-semibold text-black text-right">
+                    <span className="receipt-amount shrink-0 tabular-nums font-semibold text-black text-right print:self-end">
                       KES {formatPrice(lineTotal)}
                     </span>
                   </div>
@@ -198,26 +223,34 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
 
           {/* Totals — bold label left, value right */}
           <div className="space-y-1 mb-2 text-black">
-            <div className="flex justify-between gap-2 font-black text-[13px] print:text-[12px]">
-              <span className="text-black">TOTAL:</span>
-              <span className="tabular-nums text-black">KES {formatPrice(sale.total_amount)}</span>
+            <div className="receipt-meta-row grid grid-cols-[auto_minmax(0,1fr)] gap-x-1.5 print:gap-x-1 items-baseline font-black text-[13px] print:text-[10px]">
+              <span className="text-black shrink-0">TOTAL:</span>
+              <span className="receipt-amount tabular-nums text-black text-right">
+                KES {formatPrice(sale.total_amount)}
+              </span>
             </div>
             {subtotal !== sale.total_amount && (
-              <div className="flex justify-between gap-2 text-[11px] print:text-[10px] font-semibold">
-                <span className="text-black">SUBTOTAL:</span>
-                <span className="tabular-nums text-black">KES {formatPrice(subtotal)}</span>
+              <div className="receipt-meta-row grid grid-cols-[auto_minmax(0,1fr)] gap-x-1.5 print:gap-x-1 items-baseline text-[11px] print:text-[9px] font-semibold">
+                <span className="text-black shrink-0">SUB:</span>
+                <span className="receipt-amount tabular-nums text-black text-right">
+                  KES {formatPrice(subtotal)}
+                </span>
               </div>
             )}
             {sale.payment_method === 'cash' && (
-              <div className="flex justify-between gap-2 font-bold text-[12px] print:text-[11px]">
-                <span className="text-black">CASH:</span>
-                <span className="tabular-nums text-black">KES {formatPrice(sale.total_amount)}</span>
+              <div className="receipt-meta-row grid grid-cols-[auto_minmax(0,1fr)] gap-x-1.5 print:gap-x-1 items-baseline font-bold text-[12px] print:text-[9px]">
+                <span className="text-black shrink-0">CASH:</span>
+                <span className="receipt-amount tabular-nums text-black text-right">
+                  KES {formatPrice(sale.total_amount)}
+                </span>
               </div>
             )}
             {sale.payment_method === 'mpesa' && (
-              <div className="flex justify-between gap-2 font-bold text-[12px] print:text-[11px]">
-                <span className="text-black">MPESA:</span>
-                <span className="tabular-nums text-black">KES {formatPrice(sale.total_amount)}</span>
+              <div className="receipt-meta-row grid grid-cols-[auto_minmax(0,1fr)] gap-x-1.5 print:gap-x-1 items-baseline font-bold text-[12px] print:text-[9px]">
+                <span className="text-black shrink-0">MPESA:</span>
+                <span className="receipt-amount tabular-nums text-black text-right">
+                  KES {formatPrice(sale.total_amount)}
+                </span>
               </div>
             )}
             {sale.payment_method === 'split' && splitPayments && splitPayments.length > 0 && (
@@ -225,9 +258,9 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
                 {splitPayments.map((payment) => (
                   <div
                     key={payment.id}
-                    className="flex justify-between gap-2 font-bold text-[11px] print:text-[10px]"
+                    className="receipt-meta-row grid grid-cols-[minmax(0,1fr)_auto] gap-x-1 print:gap-x-0.5 font-bold text-[11px] print:text-[9px] items-baseline"
                   >
-                    <span className="uppercase text-black">
+                    <span className="uppercase text-black min-w-0 break-words leading-tight">
                       {payment.payment_method}
                       {payment.payment_method === 'credit' && payment.customer_name && (
                         <span className="normal-case font-semibold">
@@ -236,15 +269,19 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
                         </span>
                       )}
                     </span>
-                    <span className="tabular-nums text-black">KES {formatPrice(payment.amount)}</span>
+                    <span className="receipt-amount tabular-nums text-black text-right shrink-0">
+                      KES {formatPrice(payment.amount)}
+                    </span>
                   </div>
                 ))}
               </div>
             )}
             {sale.payment_method === 'credit' && (
-              <div className="flex justify-between gap-2 font-bold text-[12px] print:text-[11px]">
-                <span className="text-black">CREDIT:</span>
-                <span className="tabular-nums text-black">KES {formatPrice(sale.total_amount)}</span>
+              <div className="receipt-meta-row grid grid-cols-[auto_minmax(0,1fr)] gap-x-1.5 print:gap-x-1 items-baseline font-bold text-[12px] print:text-[10px]">
+                <span className="text-black shrink-0">CREDIT:</span>
+                <span className="receipt-amount tabular-nums text-black text-right">
+                  KES {formatPrice(sale.total_amount)}
+                </span>
               </div>
             )}
           </div>
@@ -254,15 +291,15 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
               <div className="border-t border-dotted border-black my-2 print:my-1.5" />
               <div className="space-y-0.5 text-[10px] print:text-[9px] text-black">
                 {sale.user_name && (
-                  <div className="flex justify-between gap-2">
-                    <span className="text-black">Served by:</span>
-                    <span className="text-black truncate max-w-[55%] text-right">{sale.user_name}</span>
+                  <div className="receipt-meta-row grid grid-cols-[auto_minmax(0,1fr)] gap-x-1 items-baseline">
+                    <span className="text-black shrink-0">Staff:</span>
+                    <span className="receipt-meta-val text-black text-right break-words">{sale.user_name}</span>
                   </div>
                 )}
                 {sale.customer_name && (
-                  <div className="flex justify-between gap-2">
-                    <span className="text-black">Customer:</span>
-                    <span className="text-black truncate max-w-[55%] text-right">{sale.customer_name}</span>
+                  <div className="receipt-meta-row grid grid-cols-[auto_minmax(0,1fr)] gap-x-1 items-baseline">
+                    <span className="text-black shrink-0">Cust:</span>
+                    <span className="receipt-meta-val text-black text-right break-words">{sale.customer_name}</span>
                   </div>
                 )}
               </div>
@@ -271,15 +308,16 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
 
           <div className="border-t border-dotted border-black my-3 print:my-2" />
 
-          <p className="receipt-thank-you text-center text-[11px] print:text-[10px] leading-relaxed text-black">
+          <p className="receipt-thank-you text-center text-[11px] print:text-[9px] leading-relaxed text-black print:px-0.5">
             THANK YOU FOR
             <br />
             SHOPPING
           </p>
 
-          <div className="text-center text-[9px] print:text-[8px] mt-2 space-y-0.5 normal-case text-black">
-            <p className="text-black">www.fnms.co.ke · Tel: 0113 277 767</p>
-            <p className="font-bold text-black">Till: 3020127 — Zelisline</p>
+          <div className="text-center text-[9px] print:text-[7px] mt-2 space-y-0.5 normal-case text-black leading-snug print:px-0.5">
+            <p className="text-black break-words">www.fnms.co.ke</p>
+            <p className="text-black">Tel 0113 277 767</p>
+            <p className="font-bold text-black">Till 3020127 - Zelisline</p>
             <p className="text-black mt-1 tabular-nums">{formatDate(sale.sale_date)}</p>
           </div>
         </div>
