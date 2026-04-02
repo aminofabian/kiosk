@@ -20,7 +20,6 @@ import {
   Package,
   Ban,
   Check,
-  Calendar,
   User,
   ArrowDown,
   ArrowUp,
@@ -30,7 +29,6 @@ import {
   Clock,
   ShoppingCart,
   AlertTriangle,
-  CalendarClock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -62,7 +60,17 @@ interface BatchDetail extends Batch {
     profit: number;
     sale_date: number;
   }>;
+  /** Present when ?start=&end= were sent: sales stats for that window (lifetime totals stay on quantity_sold / revenue / profit). */
+  salesPeriod?: {
+    start: number;
+    end: number;
+    quantity_sold: number;
+    revenue: number;
+    profit: number;
+  };
 }
+
+type DetailDatePreset = 'all_time' | 'today' | 'week' | 'month' | 'custom';
 
 const formatPrice = (n: number) =>
   `KES ${Math.abs(n).toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -82,6 +90,49 @@ const formatDateTime = (ts: number) => {
   };
 };
 
+const formatDetailPeriodLabel = (startSec: number, endSec: number) => {
+  const s = new Date(startSec * 1000);
+  const e = new Date(endSec * 1000);
+  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' };
+  if (s.toDateString() === e.toDateString()) {
+    return s.toLocaleDateString('en-KE', opts);
+  }
+  return `${s.toLocaleDateString('en-KE', opts)} – ${e.toLocaleDateString('en-KE', opts)}`;
+};
+
+function detailPresetToQuery(
+  preset: DetailDatePreset,
+  customRange: { start: string; end: string }
+): string {
+  if (preset === 'all_time') return '';
+  const fmt = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let startStr: string;
+  let endStr: string;
+  if (preset === 'today') {
+    startStr = endStr = fmt(todayStart);
+  } else if (preset === 'week') {
+    const start = new Date(todayStart);
+    start.setDate(start.getDate() - 6);
+    startStr = fmt(start);
+    endStr = fmt(todayStart);
+  } else if (preset === 'month') {
+    const start = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
+    startStr = fmt(start);
+    endStr = fmt(todayStart);
+  } else {
+    startStr = customRange.start;
+    endStr = customRange.end;
+  }
+  const [sY, sM, sD] = startStr.split('-').map(Number);
+  const [eY, eM, eD] = endStr.split('-').map(Number);
+  const startTs = Math.floor(new Date(sY, sM - 1, sD, 0, 0, 0).getTime() / 1000);
+  const endTs = Math.floor(new Date(eY, eM - 1, eD, 23, 59, 59).getTime() / 1000);
+  return `?start=${startTs}&end=${endTs}`;
+}
+
 const statusColors: Record<string, string> = {
   active: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
   depleted: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
@@ -94,8 +145,18 @@ export default function BatchesPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
+  const [openedBatchId, setOpenedBatchId] = useState<string | null>(null);
   const [selectedBatch, setSelectedBatch] = useState<BatchDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [detailDatePreset, setDetailDatePreset] = useState<DetailDatePreset>('all_time');
+  const [detailCustomRange, setDetailCustomRange] = useState(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    const iso = `${y}-${m}-${d}`;
+    return { start: iso, end: iso };
+  });
   const [deactivating, setDeactivating] = useState(false);
   const [listDeactivatingId, setListDeactivatingId] = useState<string | null>(null);
 
@@ -125,21 +186,38 @@ export default function BatchesPage() {
     fetchBatches();
   }, [fetchBatches]);
 
-  const handleRowClick = async (batch: Batch) => {
-    setDetailDrawerOpen(true);
-    setDetailLoading(true);
-    setSelectedBatch(null);
-    try {
-      const result = await apiGet<BatchDetail>(`/api/batches/${batch.id}`);
-      if (result.success && result.data) {
-        setSelectedBatch(result.data);
+  useEffect(() => {
+    if (!detailDrawerOpen || !openedBatchId) return;
+    let cancelled = false;
+    (async () => {
+      setDetailLoading(true);
+      try {
+        const qs = detailPresetToQuery(detailDatePreset, detailCustomRange);
+        const result = await apiGet<BatchDetail>(`/api/batches/${openedBatchId}${qs}`);
+        if (cancelled) return;
+        if (result.success && result.data) {
+          setSelectedBatch(result.data);
+        } else {
+          toast.error(result.message || 'Failed to load batch details');
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error(err);
+          toast.error('Failed to load batch details');
+        }
+      } finally {
+        if (!cancelled) setDetailLoading(false);
       }
-    } catch (err) {
-      console.error(err);
-      toast.error('Failed to load batch details');
-    } finally {
-      setDetailLoading(false);
-    }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [detailDrawerOpen, openedBatchId, detailDatePreset, detailCustomRange]);
+
+  const handleRowClick = (batch: Batch) => {
+    setSelectedBatch(null);
+    setOpenedBatchId(batch.id);
+    setDetailDrawerOpen(true);
   };
 
   const handleDeactivate = async () => {
@@ -341,15 +419,72 @@ export default function BatchesPage() {
         {/* Detail Drawer */}
         <Drawer
           open={detailDrawerOpen}
-          onOpenChange={setDetailDrawerOpen}
+          onOpenChange={(open) => {
+            setDetailDrawerOpen(open);
+            if (!open) {
+              setOpenedBatchId(null);
+              setSelectedBatch(null);
+            }
+          }}
           direction="right"
         >
           <DrawerContent className="!w-full sm:!w-[480px] md:!w-[520px] !max-w-none h-full max-h-screen flex flex-col">
-            <DrawerHeader className="border-b border-slate-200 dark:border-slate-700">
+            <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 space-y-3 pb-4">
               <DrawerTitle className="flex items-center gap-2">
                 <Layers className="w-5 h-5 text-[#1c6a1e]" />
                 Stock Lot Details
               </DrawerTitle>
+              <div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-2">
+                  Sales &amp; history below can match the Profit page: choose Today, Week, or Month. Stock bar stays all-time.
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(
+                    [
+                      ['all_time', 'All time'],
+                      ['today', 'Today'],
+                      ['week', 'Week'],
+                      ['month', 'Month'],
+                      ['custom', 'Custom'],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <Button
+                      key={key}
+                      type="button"
+                      variant={detailDatePreset === key ? 'default' : 'outline'}
+                      size="sm"
+                      className={
+                        detailDatePreset === key
+                          ? 'h-8 text-xs bg-[#1c6a1e] hover:bg-[#145216]'
+                          : 'h-8 text-xs'
+                      }
+                      onClick={() => setDetailDatePreset(key)}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+                {detailDatePreset === 'custom' && (
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      type="date"
+                      value={detailCustomRange.start}
+                      onChange={(e) =>
+                        setDetailCustomRange((r) => ({ ...r, start: e.target.value }))
+                      }
+                      className="h-9 text-xs"
+                    />
+                    <Input
+                      type="date"
+                      value={detailCustomRange.end}
+                      onChange={(e) =>
+                        setDetailCustomRange((r) => ({ ...r, end: e.target.value }))
+                      }
+                      className="h-9 text-xs"
+                    />
+                  </div>
+                )}
+              </div>
             </DrawerHeader>
             <div className="flex-1 overflow-y-auto">
               {detailLoading ? (
@@ -359,9 +494,12 @@ export default function BatchesPage() {
               ) : selectedBatch ? (
                 (() => {
                   const b = selectedBatch;
+                  const period = b.salesPeriod;
+                  const finQty = period ? period.quantity_sold : b.quantity_sold;
+                  const finRev = period ? period.revenue : b.revenue;
                   const totalInvestment = b.buy_price_per_unit * b.initial_quantity;
-                  const cogs = b.buy_price_per_unit * b.quantity_sold;
-                  const revenue = b.revenue;
+                  const cogs = b.buy_price_per_unit * finQty;
+                  const revenue = finRev;
                   const grossProfit = revenue - cogs;
                   const unsoldStockValue = b.buy_price_per_unit * b.quantity_remaining;
                   const soldPct = b.initial_quantity > 0 ? (b.quantity_sold / b.initial_quantity) * 100 : 0;
@@ -370,7 +508,9 @@ export default function BatchesPage() {
                   const lostPct = b.initial_quantity > 0 ? (lostQty / b.initial_quantity) * 100 : 0;
                   const lostValue = b.buy_price_per_unit * lostQty;
                   const margin = revenue > 0 ? (grossProfit / revenue) * 100 : 0;
-                  const avgSellPrice = b.quantity_sold > 0 ? revenue / b.quantity_sold : 0;
+                  const avgSellPrice = finQty > 0 ? revenue / finQty : 0;
+                  const avgSellLifetime =
+                    b.quantity_sold > 0 ? b.revenue / b.quantity_sold : 0;
                   const markup = b.buy_price_per_unit > 0 ? ((avgSellPrice - b.buy_price_per_unit) / b.buy_price_per_unit) * 100 : 0;
 
                   return (
@@ -396,7 +536,13 @@ export default function BatchesPage() {
                           {b.quantity_sold > 0 && (
                             <div>
                               <p className="text-white/50 text-[11px] uppercase tracking-wider">Avg Sell</p>
-                              <p className="text-sm font-semibold mt-0.5">{formatPrice(avgSellPrice)}<span className="text-white/50 font-normal">/{b.item_unit_type}</span></p>
+                              <p className="text-sm font-semibold mt-0.5">
+                                {formatPrice(period ? avgSellLifetime : avgSellPrice)}
+                                <span className="text-white/50 font-normal">/{b.item_unit_type}</span>
+                              </p>
+                              {period && (
+                                <p className="text-[10px] text-white/45 mt-0.5">All-time avg</p>
+                              )}
                             </div>
                           )}
                           <div>
@@ -428,7 +574,14 @@ export default function BatchesPage() {
                               <Warehouse className="w-4 h-4 text-slate-400" />
                               Stock Breakdown
                             </h4>
-                            <span className="text-xs text-slate-500">{b.initial_quantity} {b.item_unit_type} total</span>
+                            <span className="text-xs text-slate-500 text-right">
+                              {b.initial_quantity} {b.item_unit_type} total
+                              {period && (
+                                <span className="block text-[10px] text-slate-400 font-normal mt-0.5">
+                                  Sold = all time
+                                </span>
+                              )}
+                            </span>
                           </div>
                           <div className="h-3 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex">
                             {soldPct > 0 && <div className="bg-emerald-500 transition-all" style={{ width: `${soldPct}%` }} />}
@@ -455,9 +608,17 @@ export default function BatchesPage() {
 
                         {/* Financial Flow */}
                         <div>
-                          <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 mb-3">
+                          <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex flex-wrap items-center gap-1.5 mb-3">
                             <Receipt className="w-4 h-4 text-slate-400" />
                             Financial Summary
+                            {period && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] font-normal border-slate-300 dark:border-slate-600"
+                              >
+                                {formatDetailPeriodLabel(period.start, period.end)}
+                              </Badge>
+                            )}
                           </h4>
                           <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
                             {/* Investment */}
@@ -484,7 +645,7 @@ export default function BatchesPage() {
                                 </div>
                                 <div>
                                   <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Revenue</p>
-                                  <p className="text-[11px] text-slate-400">{b.quantity_sold} {b.item_unit_type} sold</p>
+                                  <p className="text-[11px] text-slate-400">{finQty} {b.item_unit_type} sold</p>
                                 </div>
                               </div>
                               <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatPrice(revenue)}</p>
@@ -500,7 +661,7 @@ export default function BatchesPage() {
                                 </div>
                                 <div>
                                   <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Cost of Goods Sold</p>
-                                  <p className="text-[11px] text-slate-400">{b.quantity_sold} × {formatPrice(b.buy_price_per_unit)}</p>
+                                  <p className="text-[11px] text-slate-400">{finQty} × {formatPrice(b.buy_price_per_unit)}</p>
                                 </div>
                               </div>
                               <p className="text-sm font-bold text-slate-600 dark:text-slate-300">−{formatPrice(cogs)}</p>
@@ -539,7 +700,7 @@ export default function BatchesPage() {
                                   </p>
                                   {revenue > 0 && (
                                     <p className={`text-[11px] ${grossProfit >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                                      {margin.toFixed(1)}% margin{b.quantity_sold > 0 ? ` · ${markup.toFixed(0)}% markup` : ''}
+                                      {margin.toFixed(1)}% margin{finQty > 0 ? ` · ${markup.toFixed(0)}% markup` : ''}
                                     </p>
                                   )}
                                 </div>
@@ -573,18 +734,23 @@ export default function BatchesPage() {
                         {/* Sales History */}
                         {b.salesHistory && b.salesHistory.length > 0 && (
                           <div>
-                            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-1.5 mb-3">
+                            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex flex-wrap items-center gap-1.5 mb-3">
                               <ShoppingCart className="w-4 h-4 text-slate-400" />
                               Sales History
+                              {period && (
+                                <span className="text-[10px] font-normal text-slate-400">
+                                  ({formatDetailPeriodLabel(period.start, period.end)})
+                                </span>
+                              )}
                               <span className="ml-auto text-xs font-normal text-slate-400">{b.salesHistory.length} transaction{b.salesHistory.length !== 1 ? 's' : ''}</span>
                             </h4>
                             <div className="space-y-0 max-h-64 overflow-y-auto pr-1 divide-y divide-slate-100 dark:divide-slate-800">
-                              {b.salesHistory.map((sale) => {
+                              {b.salesHistory.map((sale, saleIdx) => {
                                 const saleTotal = sale.quantity_sold * sale.sell_price_per_unit;
                                 const dt = formatDateTime(sale.sale_date);
                                 return (
                                   <div
-                                    key={sale.sale_id}
+                                    key={`${sale.sale_id}-${saleIdx}`}
                                     className="flex items-center justify-between py-2.5 px-1"
                                   >
                                     <div>
@@ -603,7 +769,11 @@ export default function BatchesPage() {
                         {(!b.salesHistory || b.salesHistory.length === 0) && (
                           <div className="text-center py-6">
                             <ShoppingCart className="w-8 h-8 mx-auto mb-2 text-slate-300 dark:text-slate-600" />
-                            <p className="text-sm text-slate-400">No sales recorded for this lot yet</p>
+                            <p className="text-sm text-slate-400">
+                              {period
+                                ? 'No completed sales from this lot in the selected period.'
+                                : 'No sales recorded for this lot yet.'}
+                            </p>
                           </div>
                         )}
 

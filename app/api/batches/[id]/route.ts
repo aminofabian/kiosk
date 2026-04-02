@@ -8,8 +8,10 @@ export async function OPTIONS() {
 }
 
 /**
- * GET /api/batches/[id]
- * Get single batch with sales history
+ * GET /api/batches/[id]?start=&end=
+ * Single batch with sales history. Omit start/end for all-time completed sales.
+ * With start & end (unix seconds, inclusive of end-of-day if client sends 23:59:59),
+ * salesHistory and salesPeriod are filtered; quantity_sold / revenue / profit stay lifetime totals for the lot.
  */
 export async function GET(
   request: NextRequest,
@@ -55,6 +57,61 @@ export async function GET(
       return jsonResponse({ success: false, message: 'Batch not found' }, 404);
     }
 
+    const { searchParams } = request.nextUrl;
+    const periodStart = parseInt(searchParams.get('start') || '0', 10);
+    const periodEnd = parseInt(searchParams.get('end') || '0', 10);
+    const hasPeriod =
+      periodStart > 0 && periodEnd > 0 && periodEnd >= periodStart;
+
+    const baseSaleJoin = `
+       FROM sale_items si
+       JOIN sales s ON si.sale_id = s.id
+       WHERE si.inventory_batch_id = ?
+         AND s.business_id = ?
+         AND s.status = 'completed'`;
+
+    const lifetimeTotals = await queryOne<{
+      quantity_sold: number;
+      revenue: number;
+      profit: number;
+    }>(
+      `SELECT 
+        COALESCE(SUM(si.quantity_sold), 0) as quantity_sold,
+        COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as revenue,
+        COALESCE(SUM(si.profit), 0) as profit
+       ${baseSaleJoin}`,
+      [batchId, auth.businessId]
+    );
+
+    let periodTotals: {
+      quantity_sold: number;
+      revenue: number;
+      profit: number;
+    } | null = null;
+    if (hasPeriod) {
+      periodTotals = await queryOne<{
+        quantity_sold: number;
+        revenue: number;
+        profit: number;
+      }>(
+        `SELECT 
+          COALESCE(SUM(si.quantity_sold), 0) as quantity_sold,
+          COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as revenue,
+          COALESCE(SUM(si.profit), 0) as profit
+         ${baseSaleJoin}
+           AND s.sale_date >= ?
+           AND s.sale_date <= ?`,
+        [batchId, auth.businessId, periodStart, periodEnd]
+      );
+    }
+
+    const historyParams: (string | number)[] = [batchId, auth.businessId];
+    let historyDateClause = '';
+    if (hasPeriod) {
+      historyDateClause = ' AND s.sale_date >= ? AND s.sale_date <= ?';
+      historyParams.push(periodStart, periodEnd);
+    }
+
     const salesHistory = await query<
       {
         sale_id: string;
@@ -68,22 +125,10 @@ export async function GET(
        FROM sale_items si
        JOIN sales s ON si.sale_id = s.id
        WHERE si.inventory_batch_id = ? AND s.business_id = ?
+         AND s.status = 'completed'
+         ${historyDateClause}
        ORDER BY s.sale_date DESC`,
-      [batchId, auth.businessId]
-    );
-
-    const totals = await queryOne<{
-      quantity_sold: number;
-      revenue: number;
-      profit: number;
-    }>(
-      `SELECT 
-        COALESCE(SUM(quantity_sold), 0) as quantity_sold,
-        COALESCE(SUM(quantity_sold * sell_price_per_unit), 0) as revenue,
-        COALESCE(SUM(profit), 0) as profit
-       FROM sale_items
-       WHERE inventory_batch_id = ?`,
-      [batchId]
+      historyParams
     );
 
     return jsonResponse({
@@ -91,9 +136,18 @@ export async function GET(
       data: {
         ...batch,
         salesHistory,
-        quantity_sold: totals?.quantity_sold ?? 0,
-        revenue: totals?.revenue ?? 0,
-        profit: totals?.profit ?? 0,
+        quantity_sold: lifetimeTotals?.quantity_sold ?? 0,
+        revenue: lifetimeTotals?.revenue ?? 0,
+        profit: lifetimeTotals?.profit ?? 0,
+        salesPeriod: hasPeriod
+          ? {
+              start: periodStart,
+              end: periodEnd,
+              quantity_sold: periodTotals?.quantity_sold ?? 0,
+              revenue: periodTotals?.revenue ?? 0,
+              profit: periodTotals?.profit ?? 0,
+            }
+          : undefined,
       },
     });
   } catch (error) {

@@ -97,14 +97,17 @@ export async function GET(request: NextRequest) {
             profit: number;
           }>(
             `SELECT 
-              inventory_batch_id,
-              SUM(quantity_sold) as quantity_sold,
-              SUM(quantity_sold * sell_price_per_unit) as revenue,
-              SUM(profit) as profit
-             FROM sale_items
-             WHERE inventory_batch_id IN (${batchIds.map(() => '?').join(',')})
-             GROUP BY inventory_batch_id`,
-            batchIds
+              si.inventory_batch_id,
+              SUM(si.quantity_sold) as quantity_sold,
+              SUM(si.quantity_sold * si.sell_price_per_unit) as revenue,
+              SUM(si.profit) as profit
+             FROM sale_items si
+             JOIN sales s ON si.sale_id = s.id
+             WHERE si.inventory_batch_id IN (${batchIds.map(() => '?').join(',')})
+               AND s.business_id = ?
+               AND s.status = 'completed'
+             GROUP BY si.inventory_batch_id`,
+            [...batchIds, auth.businessId]
           )
         : [];
 
