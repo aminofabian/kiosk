@@ -2926,11 +2926,19 @@ export default function POSPage() {
                                     <Package className="w-8 h-8 text-gray-300 dark:text-gray-600" />
                                   </div>
                                 )}
-                                {/* Stock overlay for out of stock */}
+                                {/* Stock overlay when zero or negative */}
                                 {item.current_stock <= 0 && (
                                   <div className="absolute inset-0 bg-white/60 dark:bg-black/40 flex items-center justify-center">
-                                    <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 bg-white/90 dark:bg-black/60 px-2 py-0.5 rounded-none">
-                                      Out of stock
+                                    <span
+                                      className={`text-[10px] font-bold px-2 py-0.5 rounded-none ${
+                                        item.current_stock < 0
+                                          ? 'text-red-600 dark:text-red-400 bg-red-50/95 dark:bg-red-950/80'
+                                          : 'text-gray-500 dark:text-gray-400 bg-white/90 dark:bg-black/60'
+                                      }`}
+                                    >
+                                      {item.current_stock < 0
+                                        ? `${item.current_stock.toFixed(item.unit_type === 'kg' || item.unit_type === 'g' ? 2 : 0)} ${item.unit_type}`
+                                        : 'Out of stock'}
                                     </span>
                                   </div>
                                 )}
@@ -2950,15 +2958,33 @@ export default function POSPage() {
                                 </div>
                                 {/* Stock indicator */}
                                 <div className="flex items-center gap-1 mt-1.5">
-                                  <span className={`w-1.5 h-1.5 rounded-none flex-shrink-0 ${
-                                    item.current_stock <= 0 ? 'bg-gray-300 dark:bg-gray-600' :
-                                    item.current_stock < 10 ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'
-                                  }`} />
-                                  <span className={`text-[10px] font-medium ${
-                                    item.current_stock <= 0 ? 'text-gray-400' :
-                                    item.current_stock < 10 ? 'text-amber-500' : 'text-gray-400'
-                                  }`}>
-                                    {item.current_stock <= 0 ? 'Out of stock' : `${item.current_stock} ${item.unit_type}`}
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-none flex-shrink-0 ${
+                                      item.current_stock < 0
+                                        ? 'bg-red-500'
+                                        : item.current_stock <= 0
+                                          ? 'bg-gray-300 dark:bg-gray-600'
+                                          : item.current_stock < 10
+                                            ? 'bg-amber-400 animate-pulse'
+                                            : 'bg-emerald-400'
+                                    }`}
+                                  />
+                                  <span
+                                    className={`text-[10px] font-medium ${
+                                      item.current_stock < 0
+                                        ? 'text-red-600 dark:text-red-400 font-semibold'
+                                        : item.current_stock <= 0
+                                          ? 'text-gray-400'
+                                          : item.current_stock < 10
+                                            ? 'text-amber-500'
+                                            : 'text-gray-400'
+                                    }`}
+                                  >
+                                    {item.current_stock < 0
+                                      ? `${item.current_stock.toFixed(item.unit_type === 'kg' || item.unit_type === 'g' ? 2 : 0)} ${item.unit_type}`
+                                      : item.current_stock <= 0
+                                        ? 'Out of stock'
+                                        : `${item.current_stock} ${item.unit_type}`}
                                   </span>
                                 </div>
                                 {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
@@ -3024,8 +3050,16 @@ export default function POSPage() {
                               )}
                               {item.current_stock <= 0 && (
                                 <div className="absolute inset-0 bg-white/60 dark:bg-black/40 flex items-center justify-center">
-                                  <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 bg-white/90 dark:bg-black/60 px-2 py-0.5 rounded-none">
-                                    Out of stock
+                                  <span
+                                    className={`text-[10px] font-bold px-2 py-0.5 rounded-none ${
+                                      item.current_stock < 0
+                                        ? 'text-red-600 dark:text-red-400 bg-red-50/95 dark:bg-red-950/80'
+                                        : 'text-gray-500 dark:text-gray-400 bg-white/90 dark:bg-black/60'
+                                    }`}
+                                  >
+                                    {item.current_stock < 0
+                                      ? `${item.current_stock.toFixed(item.unit_type === 'kg' || item.unit_type === 'g' ? 2 : 0)} ${item.unit_type}`
+                                      : 'Out of stock'}
                                   </span>
                                 </div>
                               )}
@@ -3043,15 +3077,33 @@ export default function POSPage() {
                                 </span>
                               </div>
                               <div className="flex items-center gap-1 mt-1.5">
-                                <span className={`w-1.5 h-1.5 rounded-none flex-shrink-0 ${
-                                  item.current_stock <= 0 ? 'bg-gray-300 dark:bg-gray-600' :
-                                  item.current_stock < 10 ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'
-                                }`} />
-                                <span className={`text-[10px] font-medium ${
-                                  item.current_stock <= 0 ? 'text-gray-400' :
-                                  item.current_stock < 10 ? 'text-amber-500' : 'text-gray-400'
-                                }`}>
-                                  {item.current_stock <= 0 ? 'Out of stock' : `${item.current_stock} ${item.unit_type}`}
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-none flex-shrink-0 ${
+                                    item.current_stock < 0
+                                      ? 'bg-red-500'
+                                      : item.current_stock <= 0
+                                        ? 'bg-gray-300 dark:bg-gray-600'
+                                        : item.current_stock < 10
+                                          ? 'bg-amber-400 animate-pulse'
+                                          : 'bg-emerald-400'
+                                  }`}
+                                />
+                                <span
+                                  className={`text-[10px] font-medium ${
+                                    item.current_stock < 0
+                                      ? 'text-red-600 dark:text-red-400 font-semibold'
+                                      : item.current_stock <= 0
+                                        ? 'text-gray-400'
+                                        : item.current_stock < 10
+                                          ? 'text-amber-500'
+                                          : 'text-gray-400'
+                                  }`}
+                                >
+                                  {item.current_stock < 0
+                                    ? `${item.current_stock.toFixed(item.unit_type === 'kg' || item.unit_type === 'g' ? 2 : 0)} ${item.unit_type}`
+                                    : item.current_stock <= 0
+                                      ? 'Out of stock'
+                                      : `${item.current_stock} ${item.unit_type}`}
                                 </span>
                               </div>
                               {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (

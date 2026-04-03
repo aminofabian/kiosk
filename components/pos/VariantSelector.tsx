@@ -34,7 +34,11 @@ export function VariantSelector({
   const formatPrice = (price: number) => `KES ${price.toFixed(0)}`;
 
   const formatStock = (stock: number, unitType: UnitType) => {
-    if (stock <= 0) return 'Out of stock';
+    if (stock < 0) {
+      const d = unitType === 'kg' || unitType === 'g' ? 2 : 1;
+      return `${stock.toFixed(d)} ${unitType}`;
+    }
+    if (stock === 0) return 'Out of stock';
     if (stock < 10) return `Low (${stock.toFixed(1)} ${unitType})`;
     return `${stock.toFixed(1)} ${unitType}`;
   };
@@ -46,8 +50,12 @@ export function VariantSelector({
   const variants = parentItem.variants || [];
   // Show all variants, sorted by stock status (in stock first, then out of stock)
   const sortedVariants = [...variants].sort((a, b) => {
-    if (a.current_stock > 0 && b.current_stock <= 0) return -1;
-    if (a.current_stock <= 0 && b.current_stock > 0) return 1;
+    const aBad = a.current_stock <= 0;
+    const bBad = b.current_stock <= 0;
+    if (!aBad && bBad) return -1;
+    if (aBad && !bBad) return 1;
+    if (a.current_stock < 0 && b.current_stock >= 0) return 1;
+    if (a.current_stock >= 0 && b.current_stock < 0) return -1;
     return 0;
   });
 
@@ -78,7 +86,9 @@ export function VariantSelector({
             <div className="space-y-3">
               {/* All variants - both in stock and out of stock are selectable */}
               {sortedVariants.map((variant) => {
-                const isOutOfStock = variant.current_stock <= 0;
+                const isNegativeStock = variant.current_stock < 0;
+                const isOutOfStock = variant.current_stock === 0;
+                const isUnavailable = variant.current_stock <= 0;
                 return (
                   <button
                     key={variant.id}
@@ -88,7 +98,7 @@ export function VariantSelector({
                       onOpenChange(false);
                     }}
                     className={`w-full p-4 rounded-xl border-2 transition-all text-left group ${
-                      isOutOfStock
+                      isUnavailable
                         ? 'bg-gray-50 dark:bg-slate-800/50 border-gray-200 dark:border-slate-700 hover:border-[#1c6a1e]'
                         : 'bg-white dark:bg-slate-800 border-gray-100 dark:border-slate-700 hover:border-[#1c6a1e]'
                     }`}
@@ -97,7 +107,7 @@ export function VariantSelector({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className={`font-semibold ${
-                            isOutOfStock
+                            isUnavailable
                               ? 'text-gray-600 dark:text-gray-400'
                               : 'text-gray-900 dark:text-white'
                           }`}>
@@ -106,6 +116,11 @@ export function VariantSelector({
                           <Badge variant="outline" className="text-xs shrink-0">
                             {variant.unit_type}
                           </Badge>
+                          {isNegativeStock && (
+                            <Badge className="text-xs shrink-0 bg-red-600 hover:bg-red-600 text-white border-0">
+                              Negative stock
+                            </Badge>
+                          )}
                           {isOutOfStock && (
                             <Badge variant="destructive" className="text-xs shrink-0">
                               Out of Stock
@@ -114,20 +129,22 @@ export function VariantSelector({
                         </div>
                         <div className="flex items-center gap-3">
                           <span className={`text-lg font-bold ${
-                            isOutOfStock
+                            isUnavailable
                               ? 'text-gray-500 dark:text-gray-400'
                               : 'text-[#1c6a1e]'
                           }`}>
                             {formatPrice(variant.current_sell_price)}
                           </span>
-                          {!isOutOfStock && (
+                          {(isNegativeStock || variant.current_stock > 0) && (
                             <>
                               <span className="text-xs text-gray-400">•</span>
                               <span
                                 className={`text-sm ${
-                                  isLowStock(variant.current_stock)
-                                    ? 'text-orange-500 font-medium'
-                                    : 'text-gray-500'
+                                  isNegativeStock
+                                    ? 'text-red-600 dark:text-red-400 font-semibold'
+                                    : isLowStock(variant.current_stock)
+                                      ? 'text-orange-500 font-medium'
+                                      : 'text-gray-500'
                                 }`}
                               >
                                 {formatStock(variant.current_stock, variant.unit_type)}

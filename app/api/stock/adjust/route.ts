@@ -5,6 +5,29 @@ import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 import { logActivity } from '@/lib/db/activity-log';
 
+/** Must match CHECK on stock_adjustments.reason */
+const STOCK_ADJUSTMENT_REASONS = [
+  'restock',
+  'spoilage',
+  'theft',
+  'counting_error',
+  'damage',
+  'other',
+] as const;
+
+function normalizeAdjustmentReason(
+  reason: unknown,
+  notes: string | null | undefined
+): { reason: string; notes: string | null } {
+  const r = typeof reason === 'string' ? reason.trim() : '';
+  if (STOCK_ADJUSTMENT_REASONS.includes(r as (typeof STOCK_ADJUSTMENT_REASONS)[number])) {
+    return { reason: r, notes: notes?.trim() || null };
+  }
+  const extra = r ? `Original reason: ${r}` : null;
+  const merged = [notes?.trim(), extra].filter(Boolean).join(' | ') || null;
+  return { reason: 'other', notes: merged };
+}
+
 export async function OPTIONS() {
   return optionsResponse();
 }
@@ -15,9 +38,10 @@ export async function POST(request: NextRequest) {
     if (isAuthResponse(auth)) return auth;
 
     const body = await request.json();
-    const { itemId, adjustmentType, quantity, reason, notes } = body;
+    const { itemId, adjustmentType, quantity, reason: rawReason, notes: rawNotes } = body;
+    const { reason, notes } = normalizeAdjustmentReason(rawReason, rawNotes);
 
-    if (!itemId || !adjustmentType || !quantity || !reason) {
+    if (!itemId || !adjustmentType || !quantity || !rawReason) {
       return jsonResponse(
         { success: false, message: 'Missing required fields' },
         400

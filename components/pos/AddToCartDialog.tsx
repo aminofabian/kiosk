@@ -208,10 +208,9 @@ export function AddToCartDialog({
     .filter((i) => i.itemId === item.id && !i.isBundle)
     .reduce((sum, i) => sum + i.quantity, 0);
   
-  // Calculate remaining stock (for display only, not for restrictions)
-  const remainingStock = Math.max(0, item.current_stock - quantityInCart);
-  
-  const isOutOfStock = remainingStock <= 0;
+  // Remaining on hand after this line's quantity (can be negative if overselling vs system stock)
+  const rawRemaining = item.current_stock - quantityInCart;
+  const hasNegativeStock = item.current_stock < 0 || rawRemaining < 0;
   // Remove maxQuantity restriction - allow any quantity
   const isWeight = item.unit_type === 'kg' || item.unit_type === 'g';
   const step = isWeight ? 0.05 : 1;
@@ -311,8 +310,8 @@ export function AddToCartDialog({
         itemId: item.id,
         adjustmentType,
         quantity,
-        reason: 'pos_modal',
-        notes: 'Stock set from POS item dialog',
+        reason: 'other',
+        notes: 'POS item dialog — manual stock correction',
       });
       if (result.success && result.data?.requiresApproval) {
         toast.info('This action needs admin approval for your role.');
@@ -416,23 +415,37 @@ export function AddToCartDialog({
                   />
                 </div>
               )}
-              <div className={`mt-2 inline-flex items-center px-3 py-1 rounded-full border ${
-                remainingStock > 0 
-                  ? 'bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 border-[#1c6a1e]/30 dark:border-[#1c6a1e]/50' 
-                  : 'bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700'
-              }`}>
-                <Package className={`w-3.5 h-3.5 mr-1.5 ${
-                  remainingStock > 0 
-                    ? 'text-[#1c6a1e] dark:text-[#2a8a30]' 
-                    : 'text-red-600 dark:text-red-400'
-                }`} />
-                <span className={`text-sm font-medium ${
-                  remainingStock > 0 
-                    ? 'text-[#1c6a1e] dark:text-[#2a8a30]' 
-                    : 'text-red-700 dark:text-red-300'
-                }`}>
-                  {remainingStock > 0 ? (
-                    <>Remaining: {remainingStock.toFixed(isWeight ? 2 : 0)} {item.unit_type}</>
+              <div
+                className={`mt-2 inline-flex items-center px-3 py-1 rounded-full border ${
+                  hasNegativeStock
+                    ? 'bg-red-100 dark:bg-red-950/40 border-red-400 dark:border-red-600'
+                    : rawRemaining > 0
+                      ? 'bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 border-[#1c6a1e]/30 dark:border-[#1c6a1e]/50'
+                      : 'bg-red-100 dark:bg-red-900/30 border-red-300 dark:border-red-700'
+                }`}
+              >
+                <Package
+                  className={`w-3.5 h-3.5 mr-1.5 ${
+                    hasNegativeStock || rawRemaining <= 0
+                      ? 'text-red-600 dark:text-red-400'
+                      : 'text-[#1c6a1e] dark:text-[#2a8a30]'
+                  }`}
+                />
+                <span
+                  className={`text-sm font-medium ${
+                    hasNegativeStock
+                      ? 'text-red-700 dark:text-red-300 font-semibold'
+                      : rawRemaining > 0
+                        ? 'text-[#1c6a1e] dark:text-[#2a8a30]'
+                        : 'text-red-700 dark:text-red-300'
+                  }`}
+                >
+                  {rawRemaining > 0 ? (
+                    <>Remaining: {rawRemaining.toFixed(isWeight ? 2 : 0)} {item.unit_type}</>
+                  ) : rawRemaining < 0 ? (
+                    <>
+                      Remaining: {rawRemaining.toFixed(isWeight ? 2 : 0)} {item.unit_type}
+                    </>
                   ) : (
                     <>Out of Stock</>
                   )}
@@ -533,7 +546,7 @@ export function AddToCartDialog({
                   </div>
                 </div>
               )}
-              {item.batch_number && remainingStock > 0 && batches.length === 0 && (
+              {item.batch_number && rawRemaining > 0 && batches.length === 0 && (
                 <div className="mt-1.5 text-xs font-mono text-slate-500 dark:text-slate-400">
                   Lot: {item.batch_number}
                 </div>

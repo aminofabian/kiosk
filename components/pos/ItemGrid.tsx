@@ -39,14 +39,19 @@ interface ItemGridProps {
 }
 
 // Stock status helpers
-function getStockStatus(stock: number): 'out' | 'low' | 'ok' {
-  if (stock <= 0) return 'out';
+function getStockStatus(stock: number): 'negative' | 'out' | 'low' | 'ok' {
+  if (stock < 0) return 'negative';
+  if (stock === 0) return 'out';
   if (stock < 10) return 'low';
   return 'ok';
 }
 
 function formatStock(stock: number, unitType: UnitType): string {
-  if (stock <= 0) return 'Out of stock';
+  if (stock < 0) {
+    const decimals = unitType === 'kg' || unitType === 'g' ? 2 : 0;
+    return `${stock.toFixed(decimals)} ${unitType}`;
+  }
+  if (stock === 0) return 'Out of stock';
   return `${stock} ${unitType}`;
 }
 
@@ -76,7 +81,7 @@ const ItemCard = memo(function ItemCard({
   const formatPrice = (price: number) => `KES ${price.toFixed(0)}`;
   const stockStatus = getStockStatus(item.current_stock);
   const quickQty = getQuickAddQuantity(item);
-  const isOutOfStock = stockStatus === 'out';
+  const isOutOfStock = stockStatus === 'out' || stockStatus === 'negative';
 
   return (
     <Card
@@ -95,11 +100,13 @@ const ItemCard = memo(function ItemCard({
       }}
     >
       {/* Left accent bar */}
-      <div className={`absolute left-0 top-0 bottom-0 w-[4px] rounded-l-none transition-all duration-200 ${isOutOfStock
-        ? 'bg-gray-300 dark:bg-gray-600'
-        : stockStatus === 'low'
-          ? 'bg-amber-400'
-          : 'bg-gradient-to-b from-[#1c6a1e] to-[#2a8a30] opacity-0 group-hover:opacity-100'
+      <div className={`absolute left-0 top-0 bottom-0 w-[4px] rounded-l-none transition-all duration-200 ${stockStatus === 'negative'
+        ? 'bg-red-500 dark:bg-red-500'
+        : isOutOfStock
+          ? 'bg-gray-300 dark:bg-gray-600'
+          : stockStatus === 'low'
+            ? 'bg-amber-400'
+            : 'bg-gradient-to-b from-[#1c6a1e] to-[#2a8a30] opacity-0 group-hover:opacity-100'
         }`} />
 
       <CardContent className="p-2.5 sm:p-3 flex flex-col h-full">
@@ -171,7 +178,14 @@ const ItemCard = memo(function ItemCard({
         {/* Stock indicator */}
         <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700/40">
           <div className="flex items-center gap-1.5">
-            {stockStatus === 'out' ? (
+            {stockStatus === 'negative' ? (
+              <>
+                <span className="w-1.5 h-1.5 rounded-none bg-red-500 flex-shrink-0" />
+                <span className="text-[11px] text-red-600 dark:text-red-400 font-semibold">
+                  {formatStock(item.current_stock, item.unit_type)}
+                </span>
+              </>
+            ) : stockStatus === 'out' ? (
               <>
                 <span className="w-1.5 h-1.5 rounded-none bg-gray-300 dark:bg-gray-600 flex-shrink-0" />
                 <span className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">
@@ -549,7 +563,10 @@ export function ItemGrid({
                   {featuredForType.length} popular
                 </span>
                 {(() => {
-                  const out = featuredForType.filter(i => getStockStatus(i.current_stock) === 'out').length;
+                  const out = featuredForType.filter((i) => {
+                    const s = getStockStatus(i.current_stock);
+                    return s === 'out' || s === 'negative';
+                  }).length;
                   const low = featuredForType.filter(i => getStockStatus(i.current_stock) === 'low').length;
                   const ok = featuredForType.filter(i => getStockStatus(i.current_stock) === 'ok').length;
                   return (
@@ -597,7 +614,7 @@ export function ItemGrid({
                   .map((item) => {
                 const rank = top3Ranks.get(item.id);
                 const stock = getStockStatus(item.current_stock);
-                const isOut = stock === 'out';
+                const isOut = stock === 'out' || stock === 'negative';
                 const quickQty = getQuickAddQuantity(item);
 
                 return (
@@ -665,23 +682,31 @@ export function ItemGrid({
                       <div className="flex items-center gap-0.5 min-w-0">
                         <span
                           className={`w-1 h-1 rounded-none flex-shrink-0 ${
-                            isOut
-                              ? 'bg-gray-300 dark:bg-gray-600'
-                              : stock === 'low'
-                              ? 'bg-amber-400'
-                              : 'bg-emerald-400'
+                            stock === 'negative'
+                              ? 'bg-red-500'
+                              : isOut
+                                ? 'bg-gray-300 dark:bg-gray-600'
+                                : stock === 'low'
+                                  ? 'bg-amber-400'
+                                  : 'bg-emerald-400'
                           }`}
                         />
                         <span
                           className={`text-[7px] sm:text-[8px] font-medium truncate ${
-                            isOut
-                              ? 'text-gray-400'
-                              : stock === 'low'
-                              ? 'text-amber-600 dark:text-amber-400'
-                              : 'text-gray-400'
+                            stock === 'negative'
+                              ? 'text-red-600 dark:text-red-400 font-semibold'
+                              : isOut
+                                ? 'text-gray-400'
+                                : stock === 'low'
+                                  ? 'text-amber-600 dark:text-amber-400'
+                                  : 'text-gray-400'
                           }`}
                         >
-                          {isOut ? 'Out' : formatStock(item.current_stock, item.unit_type)}
+                          {stock === 'negative'
+                            ? formatStock(item.current_stock, item.unit_type)
+                            : isOut
+                              ? 'Out'
+                              : formatStock(item.current_stock, item.unit_type)}
                         </span>
                       </div>
 
@@ -736,9 +761,20 @@ export function ItemGrid({
                       {getItemDisplayName(item.name, item.variant_name)}
                     </p>
                     <div className="flex items-center gap-1 mt-0.5">
-                      <span className={`text-[8px] font-semibold tabular-nums ${item.current_stock <= 0 ? 'text-red-500' : 'text-amber-600 dark:text-amber-400'
-                        }`}>
-                        {item.current_stock <= 0 ? 'OUT' : `${item.current_stock} left`}
+                      <span
+                        className={`text-[8px] font-semibold tabular-nums ${
+                          item.current_stock < 0
+                            ? 'text-red-600 dark:text-red-400'
+                            : item.current_stock === 0
+                              ? 'text-red-500'
+                              : 'text-amber-600 dark:text-amber-400'
+                        }`}
+                      >
+                        {item.current_stock < 0
+                          ? formatStock(item.current_stock, item.unit_type)
+                          : item.current_stock === 0
+                            ? 'OUT'
+                            : `${item.current_stock} left`}
                       </span>
                       <span className="text-[7px] text-gray-400">·</span>
                       <span className="text-[8px] text-gray-400 font-medium">
