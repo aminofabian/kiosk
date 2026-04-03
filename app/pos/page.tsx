@@ -76,7 +76,7 @@ import { apiGet } from '@/lib/utils/api-client';
 import { apiGetOffline } from '@/lib/offline/api-offline';
 import { searchItemsOffline } from '@/lib/offline/search';
 import { ShopTypeSelector } from '@/components/pos/ShopTypeSelector';
-import { getShopType, shouldShowCategory } from '@/lib/utils/shop-type';
+import { getShopType, itemMatchesShopType, shouldShowCategory } from '@/lib/utils/shop-type';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { storeUserRole, clearUserRole } from '@/lib/utils/user-role-storage';
 import { useDebounce } from '@/lib/hooks/use-debounce';
@@ -177,7 +177,7 @@ export default function POSPage() {
 
   useEffect(() => {
     if (itemTypeKeys.length > 0) {
-      setShopType((prev) => getShopType(itemTypeKeys) || prev);
+      setShopType(getShopType(itemTypeKeys));
     }
   }, [itemTypeKeys]);
 
@@ -1410,8 +1410,9 @@ export default function POSPage() {
         setDrawerItemsLoading(true);
         const result = await apiGetOffline<Item[]>(`/api/items?categoryId=${drawerCategoryId}`);
         if (result.success) {
-          const allItems: Item[] = result.data ?? [];
-          
+          const rawItems: Item[] = result.data ?? [];
+          const allItems = rawItems.filter((item) => itemMatchesShopType(item, shopType));
+
           // Build parent name map and identify which items have variants
           const parentNames = new Map<string, string>();
           const parentIds = new Set<string>();
@@ -1508,7 +1509,7 @@ export default function POSPage() {
     }
 
     fetchDrawerCategoryItems();
-  }, [drawerCategoryId, categoryDrawerOpen, refreshKey]);
+  }, [drawerCategoryId, categoryDrawerOpen, refreshKey, shopType]);
 
   const drawerCategory = drawerCategoryId
     ? filteredCategories.find((c) => c.id === drawerCategoryId)
@@ -1661,8 +1662,9 @@ export default function POSPage() {
         setItemsLoading(true);
         const result = await apiGetOffline<Item[]>(`/api/items?categoryId=${selectedCategoryId}`);
         if (result.success) {
-          const allItems: Item[] = result.data ?? [];
-          
+          const rawItems: Item[] = result.data ?? [];
+          const allItems = rawItems.filter((item) => itemMatchesShopType(item, shopType));
+
           // Build parent name map and identify which items have variants
           const parentNames = new Map<string, string>();
           const parentIds = new Set<string>();
@@ -1759,7 +1761,7 @@ export default function POSPage() {
     }
 
     fetchCategoryItems();
-  }, [selectedCategoryId, refreshKey]);
+  }, [selectedCategoryId, refreshKey, shopType]);
 
   const filteredGroupedCategoryItems = categorySearchQuery
     ? groupedCategoryItems.filter((group) => {
@@ -2664,6 +2666,13 @@ export default function POSPage() {
         item={selectedItem}
         open={dialogOpen}
         onOpenChange={setDialogOpen}
+        allowStockEdit={isOwnerOrAdmin}
+        onItemStockUpdated={(itemId, newStock) => {
+          setSelectedItem((prev) =>
+            prev && prev.id === itemId ? { ...prev, current_stock: newStock } : prev
+          );
+          setRefreshKey((k) => k + 1);
+        }}
       />
 
       <VariantSelector

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { Category } from '@/lib/db/types';
-import { shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
+import { shouldShowCategory, SHOP_TYPE_ALL, type ShopType } from '@/lib/utils/shop-type';
 import { apiGetOffline } from '@/lib/offline/api-offline';
 
 interface CategoryListProps {
@@ -15,7 +15,7 @@ interface CategoryListProps {
 export function CategoryList({
   onSelectCategory,
   selectedCategoryId,
-  shopType = 'grocery',
+  shopType = SHOP_TYPE_ALL,
   categories: propCategories,
 }: CategoryListProps) {
   const [localCategories, setLocalCategories] = useState<Category[]>([]);

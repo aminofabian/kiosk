@@ -7,7 +7,7 @@ import { Zap, Tag, Package, ShoppingBag, Flame, AlertTriangle, ArrowRight } from
 import type { Item } from '@/lib/db/types';
 import type { Category } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
-import { shouldShowCategory } from '@/lib/utils/shop-type';
+import { itemMatchesShopType, shouldShowCategory, SHOP_TYPE_ALL } from '@/lib/utils/shop-type';
 import { getItemDisplayName } from '@/lib/utils';
 
 interface ItemWithVariants extends Item {
@@ -274,7 +274,7 @@ export function ItemGrid({
   onSelectItem,
   onSelectParent,
   onQuickAdd,
-  shopType = 'grocery',
+  shopType = SHOP_TYPE_ALL,
   itemTypeKeys,
   categories: propCategories,
   featuredItems,
@@ -321,6 +321,15 @@ export function ItemGrid({
     return map;
   }, [categories]);
 
+  const featuredForType = useMemo(
+    () => (featuredItems ?? []).filter((i) => itemMatchesShopType(i, shopType)),
+    [featuredItems, shopType]
+  );
+  const lowStockForType = useMemo(
+    () => (lowStockItems ?? []).filter((i) => itemMatchesShopType(i, shopType)),
+    [lowStockItems, shopType]
+  );
+
   // Memoized item click handler
   const handleItemClick = useCallback((item: ItemWithVariants) => {
     onSelectItem(item);
@@ -333,9 +342,9 @@ export function ItemGrid({
     }
 
     if (searchQuery) {
-      // Skip if same search
-      if (lastSearchRef.current === searchQuery) return;
-      lastSearchRef.current = searchQuery;
+      const searchKey = `${searchQuery}\0${shopType}`;
+      if (lastSearchRef.current === searchKey) return;
+      lastSearchRef.current = searchKey;
 
       const controller = new AbortController();
       abortControllerRef.current = controller;
@@ -358,30 +367,32 @@ export function ItemGrid({
           if (result.success) {
             const allItems: Item[] = result.data;
 
-            // When searching, show ALL results - user explicitly searched and wants to find the item
-            // (including variants by variant name, even if in a different shop type)
             let filteredItems: Item[];
             let isShowingOtherShopType = false;
-            if (searchQuery) {
+
+            if (shopType === SHOP_TYPE_ALL) {
               filteredItems = allItems;
             } else {
-              // Category browse: filter by shop type
-              const filteredByShopType = allItems.filter(item => {
-                const categoryName = categoryMap.get(item.category_id);
-                if (!categoryName) return true;
-                return shouldShowCategory(categoryName, shopType);
-              });
-              if (filteredByShopType.length === 0 && allItems.length > 0) {
-                const keys = itemTypeKeys?.length ? itemTypeKeys : ['grocery', 'retail'];
-                const otherShopType = keys.find(k => k !== shopType) ?? keys[0];
-                filteredItems = allItems.filter(item => {
+              const matchesTypeFilter = (items: Item[], type: string) =>
+                items.filter((item) => {
                   const categoryName = categoryMap.get(item.category_id);
-                  if (!categoryName) return true;
-                  return shouldShowCategory(categoryName, otherShopType);
+                  if (categoryName && !shouldShowCategory(categoryName, type)) return false;
+                  return itemMatchesShopType(item, type);
                 });
-                isShowingOtherShopType = filteredItems.length > 0;
-              } else {
-                filteredItems = filteredByShopType;
+
+              filteredItems = matchesTypeFilter(allItems, shopType);
+
+              if (filteredItems.length === 0 && allItems.length > 0) {
+                const keys = itemTypeKeys?.length ? itemTypeKeys : ['grocery', 'retail'];
+                for (const key of keys) {
+                  if (key === shopType) continue;
+                  const alt = matchesTypeFilter(allItems, key);
+                  if (alt.length > 0) {
+                    filteredItems = alt;
+                    isShowingOtherShopType = true;
+                    break;
+                  }
+                }
               }
             }
 
@@ -449,9 +460,13 @@ export function ItemGrid({
 
         if (result.success) {
           const allItems: Item[] = result.data;
+          const scoped =
+            shopType === SHOP_TYPE_ALL
+              ? allItems
+              : allItems.filter((item) => itemMatchesShopType(item, shopType));
 
           // Use optimized grouping function
-          const grouped = groupItemsForDisplay(allItems);
+          const grouped = groupItemsForDisplay(scoped);
           setGroupedItems(grouped);
 
           // Create flat list for backward compatibility
@@ -484,11 +499,11 @@ export function ItemGrid({
     return () => {
       controller.abort();
     };
-  }, [categoryId, searchQuery, shopType, categoryMap]);
+  }, [categoryId, searchQuery, shopType, categoryMap, itemTypeKeys]);
 
   if (!categoryId && !searchQuery) {
-    const hasFeatured = featuredItems && featuredItems.length > 0;
-    const hasLowStock = lowStockItems && lowStockItems.length > 0;
+    const hasFeatured = featuredForType.length > 0;
+    const hasLowStock = lowStockForType.length > 0;
     const hasContent = hasFeatured || hasLowStock;
     const formatPrice = (price: number) => `KES ${price.toFixed(0)}`;
 
@@ -531,12 +546,12 @@ export function ItemGrid({
               </div>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-[10px] font-semibold text-[#1c6a1e] dark:text-[#2a8a30] bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/15 px-2 py-1 rounded-none border border-[#1c6a1e]/20 dark:border-[#1c6a1e]/25 shadow-sm">
-                  {featuredItems!.length} popular
+                  {featuredForType.length} popular
                 </span>
                 {(() => {
-                  const out = featuredItems!.filter(i => getStockStatus(i.current_stock) === 'out').length;
-                  const low = featuredItems!.filter(i => getStockStatus(i.current_stock) === 'low').length;
-                  const ok = featuredItems!.filter(i => getStockStatus(i.current_stock) === 'ok').length;
+                  const out = featuredForType.filter(i => getStockStatus(i.current_stock) === 'out').length;
+                  const low = featuredForType.filter(i => getStockStatus(i.current_stock) === 'low').length;
+                  const ok = featuredForType.filter(i => getStockStatus(i.current_stock) === 'ok').length;
                   return (
                     <span className="flex items-center gap-1">
                       {out > 0 && (
@@ -567,13 +582,13 @@ export function ItemGrid({
             <div className="mx-auto max-w-6xl grid grid-cols-4 sm:grid-cols-6 md:grid-cols-10 lg:grid-cols-10 xl:grid-cols-10 gap-x-5 gap-y-6 sm:gap-x-6 sm:gap-y-7 overflow-visible pt-3 flex-1 min-h-0" style={{ gridAutoRows: '110px' }}>
               {(() => {
                 const top3Ranks = new Map(
-                  [...featuredItems!]
+                  [...featuredForType]
                     .filter((i) => ((i as { quantity_sold?: number }).quantity_sold ?? 0) > 0)
                     .sort((a, b) => ((b as { quantity_sold?: number }).quantity_sold ?? 0) - ((a as { quantity_sold?: number }).quantity_sold ?? 0))
                     .slice(0, 3)
                     .map((i, idx) => [i.id, idx + 1])
                 );
-                return [...featuredItems!]
+                return [...featuredForType]
                   .sort((a, b) => {
                     const nameA = `${a.name} ${a.variant_name || ''}`.trim().toLowerCase();
                     const nameB = `${b.name} ${b.variant_name || ''}`.trim().toLowerCase();
@@ -701,13 +716,13 @@ export function ItemGrid({
                 Low Stock
               </h2>
               <span className="text-[8px] text-amber-600 dark:text-amber-400">
-                {lowStockItems!.length} items
+                {lowStockForType.length} items
               </span>
             </div>
 
             {/* Horizontal scrollable strip */}
             <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-              {lowStockItems!.map((item) => (
+              {lowStockForType.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => onSelectItem(item)}
@@ -844,7 +859,7 @@ return (
               </div>
             </div>
           </div>
-          {showingOtherShopType && (
+          {showingOtherShopType && shopType !== SHOP_TYPE_ALL && (
             <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-amber-50/80 dark:bg-amber-900/15 border-2 border-amber-300 dark:border-amber-700 rounded-none">
               <div className="w-5 h-5 rounded-none bg-amber-400/20 flex items-center justify-center flex-shrink-0">
                 <span className="text-amber-600 text-[10px] font-bold">i</span>

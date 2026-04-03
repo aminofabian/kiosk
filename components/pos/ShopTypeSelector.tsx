@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { getShopType, setShopType } from '@/lib/utils/shop-type';
+import { getShopType, setShopType, SHOP_TYPE_ALL } from '@/lib/utils/shop-type';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
 
 interface ShopTypeSelectorProps {
@@ -32,6 +32,19 @@ export function ShopTypeSelector({ onShopTypeChange, className = '' }: ShopTypeS
 
   return (
     <div className={`flex items-center gap-2 flex-wrap ${className}`}>
+      <Button
+        key={SHOP_TYPE_ALL}
+        variant={currentShopType === SHOP_TYPE_ALL ? 'default' : 'outline'}
+        size="sm"
+        onClick={() => handleShopTypeChange(SHOP_TYPE_ALL)}
+        className={`flex items-center gap-2 transition-all ${
+          currentShopType === SHOP_TYPE_ALL
+            ? 'bg-[#1c6a1e] text-white hover:bg-[#1c6a1e]/90'
+            : 'bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700'
+        }`}
+      >
+        <span className="text-sm font-semibold">All</span>
+      </Button>
       {productTypes.map((type) => (
         <Button
           key={type.key}

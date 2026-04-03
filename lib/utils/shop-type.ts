@@ -3,19 +3,30 @@ export type ShopType = string;
 
 const SHOP_TYPE_STORAGE_KEY = 'pos-shop-type';
 
+/** Show every department (no item_type / category-type filtering). */
+export const SHOP_TYPE_ALL = 'all';
+
 /** Get item type from item record. */
 export function getItemShopType(item: { item_type?: string | null }): string {
   return item?.item_type && typeof item.item_type === 'string' ? item.item_type : 'retail';
 }
 
-/** Get current shop type from storage. If validKeys provided, return stored only when in list else first key. */
+/** True when the item belongs to the active shop type filter. */
+export function itemMatchesShopType(item: { item_type?: string | null }, shopType: string): boolean {
+  if (shopType === SHOP_TYPE_ALL) return true;
+  return getItemShopType(item) === shopType;
+}
+
+/** Get current shop type from storage. `all` is always allowed; otherwise stored must be in validKeys when provided. */
 export function getShopType(validKeys?: string[]): string {
-  if (typeof window === 'undefined') return validKeys?.[0] ?? 'grocery';
+  if (typeof window === 'undefined') return SHOP_TYPE_ALL;
   const stored = localStorage.getItem(SHOP_TYPE_STORAGE_KEY);
+  if (stored === SHOP_TYPE_ALL) return SHOP_TYPE_ALL;
   if (validKeys?.length) {
-    return validKeys.includes(stored ?? '') ? (stored as string) : validKeys[0];
+    if (stored && validKeys.includes(stored)) return stored;
+    return SHOP_TYPE_ALL;
   }
-  return stored || 'grocery';
+  return stored || SHOP_TYPE_ALL;
 }
 
 export function setShopType(shopType: string): void {
@@ -75,12 +86,14 @@ export function getCategoryShopType(categoryName: string): string | null {
 }
 
 export function shouldShowCategory(categoryName: string, shopType: string): boolean {
+  if (shopType === SHOP_TYPE_ALL) return true;
+
   const categoryShopType = getCategoryShopType(categoryName);
-  
+
   if (categoryShopType === null) {
     return true;
   }
-  
+
   return categoryShopType === shopType;
 }
 

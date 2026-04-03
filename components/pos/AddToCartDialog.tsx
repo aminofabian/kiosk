@@ -10,7 +10,7 @@ import { useCartStore } from '@/lib/stores/cart-store';
 import type { Item } from '@/lib/db/types';
 import { getItemImage } from '@/lib/utils/item-images';
 import { Badge } from '@/components/ui/badge';
-import { apiGet, apiPatch } from '@/lib/utils/api-client';
+import { apiGet, apiPatch, apiPost } from '@/lib/utils/api-client';
 import { toast } from 'sonner';
 
 interface BatchOption {
@@ -28,12 +28,17 @@ interface AddToCartDialogProps {
   item: Item | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Owner/admin only: set true to show stock adjustment (cashiers use approvals elsewhere). */
+  allowStockEdit?: boolean;
+  onItemStockUpdated?: (itemId: string, newStock: number) => void;
 }
 
 export function AddToCartDialog({
   item,
   open,
   onOpenChange,
+  allowStockEdit = false,
+  onItemStockUpdated,
 }: AddToCartDialogProps) {
   const [quantity, setQuantity] = useState(1);
   const [bundleCount, setBundleCount] = useState(1);
@@ -44,6 +49,9 @@ export function AddToCartDialog({
   const [batches, setBatches] = useState<BatchOption[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [deactivatingBatchId, setDeactivatingBatchId] = useState<string | null>(null);
+  const [stockEditorOpen, setStockEditorOpen] = useState(false);
+  const [stockDraft, setStockDraft] = useState('');
+  const [savingStock, setSavingStock] = useState(false);
   const { addItem, items: cartItems } = useCartStore();
 
   const handleDeactivateBatch = async (batchId: string, batchNumber: string, e: React.MouseEvent) => {
@@ -92,7 +100,15 @@ export function AddToCartDialog({
       setBatches([]);
       setSelectedBatchId(null);
     }
-  }, [open, item?.id]);
+  }, [open, item?.id, item?.current_stock]);
+
+  useEffect(() => {
+    if (!open) {
+      setStockEditorOpen(false);
+      setStockDraft('');
+      setSavingStock(false);
+    }
+  }, [open]);
 
   // Check if item has bundle pricing
   const hasBundle = item && item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0;
@@ -263,6 +279,60 @@ export function AddToCartDialog({
     }
   };
 
+  const openStockEditor = () => {
+    setStockDraft(
+      Number.isFinite(item.current_stock)
+        ? item.current_stock.toFixed(isWeight ? 2 : 0)
+        : '0'
+    );
+    setStockEditorOpen(true);
+  };
+
+  const handleSaveStock = async () => {
+    const newStock = parseFloat(stockDraft);
+    if (Number.isNaN(newStock) || newStock < 0) {
+      toast.error('Enter a valid stock amount (0 or more).');
+      return;
+    }
+    const oldStock = item.current_stock;
+    const diff = newStock - oldStock;
+    if (Math.abs(diff) < 0.0001) {
+      setStockEditorOpen(false);
+      return;
+    }
+    const adjustmentType = diff > 0 ? 'increase' : 'decrease';
+    const quantity = Math.abs(diff);
+    setSavingStock(true);
+    try {
+      const result = await apiPost<{
+        actualStock?: number;
+        requiresApproval?: boolean;
+      }>('/api/stock/adjust', {
+        itemId: item.id,
+        adjustmentType,
+        quantity,
+        reason: 'pos_modal',
+        notes: 'Stock set from POS item dialog',
+      });
+      if (result.success && result.data?.requiresApproval) {
+        toast.info('This action needs admin approval for your role.');
+        setStockEditorOpen(false);
+        return;
+      }
+      if (result.success && typeof result.data?.actualStock === 'number') {
+        onItemStockUpdated?.(item.id, result.data.actualStock);
+        toast.success('Stock updated');
+        setStockEditorOpen(false);
+      } else {
+        toast.error(result.message || 'Could not update stock');
+      }
+    } catch {
+      toast.error('Could not update stock');
+    } finally {
+      setSavingStock(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
@@ -368,6 +438,59 @@ export function AddToCartDialog({
                   )}
                 </span>
               </div>
+              {allowStockEdit && (
+                <div className="mt-2 w-full max-w-sm">
+                  {!stockEditorOpen ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full h-9 text-xs font-semibold border-slate-300 dark:border-slate-600"
+                      onClick={openStockEditor}
+                    >
+                      <Package className="w-3.5 h-3.5 mr-1.5" />
+                      Adjust stock
+                    </Button>
+                  ) : (
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50/80 dark:bg-slate-800/50 p-3 space-y-2">
+                      <Label htmlFor="stock-adjust" className="text-xs text-gray-600 dark:text-gray-400">
+                        On-hand quantity ({item.unit_type})
+                      </Label>
+                      <Input
+                        id="stock-adjust"
+                        type="number"
+                        min={0}
+                        step={isWeight ? 0.05 : 1}
+                        value={stockDraft}
+                        onChange={(e) => setStockDraft(e.target.value)}
+                        className="h-10 text-center font-semibold"
+                        disabled={savingStock}
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          disabled={savingStock}
+                          onClick={() => setStockEditorOpen(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="flex-1 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
+                          disabled={savingStock}
+                          onClick={handleSaveStock}
+                        >
+                          {savingStock ? 'Saving…' : 'Save'}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               {batches.length > 0 && purchaseMode === 'regular' && (
                 <div className="mt-2 w-full">
                   <Label className="text-xs text-gray-600 dark:text-gray-400 mb-1.5 flex items-center gap-1">
