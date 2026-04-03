@@ -6,6 +6,17 @@ import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+/** Exclude parent rows that only exist to group variants (POS sells variants). */
+const SELLABLE_ITEM_SQL = `i.business_id = ?
+         AND i.active = 1
+         AND NOT (
+           i.parent_item_id IS NULL
+           AND EXISTS (
+             SELECT 1 FROM items v
+             WHERE v.parent_item_id = i.id AND v.business_id = i.business_id AND v.active = 1
+           )
+         )`;
+
 export async function OPTIONS() {
   return optionsResponse();
 }
@@ -36,12 +47,7 @@ export async function GET(request: NextRequest) {
            AND s.sale_date >= ?
          GROUP BY si.item_id
        ) sold ON sold.item_id = i.id
-       WHERE i.business_id = ?
-         AND i.active = 1
-         AND NOT (
-           i.parent_item_id IS NULL
-           AND EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1)
-         )
+       WHERE ${SELLABLE_ITEM_SQL.replace(/\n/g, '\n       ')}
        ORDER BY sold.quantity_sold DESC
        LIMIT 40`,
       [auth.businessId, sinceSeconds, auth.businessId]
@@ -68,11 +74,35 @@ export async function GET(request: NextRequest) {
       [auth.businessId]
     );
 
+    const isAdmin = auth.role === 'owner' || auth.role === 'admin';
+    let outOfStockItems: any[] = [];
+    let lowQuantityItems: any[] = [];
+
+    if (isAdmin) {
+      outOfStockItems = await query<any>(
+        `SELECT i.* FROM items i
+         WHERE ${SELLABLE_ITEM_SQL}
+           AND i.current_stock <= 0
+         ORDER BY i.current_stock ASC, i.name ASC
+         LIMIT 400`,
+        [auth.businessId]
+      );
+      lowQuantityItems = await query<any>(
+        `SELECT i.* FROM items i
+         WHERE ${SELLABLE_ITEM_SQL}
+           AND i.current_stock > 0 AND i.current_stock < 10
+         ORDER BY i.current_stock ASC, i.name ASC
+         LIMIT 400`,
+        [auth.businessId]
+      );
+    }
+
     return jsonResponse({
       success: true,
       data: {
         topItems,
         lowStockItems,
+        ...(isAdmin ? { outOfStockItems, lowQuantityItems } : {}),
       },
     });
   } catch (error) {

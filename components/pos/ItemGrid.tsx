@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo, useRef, useCallback, memo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Zap, Tag, Package, ShoppingBag, Flame, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Zap, Tag, Package, ShoppingBag, Flame, AlertTriangle, ArrowRight, PackageX } from 'lucide-react';
 import type { Item } from '@/lib/db/types';
 import type { Category } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
@@ -36,6 +36,11 @@ interface ItemGridProps {
   categories?: Category[]; // Pass categories from parent to avoid redundant fetch
   featuredItems?: Item[];
   lowStockItems?: Item[];
+  /** Admin/owner: full-catalog lists from /api/pos/insights */
+  outStockItems?: Item[];
+  lowQuantityItems?: Item[];
+  /** Admin: filter home grid to out / low only */
+  stockListFilter?: 'all' | 'out' | 'low';
 }
 
 // Stock status helpers
@@ -293,6 +298,9 @@ export function ItemGrid({
   categories: propCategories,
   featuredItems,
   lowStockItems,
+  outStockItems,
+  lowQuantityItems,
+  stockListFilter = 'all',
 }: ItemGridProps) {
   const [items, setItems] = useState<ItemWithVariants[]>([]);
   const [groupedItems, setGroupedItems] = useState<GroupedItem[]>([]);
@@ -300,6 +308,10 @@ export function ItemGrid({
   const [error, setError] = useState<string | null>(null);
   const [localCategories, setLocalCategories] = useState<Category[]>([]);
   const [showingOtherShopType, setShowingOtherShopType] = useState(false);
+  /** Quick Sell only: filter featured items by stock band (badges in section header) */
+  const [quickSellStockFilter, setQuickSellStockFilter] = useState<
+    'all' | 'out' | 'low' | 'ok'
+  >('all');
 
   // Use prop categories if available, otherwise use local state
   const categories = propCategories || localCategories;
@@ -343,6 +355,61 @@ export function ItemGrid({
     () => (lowStockItems ?? []).filter((i) => itemMatchesShopType(i, shopType)),
     [lowStockItems, shopType]
   );
+  const outPoolForType = useMemo(
+    () => (outStockItems ?? []).filter((i) => itemMatchesShopType(i, shopType)),
+    [outStockItems, shopType]
+  );
+  const lowQtyPoolForType = useMemo(
+    () => (lowQuantityItems ?? []).filter((i) => itemMatchesShopType(i, shopType)),
+    [lowQuantityItems, shopType]
+  );
+
+  const adminStockView = stockListFilter === 'out' || stockListFilter === 'low';
+  const primaryHomeItems = adminStockView
+    ? stockListFilter === 'out'
+      ? outPoolForType
+      : lowQtyPoolForType
+    : featuredForType;
+
+  useEffect(() => {
+    setQuickSellStockFilter('all');
+  }, [stockListFilter]);
+
+  const featuredStockCounts = useMemo(() => {
+    let out = 0;
+    let low = 0;
+    let ok = 0;
+    for (const i of featuredForType) {
+      const s = getStockStatus(i.current_stock);
+      if (s === 'out' || s === 'negative') out += 1;
+      else if (s === 'low') low += 1;
+      else ok += 1;
+    }
+    return { out, low, ok, popular: featuredForType.length };
+  }, [featuredForType]);
+
+  const hasHomePool = adminStockView
+    ? primaryHomeItems.length > 0
+    : featuredForType.length > 0;
+
+  const displayedHomeItems = useMemo(() => {
+    if (adminStockView) return primaryHomeItems;
+    switch (quickSellStockFilter) {
+      case 'all':
+        return featuredForType;
+      case 'out':
+        return featuredForType.filter((i) => {
+          const s = getStockStatus(i.current_stock);
+          return s === 'out' || s === 'negative';
+        });
+      case 'low':
+        return featuredForType.filter((i) => getStockStatus(i.current_stock) === 'low');
+      case 'ok':
+        return featuredForType.filter((i) => getStockStatus(i.current_stock) === 'ok');
+      default:
+        return featuredForType;
+    }
+  }, [adminStockView, primaryHomeItems, featuredForType, quickSellStockFilter]);
 
   // Memoized item click handler
   const handleItemClick = useCallback((item: ItemWithVariants) => {
@@ -516,10 +583,41 @@ export function ItemGrid({
   }, [categoryId, searchQuery, shopType, categoryMap, itemTypeKeys]);
 
   if (!categoryId && !searchQuery) {
-    const hasFeatured = featuredForType.length > 0;
-    const hasLowStock = lowStockForType.length > 0;
-    const hasContent = hasFeatured || hasLowStock;
+    const hasLowStock = !adminStockView && lowStockForType.length > 0;
+    const hasContent = hasHomePool || hasLowStock;
     const formatPrice = (price: number) => `KES ${price.toFixed(0)}`;
+
+    if (adminStockView && primaryHomeItems.length === 0) {
+      return (
+        <div className="mx-4 sm:mx-6 lg:mx-8 p-4 sm:p-6 flex items-center justify-center h-full">
+          <div className="text-center space-y-3 max-w-md animate-in fade-in duration-500">
+            <div
+              className={`w-16 h-16 mx-auto rounded-none flex items-center justify-center ${
+                stockListFilter === 'out'
+                  ? 'bg-red-100 dark:bg-red-950/40'
+                  : 'bg-amber-100 dark:bg-amber-950/40'
+              }`}
+            >
+              {stockListFilter === 'out' ? (
+                <PackageX className="w-8 h-8 text-red-600 dark:text-red-400" />
+              ) : (
+                <AlertTriangle className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+              )}
+            </div>
+            <p className="text-base font-semibold text-gray-800 dark:text-gray-100">
+              {stockListFilter === 'out'
+                ? 'No out-of-stock products here'
+                : 'No low-quantity products here'}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {shopType === SHOP_TYPE_ALL
+                ? 'Try another stock filter or department.'
+                : 'Try “All” departments or another filter.'}
+            </p>
+          </div>
+        </div>
+      );
+    }
 
     if (!hasContent) {
       return (
@@ -542,70 +640,134 @@ export function ItemGrid({
     return (
       <div className="min-h-full flex flex-col mx-2 sm:mx-4 lg:mx-6 px-2 sm:px-3 py-1 animate-in fade-in duration-300">
 
-        {/* ── 🔥 Quick Sell – First screen only ── */}
-        {hasFeatured && (
+        {/* ── Quick Sell / admin stock views ── */}
+        {hasHomePool && (
           <section className="min-h-0 flex flex-col flex-1 rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-sm pt-3 px-1 sm:px-1.5 pb-1 overflow-visible flex-shrink-0 justify-center">
             {/* Section header - compact */}
             <div className="flex items-center gap-1.5 mb-0.5 flex-shrink-0">
-              <div className="w-6 h-6 rounded-none bg-[#1c6a1e] flex items-center justify-center shadow-sm">
-                <Flame className="w-3 h-3 text-white" />
+              <div
+                className={`w-6 h-6 rounded-none flex items-center justify-center shadow-sm ${
+                  adminStockView
+                    ? stockListFilter === 'out'
+                      ? 'bg-red-600'
+                      : 'bg-amber-500'
+                    : 'bg-[#1c6a1e]'
+                }`}
+              >
+                {adminStockView ? (
+                  stockListFilter === 'out' ? (
+                    <PackageX className="w-3 h-3 text-white" />
+                  ) : (
+                    <AlertTriangle className="w-3 h-3 text-white" />
+                  )
+                ) : (
+                  <Flame className="w-3 h-3 text-white" />
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <h2 className="text-xs font-bold text-gray-800 dark:text-gray-100 tracking-tight leading-none">
-                  Quick Sell
+                  {adminStockView
+                    ? stockListFilter === 'out'
+                      ? 'Out of stock'
+                      : 'Low stock · under 10'
+                    : 'Quick Sell'}
                 </h2>
                 <p className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">
-                  Tap <span className="text-[#1c6a1e] font-semibold">⚡</span> to add
+                  {adminStockView ? (
+                    <>Tap a product to open details</>
+                  ) : (
+                    <>
+                      Tap <span className="text-[#1c6a1e] font-semibold">⚡</span> to add
+                    </>
+                  )}
                 </p>
               </div>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[10px] font-semibold text-[#1c6a1e] dark:text-[#2a8a30] bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/15 px-2 py-1 rounded-none border border-[#1c6a1e]/20 dark:border-[#1c6a1e]/25 shadow-sm">
-                  {featuredForType.length} popular
+              {!adminStockView && (
+                <div className="flex items-center gap-1 flex-wrap justify-end">
+                  <button
+                    type="button"
+                    aria-pressed={quickSellStockFilter === 'all'}
+                    onClick={() => setQuickSellStockFilter('all')}
+                    className={`text-[10px] font-semibold px-2 py-1 rounded-none border shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
+                      quickSellStockFilter === 'all'
+                        ? 'text-[#1c6a1e] dark:text-[#2a8a30] bg-[#1c6a1e]/15 dark:bg-[#1c6a1e]/20 border-[#1c6a1e]/40 dark:border-[#1c6a1e]/35 ring-2 ring-[#1c6a1e]/35 ring-offset-1 ring-offset-white dark:ring-offset-slate-900'
+                        : 'text-[#1c6a1e] dark:text-[#2a8a30] bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/15 border-[#1c6a1e]/20 dark:border-[#1c6a1e]/25 hover:bg-[#1c6a1e]/14'
+                    }`}
+                  >
+                    {featuredStockCounts.popular} popular
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={quickSellStockFilter === 'out'}
+                    onClick={() => setQuickSellStockFilter('out')}
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px] font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
+                      quickSellStockFilter === 'out'
+                        ? 'bg-red-100/90 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700 ring-2 ring-red-400/50 ring-offset-1 ring-offset-white dark:ring-offset-slate-900'
+                        : 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200/60 dark:border-red-800/50 hover:bg-red-100/70 dark:hover:bg-red-950/55'
+                    }`}
+                  >
+                    <span className="w-1 h-1 rounded-none bg-red-500" />
+                    {featuredStockCounts.out} out
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={quickSellStockFilter === 'low'}
+                    onClick={() => setQuickSellStockFilter('low')}
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px] font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
+                      quickSellStockFilter === 'low'
+                        ? 'bg-amber-100/90 dark:bg-amber-950/45 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/50 ring-offset-1 ring-offset-white dark:ring-offset-slate-900'
+                        : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200/60 dark:border-amber-800/50 hover:bg-amber-100/70 dark:hover:bg-amber-950/50'
+                    }`}
+                  >
+                    <span className="w-1 h-1 rounded-none bg-amber-500" />
+                    {featuredStockCounts.low} low
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={quickSellStockFilter === 'ok'}
+                    onClick={() => setQuickSellStockFilter('ok')}
+                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px] font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
+                      quickSellStockFilter === 'ok'
+                        ? 'bg-emerald-100/90 dark:bg-emerald-950/45 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700 ring-2 ring-emerald-400/45 ring-offset-1 ring-offset-white dark:ring-offset-slate-900'
+                        : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-800/50 hover:bg-emerald-100/70 dark:hover:bg-emerald-950/50'
+                    }`}
+                  >
+                    <span className="w-1 h-1 rounded-none bg-emerald-500" />
+                    {featuredStockCounts.ok} in stock
+                  </button>
+                </div>
+              )}
+              {adminStockView && (
+                <span className="text-[10px] font-semibold tabular-nums text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-none border border-slate-200 dark:border-slate-600">
+                  {primaryHomeItems.length} items
                 </span>
-                {(() => {
-                  const out = featuredForType.filter((i) => {
-                    const s = getStockStatus(i.current_stock);
-                    return s === 'out' || s === 'negative';
-                  }).length;
-                  const low = featuredForType.filter(i => getStockStatus(i.current_stock) === 'low').length;
-                  const ok = featuredForType.filter(i => getStockStatus(i.current_stock) === 'ok').length;
-                  return (
-                    <span className="flex items-center gap-1">
-                      {out > 0 && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px] font-semibold bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200/60 dark:border-red-800/50">
-                          <span className="w-1 h-1 rounded-none bg-red-500" />
-                          {out} out
-                        </span>
-                      )}
-                      {low > 0 && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px] font-semibold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-800/50">
-                          <span className="w-1 h-1 rounded-none bg-amber-500" />
-                          {low} low
-                        </span>
-                      )}
-                      {ok > 0 && (
-                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px] font-semibold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/50">
-                          <span className="w-1 h-1 rounded-none bg-emerald-500" />
-                          {ok} in stock
-                        </span>
-                      )}
-                    </span>
-                  );
-                })()}
-              </div>
+              )}
             </div>
 
             {/* Products grid – sorted alphabetically so related items appear together */}
             <div className="mx-auto max-w-6xl grid grid-cols-4 sm:grid-cols-6 md:grid-cols-10 lg:grid-cols-10 xl:grid-cols-10 gap-x-5 gap-y-6 sm:gap-x-6 sm:gap-y-7 overflow-visible pt-3 flex-1 min-h-0" style={{ gridAutoRows: '110px' }}>
               {(() => {
-                const top3Ranks = new Map(
-                  [...featuredForType]
-                    .filter((i) => ((i as { quantity_sold?: number }).quantity_sold ?? 0) > 0)
-                    .sort((a, b) => ((b as { quantity_sold?: number }).quantity_sold ?? 0) - ((a as { quantity_sold?: number }).quantity_sold ?? 0))
-                    .slice(0, 3)
-                    .map((i, idx) => [i.id, idx + 1])
-                );
-                return [...featuredForType]
+                if (!adminStockView && displayedHomeItems.length === 0) {
+                  return (
+                    <div className="col-span-full py-10 px-4 text-center text-sm text-slate-500 dark:text-slate-400">
+                      No Quick Sell products match this filter.
+                    </div>
+                  );
+                }
+                const top3Ranks = adminStockView
+                  ? new Map<string, number>()
+                  : new Map(
+                      [...featuredForType]
+                        .filter((i) => ((i as { quantity_sold?: number }).quantity_sold ?? 0) > 0)
+                        .sort(
+                          (a, b) =>
+                            ((b as { quantity_sold?: number }).quantity_sold ?? 0) -
+                            ((a as { quantity_sold?: number }).quantity_sold ?? 0)
+                        )
+                        .slice(0, 3)
+                        .map((i, idx) => [i.id, idx + 1])
+                    );
+                return [...displayedHomeItems]
                   .sort((a, b) => {
                     const nameA = `${a.name} ${a.variant_name || ''}`.trim().toLowerCase();
                     const nameB = `${b.name} ${b.variant_name || ''}`.trim().toLowerCase();

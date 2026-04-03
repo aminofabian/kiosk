@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { POSLayout } from '@/components/layouts/pos-layout';
 import { CategoryList } from '@/components/pos/CategoryList';
 import { ItemGrid } from '@/components/pos/ItemGrid';
@@ -64,6 +64,7 @@ import {
   RefreshCw,
   Trash2,
   PackageX,
+  BarChart2,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Item } from '@/lib/db/types';
@@ -198,6 +199,14 @@ export default function POSPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [showClearCartToast, setShowClearCartToast] = useState(false);
+  const [featuredItems, setFeaturedItems] = useState<Item[]>([]);
+  const [lowStockHomeItems, setLowStockHomeItems] = useState<Item[]>([]);
+  const [outStockItems, setOutStockItems] = useState<Item[]>([]);
+  const [lowQtyHomeItems, setLowQtyHomeItems] = useState<Item[]>([]);
+  const [posStockFilter, setPosStockFilter] = useState<'all' | 'out' | 'low'>('all');
+  const [statsMenuOpen, setStatsMenuOpen] = useState(false);
+  const statsMenuRefMobile = useRef<HTMLDivElement>(null);
+  const statsMenuRefDesktop = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const printedReceiptIdRef = useRef<string | null>(null);
@@ -226,7 +235,36 @@ export default function POSPage() {
   const cartItems = activeCart?.items || [];
   const isOwnerOrAdmin = user?.role === 'owner' || user?.role === 'admin';
   const canAccessAdmin = isOwnerOrAdmin || user?.role === 'cashier';
-  
+
+  const posStockStats = useMemo(() => {
+    const popular = featuredItems.filter((i) => itemMatchesShopType(i, shopType)).length;
+    const out = outStockItems.filter((i) => itemMatchesShopType(i, shopType)).length;
+    const low = lowQtyHomeItems.filter((i) => itemMatchesShopType(i, shopType)).length;
+    return { popular, out, low };
+  }, [featuredItems, outStockItems, lowQtyHomeItems, shopType]);
+
+  useEffect(() => {
+    if (!isOwnerOrAdmin && posStockFilter !== 'all') {
+      setPosStockFilter('all');
+    }
+  }, [isOwnerOrAdmin, posStockFilter]);
+
+  useEffect(() => {
+    if (!statsMenuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (
+        statsMenuRefMobile.current?.contains(t) ||
+        statsMenuRefDesktop.current?.contains(t)
+      ) {
+        return;
+      }
+      setStatsMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, [statsMenuOpen]);
+
   // Debounced search - waits 100ms after user stops typing (snappy response)
   const debouncedSearchQuery = useDebounce(searchQuery, 100);
   const isSearchPending = searchQuery !== debouncedSearchQuery && searchQuery.length > 0;
@@ -381,12 +419,17 @@ export default function POSPage() {
   // Re-fetch on mount, tab visible, and when Refresh is clicked
   const loadPosInsights = useCallback(async () => {
     try {
-      const result = await apiGet<{ topItems: Item[]; lowStockItems: Item[] }>(
-        `/api/pos/insights?days=7&_=${Date.now()}`
-      );
+      const result = await apiGet<{
+        topItems: Item[];
+        lowStockItems: Item[];
+        outOfStockItems?: Item[];
+        lowQuantityItems?: Item[];
+      }>(`/api/pos/insights?days=7&_=${Date.now()}`);
       if (!result.success || !result.data) return;
       setFeaturedItems(result.data.topItems || []);
       setLowStockHomeItems(result.data.lowStockItems || []);
+      setOutStockItems(result.data.outOfStockItems ?? []);
+      setLowQtyHomeItems(result.data.lowQuantityItems ?? []);
     } catch (err) {
       console.error('Error fetching POS insights:', err);
     }
@@ -1645,9 +1688,6 @@ export default function POSPage() {
   const [groupedCategoryItems, setGroupedCategoryItems] = useState<GroupedItem[]>([]);
   const [itemsLoading, setItemsLoading] = useState(false);
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
-  // POS home insights for empty state
-  const [featuredItems, setFeaturedItems] = useState<Item[]>([]);
-  const [lowStockHomeItems, setLowStockHomeItems] = useState<Item[]>([]);
 
   useEffect(() => {
     if (!selectedCategoryId) {
@@ -1846,6 +1886,64 @@ export default function POSPage() {
                     <Search className="w-[18px] h-[18px] text-slate-600 dark:text-slate-400" />
                   </button>
 
+                  {isOwnerOrAdmin && (
+                    <div className="relative" ref={statsMenuRefMobile}>
+                      <button
+                        type="button"
+                        aria-label="Stock stats and filters"
+                        aria-expanded={statsMenuOpen}
+                        title="Filter home screen by stock"
+                        onClick={() => setStatsMenuOpen((o) => !o)}
+                        className={`pos-icon-btn relative ${posStockFilter !== 'all' ? 'ring-2 ring-amber-400/90 ring-offset-2 ring-offset-[#f6f8f6] dark:ring-offset-[#132210]' : ''}`}
+                      >
+                        <BarChart2 className="w-[18px] h-[18px] text-slate-600 dark:text-slate-400" />
+                        {posStockFilter !== 'all' && (
+                          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-500" aria-hidden />
+                        )}
+                      </button>
+                      {statsMenuOpen && (
+                        <div className="absolute right-0 top-full mt-1.5 z-[100] w-[13.5rem] rounded-none border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl py-1 text-left">
+                          <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                            Stock view
+                          </p>
+                          <button
+                            type="button"
+                            className={`w-full text-left px-3 py-2 text-sm ${posStockFilter === 'all' ? 'bg-slate-100 dark:bg-slate-800 text-[#1c6a1e] font-semibold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80'}`}
+                            onClick={() => {
+                              setPosStockFilter('all');
+                              setStatsMenuOpen(false);
+                            }}
+                          >
+                            Quick Sell (default)
+                            <span className="float-right tabular-nums text-slate-400 text-xs">{posStockStats.popular}</span>
+                          </button>
+                          <button
+                            type="button"
+                            className={`w-full text-left px-3 py-2 text-sm ${posStockFilter === 'out' ? 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 font-semibold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80'}`}
+                            onClick={() => {
+                              setPosStockFilter('out');
+                              setStatsMenuOpen(false);
+                            }}
+                          >
+                            Out of stock
+                            <span className="float-right tabular-nums text-red-500 text-xs">{posStockStats.out}</span>
+                          </button>
+                          <button
+                            type="button"
+                            className={`w-full text-left px-3 py-2 text-sm ${posStockFilter === 'low' ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 font-semibold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80'}`}
+                            onClick={() => {
+                              setPosStockFilter('low');
+                              setStatsMenuOpen(false);
+                            }}
+                          >
+                            Low qty · under 10
+                            <span className="float-right tabular-nums text-amber-600 text-xs">{posStockStats.low}</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <button
                     aria-label="Refresh"
                     onClick={handleRefresh}
@@ -2035,7 +2133,7 @@ export default function POSPage() {
               </div>
             )}
 
-            <main className="flex-1 overflow-y-auto no-scrollbar pb-32 px-3 sm:px-4">
+            <main className="flex-1 overflow-y-auto no-scrollbar pb-32 px-3 sm:px-4 flex flex-col min-h-0">
               {!searchQuery && !debouncedSearchQuery && (
                 <>
                   <div className="flex gap-1.5 py-1 overflow-x-auto no-scrollbar w-full mb-1">
@@ -2071,6 +2169,24 @@ export default function POSPage() {
                     ))}
                     </div>
                   </div>
+
+                  <div className="flex-1 min-h-0 flex flex-col mt-1 -mx-1">
+                    <ItemGrid
+                      key={`mhome-${refreshKey}`}
+                      categoryId={null}
+                      onSelectItem={handleSelectItem}
+                      onSelectParent={handleSelectParent}
+                      onQuickAdd={handleQuickAdd}
+                      shopType={shopType}
+                      itemTypeKeys={itemTypeKeys}
+                      categories={categories}
+                      featuredItems={featuredItems}
+                      lowStockItems={lowStockHomeItems}
+                      outStockItems={outStockItems}
+                      lowQuantityItems={lowQtyHomeItems}
+                      stockListFilter={isOwnerOrAdmin ? posStockFilter : 'all'}
+                    />
+                  </div>
                 </>
               )}
 
@@ -2105,6 +2221,9 @@ export default function POSPage() {
                       categories={categories}
                       featuredItems={featuredItems}
                       lowStockItems={lowStockHomeItems}
+                      outStockItems={outStockItems}
+                      lowQuantityItems={lowQtyHomeItems}
+                      stockListFilter="all"
                     />
                   ) : null}
                 </div>
@@ -2507,6 +2626,68 @@ export default function POSPage() {
                 {/* Right Section - Actions & Cart */}
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <div className="hidden sm:flex items-center gap-1">
+                    {isOwnerOrAdmin && (
+                      <div className="relative" ref={statsMenuRefDesktop}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          aria-label="Stock stats and filters"
+                          aria-expanded={statsMenuOpen}
+                          title="Filter home screen by stock"
+                          onClick={() => setStatsMenuOpen((o) => !o)}
+                          className={`h-9 px-2.5 rounded-none gap-1.5 border-slate-200 dark:border-slate-600 ${posStockFilter !== 'all' ? 'ring-2 ring-amber-400/90 ring-offset-2 ring-offset-white dark:ring-offset-slate-900' : ''}`}
+                        >
+                          <BarChart2 className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                          <span className="hidden lg:inline text-xs font-semibold text-slate-600 dark:text-slate-300">
+                            Stock
+                          </span>
+                          <span className="hidden xl:inline tabular-nums text-[11px] text-slate-400">
+                            {posStockStats.popular}/{posStockStats.out}/{posStockStats.low}
+                          </span>
+                        </Button>
+                        {statsMenuOpen && (
+                          <div className="absolute right-0 top-full mt-1.5 z-[100] w-56 rounded-none border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl py-1 text-left">
+                            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                              Home screen
+                            </p>
+                            <button
+                              type="button"
+                              className={`w-full text-left px-3 py-2 text-sm ${posStockFilter === 'all' ? 'bg-slate-100 dark:bg-slate-800 text-[#1c6a1e] font-semibold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80'}`}
+                              onClick={() => {
+                                setPosStockFilter('all');
+                                setStatsMenuOpen(false);
+                              }}
+                            >
+                              Quick Sell (default)
+                              <span className="float-right tabular-nums text-slate-400 text-xs">{posStockStats.popular}</span>
+                            </button>
+                            <button
+                              type="button"
+                              className={`w-full text-left px-3 py-2 text-sm ${posStockFilter === 'out' ? 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 font-semibold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80'}`}
+                              onClick={() => {
+                                setPosStockFilter('out');
+                                setStatsMenuOpen(false);
+                              }}
+                            >
+                              Out of stock
+                              <span className="float-right tabular-nums text-red-500 text-xs">{posStockStats.out}</span>
+                            </button>
+                            <button
+                              type="button"
+                              className={`w-full text-left px-3 py-2 text-sm ${posStockFilter === 'low' ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 font-semibold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80'}`}
+                              onClick={() => {
+                                setPosStockFilter('low');
+                                setStatsMenuOpen(false);
+                              }}
+                            >
+                              Low qty · under 10
+                              <span className="float-right tabular-nums text-amber-600 text-xs">{posStockStats.low}</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <Button
                       variant="ghost"
                       size="sm"
@@ -2654,6 +2835,13 @@ export default function POSPage() {
                     categories={categories}
                     featuredItems={featuredItems}
                     lowStockItems={lowStockHomeItems}
+                    outStockItems={outStockItems}
+                    lowQuantityItems={lowQtyHomeItems}
+                    stockListFilter={
+                      debouncedSearchQuery || selectedCategoryId || !isOwnerOrAdmin
+                        ? 'all'
+                        : posStockFilter
+                    }
                   />
                 </div>
               )}
