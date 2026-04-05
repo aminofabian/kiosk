@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const includeOverdue = searchParams.get('includeOverdue') === 'true';
+    const supplierIdFilter = searchParams.get('supplierId');
 
     let querySql = `
       SELECT 
@@ -56,6 +57,11 @@ export async function GET(request: NextRequest) {
     `;
     const params: (string | number)[] = [auth.businessId];
     const now = Math.floor(Date.now() / 1000);
+
+    if (supplierIdFilter) {
+      querySql += ` AND sb.supplier_id = ?`;
+      params.push(supplierIdFilter);
+    }
 
     if (status === 'overdue') {
       // Overdue = status 'overdue' OR pending bills past due date

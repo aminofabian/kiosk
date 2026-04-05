@@ -44,8 +44,10 @@ import {
   Wallet,
   CircleCheck,
   CalendarClock,
+  Clock,
 } from 'lucide-react';
 import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/utils/api-client';
+import type { SupplierBill } from '@/lib/db/types';
 import { getItemDisplayName } from '@/lib/utils';
 import { generateSupplierBatchNumber } from '@/lib/utils/batch-number-shared';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
@@ -326,6 +328,9 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
   const skipLinkedProductsFetchRef = useRef(false);
   const [showDraftChoiceDialog, setShowDraftChoiceDialog] = useState(false);
   const pendingDraftRef = useRef<SupplierBillDraft | null>(null);
+  /** Unpaid bills for the selected supplier, excluding the bill being edited */
+  const [otherUnpaidBillsForSupplier, setOtherUnpaidBillsForSupplier] = useState<SupplierBill[]>([]);
+  const [loadingOtherUnpaidBills, setLoadingOtherUnpaidBills] = useState(false);
 
   // On mount: if draft exists and we're not pre-selecting a supplier, ask user to resume or start fresh (skip when editing or replicating)
   useEffect(() => {
@@ -548,6 +553,33 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
       setTimeout(() => supplierSearchRef.current?.focus(), 100);
     }
   }, [supplierPickerOpen]);
+
+  // Unpaid bills for this supplier (create + edit drawers): warn if another bill is already owed
+  useEffect(() => {
+    if (!supplierId || useManualSupplier) {
+      setOtherUnpaidBillsForSupplier([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingOtherUnpaidBills(true);
+    apiGet<SupplierBill[]>(
+      `/api/supplier-bills?supplierId=${encodeURIComponent(supplierId)}`
+    )
+      .then((res) => {
+        if (cancelled || !res.success || !res.data) return;
+        const rows = res.data.filter((b) => b.status === 'pending' || b.status === 'overdue');
+        setOtherUnpaidBillsForSupplier(billId ? rows.filter((b) => b.id !== billId) : rows);
+      })
+      .catch(() => {
+        if (!cancelled) setOtherUnpaidBillsForSupplier([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingOtherUnpaidBills(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [supplierId, useManualSupplier, billId]);
 
   // Fetch linked products when supplier changes (skip when restoring from draft or editing)
   useEffect(() => {
@@ -1165,6 +1197,14 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
       .toUpperCase();
 
   const formatPrice = (n: number) => `KES ${Math.round(n).toLocaleString()}`;
+
+  const formatBillDueDate = (unixSeconds: number) =>
+    new Date(unixSeconds * 1000).toLocaleDateString(undefined, { dateStyle: 'medium' });
+
+  const summarizeBillDescription = (text: string, maxLen = 80) => {
+    const line = text.split('\n')[0]?.trim() || '—';
+    return line.length > maxLen ? `${line.slice(0, maxLen)}…` : line;
+  };
 
   // ────────────────────────── RENDER ──────────────────────────
   return (
@@ -2240,23 +2280,98 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
             </Button>
           </div>
 
-          {/* Grand total */}
+          {/* Grand total (+ other unpaid for supplier, combined total) */}
           <div className="p-4 bg-gradient-to-r from-[#1c6a1e]/10 via-[#1c6a1e]/5 to-[#2a8a30]/10 dark:from-[#1c6a1e]/20 dark:via-[#1c6a1e]/10 dark:to-[#2a8a30]/20 border-2 border-[#1c6a1e]/30 rounded-xl">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block">
-                  Bill Total ({lineItems.filter((i) => i.description.trim() && i.amount).length} item{lineItems.filter((i) => i.description.trim() && i.amount).length !== 1 ? 's' : ''})
-                </span>
-                {linkedCount > 0 && (
-                  <span className="text-[10px] text-[#1c6a1e]">
-                    Stock will be updated for {linkedCount} linked item{linkedCount !== 1 ? 's' : ''}
-                  </span>
-                )}
-              </div>
-              <span className="text-2xl font-black text-[#1c6a1e]">
-                {formatPrice(totalAmount)}
-              </span>
-            </div>
+            {(() => {
+              const itemCount = lineItems.filter((i) => i.description.trim() && i.amount).length;
+              const showSupplierUnpaid =
+                supplierId && !useManualSupplier;
+              const otherUnpaidTotal = otherUnpaidBillsForSupplier.reduce((s, b) => s + b.amount, 0);
+              const hasOtherUnpaid = showSupplierUnpaid && !loadingOtherUnpaidBills && otherUnpaidBillsForSupplier.length > 0;
+              const combinedOwedTotal = totalAmount + otherUnpaidTotal;
+              const unpaidLabel = billId
+                ? otherUnpaidBillsForSupplier.length === 1
+                  ? 'Other unpaid bill'
+                  : `Other unpaid (${otherUnpaidBillsForSupplier.length})`
+                : otherUnpaidBillsForSupplier.length === 1
+                  ? 'Already on file (unpaid)'
+                  : `Already on file (${otherUnpaidBillsForSupplier.length} unpaid)`;
+
+              return (
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-stretch lg:justify-between">
+                  <div className="min-w-0">
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 block">
+                      Bill Total ({itemCount} item{itemCount !== 1 ? 's' : ''})
+                    </span>
+                    {linkedCount > 0 && (
+                      <span className="text-[10px] text-[#1c6a1e]">
+                        Stock will be updated for {linkedCount} linked item{linkedCount !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col items-stretch gap-3 sm:items-end lg:min-w-[280px]">
+                    {showSupplierUnpaid && loadingOtherUnpaidBills && (
+                      <div className="flex items-center justify-end gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
+                        <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                        Checking other unpaid bills…
+                      </div>
+                    )}
+
+                    {hasOtherUnpaid && (
+                      <div className="w-full rounded-lg border border-amber-200/80 dark:border-amber-800/50 bg-amber-50/80 dark:bg-amber-950/25 px-3 py-2.5 space-y-2">
+                        <div className="flex items-center justify-between gap-3 text-xs">
+                          <span className="text-slate-600 dark:text-slate-400">This bill</span>
+                          <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">{formatPrice(totalAmount)}</span>
+                        </div>
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between gap-3 text-xs">
+                            <span className="text-amber-900 dark:text-amber-100 font-medium flex items-center gap-1 min-w-0">
+                              <Clock className="w-3.5 h-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                              <span className="truncate">{unpaidLabel}</span>
+                            </span>
+                            <span className="font-semibold tabular-nums text-amber-950 dark:text-amber-50 shrink-0">
+                              {formatPrice(otherUnpaidTotal)}
+                            </span>
+                          </div>
+                          <ul className="space-y-1 pl-5 border-l-2 border-amber-200/70 dark:border-amber-800/50">
+                            {otherUnpaidBillsForSupplier.map((b) => (
+                              <li key={b.id} className="text-[10px] text-slate-600 dark:text-slate-400 leading-snug">
+                                <span className="font-medium text-slate-800 dark:text-slate-200">{formatPrice(b.amount)}</span>
+                                <span> · {formatBillDueDate(b.due_date)}</span>
+                                {b.status === 'overdue' && (
+                                  <Badge
+                                    variant="outline"
+                                    className="ml-1 align-middle text-[9px] h-4 px-1 py-0 border-red-300 text-red-700 dark:border-red-800 dark:text-red-400"
+                                  >
+                                    Overdue
+                                  </Badge>
+                                )}
+                                <span className="block truncate text-slate-500 dark:text-slate-500" title={b.bill_description}>
+                                  {summarizeBillDescription(b.bill_description, 48)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="pt-2 mt-0.5 border-t border-amber-200/80 dark:border-amber-800/50 flex items-end justify-between gap-3">
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-200">Total owed</span>
+                          <span className="text-2xl font-black text-[#1c6a1e] leading-none tabular-nums">
+                            {formatPrice(combinedOwedTotal)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {!hasOtherUnpaid && (
+                      <span className="text-2xl font-black text-[#1c6a1e] leading-none tabular-nums self-end">
+                        {formatPrice(totalAmount)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}

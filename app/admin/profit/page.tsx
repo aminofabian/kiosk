@@ -90,7 +90,18 @@ interface BatchProfit {
   profitMargin: number;
 }
 
-type DatePreset = 'today' | 'week' | 'month' | 'custom';
+type DatePreset = 'today' | 'yesterday' | 'last3days' | 'last7days' | 'month' | 'custom';
+
+const DATE_PRESET_ORDER: DatePreset[] = ['today', 'yesterday', 'last3days', 'last7days', 'month', 'custom'];
+
+const DATE_PRESET_LABEL: Record<DatePreset, string> = {
+  today: 'Today',
+  yesterday: 'Yesterday',
+  last3days: 'Last 3 days',
+  last7days: 'Last 7 days',
+  month: 'Month',
+  custom: 'Custom',
+};
 
 // ─── Helpers ─────────────────────────────────────────────────────
 
@@ -197,10 +208,20 @@ export default function ProfitHubPage() {
     if (preset === 'custom') return;
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const start = new Date(todayStart);
-    if (preset === 'week') start.setDate(start.getDate() - 6);
-    else if (preset === 'month') start.setDate(1);
     const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    if (preset === 'yesterday') {
+      const y = new Date(todayStart);
+      y.setDate(y.getDate() - 1);
+      const s = fmt(y);
+      setDateRange({ start: s, end: s });
+      return;
+    }
+
+    const start = new Date(todayStart);
+    if (preset === 'last3days') start.setDate(start.getDate() - 2);
+    else if (preset === 'last7days') start.setDate(start.getDate() - 6);
+    else if (preset === 'month') start.setDate(1);
     setDateRange({ start: fmt(start), end: fmt(todayStart) });
   }
 
@@ -370,7 +391,7 @@ export default function ProfitHubPage() {
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <div className="flex items-center gap-0.5 p-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-md">
-                  {(['today', 'week', 'month', 'custom'] as DatePreset[]).map((preset) => (
+                  {DATE_PRESET_ORDER.map((preset) => (
                     <button
                       key={preset}
                       onClick={() => setDatePreset(preset)}
@@ -378,7 +399,7 @@ export default function ProfitHubPage() {
                         datePreset === preset ? 'bg-[#1c6a1e] text-white' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
                       }`}
                     >
-                      {preset.charAt(0).toUpperCase() + preset.slice(1)}
+                      {DATE_PRESET_LABEL[preset]}
                     </button>
                   ))}
                 </div>
