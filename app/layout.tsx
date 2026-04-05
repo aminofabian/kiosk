@@ -45,7 +45,13 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className="font-sans antialiased">
-        <SerwistProvider swUrl="/sw.js" disable={process.env.NODE_ENV === "development"}>
+        <SerwistProvider
+          swUrl="/sw.js"
+          disable={
+            process.env.NODE_ENV === 'development' ||
+            process.env.NEXT_PUBLIC_DISABLE_SERVICE_WORKER === 'true'
+          }
+        >
           <SessionProvider>
             <DynamicMetaTags />
             {children}

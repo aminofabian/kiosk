@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { initiatePublicCreditStkPush } from '@/lib/db/public-credit-pesapal-stk';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
+import { getPublicSiteUrl } from '@/lib/utils/request-base-url';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -13,9 +14,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   try {
     const { slug } = await params;
 
-    const origin = request.headers.get('origin') || request.headers.get('host') || '';
-    const protocol = origin.includes('localhost') ? 'http' : 'https';
-    const callbackBaseUrl = origin.startsWith('http') ? origin : `${protocol}://${origin}`;
+    const callbackBaseUrl = getPublicSiteUrl(request);
+    if (!callbackBaseUrl) {
+      return jsonResponse(
+        { success: false, message: 'Could not determine public site URL for payment callback' },
+        500
+      );
+    }
 
     const result = await initiatePublicCreditStkPush(slug, {
       callbackBaseUrl,

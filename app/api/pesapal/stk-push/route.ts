@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
+import { getPublicSiteUrl } from '@/lib/utils/request-base-url';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 import { submitOrderRequest } from '@/lib/pesapal';
 import { generateUUID } from '@/lib/utils/uuid';
@@ -28,10 +29,13 @@ export async function POST(request: NextRequest) {
     // Generate a unique merchant reference
     const merchantReference = `POS-${generateUUID().substring(0, 8).toUpperCase()}`;
 
-    // Get the callback URL from the request origin
-    const origin = request.headers.get('origin') || request.headers.get('host') || '';
-    const protocol = origin.startsWith('localhost') ? 'http' : 'https';
-    const baseUrl = origin.startsWith('http') ? origin : `${protocol}://${origin}`;
+    const baseUrl = getPublicSiteUrl(request);
+    if (!baseUrl) {
+      return jsonResponse(
+        { success: false, message: 'Could not determine public site URL for payment callback' },
+        500
+      );
+    }
     const callbackUrl = `${baseUrl}/api/pesapal/callback`;
 
     const result = await submitOrderRequest({
