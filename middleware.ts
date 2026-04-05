@@ -86,10 +86,14 @@ export default withAuth(
           '/api/domain',
           '/api/db',
           '/api/superadmin/setup',
+          '/api/public/',
           '/superadmin/login', 
           '/superadmin/setup'
         ];
         if (publicRoutes.some((route) => pathname.startsWith(route))) {
+          return true;
+        }
+        if (pathname === '/c' || pathname.startsWith('/c/')) {
           return true;
         }
 

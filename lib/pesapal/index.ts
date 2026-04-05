@@ -323,3 +323,12 @@ export function getPaymentStatusMessage(status: PesapalTransactionStatus): strin
       return status.payment_status_description || 'Unknown status';
   }
 }
+
+/** True when env is set so SubmitOrderRequest (STK / hosted checkout) can run server-side. */
+export function isPesapalStkConfigured(): boolean {
+  return Boolean(
+    PESAPAL_CONSUMER_KEY.trim() &&
+      PESAPAL_CONSUMER_SECRET.trim() &&
+      PESAPAL_IPN_ID.trim()
+  );
+}

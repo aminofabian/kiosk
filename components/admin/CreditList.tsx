@@ -38,6 +38,7 @@ import {
   Smartphone,
   Plus,
   Trash2,
+  Link2,
 } from 'lucide-react';
 import type { CreditAccount, CreditTransaction, SaleItem } from '@/lib/db/types';
 import { PaymentForm } from './PaymentForm';
@@ -45,6 +46,7 @@ import { apiGet, apiPatch, apiPost } from '@/lib/utils/api-client';
 import { cn } from '@/lib/utils';
 import { toProperCustomerName } from '@/lib/utils/customer-name';
 import { formatPhonesForDisplay, parseCreditPhones } from '@/lib/utils/credit-phones';
+import { creditStatusSlugFromPhone } from '@/lib/utils/credit-public-slug';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { toast } from 'sonner';
 import { Textarea } from '@/components/ui/textarea';
@@ -409,6 +411,27 @@ export function CreditList() {
     } finally {
       setMergeSubmitting(false);
     }
+  };
+
+  const publicCreditSlug = useMemo(() => {
+    if (!selectedAccount) return null;
+    for (const p of accountPhonesList(selectedAccount)) {
+      const s = creditStatusSlugFromPhone(p);
+      if (s) return s;
+    }
+    return null;
+  }, [selectedAccount]);
+
+  const handleCopyPublicCreditLink = () => {
+    if (!publicCreditSlug || typeof window === 'undefined') return;
+    const url = `${window.location.origin}/c/${encodeURIComponent(publicCreditSlug)}`;
+    void navigator.clipboard.writeText(url).then(
+      () =>
+        toast.success(
+          'Customer status link copied — they can open it to see balance and paid-up status'
+        ),
+      () => toast.error('Could not copy link')
+    );
   };
 
   const outstandingCount = useMemo(
@@ -1101,6 +1124,40 @@ export function CreditList() {
                   </p>
                 </div>
               </div>
+
+              {selectedAccount && publicCreditSlug && (
+                <div className="rounded-xl border border-cyan-300/25 bg-gradient-to-r from-cyan-500/15 to-white/10 dark:from-cyan-950/40 dark:to-white/5 backdrop-blur-sm px-3 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="flex items-start gap-2 min-w-0">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/15 border border-white/10">
+                      <Link2 className="h-4 w-4 text-cyan-100" aria-hidden />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-white/50">
+                        Their status page
+                      </p>
+                      <p
+                        className="text-[11px] sm:text-xs font-mono text-white/90 truncate"
+                        title={`/c/${publicCreditSlug}`}
+                      >
+                        /c/{publicCreditSlug}
+                      </p>
+                      <p className="text-[10px] text-white/55 mt-0.5 leading-snug">
+                        Share so they can see what they owe — or that they&apos;re paid up.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="secondary"
+                    className="h-9 shrink-0 border-0 bg-white/25 text-white hover:bg-white/35 shadow-none text-xs font-semibold sm:self-center"
+                    onClick={handleCopyPublicCreditLink}
+                  >
+                    <Link2 className="h-3.5 w-3.5 mr-1.5 opacity-90" aria-hidden />
+                    Copy link
+                  </Button>
+                </div>
+              )}
 
               {canManageCreditProfiles && (
                 <div className="rounded-xl border border-white/10 bg-white/10 dark:bg-black/25 backdrop-blur-sm px-3 py-2.5">

@@ -434,6 +434,13 @@ export async function runMigrations() {
       console.error('⚠ credit_accounts phones JSON migration skipped:', error);
     }
 
+    try {
+      const { migratePublicCreditPesapalPending } = await import('./migrate-public-credit-pesapal-pending');
+      await migratePublicCreditPesapalPending();
+    } catch (error) {
+      console.error('⚠ public_credit_pesapal_pending migration skipped:', error);
+    }
+
     console.log('✅ Migration completed successfully!');
     return true;
   } catch (error) {

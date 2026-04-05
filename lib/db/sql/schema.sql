@@ -400,6 +400,26 @@ CREATE INDEX IF NOT EXISTS idx_credit_transactions_sale_id ON credit_transaction
 CREATE INDEX IF NOT EXISTS idx_credit_transactions_date ON credit_transactions(credit_account_id, created_at DESC);
 
 -- ============================================
+-- 15b. public_credit_pesapal_pending (M-Pesa prompt / Pesapal STK for public credit links)
+-- ============================================
+CREATE TABLE IF NOT EXISTS public_credit_pesapal_pending (
+  id TEXT PRIMARY KEY,
+  credit_account_id TEXT NOT NULL,
+  business_id TEXT NOT NULL,
+  order_tracking_id TEXT NOT NULL UNIQUE,
+  merchant_reference TEXT NOT NULL UNIQUE,
+  amount REAL NOT NULL,
+  balance_snapshot REAL NOT NULL,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  applied_at INTEGER,
+  FOREIGN KEY (credit_account_id) REFERENCES credit_accounts(id) ON DELETE CASCADE,
+  FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_public_credit_pesapal_pending_account ON public_credit_pesapal_pending(credit_account_id);
+CREATE INDEX IF NOT EXISTS idx_public_credit_pesapal_pending_tracking ON public_credit_pesapal_pending(order_tracking_id);
+
+-- ============================================
 -- 16. stock_adjustments
 -- ============================================
 CREATE TABLE IF NOT EXISTS stock_adjustments (
