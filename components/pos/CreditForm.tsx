@@ -7,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { apiGet } from '@/lib/utils/api-client';
 import type { CreditAccount } from '@/lib/db/types';
+import { creditAccountPhonesDisplay } from '@/lib/utils/credit-phones';
 
 interface CreditFormProps {
   customerName: string;
@@ -108,7 +109,9 @@ export function CreditForm({
           <div className="space-y-2">
             <Label>Select customer</Label>
             <div className="max-h-48 overflow-y-auto space-y-2 border rounded-lg p-2">
-              {accountsByPhone.map((acc) => (
+              {accountsByPhone.map((acc) => {
+                const phonesLine = creditAccountPhonesDisplay(acc);
+                return (
                 <button
                   key={acc.id}
                   type="button"
@@ -120,14 +123,15 @@ export function CreditForm({
                   }`}
                 >
                   <div className="font-medium truncate">{acc.customer_name}</div>
-                  {acc.customer_phone && (
-                    <div className="text-xs text-muted-foreground">{acc.customer_phone}</div>
-                  )}
+                  {phonesLine ? (
+                    <div className="text-xs text-muted-foreground line-clamp-2">{phonesLine}</div>
+                  ) : null}
                   <div className="text-sm font-semibold text-[#1c6a1e] mt-0.5">
                     Balance: {formatPrice(acc.total_credit)}
                   </div>
                 </button>
-              ))}
+              );
+              })}
             </div>
             <p className="text-xs text-muted-foreground">
               Select the customer above. Use a different phone number to add a new customer.

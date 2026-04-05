@@ -241,10 +241,19 @@ export interface CreditAccount {
   id: string;
   business_id: string;
   customer_name: string;
+  /** Primary phone for display; credits API sets this to the first of `customer_phones` */
   customer_phone: string | null;
+  /** All numbers when returned from credits APIs (stored as JSON in DB column `customer_phone`) */
+  customer_phones?: string[];
   total_credit: number;
   last_transaction_at: number | null;
   created_at: number;
+  /** Sum of all debt transactions; set when loaded from the credits list API */
+  lifetime_debt_total?: number;
+  /** User who recorded the most recent debt (credits list API) */
+  last_credit_by_name?: string | null;
+  last_credit_by_role?: string | null;
+  last_credit_by_user_id?: string | null;
 }
 
 export interface CreditTransaction {

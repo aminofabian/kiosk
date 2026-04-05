@@ -427,6 +427,13 @@ export async function runMigrations() {
       console.error('⚠ activity_log migration skipped:', error);
     }
 
+    try {
+      const { migrateCreditAccountsPhonesJson } = await import('./migrate-credit-accounts-phones-json');
+      await migrateCreditAccountsPhonesJson();
+    } catch (error) {
+      console.error('⚠ credit_accounts phones JSON migration skipped:', error);
+    }
+
     console.log('✅ Migration completed successfully!');
     return true;
   } catch (error) {

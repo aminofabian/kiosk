@@ -4,6 +4,12 @@ import { generateUUID } from '@/lib/utils/uuid';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { getBatchesForSale, calculateProfit } from '@/lib/utils/fifo';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import { toProperCustomerName } from '@/lib/utils/customer-name';
+import {
+  primaryCreditPhone,
+  serializeCreditPhones,
+  sqlCreditAccountMatchesPhoneDigits,
+} from '@/lib/utils/credit-phones';
 import type { Sale } from '@/lib/db/types';
 
 export async function OPTIONS() {
@@ -204,11 +210,11 @@ export async function POST(request: NextRequest) {
                 ? coreDigits.slice(-9)
                 : coreDigits;
         if (digits.length >= 6) {
+          const ph = sqlCreditAccountMatchesPhoneDigits('customer_phone', digits);
           const existingByPhone = await queryOne<{ id: string }>(
             `SELECT id FROM credit_accounts 
-             WHERE business_id = ? AND customer_phone IS NOT NULL
-             AND customer_phone LIKE ?`,
-            [auth.businessId, `%${digits}%`]
+             WHERE business_id = ? AND ${ph.sql}`,
+            [auth.businessId, ...ph.params]
           );
           if (existingByPhone) {
             return jsonResponse(
@@ -234,15 +240,17 @@ export async function POST(request: NextRequest) {
           [creditAccountId, auth.businessId]
         );
         saleCustomerName = accountForSale?.customer_name ?? null;
-        saleCustomerPhone = accountForSale?.customer_phone ?? null;
+        saleCustomerPhone = primaryCreditPhone(accountForSale?.customer_phone ?? null);
       } else {
-        saleCustomerName = customerName || null;
+        saleCustomerName = customerName ? toProperCustomerName(customerName) : null;
         saleCustomerPhone = customerPhone || null;
       }
     } else if (paymentMethod === 'split' && splitPayments) {
       const creditPayment = (splitPayments as SplitPaymentInput[]).find(p => p.method === 'credit');
       if (creditPayment) {
-        saleCustomerName = creditPayment.customerName || null;
+        saleCustomerName = creditPayment.customerName
+          ? toProperCustomerName(creditPayment.customerName)
+          : null;
         saleCustomerPhone = creditPayment.customerPhone || null;
       }
     }
@@ -299,7 +307,7 @@ export async function POST(request: NextRequest) {
             saleId,
             payment.method,
             payment.amount,
-            payment.customerName || null,
+            payment.customerName ? toProperCustomerName(payment.customerName) : null,
             payment.customerPhone || null,
             now,
           ]
@@ -454,26 +462,28 @@ export async function POST(request: NextRequest) {
     // Handle credit account creation if payment is credit or split with credit
     const handleCreditPayment = async (creditCustomerName: string, creditCustomerPhone: string | null, creditAmount: number) => {
       // Match by normalized phone first; fallback to name-only records if no phone provided
+      const trimmedName = creditCustomerName.trim();
+      const nameForStorage = toProperCustomerName(creditCustomerName);
       const phoneDigits = creditCustomerPhone ? extractPhoneDigits(creditCustomerPhone) : '';
       let creditAccount: { id: string; total_credit: number } | null = null;
 
       if (phoneDigits.length >= 6) {
+        const ph = sqlCreditAccountMatchesPhoneDigits('customer_phone', phoneDigits);
         creditAccount = await queryOne<{ id: string; total_credit: number }>(
           `SELECT id, total_credit FROM credit_accounts
            WHERE business_id = ?
-           AND customer_phone IS NOT NULL
-           AND customer_phone LIKE ?
+           AND ${ph.sql}
            LIMIT 1`,
-          [auth.businessId, `%${phoneDigits}%`]
+          [auth.businessId, ...ph.params]
         );
-      } else if (creditCustomerName.trim().length > 0) {
+      } else if (trimmedName.length > 0) {
         creditAccount = await queryOne<{ id: string; total_credit: number }>(
           `SELECT id, total_credit FROM credit_accounts
            WHERE business_id = ?
            AND customer_phone IS NULL
-           AND customer_name = ?
+           AND LOWER(TRIM(customer_name)) = LOWER(?)
            LIMIT 1`,
-          [auth.businessId, creditCustomerName]
+          [auth.businessId, trimmedName]
         );
       }
 
@@ -500,8 +510,8 @@ export async function POST(request: NextRequest) {
           [
             creditAccountId,
             auth.businessId,
-            creditCustomerName,
-            creditCustomerPhone,
+            nameForStorage,
+            creditCustomerPhone ? serializeCreditPhones([creditCustomerPhone]) : null,
             creditAmount,
             now,
             now,
@@ -570,13 +580,13 @@ export async function POST(request: NextRequest) {
         }
 
         // For split-credit: use phone to find existing customer; create only when missing.
+        const ph = sqlCreditAccountMatchesPhoneDigits('customer_phone', digits);
         const existingByPhone = await queryOne<{ customer_name: string }>(
           `SELECT customer_name FROM credit_accounts
            WHERE business_id = ?
-           AND customer_phone IS NOT NULL
-           AND customer_phone LIKE ?
+           AND ${ph.sql}
            LIMIT 1`,
-          [auth.businessId, `%${digits}%`]
+          [auth.businessId, ...ph.params]
         );
 
         if (!existingByPhone && splitCreditName.length === 0) {

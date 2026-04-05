@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Drawer,
   DrawerContent,
@@ -10,6 +11,14 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from '@/components/ui/drawer';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   ArrowRight,
   Loader2,
@@ -22,11 +31,23 @@ import {
   ArrowUpDown,
   AlertCircle,
   Sparkles,
+  User,
+  ChevronDown,
+  ArrowLeftRight,
+  GitMerge,
+  Smartphone,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import type { CreditAccount, CreditTransaction, SaleItem } from '@/lib/db/types';
 import { PaymentForm } from './PaymentForm';
-import { apiGet } from '@/lib/utils/api-client';
+import { apiGet, apiPatch, apiPost } from '@/lib/utils/api-client';
 import { cn } from '@/lib/utils';
+import { toProperCustomerName } from '@/lib/utils/customer-name';
+import { formatPhonesForDisplay, parseCreditPhones } from '@/lib/utils/credit-phones';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { toast } from 'sonner';
+import { Textarea } from '@/components/ui/textarea';
 
 interface SaleItemWithDetails extends SaleItem {
   item_name: string;
@@ -35,8 +56,27 @@ interface SaleItemWithDetails extends SaleItem {
 
 interface CreditTransactionWithDetails extends CreditTransaction {
   user_name?: string;
+  recorder_role?: string | null;
   sale_date?: number;
   items?: SaleItemWithDetails[];
+}
+
+function formatRecorderLabel(name?: string | null, role?: string | null): string | null {
+  const n = name?.trim();
+  if (!n) return null;
+  const r = role?.trim();
+  if (!r) return n;
+  return `${n} (${r.charAt(0).toUpperCase() + r.slice(1)})`;
+}
+
+function accountPhonesList(acc: CreditAccount): string[] {
+  if (acc.customer_phones && acc.customer_phones.length > 0) return acc.customer_phones;
+  return parseCreditPhones(acc.customer_phone);
+}
+
+function phonesSearchMatch(phones: string[], q: string): boolean {
+  const ql = q.toLowerCase();
+  return phones.some((p) => p.toLowerCase().includes(ql));
 }
 
 function getInitials(name: string): string {
@@ -87,16 +127,60 @@ function computeDebtPaidStatus(
   return paid;
 }
 
+interface TransferStaffRow {
+  id: string;
+  name: string;
+  role: string;
+}
+
 export function CreditList() {
+  const { user } = useCurrentUser();
+  /** Customer edit, merge, reassign — API is owner + admin only; cashiers never see these. */
+  const canManageCreditProfiles = user?.role === 'owner' || user?.role === 'admin';
+
+  const [customerEditModalOpen, setCustomerEditModalOpen] = useState(false);
+  const [mergeModalOpen, setMergeModalOpen] = useState(false);
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+
   const [accounts, setAccounts] = useState<CreditAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  /** 'all' | user id | '__none__' for accounts with no recorded creditor on last debt */
+  const [creditorFilter, setCreditorFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'name' | 'amount' | 'date'>('amount');
+  const [creditView, setCreditView] = useState<'outstanding' | 'paid'>('outstanding');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<CreditAccount | null>(null);
   const [transactions, setTransactions] = useState<CreditTransactionWithDetails[]>([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [transferUsers, setTransferUsers] = useState<TransferStaffRow[]>([]);
+  const [transferToUserId, setTransferToUserId] = useState('');
+  const [transferIncludePayments, setTransferIncludePayments] = useState(false);
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
+  const [mergeSearchQuery, setMergeSearchQuery] = useState('');
+  const [mergeSelectedIds, setMergeSelectedIds] = useState<string[]>([]);
+  const [mergeNameOverride, setMergeNameOverride] = useState('');
+  const [mergePhonesText, setMergePhonesText] = useState('');
+  const [mergeSubmitting, setMergeSubmitting] = useState(false);
+  const [editCustomerName, setEditCustomerName] = useState('');
+  const [editCustomerPhones, setEditCustomerPhones] = useState<string[]>(['']);
+  const [editCustomerSaving, setEditCustomerSaving] = useState(false);
+
+  useEffect(() => {
+    if (!selectedAccount) return;
+    if (!drawerOpen && !customerEditModalOpen) return;
+    setEditCustomerName(toProperCustomerName(selectedAccount.customer_name));
+    const phones = accountPhonesList(selectedAccount);
+    setEditCustomerPhones(phones.length > 0 ? phones : ['']);
+  }, [
+    selectedAccount?.id,
+    selectedAccount?.customer_name,
+    selectedAccount?.customer_phone,
+    selectedAccount?.customer_phones,
+    drawerOpen,
+    customerEditModalOpen,
+  ]);
 
   useEffect(() => {
     async function fetchCredits() {
@@ -119,6 +203,20 @@ export function CreditList() {
     fetchCredits();
   }, []);
 
+  useEffect(() => {
+    if (!transferModalOpen || !canManageCreditProfiles) return;
+    let cancelled = false;
+    (async () => {
+      const result = await apiGet<TransferStaffRow[]>('/api/credits/transfer-users');
+      if (!cancelled && result.success) {
+        setTransferUsers(result.data ?? []);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [transferModalOpen, canManageCreditProfiles]);
+
   const formatPrice = (price: number) =>
     `KES ${price.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
@@ -130,6 +228,11 @@ export function CreditList() {
       day: 'numeric',
     });
   };
+
+  const lifetimeDebtTotal = (acc: CreditAccount) => Number(acc.lifetime_debt_total ?? 0);
+
+  const lastCreditByLabel = (acc: CreditAccount) =>
+    formatRecorderLabel(acc.last_credit_by_name, acc.last_credit_by_role);
 
   const handleOpenPaymentDrawer = async (account: CreditAccount) => {
     setSelectedAccount(account);
@@ -161,25 +264,222 @@ export function CreditList() {
     }
   };
 
-  const outstandingAccounts = useMemo(() => {
+  const refreshCreditsList = async () => {
+    try {
+      const result = await apiGet<CreditAccount[]>('/api/credits');
+      if (result.success) setAccounts(result.data ?? []);
+    } catch (err) {
+      console.error('Error refreshing credits:', err);
+    }
+  };
+
+  const handleSaveCustomerDetails = async () => {
+    if (!selectedAccount) return;
+    const name = editCustomerName.trim();
+    if (!name) {
+      toast.error('Customer name is required');
+      return;
+    }
+    setEditCustomerSaving(true);
+    try {
+      const phonesPayload = editCustomerPhones.map((p) => p.trim()).filter(Boolean);
+      const result = await apiPatch<{ account: CreditAccount }>(`/api/credits/${selectedAccount.id}`, {
+        customerName: name,
+        customerPhones: phonesPayload,
+      });
+      if (result.success && result.data?.account) {
+        toast.success('Customer details saved');
+        setSelectedAccount(result.data.account);
+        setCustomerEditModalOpen(false);
+        await refreshCreditsList();
+      } else {
+        toast.error(result.message || 'Could not save');
+      }
+    } catch (err) {
+      console.error('Error saving customer details:', err);
+      toast.error('Could not save');
+    } finally {
+      setEditCustomerSaving(false);
+    }
+  };
+
+  const silentReloadDrawerDetail = async (accountId: string) => {
+    try {
+      const result = await apiGet<{
+        account: CreditAccount;
+        transactions: CreditTransactionWithDetails[];
+      }>(`/api/credits/${accountId}`);
+      if (result.success && result.data) {
+        if (result.data.transactions) setTransactions(result.data.transactions);
+        if (result.data.account) setSelectedAccount(result.data.account);
+      }
+    } catch (err) {
+      console.error('Error reloading credit detail:', err);
+    }
+  };
+
+  const handleTransferRecorder = async () => {
+    if (!selectedAccount || !transferToUserId) {
+      toast.error('Choose a staff member to transfer to');
+      return;
+    }
+    setTransferSubmitting(true);
+    try {
+      const result = await apiPost<{ updatedCount: number; scope: string }>(
+        `/api/credits/${selectedAccount.id}/transfer-recorder`,
+        {
+          toUserId: transferToUserId,
+          scope: transferIncludePayments ? 'all' : 'debts',
+        }
+      );
+      if (result.success) {
+        toast.success(result.message ?? 'Recorder updated');
+        setTransferToUserId('');
+        setTransferIncludePayments(false);
+        setTransferModalOpen(false);
+        await refreshCreditsList();
+        await silentReloadDrawerDetail(selectedAccount.id);
+      } else {
+        toast.error(result.message || 'Transfer failed');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Transfer failed');
+    } finally {
+      setTransferSubmitting(false);
+    }
+  };
+
+  const mergeCandidates = useMemo(() => {
+    if (!selectedAccount) return [];
+    const q = mergeSearchQuery.trim().toLowerCase();
     return accounts
-      .filter((acc) => acc.total_credit > 0)
+      .filter((a) => a.id !== selectedAccount.id)
+      .filter((a) => {
+        if (!q) return true;
+        return (
+          a.customer_name.toLowerCase().includes(q) || phonesSearchMatch(accountPhonesList(a), q)
+        );
+      })
+      .sort((a, b) =>
+        toProperCustomerName(a.customer_name).localeCompare(
+          toProperCustomerName(b.customer_name)
+        )
+      );
+  }, [accounts, selectedAccount, mergeSearchQuery]);
+
+  const toggleMergeId = (id: string) => {
+    setMergeSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleMergeCustomers = async () => {
+    if (!selectedAccount || mergeSelectedIds.length === 0) {
+      toast.error('Select at least one other profile to merge');
+      return;
+    }
+    setMergeSubmitting(true);
+    try {
+      const mergePhoneLines = mergePhonesText
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean);
+      const result = await apiPost<{ mergedCount: number; newBalance: number }>('/api/credits/merge', {
+        keepAccountId: selectedAccount.id,
+        mergeAccountIds: mergeSelectedIds,
+        customerName: mergeNameOverride.trim() || undefined,
+        ...(mergePhoneLines.length > 0 ? { customerPhones: mergePhoneLines } : {}),
+      });
+      if (result.success) {
+        toast.success(result.message ?? 'Profiles merged');
+        setMergeSelectedIds([]);
+        setMergeSearchQuery('');
+        setMergeNameOverride('');
+        setMergePhonesText('');
+        setMergeModalOpen(false);
+        await refreshCreditsList();
+        await silentReloadDrawerDetail(selectedAccount.id);
+      } else {
+        toast.error(result.message || 'Merge failed');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Merge failed');
+    } finally {
+      setMergeSubmitting(false);
+    }
+  };
+
+  const outstandingCount = useMemo(
+    () => accounts.filter((a) => a.total_credit > 0).length,
+    [accounts]
+  );
+  const paidUpCount = useMemo(
+    () => accounts.filter((a) => a.total_credit <= 0).length,
+    [accounts]
+  );
+
+  const creditorOptions = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const a of accounts) {
+      const id = a.last_credit_by_user_id;
+      if (!id) continue;
+      if (byId.has(id)) continue;
+      const label =
+        formatRecorderLabel(a.last_credit_by_name, a.last_credit_by_role) ??
+        a.last_credit_by_name ??
+        'Unknown';
+      byId.set(id, label);
+    }
+    return [...byId.entries()]
+      .map(([id, label]) => ({ id, label }))
+      .sort((x, y) => x.label.localeCompare(y.label));
+  }, [accounts]);
+
+  const hasCreditorUnknown = useMemo(
+    () => accounts.some((a) => !a.last_credit_by_user_id),
+    [accounts]
+  );
+
+  const visibleAccounts = useMemo(() => {
+    return accounts
+      .filter((acc) => (creditView === 'outstanding' ? acc.total_credit > 0 : acc.total_credit <= 0))
+      .filter((acc) => {
+        if (creditorFilter === 'all') return true;
+        if (creditorFilter === '__none__') return !acc.last_credit_by_user_id;
+        return acc.last_credit_by_user_id === creditorFilter;
+      })
       .filter((acc) => {
         if (!searchQuery.trim()) return true;
         const q = searchQuery.toLowerCase();
         return (
-          acc.customer_name.toLowerCase().includes(q) ||
-          (acc.customer_phone?.toLowerCase().includes(q) ?? false)
+          acc.customer_name.toLowerCase().includes(q) || phonesSearchMatch(accountPhonesList(acc), q)
         );
       })
       .sort((a, b) => {
-        if (sortBy === 'name') return a.customer_name.localeCompare(b.customer_name);
+        if (sortBy === 'name') {
+          return toProperCustomerName(a.customer_name).localeCompare(
+            toProperCustomerName(b.customer_name)
+          );
+        }
         if (sortBy === 'date') return (b.last_transaction_at ?? 0) - (a.last_transaction_at ?? 0);
-        return b.total_credit - a.total_credit;
+        if (sortBy === 'amount') {
+          if (creditView === 'paid') {
+            return (
+              Number(b.lifetime_debt_total ?? 0) - Number(a.lifetime_debt_total ?? 0)
+            );
+          }
+          return b.total_credit - a.total_credit;
+        }
+        return 0;
       });
-  }, [accounts, searchQuery, sortBy]);
+  }, [accounts, creditorFilter, creditView, searchQuery, sortBy]);
 
-  const totalOutstanding = outstandingAccounts.reduce((sum, acc) => sum + acc.total_credit, 0);
+  const totalOutstanding = useMemo(() => {
+    if (creditView !== 'outstanding') return 0;
+    return visibleAccounts.reduce((sum, acc) => sum + acc.total_credit, 0);
+  }, [creditView, visibleAccounts]);
 
   // ——— Loading ———
   if (loading) {
@@ -225,8 +525,8 @@ export function CreditList() {
     );
   }
 
-  // ——— Empty ———
-  if (accounts.length === 0 || outstandingAccounts.length === 0) {
+  // ——— Empty (no accounts at all) ———
+  if (accounts.length === 0) {
     return (
       <Card className="border-emerald-200 dark:border-emerald-900/50 bg-gradient-to-br from-emerald-50/80 to-white dark:from-emerald-950/20 dark:to-[#0f1a0d] overflow-hidden">
         <CardContent className="p-10 md:p-14">
@@ -234,24 +534,10 @@ export function CreditList() {
             <div className="h-20 w-20 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-5 shadow-inner">
               <Sparkles className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
             </div>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-              No outstanding credits
-            </h3>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">No credit customers yet</h3>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-              {searchQuery
-                ? 'No customers match your search. Try a different name or phone.'
-                : 'All customers are up to date. New credit sales will appear here.'}
+              Credit sales will create customer accounts here.
             </p>
-            {searchQuery && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="mt-4 text-slate-600 dark:text-slate-400"
-                onClick={() => setSearchQuery('')}
-              >
-                Clear search
-              </Button>
-            )}
           </div>
         </CardContent>
       </Card>
@@ -260,10 +546,16 @@ export function CreditList() {
 
   // ——— Main content ———
   const sortOptions: { value: 'name' | 'amount' | 'date'; label: string }[] = [
-    { value: 'amount', label: 'Highest balance' },
+    {
+      value: 'amount',
+      label: creditView === 'outstanding' ? 'Highest balance' : 'Highest amount',
+    },
     { value: 'name', label: 'Name' },
     { value: 'date', label: 'Recent' },
   ];
+
+  const listEmpty = visibleAccounts.length === 0;
+  const creditorFilterActive = creditorFilter !== 'all';
 
   return (
     <div className="space-y-6">
@@ -272,164 +564,594 @@ export function CreditList() {
         <CardContent className="p-6 md:p-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                Total outstanding
-              </p>
-              <p className="mt-1 text-3xl md:text-4xl font-bold tracking-tight">
-                {formatPrice(totalOutstanding)}
-              </p>
-              <p className="mt-2 text-sm text-slate-400">
-                Across {outstandingAccounts.length} customer{outstandingAccounts.length !== 1 ? 's' : ''}
-              </p>
+              {creditView === 'outstanding' ? (
+                <>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Total outstanding
+                  </p>
+                  <p className="mt-1 text-3xl md:text-4xl font-bold tracking-tight">
+                    {listEmpty ? formatPrice(0) : formatPrice(totalOutstanding)}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-400">
+                    {listEmpty
+                      ? searchQuery
+                        ? 'No matches in this list'
+                        : creditorFilterActive
+                          ? 'No matches for this creditor filter'
+                          : outstandingCount === 0
+                            ? 'Everyone is paid up — switch to Paid up to see them'
+                            : 'No balances due in this filtered list'
+                      : `Across ${visibleAccounts.length} customer${visibleAccounts.length !== 1 ? 's' : ''}`}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Paid up
+                  </p>
+                  <p className="mt-1 text-3xl md:text-4xl font-bold tracking-tight">
+                    {listEmpty ? '0' : visibleAccounts.length}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-400">
+                    {listEmpty
+                      ? searchQuery
+                        ? 'No matches in this list'
+                        : creditorFilterActive
+                          ? 'No matches for this creditor filter'
+                          : paidUpCount === 0
+                            ? 'No zero-balance accounts yet'
+                            : 'Try clearing search'
+                      : `Customer${visibleAccounts.length !== 1 ? 's' : ''} with no balance due`}
+                  </p>
+                </>
+              )}
             </div>
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-sm">
-              <DollarSign className="h-7 w-7 text-white/90" />
+              {creditView === 'outstanding' ? (
+                <DollarSign className="h-7 w-7 text-white/90" />
+              ) : (
+                <CheckCircle className="h-7 w-7 text-emerald-300" />
+              )}
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Search + Sort */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search by name or phone…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className={cn(
-              'w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50',
-              'pl-10 pr-4 py-3 text-sm placeholder:text-slate-400',
-              'focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]',
-              'transition-colors'
-            )}
-          />
+      {/* View toggle + Search + Sort */}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+          <div className="flex rounded-lg bg-slate-100 dark:bg-slate-800/80 p-1 gap-0.5 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setCreditView('outstanding')}
+              className={cn(
+                'flex-1 sm:flex-none px-3 py-2 rounded-md text-xs font-medium transition-colors',
+                creditView === 'outstanding'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              )}
+            >
+              Outstanding
+              <span className="ml-1.5 tabular-nums opacity-70">({outstandingCount})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setCreditView('paid')}
+              className={cn(
+                'flex-1 sm:flex-none px-3 py-2 rounded-md text-xs font-medium transition-colors',
+                creditView === 'paid'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              )}
+            >
+              Paid up
+              <span className="ml-1.5 tabular-nums opacity-70">({paidUpCount})</span>
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <ArrowUpDown className="h-4 w-4 text-slate-400 hidden sm:block" />
-          <div className="flex rounded-lg bg-slate-100 dark:bg-slate-800/80 p-1 gap-0.5">
-            {sortOptions.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setSortBy(opt.value)}
-                className={cn(
-                  'px-3 py-2 rounded-md text-xs font-medium transition-colors',
-                  sortBy === opt.value
-                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-stretch">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search by name or phone…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={cn(
+                'w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50',
+                'pl-10 pr-4 py-3 text-sm placeholder:text-slate-400',
+                'focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]',
+                'transition-colors'
+              )}
+            />
+          </div>
+          <div className="relative w-full sm:w-[min(100%,15rem)] shrink-0">
+            <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
+            <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
+            <select
+              value={creditorFilter}
+              onChange={(e) => setCreditorFilter(e.target.value)}
+              aria-label="Filter by creditor"
+              title="Accounts whose latest credit entry was recorded by this staff member"
+              className={cn(
+                'w-full appearance-none rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50',
+                'pl-10 pr-10 py-3 text-sm text-slate-900 dark:text-white',
+                'focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]',
+                'transition-colors cursor-pointer'
+              )}
+            >
+              <option value="all">All creditors</option>
+              {hasCreditorUnknown && (
+                <option value="__none__">Unknown / not on file</option>
+              )}
+              {creditorOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <ArrowUpDown className="h-4 w-4 text-slate-400 hidden sm:block" />
+            <div className="flex rounded-lg bg-slate-100 dark:bg-slate-800/80 p-1 gap-0.5">
+              {sortOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setSortBy(opt.value)}
+                  className={cn(
+                    'px-3 py-2 rounded-md text-xs font-medium transition-colors',
+                    sortBy === opt.value
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Creditor list */}
-      <div className="space-y-3">
-        {outstandingAccounts.map((account) => (
-          <Card
-            key={account.id}
-            className={cn(
-              'group overflow-hidden border border-slate-200 dark:border-slate-800',
-              'bg-white dark:bg-slate-900/50 hover:border-slate-300 dark:hover:border-slate-700',
-              'hover:shadow-md hover:shadow-slate-200/50 dark:hover:shadow-slate-900/50',
-              'transition-all duration-200 cursor-pointer'
-            )}
-          >
-            <CardContent className="p-0">
-              <button
-                type="button"
-                onClick={() => handleOpenPaymentDrawer(account)}
-                className="w-full text-left flex items-center gap-4 p-4 sm:p-5"
+      {listEmpty ? (
+        <Card className="border-emerald-200 dark:border-emerald-900/50 bg-gradient-to-br from-emerald-50/80 to-white dark:from-emerald-950/20 dark:to-[#0f1a0d] overflow-hidden">
+          <CardContent className="p-10 md:p-14">
+            <div className="flex flex-col items-center text-center max-w-md mx-auto">
+              <div className="h-20 w-20 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-5 shadow-inner">
+                <Sparkles className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                {creditView === 'outstanding' ? 'No outstanding credits' : 'No paid-up customers'}
+              </h3>
+              <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                {searchQuery && creditorFilterActive
+                  ? 'No customers match this search and creditor filter together. Try adjusting one or both.'
+                  : searchQuery
+                    ? 'No customers match your search. Try a different name or phone.'
+                    : creditorFilterActive
+                      ? 'No accounts match the selected creditor. Pick someone else or reset the creditor filter.'
+                      : creditView === 'outstanding'
+                        ? outstandingCount === 0
+                          ? 'There are no outstanding balances. Open Paid up to see customers at zero balance.'
+                          : 'No results for the current sort and filters.'
+                        : paidUpCount === 0
+                          ? 'Customers will appear here once their balance is cleared.'
+                          : 'No results for the current sort and filters.'}
+              </p>
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                {creditorFilterActive && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-slate-600 dark:text-slate-400"
+                    onClick={() => setCreditorFilter('all')}
+                  >
+                    All creditors
+                  </Button>
+                )}
+                {searchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-slate-600 dark:text-slate-400"
+                    onClick={() => setSearchQuery('')}
+                  >
+                    Clear search
+                  </Button>
+                )}
+                {creditView === 'paid' && outstandingCount > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-slate-300 dark:border-slate-600"
+                    onClick={() => setCreditView('outstanding')}
+                  >
+                    Show outstanding
+                  </Button>
+                )}
+                {creditView === 'outstanding' && paidUpCount > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-slate-300 dark:border-slate-600"
+                    onClick={() => setCreditView('paid')}
+                  >
+                    Show paid up
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Creditor list — cards on small/medium, table on large */}
+          <div className="space-y-3 lg:hidden">
+            {visibleAccounts.map((account, index) => {
+              const displayName = toProperCustomerName(account.customer_name);
+              const cardPhones = accountPhonesList(account);
+              const cardPhonesLine = formatPhonesForDisplay(cardPhones);
+              return (
+              <Card
+                key={account.id}
+                className={cn(
+                  'group overflow-hidden border border-slate-200 dark:border-slate-800',
+                  'bg-white dark:bg-slate-900/50 hover:border-slate-300 dark:hover:border-slate-700',
+                  'hover:shadow-md hover:shadow-slate-200/50 dark:hover:shadow-slate-900/50',
+                  'transition-all duration-200 cursor-pointer'
+                )}
               >
-                <div
-                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white shadow-inner"
-                  style={{ backgroundColor: avatarColor(account.customer_name) }}
-                >
-                  {getInitials(account.customer_name)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-slate-900 dark:text-white truncate">
-                      {account.customer_name}
-                    </h3>
-                    <span className="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:text-amber-300">
-                      Outstanding
+                <CardContent className="p-0">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenPaymentDrawer(account)}
+                    className="w-full text-left flex items-center gap-3 sm:gap-4 p-4 sm:p-5"
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-sm font-bold tabular-nums text-slate-600 dark:text-slate-300">
+                      {index + 1}
                     </span>
-                  </div>
-                  {account.customer_phone && (
-                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                      {account.customer_phone}
-                    </p>
-                  )}
-                  <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-                    Last activity: {formatDate(account.last_transaction_at)}
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-2 shrink-0">
-                  <p className="text-lg font-bold text-amber-600 dark:text-amber-400">
-                    {formatPrice(account.total_credit)}
-                  </p>
-                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-[#1c6a1e] px-3 py-1.5 text-xs font-medium text-white group-hover:bg-[#2a8a30] transition-colors">
-                    Collect
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </span>
-                </div>
-              </button>
+                    <div
+                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white shadow-inner"
+                      style={{ backgroundColor: avatarColor(displayName) }}
+                    >
+                      {getInitials(displayName)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-slate-900 dark:text-white truncate">
+                          {displayName}
+                        </h3>
+                        <span
+                          className={cn(
+                            'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium',
+                            creditView === 'outstanding'
+                              ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300'
+                              : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300'
+                          )}
+                        >
+                          {creditView === 'outstanding' ? 'Outstanding' : 'Paid up'}
+                        </span>
+                      </div>
+                      {cardPhones.length > 0 && (
+                        <p
+                          className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 line-clamp-2"
+                          title={cardPhonesLine}
+                        >
+                          {cardPhonesLine}
+                        </p>
+                      )}
+                      <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
+                        Last activity: {formatDate(account.last_transaction_at)}
+                      </p>
+                      {lastCreditByLabel(account) && (
+                        <p className="mt-1 flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 min-w-0">
+                          <User className="h-3 w-3 shrink-0" aria-hidden />
+                          <span className="truncate" title={lastCreditByLabel(account) ?? undefined}>
+                            Credit: {lastCreditByLabel(account)}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end gap-2 shrink-0">
+                      {creditView === 'paid' && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 -mb-1">
+                          Amount
+                        </span>
+                      )}
+                      <p
+                        className={cn(
+                          'font-bold tabular-nums',
+                          creditView === 'outstanding' ? 'text-lg text-amber-600 dark:text-amber-400' : 'text-lg text-emerald-600 dark:text-emerald-400'
+                        )}
+                      >
+                        {creditView === 'paid'
+                          ? formatPrice(lifetimeDebtTotal(account))
+                          : formatPrice(account.total_credit)}
+                      </p>
+                      {creditView === 'paid' && (
+                        <p className="text-[11px] font-medium tabular-nums text-slate-500 dark:text-slate-400">
+                          Due {formatPrice(account.total_credit)}
+                        </p>
+                      )}
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors pointer-events-none',
+                          creditView === 'outstanding'
+                            ? 'bg-[#1c6a1e] text-white group-hover:bg-[#2a8a30]'
+                            : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100 group-hover:bg-slate-300 dark:group-hover:bg-slate-600'
+                        )}
+                      >
+                        {creditView === 'outstanding' ? 'Collect' : 'View'}
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </span>
+                    </div>
+                  </button>
+                </CardContent>
+              </Card>
+            );
+            })}
+          </div>
+
+          <Card className="hidden lg:block overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-sm">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50/90 dark:bg-slate-800/50">
+                      <th className="text-center px-2 py-3 w-12 font-semibold text-slate-600 dark:text-slate-400">
+                        #
+                      </th>
+                      <th className="text-left px-4 py-3 font-semibold text-slate-600 dark:text-slate-400">
+                        Customer
+                      </th>
+                      <th className="text-left px-4 py-3 font-semibold text-slate-600 dark:text-slate-400 w-[1%] whitespace-nowrap">
+                        Phone
+                      </th>
+                      <th className="text-left px-4 py-3 font-semibold text-slate-600 dark:text-slate-400 min-w-[7rem] max-w-[12rem]">
+                        Credit by
+                      </th>
+                      <th className="text-left px-4 py-3 font-semibold text-slate-600 dark:text-slate-400 w-[1%] whitespace-nowrap">
+                        Last activity
+                      </th>
+                      {creditView === 'paid' && (
+                        <th className="text-right px-4 py-3 font-semibold text-slate-600 dark:text-slate-400 w-[1%] whitespace-nowrap">
+                          Amount
+                        </th>
+                      )}
+                      <th className="text-right px-4 py-3 font-semibold text-slate-600 dark:text-slate-400 w-[1%] whitespace-nowrap">
+                        {creditView === 'paid' ? 'Due' : 'Balance'}
+                      </th>
+                      <th className="text-right px-4 py-3 font-semibold text-slate-600 dark:text-slate-400 w-[1%] whitespace-nowrap">
+                        <span className="sr-only">Actions</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleAccounts.map((account, index) => {
+                      const displayName = toProperCustomerName(account.customer_name);
+                      const rowPhones = accountPhonesList(account);
+                      const phonesLine = formatPhonesForDisplay(rowPhones);
+                      return (
+                      <tr
+                        key={account.id}
+                        onClick={() => handleOpenPaymentDrawer(account)}
+                        className={cn(
+                          'border-b border-slate-100 dark:border-slate-800 last:border-b-0',
+                          'cursor-pointer transition-colors',
+                          'hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                        )}
+                      >
+                        <td className="px-2 py-3 align-middle text-center tabular-nums text-slate-500 dark:text-slate-400 font-medium">
+                          {index + 1}
+                        </td>
+                        <td className="px-4 py-3 align-middle">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div
+                              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white shadow-inner"
+                              style={{ backgroundColor: avatarColor(displayName) }}
+                            >
+                              {getInitials(displayName)}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-semibold text-slate-900 dark:text-white truncate">
+                                  {displayName}
+                                </span>
+                                <span
+                                  className={cn(
+                                    'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0',
+                                    creditView === 'outstanding'
+                                      ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300'
+                                      : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300'
+                                  )}
+                                >
+                                  {creditView === 'outstanding' ? 'Outstanding' : 'Paid up'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td
+                          className="px-4 py-3 align-middle text-slate-600 dark:text-slate-400 max-w-[11rem]"
+                          title={phonesLine || undefined}
+                        >
+                          <span className="block truncate text-sm">
+                            {rowPhones.length > 0 ? phonesLine : '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 align-middle text-slate-600 dark:text-slate-400 max-w-[12rem]">
+                          <span
+                            className="block truncate text-sm"
+                            title={lastCreditByLabel(account) ?? undefined}
+                          >
+                            {lastCreditByLabel(account) ?? '—'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 align-middle text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                          {formatDate(account.last_transaction_at)}
+                        </td>
+                        {creditView === 'paid' && (
+                          <td className="px-4 py-3 align-middle text-right font-semibold tabular-nums whitespace-nowrap text-emerald-600 dark:text-emerald-400">
+                            {formatPrice(lifetimeDebtTotal(account))}
+                          </td>
+                        )}
+                        <td
+                          className={cn(
+                            'px-4 py-3 align-middle text-right font-bold tabular-nums whitespace-nowrap',
+                            creditView === 'outstanding'
+                              ? 'text-amber-600 dark:text-amber-400'
+                              : 'text-slate-600 dark:text-slate-300'
+                          )}
+                        >
+                          {formatPrice(account.total_credit)}
+                        </td>
+                        <td className="px-4 py-3 align-middle text-right">
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium pointer-events-none',
+                              creditView === 'outstanding'
+                                ? 'bg-[#1c6a1e] text-white'
+                                : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100'
+                            )}
+                          >
+                            {creditView === 'outstanding' ? 'Collect' : 'View'}
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+        </>
+      )}
 
       {/* Payment Drawer */}
-      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
-        <DrawerContent className="!w-full sm:!max-w-[480px] md:!max-w-[520px] h-full max-h-screen border-0 border-l border-slate-200 dark:border-slate-800 p-0">
-          {/* Header — solid gradient, no backdrop-filter for IE/old browser support */}
-          <DrawerHeader className="relative overflow-hidden border-0 px-6 pt-6 pb-8 pr-14 bg-emerald-600 dark:bg-emerald-800">
+      <Drawer
+        open={drawerOpen}
+        onOpenChange={(open) => {
+          setDrawerOpen(open);
+          if (!open) {
+            setCustomerEditModalOpen(false);
+            setMergeModalOpen(false);
+            setTransferModalOpen(false);
+            setTransferToUserId('');
+            setTransferIncludePayments(false);
+            setMergeSearchQuery('');
+            setMergeSelectedIds([]);
+            setMergeNameOverride('');
+            setMergePhonesText('');
+          }
+        }}
+        direction="right"
+      >
+        <DrawerContent className="!w-full !max-w-[min(100vw,520px)] sm:!max-w-[600px] md:!max-w-[680px] lg:!max-w-[760px] flex h-full max-h-[100dvh] min-h-0 flex-col border-0 border-l border-slate-200/80 dark:border-slate-800 p-0 shadow-2xl shadow-slate-900/15 dark:shadow-black/40">
+          <DrawerHeader className="relative shrink-0 overflow-hidden border-0 px-5 pt-5 pb-4 pr-14 bg-gradient-to-br from-emerald-600 via-emerald-800 to-teal-900 dark:from-emerald-950 dark:via-emerald-900 dark:to-slate-950">
+            <div
+              className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full bg-white/10 blur-3xl"
+              aria-hidden
+            />
+            <div
+              className="pointer-events-none absolute -left-10 bottom-0 h-40 w-40 rounded-full bg-teal-300/25 dark:bg-teal-500/10 blur-2xl"
+              aria-hidden
+            />
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setDrawerOpen(false)}
-              className="absolute right-4 top-4 h-9 w-9 rounded-full text-white hover:bg-white/20 z-10"
+              className="absolute right-3 top-3 h-9 w-9 rounded-full text-white hover:bg-white/20 z-20 border border-white/10"
             >
               <X className="h-5 w-5" />
               <span className="sr-only">Close</span>
             </Button>
-            <div className="relative flex flex-col">
-              <div className="flex items-center mb-4">
+            <div className="relative z-10 flex flex-col gap-4">
+              <div className="flex gap-3 items-start">
                 <div
-                  className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-lg font-bold text-white shadow-lg border-2 border-white"
-                  style={{ backgroundColor: selectedAccount ? avatarColor(selectedAccount.customer_name) : 'transparent' }}
+                  className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl text-sm sm:text-lg font-bold text-white shadow-lg ring-2 ring-white/30"
+                  style={{
+                    backgroundColor: selectedAccount
+                      ? avatarColor(toProperCustomerName(selectedAccount.customer_name))
+                      : 'transparent',
+                  }}
                 >
-                  {selectedAccount ? getInitials(selectedAccount.customer_name) : '—'}
+                  {selectedAccount
+                    ? getInitials(toProperCustomerName(selectedAccount.customer_name))
+                    : '—'}
                 </div>
-                <div className="min-w-0 flex-1 ml-4">
-                  <DrawerTitle className="text-xl font-bold text-white tracking-tight truncate">
-                    {selectedAccount?.customer_name ?? '—'}
+                <div className="min-w-0 flex-1 pt-0.5">
+                  <DrawerTitle className="text-lg sm:text-xl font-bold text-white tracking-tight text-left truncate">
+                    {selectedAccount ? toProperCustomerName(selectedAccount.customer_name) : '—'}
                   </DrawerTitle>
-                  <DrawerDescription className="text-emerald-100 text-sm mt-0.5">
-                    {selectedAccount?.customer_phone ?? 'No phone'}
+                  <DrawerDescription className="text-emerald-100/90 text-xs sm:text-sm mt-1 text-left whitespace-pre-line line-clamp-2 sm:line-clamp-3">
+                    {selectedAccount && accountPhonesList(selectedAccount).length > 0
+                      ? formatPhonesForDisplay(accountPhonesList(selectedAccount))
+                      : 'No phone on file'}
                   </DrawerDescription>
                 </div>
+                <div className="shrink-0 text-right rounded-2xl bg-black/15 dark:bg-black/25 px-3 py-2 sm:px-3.5 sm:py-2.5 border border-white/15 backdrop-blur-md min-w-[6.5rem]">
+                  <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-emerald-100/80">
+                    {selectedAccount && selectedAccount.total_credit <= 0 ? 'Balance' : 'Due'}
+                  </p>
+                  <p className="text-lg sm:text-2xl font-bold text-white tabular-nums leading-tight mt-0.5">
+                    {selectedAccount ? formatPrice(selectedAccount.total_credit) : '—'}
+                  </p>
+                </div>
               </div>
-              <div
-                className="flex items-center justify-between rounded-lg px-4 py-3 border border-white"
-                style={{ backgroundColor: 'rgba(255,255,255,0.2)' }}
-              >
-                <span className="text-sm font-medium text-white">Outstanding</span>
-                <span className="text-2xl font-bold text-white">
-                  {selectedAccount ? formatPrice(selectedAccount.total_credit) : '—'}
-                </span>
-              </div>
+
+              {canManageCreditProfiles && (
+                <div className="rounded-xl border border-white/10 bg-white/10 dark:bg-black/25 backdrop-blur-sm px-3 py-2.5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Sparkles className="h-3.5 w-3.5 text-amber-200/90 shrink-0" aria-hidden />
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50">
+                      Admin tools
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      title="Edit customer name and phone numbers"
+                      className="h-8 gap-1.5 border-0 bg-white/20 text-white hover:bg-white/30 shadow-none text-xs font-medium"
+                      onClick={() => setCustomerEditModalOpen(true)}
+                    >
+                      <Smartphone className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                      Edit profile
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      title="Merge duplicate credit profiles into this customer"
+                      className="h-8 gap-1.5 border-0 bg-amber-500/25 text-white hover:bg-amber-500/40 shadow-none text-xs font-medium"
+                      onClick={() => setMergeModalOpen(true)}
+                    >
+                      <GitMerge className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                      Merge
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      title="Reassign staff attribution on credit records"
+                      className="h-8 gap-1.5 border-0 bg-white/20 text-white hover:bg-white/30 shadow-none text-xs font-medium"
+                      onClick={() => setTransferModalOpen(true)}
+                    >
+                      <ArrowLeftRight className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                      Reassign
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </DrawerHeader>
-          <div className="overflow-y-auto flex-1 bg-slate-50 dark:bg-slate-900 p-6">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-gradient-to-b from-slate-100/80 to-slate-50 dark:from-slate-950 dark:to-slate-900 px-4 py-4 sm:px-5">
             {selectedAccount && (
-              <div className="space-y-8">
+              <div className="space-y-5 pb-1">
                 {/* Items on credit — receipt-style timeline */}
                 <section className="space-y-3">
                   <div className="flex items-center">
@@ -447,16 +1169,14 @@ export function CreditList() {
                       </div>
                     ) : (
                       (() => {
-                        const debtTransactions = transactions.filter(
-                          (t) => t.type === 'debt' && t.items && t.items.length > 0
-                        );
+                        const debtTransactions = transactions.filter((t) => t.type === 'debt');
                         const debtPaid = computeDebtPaidStatus(transactions);
                         if (debtTransactions.length === 0) {
                           return (
                             <div className="rounded-lg border border-dashed border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 py-8 text-center">
                               <Package className="h-8 w-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
                               <p className="text-sm text-slate-500 dark:text-slate-400">
-                                No item details available
+                                No credit history for this account
                               </p>
                             </div>
                           );
@@ -468,7 +1188,7 @@ export function CreditList() {
                               key={transaction.id}
                               className={cn(
                                 'relative pl-5',
-                                idx === debtTransactions.length - 1 ? 'pb-0' : 'pb-6'
+                                idx === debtTransactions.length - 1 ? 'pb-0' : 'pb-4'
                               )}
                             >
                               <div
@@ -482,10 +1202,10 @@ export function CreditList() {
                               />
                               <div
                                 className={cn(
-                                  'rounded-lg border p-4',
+                                  'rounded-xl border p-3 shadow-sm',
                                   isPaid
-                                    ? 'border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800'
-                                    : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
+                                    ? 'border-slate-200/80 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800/80'
+                                    : 'border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-800/90'
                                 )}
                               >
                                 <div className="flex items-center justify-between mb-2">
@@ -523,56 +1243,76 @@ export function CreditList() {
                                     </span>
                                   </div>
                                 </div>
-                                <div className="space-y-2">
-                                  {transaction.items?.map((item) => (
-                                    <div
-                                      key={item.id}
-                                      className={cn(
-                                        'flex items-center justify-between py-1.5 px-2 rounded-lg',
-                                        isPaid ? 'bg-slate-100 dark:bg-slate-800' : 'bg-slate-50 dark:bg-slate-800'
-                                      )}
-                                    >
-                                      <div className="flex items-center min-w-0">
-                                        <Package
-                                          className={cn(
-                                            'h-3.5 w-3.5 shrink-0 mr-2',
-                                            isPaid ? 'text-slate-400' : 'text-slate-500'
-                                          )}
-                                        />
-                                        <span
-                                          className={cn(
-                                            'text-sm truncate',
-                                            isPaid
-                                              ? 'text-slate-500 line-through'
-                                              : 'text-slate-700 dark:text-slate-300 font-medium'
-                                          )}
-                                        >
-                                          {item.item_name}
-                                        </span>
-                                      </div>
+                                {formatRecorderLabel(transaction.user_name, transaction.recorder_role) ? (
+                                  <p className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 mb-2">
+                                    <User className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+                                    <span>
+                                      Credit by{' '}
+                                      <span className="font-medium text-slate-800 dark:text-slate-200">
+                                        {formatRecorderLabel(
+                                          transaction.user_name,
+                                          transaction.recorder_role
+                                        )}
+                                      </span>
+                                    </span>
+                                  </p>
+                                ) : null}
+                                {transaction.items && transaction.items.length > 0 ? (
+                                  <div className="space-y-2">
+                                    {transaction.items.map((item) => (
                                       <div
+                                        key={item.id}
                                         className={cn(
-                                          'flex items-center shrink-0 text-xs',
-                                          isPaid && 'line-through text-slate-400'
+                                          'flex items-center justify-between py-1.5 px-2 rounded-lg',
+                                          isPaid ? 'bg-slate-100 dark:bg-slate-800' : 'bg-slate-50 dark:bg-slate-800'
                                         )}
                                       >
-                                        <span className="text-slate-500 dark:text-slate-400 mr-2">
-                                          {item.quantity_sold}{' '}
-                                          {item.item_unit_type === 'kg'
-                                            ? 'kg'
-                                            : item.quantity_sold === 1
-                                              ? 'pc'
-                                              : 'pcs'}
-                                        </span>
-                                        <span className="font-semibold text-slate-700 dark:text-slate-300 min-w-[4rem] text-right">
-                                          {formatPrice(
-                                            item.sell_price_per_unit * item.quantity_sold
+                                        <div className="flex items-center min-w-0">
+                                          <Package
+                                            className={cn(
+                                              'h-3.5 w-3.5 shrink-0 mr-2',
+                                              isPaid ? 'text-slate-400' : 'text-slate-500'
+                                            )}
+                                          />
+                                          <span
+                                            className={cn(
+                                              'text-sm truncate',
+                                              isPaid
+                                                ? 'text-slate-500 line-through'
+                                                : 'text-slate-700 dark:text-slate-300 font-medium'
+                                            )}
+                                          >
+                                            {item.item_name}
+                                          </span>
+                                        </div>
+                                        <div
+                                          className={cn(
+                                            'flex items-center shrink-0 text-xs',
+                                            isPaid && 'line-through text-slate-400'
                                           )}
-                                        </span>
+                                        >
+                                          <span className="text-slate-500 dark:text-slate-400 mr-2">
+                                            {item.quantity_sold}{' '}
+                                            {item.item_unit_type === 'kg'
+                                              ? 'kg'
+                                              : item.quantity_sold === 1
+                                                ? 'pc'
+                                                : 'pcs'}
+                                          </span>
+                                          <span className="font-semibold text-slate-700 dark:text-slate-300 min-w-[4rem] text-right">
+                                            {formatPrice(
+                                              item.sell_price_per_unit * item.quantity_sold
+                                            )}
+                                          </span>
+                                        </div>
                                       </div>
-                                    </div>
-                                  ))}
-                                </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 italic py-1">
+                                    No line-item breakdown (credit not tied to a sale with items).
+                                  </p>
+                                )}
                               </div>
                             </div>
                           );
@@ -581,16 +1321,329 @@ export function CreditList() {
                     )}
                   </div>
                 </section>
-
-                {/* Payment form — sticky CTA feel */}
-                <section className="pt-2">
-                  <PaymentForm account={selectedAccount} onSuccess={handlePaymentSuccess} compact />
-                </section>
               </div>
             )}
           </div>
+          {selectedAccount && (
+            <div
+              className={cn(
+                'shrink-0 border-t border-slate-200/90 dark:border-slate-800',
+                'bg-slate-100/95 dark:bg-slate-950/95 backdrop-blur-md',
+                'px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]',
+                'shadow-[0_-12px_32px_-8px_rgba(15,23,42,0.12)] dark:shadow-[0_-12px_32px_-8px_rgba(0,0,0,0.45)]'
+              )}
+            >
+              {selectedAccount.total_credit > 0 ? (
+                <PaymentForm
+                  account={selectedAccount}
+                  onSuccess={handlePaymentSuccess}
+                  compact
+                  drawerFooter
+                  paymentDrawerDense
+                />
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 px-4 py-4 text-center">
+                  <CheckCircle className="h-8 w-8 text-emerald-500 mx-auto mb-1.5" />
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Nothing to collect</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    History above shows past credit and payments.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </DrawerContent>
       </Drawer>
+
+      {/* Admin-only modals (stack above drawer) */}
+      <Dialog
+        open={Boolean(
+          customerEditModalOpen && selectedAccount && canManageCreditProfiles
+        )}
+        onOpenChange={setCustomerEditModalOpen}
+      >
+        <DialogContent className="z-[100] max-h-[min(90vh,640px)] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit customer name &amp; phones</DialogTitle>
+            <DialogDescription>
+              Add as many numbers as needed. Remove all rows to clear saved phones. Lists and checkout
+              match any of these numbers.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Name</label>
+              <Input
+                value={editCustomerName}
+                onChange={(e) => setEditCustomerName(e.target.value)}
+                className="h-10 rounded-lg border-slate-200 dark:border-slate-600"
+                autoComplete="name"
+              />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                  Phone numbers
+                </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setEditCustomerPhones((prev) => [...prev, ''])}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" aria-hidden />
+                  Add number
+                </Button>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                {editCustomerPhones.map((phone, i) => (
+                  <div key={i} className="flex gap-2 items-center">
+                    <Input
+                      value={phone}
+                      onChange={(e) =>
+                        setEditCustomerPhones((prev) =>
+                          prev.map((p, j) => (j === i ? e.target.value : p))
+                        )
+                      }
+                      placeholder="e.g. 0712 345 678"
+                      className="h-10 rounded-lg border-slate-200 dark:border-slate-600 flex-1"
+                      type="tel"
+                      autoComplete="tel"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 shrink-0 text-slate-500 hover:text-red-600"
+                      aria-label={`Remove phone ${i + 1}`}
+                      onClick={() =>
+                        setEditCustomerPhones((prev) =>
+                          prev.length <= 1 ? [''] : prev.filter((_, j) => j !== i)
+                        )
+                      }
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setCustomerEditModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={editCustomerSaving || !editCustomerName.trim()}
+              onClick={() => void handleSaveCustomerDetails()}
+            >
+              {editCustomerSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                'Save'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(mergeModalOpen && selectedAccount && canManageCreditProfiles)}
+        onOpenChange={(open) => {
+          setMergeModalOpen(open);
+          if (!open) {
+            setMergeSelectedIds([]);
+            setMergeSearchQuery('');
+            setMergeNameOverride('');
+            setMergePhonesText('');
+          }
+        }}
+      >
+        <DialogContent className="z-[100] max-h-[min(92vh,720px)] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Merge duplicate customers</DialogTitle>
+            <DialogDescription>
+              Combine other credit profiles into{' '}
+              <span className="font-medium text-foreground">
+                {selectedAccount ? toProperCustomerName(selectedAccount.customer_name) : ''}
+              </span>
+              . Balances and full history move into this profile; merged profiles are removed. This
+              cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                Find profiles to merge
+              </label>
+              <Input
+                value={mergeSearchQuery}
+                onChange={(e) => setMergeSearchQuery(e.target.value)}
+                placeholder="Search by name or phone…"
+                className="h-10 rounded-lg border-slate-200 dark:border-slate-600"
+              />
+            </div>
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-600 divide-y divide-slate-100 dark:divide-slate-800">
+              {mergeCandidates.length === 0 ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400 p-3 text-center">
+                  No other credit profiles match. Try another search.
+                </p>
+              ) : (
+                mergeCandidates.map((a) => {
+                  const candPhones = accountPhonesList(a);
+                  return (
+                  <label
+                    key={a.id}
+                    className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/80"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={mergeSelectedIds.includes(a.id)}
+                      onChange={() => toggleMergeId(a.id)}
+                      className="rounded border-slate-300 text-[#1c6a1e] focus:ring-[#1c6a1e] shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{toProperCustomerName(a.customer_name)}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                        {candPhones.length > 0 ? formatPhonesForDisplay(candPhones) : 'No phone'} ·{' '}
+                        {formatPrice(a.total_credit)} due
+                      </p>
+                    </div>
+                  </label>
+                  );
+                })
+              )}
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                Optional new name
+              </label>
+              <Input
+                value={mergeNameOverride}
+                onChange={(e) => setMergeNameOverride(e.target.value)}
+                placeholder="Leave blank to keep merged result"
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                Optional phones after merge (one per line)
+              </label>
+              <Textarea
+                value={mergePhonesText}
+                onChange={(e) => setMergePhonesText(e.target.value)}
+                placeholder="Leave blank to combine numbers from all merged profiles. If you fill this, it replaces all saved numbers."
+                rows={3}
+                className="text-sm resize-y min-h-[4.5rem] rounded-lg border-slate-200 dark:border-slate-600"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setMergeModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-amber-700 hover:bg-amber-800 text-white dark:bg-amber-800 dark:hover:bg-amber-700"
+              disabled={mergeSelectedIds.length === 0 || mergeSubmitting}
+              onClick={() => void handleMergeCustomers()}
+            >
+              {mergeSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Merging…
+                </>
+              ) : (
+                `Merge ${mergeSelectedIds.length || '…'} profile(s)`
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(transferModalOpen && selectedAccount && canManageCreditProfiles)}
+        onOpenChange={(open) => {
+          setTransferModalOpen(open);
+          if (!open) {
+            setTransferToUserId('');
+            setTransferIncludePayments(false);
+          }
+        }}
+      >
+        <DialogContent className="z-[100] max-h-[min(90vh,640px)] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reassign staff on records</DialogTitle>
+            <DialogDescription>
+              Change who is recorded as having given or collected credit for this customer. By default
+              only credit sales are updated; use the option below to include payment records too.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Assign to</label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
+                <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
+                <select
+                  value={transferToUserId}
+                  onChange={(e) => setTransferToUserId(e.target.value)}
+                  aria-label="Transfer credit records to staff member"
+                  className={cn(
+                    'w-full appearance-none rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900',
+                    'pl-10 pr-10 py-2.5 text-sm text-slate-900 dark:text-white',
+                    'focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]'
+                  )}
+                >
+                  <option value="">Select staff member…</option>
+                  {transferUsers.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {formatRecorderLabel(u.name, u.role) ?? u.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={transferIncludePayments}
+                onChange={(e) => setTransferIncludePayments(e.target.checked)}
+                className="mt-1 rounded border-slate-300 text-[#1c6a1e] focus:ring-[#1c6a1e]"
+              />
+              <span className="text-xs text-slate-600 dark:text-slate-400">
+                Also reassign <span className="font-medium">payment</span> records (who is shown as
+                having recorded each repayment)
+              </span>
+            </label>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setTransferModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600"
+              disabled={!transferToUserId || transferSubmitting}
+              onClick={() => void handleTransferRecorder()}
+            >
+              {transferSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Updating…
+                </>
+              ) : (
+                'Apply transfer'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

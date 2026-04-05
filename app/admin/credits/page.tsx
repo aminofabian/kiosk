@@ -12,7 +12,7 @@ export default function CreditsPage() {
         <header className="relative overflow-hidden border-b border-slate-200/80 dark:border-slate-800/80">
           <div className="absolute inset-0 bg-[linear-gradient(135deg,#1c6a1e08_0%,transparent_50%),linear-gradient(225deg,#1c6a1e12_0%,transparent_45%)] dark:bg-[linear-gradient(135deg,#1c6a1e15_0%,transparent_50%)]" />
           <div className="relative px-4 md:px-6 lg:px-8 py-8 md:py-10">
-            <div className="max-w-5xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+            <div className="max-w-5xl lg:max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
               <div className="flex items-start gap-4">
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] text-white shadow-lg shadow-[#1c6a1e]/25 ring-2 ring-white/20 dark:ring-slate-800/50">
                   <Wallet className="h-7 w-7" strokeWidth={2.25} />
@@ -36,7 +36,7 @@ export default function CreditsPage() {
 
         {/* Content */}
         <main className="relative px-4 md:px-6 lg:px-8 py-6 md:py-8 pb-28 md:pb-10">
-          <div className="max-w-5xl mx-auto">
+          <div className="max-w-5xl lg:max-w-6xl mx-auto">
             <CreditList />
           </div>
         </main>

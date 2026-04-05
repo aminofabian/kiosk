@@ -3,6 +3,10 @@ import { query } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
 import type { CreditAccount } from '@/lib/db/types';
+import {
+  enrichCreditAccountRow,
+  sqlCreditAccountMatchesPhoneDigits,
+} from '@/lib/utils/credit-phones';
 
 /** Extract core 9 digits for Kenyan phone matching (0712345678 -> 712345678) */
 function phoneCoreDigits(phone: string): string {
@@ -25,29 +29,63 @@ export async function GET(request: NextRequest) {
     const phoneParam = searchParams.get('phone');
     const coreDigits = phoneParam?.trim() ? phoneCoreDigits(phoneParam.trim()) : null;
 
+    const listSelect = `
+      ca.id,
+      ca.business_id,
+      ca.customer_name,
+      ca.customer_phone,
+      ca.total_credit,
+      ca.last_transaction_at,
+      ca.created_at,
+      COALESCE((
+        SELECT SUM(ct.amount)
+        FROM credit_transactions ct
+        WHERE ct.credit_account_id = ca.id AND ct.type = 'debt'
+      ), 0) AS lifetime_debt_total,
+      (
+        SELECT u.name FROM credit_transactions ct
+        INNER JOIN users u ON ct.recorded_by = u.id
+        WHERE ct.credit_account_id = ca.id AND ct.type = 'debt'
+        ORDER BY ct.created_at DESC LIMIT 1
+      ) AS last_credit_by_name,
+      (
+        SELECT u.role FROM credit_transactions ct
+        INNER JOIN users u ON ct.recorded_by = u.id
+        WHERE ct.credit_account_id = ca.id AND ct.type = 'debt'
+        ORDER BY ct.created_at DESC LIMIT 1
+      ) AS last_credit_by_role,
+      (
+        SELECT u.id FROM credit_transactions ct
+        INNER JOIN users u ON ct.recorded_by = u.id
+        WHERE ct.credit_account_id = ca.id AND ct.type = 'debt'
+        ORDER BY ct.created_at DESC LIMIT 1
+      ) AS last_credit_by_user_id
+    `;
+
     let accounts: CreditAccount[];
 
     if (coreDigits && coreDigits.length >= 6) {
-      // Search by phone: core digits match 0712..., 254712..., +254..., etc.
+      const ph = sqlCreditAccountMatchesPhoneDigits('ca.customer_phone', coreDigits);
       accounts = await query<CreditAccount>(
-        `SELECT * FROM credit_accounts 
-         WHERE business_id = ? AND customer_phone IS NOT NULL
-         AND customer_phone LIKE ?
-         ORDER BY total_credit DESC, last_transaction_at DESC`,
-        [auth.businessId, `%${coreDigits}%`]
+        `SELECT ${listSelect}
+         FROM credit_accounts ca
+         WHERE ca.business_id = ? AND ${ph.sql}
+         ORDER BY ca.total_credit DESC, ca.last_transaction_at DESC`,
+        [auth.businessId, ...ph.params]
       );
     } else {
       accounts = await query<CreditAccount>(
-        `SELECT * FROM credit_accounts 
-         WHERE business_id = ? 
-         ORDER BY total_credit DESC, last_transaction_at DESC`,
+        `SELECT ${listSelect}
+         FROM credit_accounts ca
+         WHERE ca.business_id = ?
+         ORDER BY ca.total_credit DESC, ca.last_transaction_at DESC`,
         [auth.businessId]
       );
     }
 
     return jsonResponse({
       success: true,
-      data: accounts,
+      data: accounts.map(enrichCreditAccountRow),
     });
   } catch (error) {
     console.error('Error fetching credits:', error);

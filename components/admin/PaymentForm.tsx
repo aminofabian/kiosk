@@ -17,9 +17,19 @@ interface PaymentFormProps {
   onSuccess?: () => void;
   /** When true, hides the balance card (e.g. when shown in drawer with balance in header) */
   compact?: boolean;
+  /** Tighter layout for fixed drawer footer (amount + summary + submit stay visible) */
+  drawerFooter?: boolean;
+  /** Single-row–style footer: minimal chrome, more room for history above */
+  paymentDrawerDense?: boolean;
 }
 
-export function PaymentForm({ account, onSuccess, compact }: PaymentFormProps) {
+export function PaymentForm({
+  account,
+  onSuccess,
+  compact,
+  drawerFooter,
+  paymentDrawerDense,
+}: PaymentFormProps) {
   const [amount, setAmount] = useState<string>(account.total_credit.toString());
   const [paymentMethod, setPaymentMethod] = useState<CreditPaymentMethod>('cash');
   const [notes, setNotes] = useState<string>('');
@@ -76,8 +86,153 @@ export function PaymentForm({ account, onSuccess, compact }: PaymentFormProps) {
     }
   };
 
+  const denseSummary =
+    paymentAmount > 0 ? (
+      <p className="text-[11px] leading-snug text-slate-600 dark:text-slate-400 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+        <span className="tabular-nums">Owing {formatPrice(account.total_credit)}</span>
+        <span className="text-slate-400 dark:text-slate-500" aria-hidden>
+          →
+        </span>
+        <span className="tabular-nums font-medium text-slate-800 dark:text-slate-200">
+          Pay {formatPrice(paymentAmount)}
+        </span>
+        <span className="text-slate-400 dark:text-slate-500">·</span>
+        <span
+          className={cn(
+            'tabular-nums font-semibold',
+            remainingAfter <= 0
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : 'text-amber-600 dark:text-amber-400'
+          )}
+        >
+          Left {formatPrice(Math.max(0, remainingAfter))}
+        </span>
+        {isFullPayment && (
+          <span className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400 font-medium">
+            <CheckCircle2 className="h-3 w-3 shrink-0" />
+            Clears debt
+          </span>
+        )}
+      </p>
+    ) : null;
+
+  if (drawerFooter && paymentDrawerDense) {
+    return (
+      <div className="space-y-0">
+        {!compact && (
+          <Card className="border-slate-200 dark:border-slate-800 overflow-hidden rounded-lg mb-2">
+            <CardContent className="p-0">
+              <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50">
+                <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Outstanding</span>
+                <span className="text-lg font-bold text-amber-600 dark:text-amber-400 tabular-nums">
+                  {formatPrice(account.total_credit)}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        <div className="rounded-xl border border-slate-200/90 dark:border-slate-700/90 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm px-3 py-2 shadow-sm">
+          <form onSubmit={handleSubmit} className="space-y-2">
+            <div className="grid grid-cols-1 min-[400px]:grid-cols-[1fr_7.25rem] gap-2 items-end">
+              <div className="space-y-1 min-w-0">
+                <Label
+                  htmlFor="amount"
+                  className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
+                >
+                  Amount (KES)
+                </Label>
+                <div className="flex gap-1.5">
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    max={account.total_credit}
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder={account.total_credit.toString()}
+                    required
+                    className="h-9 min-w-0 flex-1 text-sm font-semibold tabular-nums border-slate-200 dark:border-slate-600"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAmount((account.total_credit * 0.5).toString())}
+                    className="h-9 shrink-0 px-2 text-[10px] font-semibold border-slate-200 dark:border-slate-600"
+                  >
+                    ½
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAmount(account.total_credit.toString())}
+                    className="h-9 shrink-0 px-2 text-[10px] font-semibold border-slate-200 dark:border-slate-600"
+                  >
+                    Max
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-1 min-w-0">
+                <Label
+                  htmlFor="method"
+                  className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
+                >
+                  Method
+                </Label>
+                <Select
+                  value={paymentMethod}
+                  onValueChange={(value) => setPaymentMethod(value as CreditPaymentMethod)}
+                >
+                  <SelectTrigger
+                    id="method"
+                    className="h-9 text-xs border-slate-200 dark:border-slate-600"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cash">Cash</SelectItem>
+                    <SelectItem value="mpesa">M-Pesa</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {denseSummary}
+            <Input
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Note (optional)"
+              className="h-8 text-xs border-slate-200 dark:border-slate-600"
+            />
+            {error && (
+              <div className="rounded-md py-1.5 px-2 bg-red-100 dark:bg-red-950/50 border border-red-200 dark:border-red-900 text-[11px] text-red-700 dark:text-red-300">
+                {error}
+              </div>
+            )}
+            <Button
+              type="submit"
+              disabled={isSubmitting || paymentAmount <= 0}
+              className="w-full h-9 text-sm font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Recording…
+                </>
+              ) : (
+                'Record payment'
+              )}
+            </Button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className={drawerFooter ? 'space-y-3' : 'space-y-6'}>
       {!compact && (
         <Card className="border-slate-200 dark:border-slate-800 overflow-hidden rounded-lg">
           <CardContent className="p-0">
@@ -94,17 +249,32 @@ export function PaymentForm({ account, onSuccess, compact }: PaymentFormProps) {
       )}
 
       {/* Record payment form — solid colors for IE/old browser support */}
-      <Card className="border-slate-200 dark:border-slate-700 overflow-hidden rounded-lg bg-white dark:bg-slate-900">
-        <div className="flex items-center px-5 py-4 bg-emerald-50 dark:bg-emerald-900 border-b border-slate-200 dark:border-slate-700">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-200 dark:bg-emerald-800">
+      <Card
+        className={cn(
+          'border-slate-200 dark:border-slate-700 overflow-hidden rounded-lg bg-white dark:bg-slate-900',
+          drawerFooter && 'shadow-none border-slate-200/90 dark:border-slate-700/90'
+        )}
+      >
+        <div
+          className={cn(
+            'flex items-center bg-emerald-50 dark:bg-emerald-900 border-b border-slate-200 dark:border-slate-700',
+            drawerFooter ? 'px-4 py-3' : 'px-5 py-4'
+          )}
+        >
+          <div
+            className={cn(
+              'flex items-center justify-center rounded-lg bg-emerald-200 dark:bg-emerald-800',
+              drawerFooter ? 'h-8 w-8' : 'h-9 w-9'
+            )}
+          >
             <Wallet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
           </div>
           <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-300 ml-3">
             Record payment
           </h3>
         </div>
-        <CardContent className="p-5">
-          <form onSubmit={handleSubmit} className="space-y-5">
+        <CardContent className={drawerFooter ? 'p-4 pt-3' : 'p-5'}>
+          <form onSubmit={handleSubmit} className={drawerFooter ? 'space-y-3.5' : 'space-y-5'}>
             <div className="space-y-2">
               <Label htmlFor="amount" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                 Amount (KES) *
@@ -119,7 +289,10 @@ export function PaymentForm({ account, onSuccess, compact }: PaymentFormProps) {
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder={account.total_credit.toString()}
                 required
-                className="h-12 text-base font-semibold border-slate-200 dark:border-slate-700"
+                className={cn(
+                  'text-base font-semibold border-slate-200 dark:border-slate-700',
+                  drawerFooter ? 'h-11' : 'h-12'
+                )}
               />
               <div className="flex gap-2 pt-1">
                 <Button
@@ -151,7 +324,12 @@ export function PaymentForm({ account, onSuccess, compact }: PaymentFormProps) {
                 value={paymentMethod}
                 onValueChange={(value) => setPaymentMethod(value as CreditPaymentMethod)}
               >
-                <SelectTrigger className="h-12 rounded-lg border-slate-200 dark:border-slate-700">
+                <SelectTrigger
+                  className={cn(
+                    'rounded-lg border-slate-200 dark:border-slate-700',
+                    drawerFooter ? 'h-10' : 'h-12'
+                  )}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -177,7 +355,8 @@ export function PaymentForm({ account, onSuccess, compact }: PaymentFormProps) {
             {paymentAmount > 0 && (
               <div
                 className={cn(
-                  'rounded-lg p-4 space-y-2.5 border-2',
+                  'rounded-lg border-2',
+                  drawerFooter ? 'p-3 space-y-2' : 'p-4 space-y-2.5',
                   isFullPayment
                     ? 'bg-emerald-50 dark:bg-emerald-900 border-emerald-200 dark:border-emerald-800'
                     : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
@@ -226,7 +405,10 @@ export function PaymentForm({ account, onSuccess, compact }: PaymentFormProps) {
               type="submit"
               size="lg"
               disabled={isSubmitting || paymentAmount <= 0}
-              className="w-full h-12 rounded-lg font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
+              className={cn(
+                'w-full rounded-lg font-semibold bg-emerald-600 hover:bg-emerald-700 text-white',
+                drawerFooter ? 'h-11 shrink-0' : 'h-12'
+              )}
             >
               {isSubmitting ? (
                 <>

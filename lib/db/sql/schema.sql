@@ -366,7 +366,7 @@ CREATE TABLE IF NOT EXISTS credit_accounts (
   id TEXT PRIMARY KEY,
   business_id TEXT NOT NULL,
   customer_name TEXT NOT NULL,
-  customer_phone TEXT,
+  customer_phone TEXT, -- JSON array of strings, e.g. ["0712…","0733…"]; legacy plain text ok until migrated
   total_credit REAL NOT NULL DEFAULT 0, -- running balance
   last_transaction_at INTEGER,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
