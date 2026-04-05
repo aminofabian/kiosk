@@ -7,7 +7,7 @@ import { requirePermission, requireAuth, isAuthResponse } from '@/lib/auth/api-a
 interface SalePayment {
   id: string;
   sale_id: string;
-  payment_method: 'cash' | 'mpesa' | 'credit';
+  payment_method: 'cash' | 'mpesa' | 'credit' | 'wallet';
   amount: number;
   customer_name: string | null;
   customer_phone: string | null;
@@ -69,21 +69,24 @@ export async function GET(
       [saleId]
     );
 
-    // Fetch split payments if payment method is 'split'
-    let splitPayments: SalePayment[] = [];
-    if (sale.payment_method === 'split') {
-      splitPayments = await query<SalePayment>(
-        `SELECT * FROM sale_payments WHERE sale_id = ? ORDER BY created_at ASC`,
-        [saleId]
-      );
-    }
+    const salePayments = await query<SalePayment>(
+      `SELECT * FROM sale_payments WHERE sale_id = ? ORDER BY created_at ASC`,
+      [saleId]
+    );
+
+    const splitPayments =
+      salePayments.length > 0
+        ? salePayments
+        : sale.payment_method === 'split'
+          ? []
+          : undefined;
 
     return jsonResponse({
       success: true,
       data: {
         sale,
         items: saleItems,
-        splitPayments: splitPayments.length > 0 ? splitPayments : undefined,
+        splitPayments,
       },
     });
   } catch (error) {
@@ -181,6 +184,32 @@ export async function PATCH(
          WHERE id = ? AND total_credit >= ?`,
         [debt.amount, debt.credit_account_id, debt.amount]
       );
+    }
+
+    // 2b. Reverse wallet movements tied to this sale
+    const walletRows = await query<{
+      credit_account_id: string;
+      type: string;
+      amount: number;
+    }>(
+      `SELECT credit_account_id, type, amount FROM wallet_transactions WHERE sale_id = ?`,
+      [saleId]
+    );
+    for (const w of walletRows) {
+      if (w.type === 'debit') {
+        await execute(
+          `UPDATE credit_accounts SET wallet_balance = wallet_balance + ? WHERE id = ?`,
+          [w.amount, w.credit_account_id]
+        );
+      } else if (w.type === 'credit') {
+        await execute(
+          `UPDATE credit_accounts SET wallet_balance = wallet_balance - ? WHERE id = ? AND wallet_balance + 0.00001 >= ?`,
+          [w.amount, w.credit_account_id, w.amount]
+        );
+      }
+    }
+    if (walletRows.length > 0) {
+      await execute(`DELETE FROM wallet_transactions WHERE sale_id = ?`, [saleId]);
     }
 
     // 3. Reverse shift expected_closing_cash for cash portion

@@ -5,6 +5,7 @@ import { isAuthResponse, requireRole } from '@/lib/auth/api-auth';
 import { logActivity } from '@/lib/db/activity-log';
 import { toProperCustomerName } from '@/lib/utils/customer-name';
 import { parseCreditPhones, serializeCreditPhones } from '@/lib/utils/credit-phones';
+import { SQL_PAYMENT_APPLIES_TO_BALANCE } from '@/lib/db/credit-payment-claim-sql';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -84,10 +85,15 @@ export async function POST(request: NextRequest) {
       [keepAccountId, ...mergeAccountIds]
     );
 
+    await execute(
+      `UPDATE wallet_transactions SET credit_account_id = ? WHERE credit_account_id IN (${mergePh})`,
+      [keepAccountId, ...mergeAccountIds]
+    );
+
     const owedRow = await queryOne<{ owed: number; last_ts: number | null }>(
       `SELECT 
         COALESCE(SUM(CASE WHEN type = 'debt' THEN amount ELSE 0 END), 0) -
-        COALESCE(SUM(CASE WHEN type = 'payment' THEN amount ELSE 0 END), 0) AS owed,
+        COALESCE(SUM(CASE WHEN type = 'payment' AND ${SQL_PAYMENT_APPLIES_TO_BALANCE} THEN amount ELSE 0 END), 0) AS owed,
         MAX(created_at) AS last_ts
        FROM credit_transactions WHERE credit_account_id = ?`,
       [keepAccountId]
@@ -95,6 +101,13 @@ export async function POST(request: NextRequest) {
 
     const newBalance = Number(owedRow?.owed ?? 0);
     const lastAt = owedRow?.last_ts ?? null;
+
+    const walletSumRow = await queryOne<{ w: number }>(
+      `SELECT COALESCE(SUM(COALESCE(wallet_balance, 0)), 0) AS w
+       FROM credit_accounts WHERE business_id = ? AND id IN (${placeholders})`,
+      [auth.businessId, ...allIds]
+    );
+    const mergedWalletBalance = Number(walletSumRow?.w ?? 0);
 
     const phoneRows = await query<{ customer_phone: string | null }>(
       `SELECT customer_phone FROM credit_accounts WHERE business_id = ? AND id IN (${placeholders})`,
@@ -136,9 +149,10 @@ export async function POST(request: NextRequest) {
         customer_name = ?,
         customer_phone = ?,
         total_credit = ?,
+        wallet_balance = ?,
         last_transaction_at = ?
        WHERE id = ? AND business_id = ?`,
-      [nextName, nextPhoneStored, newBalance, lastAt, keepAccountId, auth.businessId]
+      [nextName, nextPhoneStored, newBalance, mergedWalletBalance, lastAt, keepAccountId, auth.businessId]
     );
 
     const delPh = mergeAccountIds.map(() => '?').join(',');

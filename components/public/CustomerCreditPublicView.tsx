@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import {
   CheckCircle2,
   Copy,
@@ -15,8 +15,13 @@ import {
   Banknote,
   ShoppingBag,
   Smartphone,
+  Clock,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -28,6 +33,10 @@ import {
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import type { PublicCreditStatusPayload } from '@/lib/types/public-credit-status';
+import {
+  PUBLIC_WALLET_TOPUP_MAX_KES,
+  PUBLIC_WALLET_TOPUP_MIN_KES,
+} from '@/lib/constants/public-wallet-topup';
 
 function formatKes(n: number) {
   return `KES ${Math.round(n).toLocaleString('en-KE')}`;
@@ -50,7 +59,9 @@ const SECTION_LABEL =
 const DIALOG_SHELL =
   'gap-0 overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-0 shadow-2xl ring-1 ring-slate-900/[0.04] dark:border-slate-700 dark:bg-slate-950 dark:ring-white/[0.06] sm:max-w-md';
 
-type ComingSoonKind = 'wallet' | 'loyalty' | null;
+type ComingSoonKind = 'loyalty' | null;
+
+const WALLET_TOPUP_PRESETS_KES = [100, 200, 500, 1000, 2000, 5000] as const;
 
 export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
   const [loading, setLoading] = useState(true);
@@ -66,6 +77,21 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
   const [stkSubmitting, setStkSubmitting] = useState(false);
   const [stkOrderId, setStkOrderId] = useState<string | null>(null);
   const [stkFailMessage, setStkFailMessage] = useState<string | null>(null);
+  const [stkPurpose, setStkPurpose] = useState<'tab' | 'wallet'>('tab');
+  const [walletTopupKes, setWalletTopupKes] = useState<number | null>(null);
+  const [walletPickOpen, setWalletPickOpen] = useState(false);
+  const [walletPickInput, setWalletPickInput] = useState('');
+  const [walletPickError, setWalletPickError] = useState<string | null>(null);
+  const [walletClaimOpen, setWalletClaimOpen] = useState(false);
+  const [walletClaimAmount, setWalletClaimAmount] = useState('');
+  const [walletClaimMethod, setWalletClaimMethod] = useState<'mpesa' | 'cash'>('mpesa');
+  const [walletClaimMpesa, setWalletClaimMpesa] = useState('');
+  const [walletClaimNotes, setWalletClaimNotes] = useState('');
+  const [walletClaimSubmitting, setWalletClaimSubmitting] = useState(false);
+  const stkPurposeRef = useRef(stkPurpose);
+  stkPurposeRef.current = stkPurpose;
+  const walletTopupKesRef = useRef(walletTopupKes);
+  walletTopupKesRef.current = walletTopupKes;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -123,6 +149,59 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
     }
   };
 
+  const submitWalletClaim = async () => {
+    const raw = walletClaimAmount.replace(/,/g, '').trim();
+    const amount = Math.round(Number(raw));
+    if (
+      !Number.isFinite(amount) ||
+      amount < PUBLIC_WALLET_TOPUP_MIN_KES ||
+      amount > PUBLIC_WALLET_TOPUP_MAX_KES
+    ) {
+      toast.error(
+        `Enter an amount between KES ${PUBLIC_WALLET_TOPUP_MIN_KES.toLocaleString('en-KE')} and KES ${PUBLIC_WALLET_TOPUP_MAX_KES.toLocaleString('en-KE')}`
+      );
+      return;
+    }
+    if (walletClaimMethod === 'mpesa') {
+      const code = walletClaimMpesa.replace(/\s/g, '').trim();
+      if (code.length < 4) {
+        toast.error('Enter your M-Pesa confirmation code (transaction ID)');
+        return;
+      }
+    }
+    const enc = encodeURIComponent(phoneSlug);
+    setWalletClaimSubmitting(true);
+    try {
+      const res = await fetch(`/api/public/credit-by-phone/${enc}/wallet-claim`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount,
+          paymentMethod: walletClaimMethod,
+          mpesaTransactionCode: walletClaimMethod === 'mpesa' ? walletClaimMpesa.trim() : undefined,
+          customerReference: walletClaimMethod === 'cash' ? walletClaimMpesa.trim() || undefined : undefined,
+          notes: walletClaimNotes.trim() || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        toast.error(json.message || 'Could not submit');
+        return;
+      }
+      toast.success(json.message || 'Submitted for review');
+      setWalletClaimOpen(false);
+      setWalletClaimAmount('');
+      setWalletClaimMpesa('');
+      setWalletClaimNotes('');
+      setWalletClaimMethod('mpesa');
+      await loadData();
+    } catch {
+      toast.error('Network error');
+    } finally {
+      setWalletClaimSubmitting(false);
+    }
+  };
+
   const resetStk = useCallback(() => {
     setStkStep('form');
     setStkOrderId(null);
@@ -130,17 +209,57 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
     setStkSubmitting(false);
   }, []);
 
+  const openTabStkDialog = useCallback(() => {
+    setStkPurpose('tab');
+    setWalletTopupKes(null);
+    resetStk();
+    setStkOpen(true);
+  }, [resetStk]);
+
+  const confirmWalletTopupPick = useCallback(() => {
+    const raw = walletPickInput.replace(/,/g, '').trim();
+    const n = Math.round(Number(raw));
+    if (
+      !Number.isFinite(n) ||
+      n < PUBLIC_WALLET_TOPUP_MIN_KES ||
+      n > PUBLIC_WALLET_TOPUP_MAX_KES
+    ) {
+      setWalletPickError(
+        `Enter KES ${PUBLIC_WALLET_TOPUP_MIN_KES.toLocaleString('en-KE')} – ${PUBLIC_WALLET_TOPUP_MAX_KES.toLocaleString('en-KE')}`
+      );
+      return;
+    }
+    setWalletPickError(null);
+    setWalletTopupKes(n);
+    setStkPurpose('wallet');
+    setWalletPickOpen(false);
+    resetStk();
+    setStkOpen(true);
+  }, [walletPickInput, resetStk]);
+
   const startStkPayment = useCallback(async () => {
     if (!data || !data.pesapalPromptAvailable) return;
+    const purpose = stkPurposeRef.current;
+    const topupKes = walletTopupKesRef.current;
+    if (purpose === 'wallet' && (topupKes == null || topupKes < PUBLIC_WALLET_TOPUP_MIN_KES)) {
+      toast.error('Choose a valid top-up amount');
+      return;
+    }
     setStkSubmitting(true);
     setStkFailMessage(null);
     try {
       const enc = encodeURIComponent(phoneSlug);
-      const res = await fetch(`/api/public/credit-by-phone/${enc}/stk-push`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
+      const isWallet = purpose === 'wallet';
+      const res = await fetch(
+        isWallet
+          ? `/api/public/credit-by-phone/${enc}/wallet-topup/stk-push`
+          : `/api/public/credit-by-phone/${enc}/stk-push`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(isWallet ? { amount: topupKes } : {}),
+        }
+      );
       const json = await res.json();
       if (!res.ok || !json.success) {
         toast.error(json.message || 'Could not start payment');
@@ -153,7 +272,7 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
       setStkOrderId(orderTrackingId);
       const w = window.open(
         redirectUrl,
-        'PesapalCredit',
+        isWallet ? 'PesapalWallet' : 'PesapalCredit',
         'width=520,height=680,left=80,top=40,scrollbars=yes,resizable=yes'
       );
       if (!w) {
@@ -269,12 +388,6 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
             Coming soon
           </DialogTitle>
           <DialogDescription className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-            {comingSoon === 'wallet' && (
-              <>
-                We&apos;re building <strong>store wallet top-ups</strong> so you can add money ahead
-                of time and checkout faster. Stay tuned.
-              </>
-            )}
             {comingSoon === 'loyalty' && (
               <>
                 <strong>Loyalty points</strong>, tiers, and member perks are on the way. You&apos;ll
@@ -301,11 +414,11 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
               Record full payment
             </DialogTitle>
             <DialogDescription className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-            This will mark{' '}
+            You&apos;re telling the store you paid{' '}
             <span className="font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
               {formatKes(data.totalCredit)}
             </span>{' '}
-            as paid on your account. Only continue if you have already paid the store (cash or M-Pesa).
+            (cash or M-Pesa). Your balance stays the same until an admin approves the claim.
           </DialogDescription>
         </DialogHeader>
         </div>
@@ -340,8 +453,8 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
             </button>
           </div>
           <p className="rounded-lg bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
-            False entries may be reversed by the store. When in doubt, pay at the counter and ask staff to update your
-            balance.
+            The store will review your claim. False entries can be rejected. When in doubt, pay at the counter and ask
+            staff to record it.
           </p>
         </div>
         <DialogFooter className="gap-2 border-t border-slate-100 bg-slate-50/80 px-6 py-4 dark:border-slate-800 dark:bg-slate-900/50 sm:gap-3">
@@ -367,6 +480,132 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
               </>
             ) : (
               'Confirm payment'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
+  const WalletClaimModal = (
+    <Dialog open={walletClaimOpen} onOpenChange={setWalletClaimOpen}>
+      <DialogContent className={DIALOG_SHELL}>
+        <div className="border-b border-slate-100 bg-gradient-to-br from-violet-50/95 to-fuchsia-50/40 px-6 pt-8 pb-5 dark:border-slate-800 dark:from-violet-950/40 dark:to-slate-900">
+          <DialogHeader className="space-y-2 text-left">
+            <DialogTitle className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
+              Record wallet top-up
+            </DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+              If you already sent money to the store (M-Pesa or cash), enter the details below. The store will verify
+              before your wallet balance updates.
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+        <div className="space-y-4 px-6 py-5">
+          <div className="space-y-2">
+            <Label htmlFor="wallet-claim-amount">Amount (KES)</Label>
+            <Input
+              id="wallet-claim-amount"
+              inputMode="numeric"
+              placeholder={`${PUBLIC_WALLET_TOPUP_MIN_KES} – ${PUBLIC_WALLET_TOPUP_MAX_KES}`}
+              value={walletClaimAmount}
+              onChange={(e) => setWalletClaimAmount(e.target.value)}
+              className="h-12 rounded-xl text-base tabular-nums"
+            />
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+              How did you pay?
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setWalletClaimMethod('mpesa')}
+                className={cn(
+                  'rounded-xl border-2 px-3 py-3.5 text-sm font-semibold transition-all',
+                  walletClaimMethod === 'mpesa'
+                    ? 'border-violet-600 bg-violet-50 shadow-sm dark:bg-violet-950/60 dark:text-violet-50'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300'
+                )}
+              >
+                M-Pesa
+              </button>
+              <button
+                type="button"
+                onClick={() => setWalletClaimMethod('cash')}
+                className={cn(
+                  'rounded-xl border-2 px-3 py-3.5 text-sm font-semibold transition-all',
+                  walletClaimMethod === 'cash'
+                    ? 'border-violet-600 bg-violet-50 shadow-sm dark:bg-violet-950/60 dark:text-violet-50'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300'
+                )}
+              >
+                Cash
+              </button>
+            </div>
+          </div>
+          {walletClaimMethod === 'mpesa' ? (
+            <div className="space-y-2">
+              <Label htmlFor="wallet-claim-mpesa">M-Pesa confirmation code</Label>
+              <Input
+                id="wallet-claim-mpesa"
+                placeholder="e.g. QAB1CDE2FG"
+                value={walletClaimMpesa}
+                onChange={(e) => setWalletClaimMpesa(e.target.value)}
+                className="h-12 rounded-xl font-mono text-base uppercase"
+                autoCapitalize="characters"
+              />
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="wallet-claim-cash-ref">Receipt / reference (optional)</Label>
+              <Input
+                id="wallet-claim-cash-ref"
+                placeholder="If you have a receipt number"
+                value={walletClaimMpesa}
+                onChange={(e) => setWalletClaimMpesa(e.target.value)}
+                className="h-12 rounded-xl font-mono text-sm"
+              />
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label htmlFor="wallet-claim-notes">Note to the store (optional)</Label>
+            <Textarea
+              id="wallet-claim-notes"
+              placeholder="Anything else that helps verify your payment"
+              value={walletClaimNotes}
+              onChange={(e) => setWalletClaimNotes(e.target.value)}
+              rows={3}
+              className="min-h-[4.5rem] rounded-xl resize-none text-sm"
+            />
+          </div>
+          <p className="rounded-lg bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
+            False claims can be rejected. When in doubt, pay at the counter and ask staff to credit your wallet.
+          </p>
+        </div>
+        <DialogFooter className="gap-2 border-t border-slate-100 bg-slate-50/80 px-6 py-4 dark:border-slate-800 dark:bg-slate-900/50 sm:gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-xl"
+            onClick={() => setWalletClaimOpen(false)}
+            disabled={walletClaimSubmitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            className="rounded-xl bg-violet-600 hover:bg-violet-700"
+            disabled={walletClaimSubmitting}
+            onClick={() => void submitWalletClaim()}
+          >
+            {walletClaimSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Submitting…
+              </>
+            ) : (
+              'Submit for approval'
             )}
           </Button>
         </DialogFooter>
@@ -413,15 +652,21 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
     </div>
   );
 
-  const mobileStickyDouble = !data.settled && data.pesapalPromptAvailable;
+  const pendingWalletApprovals = data.pendingWalletApprovals ?? [];
+  const showPayButtons = !data.settled && data.pendingPaymentApprovals.length === 0;
+  const mobileStickyDouble = showPayButtons && data.pesapalPromptAvailable;
+  const pendingTotalKes = data.pendingPaymentApprovals.reduce((s, p) => s + p.amount, 0);
+  const pendingWalletTotalKes = pendingWalletApprovals.reduce((s, p) => s + p.amount, 0);
+  const anyPendingApproval =
+    data.pendingPaymentApprovals.length > 0 || pendingWalletApprovals.length > 0;
 
   return (
     <div
       className={cn(
         'relative min-h-[100dvh] overflow-x-hidden bg-gradient-to-b from-slate-100 via-white to-emerald-50/35 dark:from-slate-950 dark:via-slate-950 dark:to-emerald-950/20 sm:pb-10',
-        !data.settled && mobileStickyDouble
+        showPayButtons && mobileStickyDouble
           ? 'pb-[calc(10.5rem+env(safe-area-inset-bottom))]'
-          : !data.settled
+          : showPayButtons
             ? 'pb-[calc(5.25rem+env(safe-area-inset-bottom))]'
             : 'pb-8'
       )}
@@ -443,6 +688,14 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
               Customer credit
             </p>
           </div>
+          {anyPendingApproval ? (
+            <span
+              className="shrink-0 animate-pulse rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-2.5 py-1 text-center text-[10px] font-extrabold uppercase leading-none tracking-wide text-white shadow-md shadow-amber-900/30 ring-2 ring-amber-300/80 dark:from-amber-500 dark:to-orange-600 dark:ring-amber-400/40"
+              title="Claim submitted — waiting for the store to approve"
+            >
+              Pending approval
+            </span>
+          ) : null}
         </div>
       </header>
 
@@ -466,6 +719,128 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
               </span>
             </p>
           </div>
+
+          {data.pendingPaymentApprovals.length > 0 ? (
+            <section
+              aria-labelledby="pending-hero-heading"
+              className="relative overflow-hidden rounded-3xl border-[3px] border-amber-400 bg-gradient-to-br from-amber-100 via-amber-50 to-orange-50 p-5 shadow-[0_16px_48px_-12px_rgba(217,119,6,0.5)] ring-4 ring-amber-400/25 dark:border-amber-500 dark:from-amber-950 dark:via-amber-950/70 dark:to-orange-950/50 dark:shadow-amber-950/40 dark:ring-amber-500/20 sm:p-7"
+            >
+              <div
+                className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-amber-400/30 blur-3xl dark:bg-amber-500/25"
+                aria-hidden
+              />
+              <div className="pointer-events-none absolute -bottom-8 -left-8 h-28 w-28 rounded-full bg-orange-400/20 blur-2xl dark:bg-orange-600/15" aria-hidden />
+              <div className="relative flex flex-col gap-5 sm:flex-row sm:items-start sm:gap-6">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-900/35 dark:shadow-black/40">
+                  <AlertCircle className="h-8 w-8" strokeWidth={2.25} aria-hidden />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-amber-800 dark:text-amber-300">
+                    Waiting on the store
+                  </p>
+                  <h2
+                    id="pending-hero-heading"
+                    className="mt-1.5 text-2xl font-extrabold tracking-tight text-amber-950 dark:text-amber-50 sm:text-[1.65rem] sm:leading-tight"
+                  >
+                    Payment pending approval
+                  </h2>
+                  <p className="mt-3 text-base font-semibold leading-snug text-amber-950 dark:text-amber-100">
+                    <span className="tabular-nums">{formatKes(pendingTotalKes)}</span> submitted
+                    {data.pendingPaymentApprovals.length > 1 ? ` (${data.pendingPaymentApprovals.length} claims)` : ''}.
+                    Your balance stays{' '}
+                    <span className="tabular-nums text-amber-950 underline decoration-amber-600/50 decoration-2 underline-offset-2 dark:text-amber-50">
+                      {formatKes(data.totalCredit)}
+                    </span>{' '}
+                    until staff approve or reject.
+                  </p>
+                  <p className="mt-2 text-sm leading-relaxed text-amber-900/90 dark:text-amber-200/85">
+                    Check back here after the store confirms — pay and record options stay off until then.
+                  </p>
+                  <ul className="mt-5 space-y-3 border-t border-amber-400/40 pt-5 dark:border-amber-600/40">
+                    {data.pendingPaymentApprovals.map((p, i) => (
+                      <li
+                        key={`${p.submittedAt}-${i}`}
+                        className="flex flex-col gap-2 rounded-2xl border-2 border-amber-300/80 bg-white/95 px-4 py-3.5 shadow-sm dark:border-amber-700/50 dark:bg-slate-900/70 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-lg font-bold tabular-nums text-amber-950 dark:text-amber-50">
+                            {formatKes(p.amount)}
+                          </p>
+                          <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                            {p.paymentMethod === 'cash' ? 'Cash' : 'M-Pesa'} · Submitted{' '}
+                            {formatCreditWhen(p.submittedAt)}
+                          </p>
+                        </div>
+                        <span className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-full bg-amber-600 px-3 py-1.5 text-xs font-extrabold uppercase tracking-wide text-white shadow-md shadow-amber-900/25 sm:self-center">
+                          <Clock className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                          Pending approval
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {pendingWalletApprovals.length > 0 ? (
+            <section
+              aria-labelledby="pending-wallet-heading"
+              className="relative overflow-hidden rounded-3xl border-[3px] border-violet-400 bg-gradient-to-br from-violet-100 via-violet-50 to-fuchsia-50 p-5 shadow-[0_16px_48px_-12px_rgba(139,92,246,0.35)] ring-4 ring-violet-400/20 dark:border-violet-500 dark:from-violet-950 dark:via-violet-950/70 dark:to-fuchsia-950/40 dark:shadow-violet-950/30 dark:ring-violet-500/15 sm:p-7"
+            >
+              <div
+                className="pointer-events-none absolute -right-10 -top-10 h-36 w-36 rounded-full bg-violet-400/25 blur-3xl dark:bg-violet-500/20"
+                aria-hidden
+              />
+              <div className="relative flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-fuchsia-600 text-white shadow-lg shadow-violet-900/30 dark:shadow-black/40">
+                  <Wallet className="h-7 w-7" aria-hidden />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-violet-900 dark:text-violet-300">
+                    Wallet top-up — pending
+                  </p>
+                  <h2
+                    id="pending-wallet-heading"
+                    className="mt-1.5 text-xl font-extrabold tracking-tight text-violet-950 dark:text-violet-50 sm:text-2xl sm:leading-tight"
+                  >
+                    Waiting for the store to confirm
+                  </h2>
+                  <p className="mt-2 text-sm font-semibold leading-snug text-violet-950 dark:text-violet-100">
+                    <span className="tabular-nums">{formatKes(pendingWalletTotalKes)}</span> submitted
+                    {pendingWalletApprovals.length > 1 ? ` (${pendingWalletApprovals.length} claims)` : ''}. Your
+                    wallet balance stays{' '}
+                    <span className="tabular-nums underline decoration-violet-500/50 decoration-2 underline-offset-2">
+                      {formatKes(data.walletBalance)}
+                    </span>{' '}
+                    until staff approve.
+                  </p>
+                  <ul className="mt-4 space-y-2 border-t border-violet-400/40 pt-4 dark:border-violet-600/40">
+                    {pendingWalletApprovals.map((p, i) => (
+                      <li
+                        key={`${p.submittedAt}-${i}`}
+                        className="flex flex-col gap-1 rounded-2xl border-2 border-violet-300/80 bg-white/95 px-4 py-3 dark:border-violet-800/50 dark:bg-slate-900/70"
+                      >
+                        <p className="text-lg font-bold tabular-nums text-violet-950 dark:text-violet-50">
+                          {formatKes(p.amount)}
+                        </p>
+                        <p className="text-sm text-violet-900 dark:text-violet-200">
+                          {p.paymentMethod === 'cash' ? 'Cash' : 'M-Pesa'} · {formatCreditWhen(p.submittedAt)}
+                        </p>
+                        {p.reference ? (
+                          <p className="font-mono text-xs text-violet-800 dark:text-violet-300">Ref: {p.reference}</p>
+                        ) : null}
+                        <span className="mt-1 inline-flex w-fit items-center gap-1 rounded-full bg-violet-600 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white">
+                          <Clock className="h-3 w-3" aria-hidden />
+                          Pending
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           {/* Primary: balance */}
           <section aria-labelledby="balance-heading">
@@ -500,6 +875,17 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
                         <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
                           Nothing is outstanding on this account. Bookmark this page to check again anytime.
                         </p>
+                        <p className="mt-4 rounded-xl border border-violet-200/70 bg-violet-50/60 px-3 py-2.5 text-left dark:border-violet-900/50 dark:bg-violet-950/30">
+                          <span className="text-[11px] font-semibold uppercase tracking-wider text-violet-800 dark:text-violet-300">
+                            Store wallet
+                          </span>
+                          <span className="mt-0.5 block text-lg font-semibold tabular-nums text-violet-950 dark:text-violet-100">
+                            {formatKes(data.walletBalance)}
+                          </span>
+                          <span className="mt-1 block text-xs leading-relaxed text-violet-900/80 dark:text-violet-200/80">
+                            Usable toward purchases at the till (separate from tab balance).
+                          </span>
+                        </p>
                       </>
                     ) : (
                       <>
@@ -509,15 +895,35 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
                         <p className="mt-1 text-3xl font-semibold tabular-nums tracking-tight text-slate-900 dark:text-white md:text-4xl">
                           {formatKes(data.totalCredit)}
                         </p>
+                        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                          <span className="font-medium text-slate-700 dark:text-slate-300">Store wallet</span>{' '}
+                          <span className="font-semibold tabular-nums text-violet-700 dark:text-violet-300">
+                            {formatKes(data.walletBalance)}
+                          </span>
+                          <span className="block mt-1 text-xs text-slate-500 dark:text-slate-400">
+                            Prepaid balance at {data.businessName} — staff can apply it when you pay at the till.
+                          </span>
+                        </p>
                         <p className="mt-3 text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-                          Pay with an M-Pesa prompt (opens secure checkout), or if you already paid cash or M-Pesa
-                          elsewhere, record it so your balance updates. Staff at the store can help too.
+                          {data.pendingPaymentApprovals.length > 0 ? (
+                            <>
+                              We&apos;re waiting for the store to confirm your submitted payment. You can use pay / record
+                              options again after they approve or reject your claim. Staff can help if you need to follow
+                              up.
+                            </>
+                          ) : (
+                            <>
+                              Pay with an M-Pesa prompt (opens secure checkout), or if you already paid cash or M-Pesa
+                              elsewhere, record it so the store can approve and update your balance. Staff at the store
+                              can help too.
+                            </>
+                          )}
                         </p>
                       </>
                     )}
                   </div>
                 </div>
-                {!data.settled && (
+                {showPayButtons && (
                   <div
                     className={cn(
                       'mt-6 hidden w-full min-w-0 gap-2.5 border-t border-slate-100 pt-5 dark:border-slate-800 sm:grid',
@@ -533,7 +939,7 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
                           mpesaPromptButtonClass,
                           'h-auto min-h-12 w-full min-w-0 whitespace-normal px-3 text-balance sm:px-4'
                         )}
-                        onClick={() => setStkOpen(true)}
+                        onClick={() => openTabStkDialog()}
                       >
                         <Smartphone className="h-5 w-5 shrink-0" aria-hidden />
                         Pay with M-Pesa prompt
@@ -601,32 +1007,73 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
               <div
                 className={cn(
                   cardSurface,
-                  'border-violet-200/40 bg-gradient-to-br from-violet-50/90 via-white to-white p-4 dark:border-violet-900/30 dark:from-violet-950/25 dark:via-slate-900 dark:to-slate-900 sm:p-5'
+                  'min-w-0 border-violet-200/40 bg-gradient-to-br from-violet-50/90 via-white to-white p-4 dark:border-violet-900/30 dark:from-violet-950/25 dark:via-slate-900 dark:to-slate-900 sm:p-5'
                 )}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 dark:bg-violet-950/60">
                     <Wallet className="h-5 w-5 text-violet-700 dark:text-violet-300" aria-hidden />
                   </div>
-                  <span className="rounded-full border border-violet-200/60 bg-white/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-300">
-                    Soon
-                  </span>
+                  {data.pesapalPromptAvailable ? (
+                    <span className="rounded-full border border-violet-200/60 bg-white/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-300">
+                      M-Pesa
+                    </span>
+                  ) : null}
                 </div>
                 <h2 className="mt-3 text-sm font-semibold text-slate-900 dark:text-white">Store wallet</h2>
-                <p className="mt-1 text-lg font-semibold tabular-nums text-slate-400 dark:text-slate-500">KES 0</p>
-                <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                  Preload funds for faster checkout.
+                <p className="mt-1 text-lg font-semibold tabular-nums text-violet-800 dark:text-violet-200">
+                  {formatKes(data.walletBalance)}
                 </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="mt-4 w-full rounded-xl border-violet-200 text-violet-900 hover:bg-violet-50 dark:border-violet-800 dark:text-violet-100 dark:hover:bg-violet-950/40"
-                  onClick={() => setComingSoon('wallet')}
-                >
-                  <Plus className="h-4 w-4" aria-hidden />
-                  Add money
-                </Button>
+                <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                  {data.pesapalPromptAvailable
+                    ? 'Pay instantly with M-Pesa, or record a payment you already made (amount + confirmation code) for staff to approve.'
+                    : 'Record a top-up you already made for staff to approve, or ask them to add money at the store.'}
+                </p>
+                <div className="mt-4 flex w-full min-w-0 flex-col gap-2.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={cn(
+                      'h-auto min-h-11 w-full min-w-0 justify-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-semibold leading-snug',
+                      'whitespace-normal text-balance shadow-sm',
+                      'border-violet-300 bg-white/90 text-violet-900 hover:bg-violet-50 dark:border-violet-700 dark:bg-violet-950/30 dark:text-violet-100 dark:hover:bg-violet-950/55'
+                    )}
+                    disabled={!data.pesapalPromptAvailable}
+                    onClick={() => {
+                      if (!data.pesapalPromptAvailable) {
+                        toast.error(
+                          'M-Pesa checkout is not set up for this store yet. Ask staff to top up your wallet at the till.'
+                        );
+                        return;
+                      }
+                      setWalletPickInput('');
+                      setWalletPickError(null);
+                      setWalletPickOpen(true);
+                    }}
+                  >
+                    <Plus className="h-4 w-4 shrink-0" aria-hidden />
+                    Add money
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={cn(
+                      'h-auto min-h-11 w-full min-w-0 justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-3 text-sm font-semibold leading-snug',
+                      'whitespace-normal text-balance shadow-sm',
+                      'border-violet-400/70 bg-violet-50/50 text-violet-900 hover:bg-violet-100/80 dark:border-violet-600/60 dark:bg-violet-950/25 dark:text-violet-100 dark:hover:bg-violet-950/45'
+                    )}
+                    onClick={() => {
+                      setWalletClaimAmount('');
+                      setWalletClaimMpesa('');
+                      setWalletClaimNotes('');
+                      setWalletClaimMethod('mpesa');
+                      setWalletClaimOpen(true);
+                    }}
+                  >
+                    <Banknote className="h-4 w-4 shrink-0" aria-hidden />
+                    Record top-up
+                  </Button>
+                </div>
               </div>
 
               <div
@@ -690,15 +1137,16 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
 
           <footer className="rounded-xl border border-slate-200/60 bg-slate-50/50 px-4 py-4 dark:border-slate-800 dark:bg-slate-900/40">
             <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-              This page reflects the balance we have on file for the number in your link. M-Pesa prompt checkout is
-              provided when the store has online payments configured. Recording a payment manually marks your full
-              outstanding amount as paid in our system. Wallet and loyalty options will appear here when available.
+              This page reflects the tab balance and store wallet we have on file for the number in your link. M-Pesa
+              prompt checkout is provided when the store has online payments configured. Recording a payment manually
+              sends a claim to the store; your tab balance updates after they approve it.               You can also record a wallet top-up you already made (amount and M-Pesa code) for staff to approve.
+              Loyalty perks will appear here when available.
             </p>
           </footer>
         </div>
       </main>
 
-      {!data.settled && (
+      {showPayButtons && (
         <div className="fixed bottom-0 left-0 right-0 z-30 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 sm:hidden">
           <div className="rounded-2xl border border-slate-200/90 bg-white/95 p-3 shadow-[0_-8px_32px_-4px_rgba(15,23,42,0.12)] backdrop-blur-lg dark:border-slate-700 dark:bg-slate-950/95 dark:shadow-black/40">
             <div className="flex flex-col gap-2">
@@ -708,7 +1156,7 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
                 size="touch-lg"
                 variant="outline"
                 className={cn(mpesaPromptButtonClass, 'shadow-sm')}
-                onClick={() => setStkOpen(true)}
+                onClick={() => openTabStkDialog()}
               >
                 <Smartphone className="h-5 w-5 shrink-0" aria-hidden />
                 M-Pesa prompt · {formatKes(data.totalCredit)}
@@ -799,7 +1247,11 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
         open={stkOpen}
         onOpenChange={(open) => {
           setStkOpen(open);
-          if (!open) resetStk();
+          if (!open) {
+            resetStk();
+            setStkPurpose('tab');
+            setWalletTopupKes(null);
+          }
         }}
       >
         <DialogContent className={DIALOG_SHELL}>
@@ -809,14 +1261,16 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
                   <Smartphone className="h-5 w-5 text-white" aria-hidden />
                 </span>
-                Pay with M-Pesa prompt
+                {stkPurpose === 'wallet' ? 'Top up store wallet' : 'Pay with M-Pesa prompt'}
               </DialogTitle>
               <DialogDescription className="text-sm leading-relaxed text-emerald-50/95">
                 {stkStep === 'waiting'
                   ? 'Complete the payment in the window that opened (or use the link). This page checks automatically when M-Pesa confirms.'
                   : stkStep === 'failed'
                     ? stkFailMessage || 'The payment did not go through. You can try again or pay at the store.'
-                    : `Amount due: ${formatKes(data.totalCredit)}. A secure window will open — enter your M-Pesa details there, same as paying at the till.`}
+                    : stkPurpose === 'wallet' && walletTopupKes != null
+                      ? `You are adding ${formatKes(walletTopupKes)} to your store wallet at ${data.businessName}. A secure window will open — complete M-Pesa there.`
+                      : `Amount due: ${formatKes(data.totalCredit)}. A secure window will open — enter your M-Pesa details there, same as paying at the till.`}
               </DialogDescription>
           </DialogHeader>
           </div>
@@ -825,10 +1279,12 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
             <div className="space-y-4 px-6 py-5">
               <div className="rounded-xl border border-emerald-200/60 bg-emerald-50/50 px-4 py-3 text-center dark:border-emerald-900/40 dark:bg-emerald-950/30">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-800 dark:text-emerald-300">
-                  Amount to pay
+                  {stkPurpose === 'wallet' ? 'Top-up amount' : 'Amount to pay'}
                 </p>
                 <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight text-emerald-900 dark:text-emerald-100">
-                  {formatKes(data.totalCredit)}
+                  {stkPurpose === 'wallet' && walletTopupKes != null
+                    ? formatKes(walletTopupKes)
+                    : formatKes(data.totalCredit)}
                 </p>
               </div>
               <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
@@ -900,7 +1356,85 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={walletPickOpen}
+        onOpenChange={(o) => {
+          setWalletPickOpen(o);
+          if (!o) {
+            setWalletPickError(null);
+          }
+        }}
+      >
+        <DialogContent className={cn(DIALOG_SHELL, 'p-6 pt-8')}>
+          <DialogHeader className="space-y-2 text-left">
+            <DialogTitle className="flex items-center gap-3 text-lg font-semibold tracking-tight">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 dark:bg-violet-950/60">
+                <Wallet className="h-5 w-5 text-violet-700 dark:text-violet-300" aria-hidden />
+              </span>
+              Top up store wallet
+            </DialogTitle>
+            <DialogDescription className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+              Choose how much to add. You&apos;ll complete M-Pesa in a secure window; this page updates when payment
+              confirms.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {WALLET_TOPUP_PRESETS_KES.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => {
+                    setWalletPickInput(String(k));
+                    setWalletPickError(null);
+                  }}
+                  className={cn(
+                    'rounded-xl border-2 px-3 py-2 text-sm font-semibold transition-colors',
+                    walletPickInput.replace(/,/g, '').trim() === String(k)
+                      ? 'border-violet-600 bg-violet-50 text-violet-900 dark:border-violet-500 dark:bg-violet-950/50 dark:text-violet-100'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200'
+                  )}
+                >
+                  {formatKes(k)}
+                </button>
+              ))}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wallet-topup-custom">Or enter amount (KES)</Label>
+              <Input
+                id="wallet-topup-custom"
+                inputMode="numeric"
+                placeholder={`${PUBLIC_WALLET_TOPUP_MIN_KES} – ${PUBLIC_WALLET_TOPUP_MAX_KES}`}
+                value={walletPickInput}
+                onChange={(e) => {
+                  setWalletPickInput(e.target.value);
+                  setWalletPickError(null);
+                }}
+                className="h-12 rounded-xl text-base tabular-nums"
+              />
+              {walletPickError ? (
+                <p className="text-sm text-rose-600 dark:text-rose-400">{walletPickError}</p>
+              ) : (
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Minimum KES {PUBLIC_WALLET_TOPUP_MIN_KES.toLocaleString('en-KE')}, maximum KES{' '}
+                  {PUBLIC_WALLET_TOPUP_MAX_KES.toLocaleString('en-KE')}.
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="gap-2 border-t border-slate-100 bg-slate-50/80 px-0 pt-4 dark:border-slate-800 dark:bg-transparent sm:justify-end">
+            <Button type="button" variant="outline" className="rounded-xl" onClick={() => setWalletPickOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="button" className="rounded-xl bg-violet-600 hover:bg-violet-700" onClick={confirmWalletTopupPick}>
+              Continue to M-Pesa
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {PayModal}
+      {WalletClaimModal}
       {ComingSoonModal}
     </div>
   );

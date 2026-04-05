@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +39,7 @@ import {
   Plus,
   Trash2,
   Link2,
+  Clock,
 } from 'lucide-react';
 import type { CreditAccount, CreditTransaction, SaleItem } from '@/lib/db/types';
 import { PaymentForm } from './PaymentForm';
@@ -106,7 +107,12 @@ function computeDebtPaidStatus(
     .filter((t) => t.type === 'debt')
     .sort((a, b) => a.created_at - b.created_at);
   const payments = transactions
-    .filter((t) => t.type === 'payment')
+    .filter(
+      (t) =>
+        t.type === 'payment' &&
+        t.public_claim_status !== 'pending' &&
+        t.public_claim_status !== 'rejected'
+    )
     .sort((a, b) => a.created_at - b.created_at);
 
   const paid = new Map<string, boolean>();
@@ -135,6 +141,17 @@ interface TransferStaffRow {
   role: string;
 }
 
+interface PendingPublicClaimRow {
+  kind: 'tab' | 'wallet';
+  transactionId: string;
+  creditAccountId: string;
+  customerName: string;
+  amount: number;
+  paymentMethod: 'cash' | 'mpesa';
+  createdAt: number;
+  customerReference: string | null;
+}
+
 export function CreditList() {
   const { user } = useCurrentUser();
   /** Customer edit, merge, reassign — API is owner + admin only; cashiers never see these. */
@@ -160,6 +177,11 @@ export function CreditList() {
   const [transferToUserId, setTransferToUserId] = useState('');
   const [transferIncludePayments, setTransferIncludePayments] = useState(false);
   const [transferSubmitting, setTransferSubmitting] = useState(false);
+  const [claimReviewBusy, setClaimReviewBusy] = useState<{
+    transactionId: string;
+    action: 'approve' | 'reject';
+  } | null>(null);
+  const [pendingPublicClaims, setPendingPublicClaims] = useState<PendingPublicClaimRow[]>([]);
   const [mergeSearchQuery, setMergeSearchQuery] = useState('');
   const [mergeSelectedIds, setMergeSelectedIds] = useState<string[]>([]);
   const [mergeNameOverride, setMergeNameOverride] = useState('');
@@ -205,6 +227,27 @@ export function CreditList() {
     fetchCredits();
   }, []);
 
+  const fetchPendingClaims = useCallback(async () => {
+    if (!canManageCreditProfiles) {
+      setPendingPublicClaims([]);
+      return;
+    }
+    try {
+      const result = await apiGet<{ claims: PendingPublicClaimRow[] }>('/api/credits/pending-claims');
+      if (result.success && result.data?.claims) {
+        setPendingPublicClaims(result.data.claims);
+      } else {
+        setPendingPublicClaims([]);
+      }
+    } catch {
+      setPendingPublicClaims([]);
+    }
+  }, [canManageCreditProfiles]);
+
+  useEffect(() => {
+    void fetchPendingClaims();
+  }, [fetchPendingClaims]);
+
   useEffect(() => {
     if (!transferModalOpen || !canManageCreditProfiles) return;
     let cancelled = false;
@@ -221,6 +264,12 @@ export function CreditList() {
 
   const formatPrice = (price: number) =>
     `KES ${price.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+  const accountWalletBalance = (acc: CreditAccount) => Number(acc.wallet_balance ?? 0);
+
+  /** Tab (credit) / store wallet — for list cells */
+  const formatCreditWalletSlash = (acc: CreditAccount) =>
+    `${formatPrice(acc.total_credit)} / ${formatPrice(accountWalletBalance(acc))}`;
 
   const formatDate = (timestamp: number | null) => {
     if (!timestamp) return '—';
@@ -255,6 +304,31 @@ export function CreditList() {
     }
   };
 
+  const openCreditAccountById = async (creditAccountId: string) => {
+    setDrawerOpen(true);
+    setLoadingDetails(true);
+    setTransactions([]);
+    setSelectedAccount(null);
+    try {
+      const result = await apiGet<{ account: CreditAccount; transactions: CreditTransactionWithDetails[] }>(
+        `/api/credits/${creditAccountId}`
+      );
+      if (result.success && result.data) {
+        if (result.data.account) setSelectedAccount(result.data.account);
+        if (result.data.transactions) setTransactions(result.data.transactions);
+      } else {
+        toast.error(result.message || 'Could not load customer');
+        setDrawerOpen(false);
+      }
+    } catch (err) {
+      console.error('Error opening credit account:', err);
+      toast.error('Could not load customer');
+      setDrawerOpen(false);
+    } finally {
+      setLoadingDetails(false);
+    }
+  };
+
   const handlePaymentSuccess = async () => {
     setDrawerOpen(false);
     setSelectedAccount(null);
@@ -264,6 +338,7 @@ export function CreditList() {
     } catch (err) {
       console.error('Error refreshing credits:', err);
     }
+    await fetchPendingClaims();
   };
 
   const refreshCreditsList = async () => {
@@ -317,6 +392,41 @@ export function CreditList() {
       }
     } catch (err) {
       console.error('Error reloading credit detail:', err);
+    }
+  };
+
+  const reviewPublicPaymentClaim = async (
+    claim: PendingPublicClaimRow,
+    action: 'approve' | 'reject',
+    creditAccountIdForReload?: string | null
+  ) => {
+    setClaimReviewBusy({ transactionId: claim.transactionId, action });
+    try {
+      const path =
+        claim.kind === 'wallet'
+          ? `/api/credits/wallet-claims/${claim.transactionId}`
+          : `/api/credits/claims/${claim.transactionId}`;
+      const result = await apiPost<{ newBalance?: number; newWalletBalance?: number }>(path, {
+        action,
+      });
+      if (result.success) {
+        toast.success(
+          result.message ?? (action === 'approve' ? 'Payment accepted' : 'Claim rejected')
+        );
+        await fetchPendingClaims();
+        await refreshCreditsList();
+        const reloadId = creditAccountIdForReload ?? selectedAccount?.id ?? null;
+        if (reloadId && drawerOpen && selectedAccount?.id === reloadId) {
+          await silentReloadDrawerDetail(reloadId);
+        }
+      } else {
+        toast.error(result.message || 'Could not update claim');
+      }
+    } catch (err) {
+      console.error('claim review:', err);
+      toast.error('Could not update claim');
+    } finally {
+      setClaimReviewBusy(null);
     }
   };
 
@@ -401,6 +511,7 @@ export function CreditList() {
         setMergePhonesText('');
         setMergeModalOpen(false);
         await refreshCreditsList();
+        await fetchPendingClaims();
         await silentReloadDrawerDetail(selectedAccount.id);
       } else {
         toast.error(result.message || 'Merge failed');
@@ -640,6 +751,121 @@ export function CreditList() {
         </CardContent>
       </Card>
 
+      {canManageCreditProfiles && pendingPublicClaims.length > 0 ? (
+        <Card className="overflow-hidden border-2 border-amber-400 bg-gradient-to-br from-amber-50 via-amber-50/90 to-orange-50/70 shadow-lg shadow-amber-900/10 dark:border-amber-600 dark:from-amber-950/50 dark:via-amber-950/40 dark:to-orange-950/25 dark:shadow-black/30">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex gap-3 min-w-0">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-md shadow-amber-900/25 dark:bg-amber-600">
+                  <AlertCircle className="h-6 w-6" aria-hidden />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                    Customer claims — pending approval
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-amber-950 dark:text-amber-50">
+                    {pendingPublicClaims.length === 1
+                      ? '1 claim needs your decision'
+                      : `${pendingPublicClaims.length} claims need your decision`}
+                  </p>
+                  <p className="mt-1 text-xs text-amber-900/85 dark:text-amber-200/80">
+                    Tab payments reduce credit balance; wallet top-ups add store wallet. Reject if the claim is wrong.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <ul className="mt-4 space-y-3 border-t border-amber-300/60 pt-4 dark:border-amber-700/50">
+              {pendingPublicClaims.map((claim) => (
+                <li
+                  key={claim.transactionId}
+                  className="flex flex-col gap-3 rounded-xl border border-amber-200/90 bg-white/95 p-4 dark:border-amber-800/40 dark:bg-slate-900/60 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-slate-900 dark:text-white truncate">
+                      {claim.customerName}
+                    </p>
+                    <p className="mt-1">
+                      <span
+                        className={cn(
+                          'inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                          claim.kind === 'wallet'
+                            ? 'bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-200'
+                            : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                        )}
+                      >
+                        {claim.kind === 'wallet' ? 'Wallet top-up' : 'Tab payment'}
+                      </span>
+                    </p>
+                    <p className="mt-0.5 text-lg font-bold tabular-nums text-amber-700 dark:text-amber-300">
+                      {formatPrice(claim.amount)}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                      {claim.paymentMethod === 'cash' ? 'Cash' : 'M-Pesa'} · Submitted {formatDate(claim.createdAt)}
+                    </p>
+                    {claim.kind === 'wallet' && claim.customerReference ? (
+                      <p className="mt-1 font-mono text-xs text-slate-700 dark:text-slate-300">
+                        Ref: {claim.customerReference}
+                      </p>
+                    ) : null}
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="mt-2 h-auto p-0 text-xs font-medium text-[#1c6a1e] dark:text-emerald-400"
+                      onClick={() => void openCreditAccountById(claim.creditAccountId)}
+                    >
+                      Open customer drawer
+                    </Button>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col sm:items-stretch">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950/50"
+                      disabled={
+                        claimReviewBusy !== null &&
+                        claimReviewBusy.transactionId === claim.transactionId
+                      }
+                      onClick={() => void reviewPublicPaymentClaim(claim, 'reject', claim.creditAccountId)}
+                    >
+                      {claimReviewBusy?.transactionId === claim.transactionId &&
+                      claimReviewBusy.action === 'reject' ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <X className="h-4 w-4 mr-1.5" aria-hidden />
+                          Reject
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
+                      disabled={
+                        claimReviewBusy !== null &&
+                        claimReviewBusy.transactionId === claim.transactionId
+                      }
+                      onClick={() => void reviewPublicPaymentClaim(claim, 'approve', claim.creditAccountId)}
+                    >
+                      {claimReviewBusy?.transactionId === claim.transactionId &&
+                      claimReviewBusy.action === 'approve' ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-1.5" aria-hidden />
+                          Accept
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {/* View toggle + Search + Sort */}
       <div className="flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
@@ -876,27 +1102,35 @@ export function CreditList() {
                         </p>
                       )}
                     </div>
-                    <div className="flex flex-col items-end gap-2 shrink-0">
+                    <div className="flex flex-col items-end gap-2 shrink-0 max-w-[55%]">
                       {creditView === 'paid' && (
                         <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 -mb-1">
-                          Amount
+                          Lifetime total
                         </span>
                       )}
                       <p
                         className={cn(
                           'font-bold tabular-nums',
-                          creditView === 'outstanding' ? 'text-lg text-amber-600 dark:text-amber-400' : 'text-lg text-emerald-600 dark:text-emerald-400'
+                          creditView === 'paid' ? 'text-lg text-emerald-600 dark:text-emerald-400' : 'hidden'
                         )}
                       >
-                        {creditView === 'paid'
-                          ? formatPrice(lifetimeDebtTotal(account))
-                          : formatPrice(account.total_credit)}
+                        {creditView === 'paid' ? formatPrice(lifetimeDebtTotal(account)) : null}
                       </p>
-                      {creditView === 'paid' && (
-                        <p className="text-[11px] font-medium tabular-nums text-slate-500 dark:text-slate-400">
-                          Due {formatPrice(account.total_credit)}
+                      <div className={cn('text-right', creditView === 'paid' ? 'space-y-0.5' : '')}>
+                        <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          Credit / wallet
                         </p>
-                      )}
+                        <p
+                          className={cn(
+                            'font-bold tabular-nums leading-snug',
+                            creditView === 'outstanding'
+                              ? 'text-base sm:text-lg text-amber-600 dark:text-amber-400'
+                              : 'text-sm sm:text-base text-slate-700 dark:text-slate-200'
+                          )}
+                        >
+                          {formatCreditWalletSlash(account)}
+                        </p>
+                      </div>
                       <span
                         className={cn(
                           'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors pointer-events-none',
@@ -942,8 +1176,11 @@ export function CreditList() {
                           Amount
                         </th>
                       )}
-                      <th className="text-right px-4 py-3 font-semibold text-slate-600 dark:text-slate-400 w-[1%] whitespace-nowrap">
-                        {creditView === 'paid' ? 'Due' : 'Balance'}
+                      <th className="text-right px-4 py-3 font-semibold text-slate-600 dark:text-slate-400 w-[1%] whitespace-nowrap min-w-[9.5rem]">
+                        <span className="block">Credit / wallet</span>
+                        <span className="block text-[10px] font-normal text-slate-400 dark:text-slate-500 normal-case tracking-normal">
+                          tab · store
+                        </span>
                       </th>
                       <th className="text-right px-4 py-3 font-semibold text-slate-600 dark:text-slate-400 w-[1%] whitespace-nowrap">
                         <span className="sr-only">Actions</span>
@@ -1026,8 +1263,9 @@ export function CreditList() {
                               ? 'text-amber-600 dark:text-amber-400'
                               : 'text-slate-600 dark:text-slate-300'
                           )}
+                          title={`Tab: ${formatPrice(account.total_credit)} · Wallet: ${formatPrice(accountWalletBalance(account))}`}
                         >
-                          {formatPrice(account.total_credit)}
+                          {formatCreditWalletSlash(account)}
                         </td>
                         <td className="px-4 py-3 align-middle text-right">
                           <span
@@ -1115,13 +1353,32 @@ export function CreditList() {
                       : 'No phone on file'}
                   </DrawerDescription>
                 </div>
-                <div className="shrink-0 text-right rounded-2xl bg-black/15 dark:bg-black/25 px-3 py-2 sm:px-3.5 sm:py-2.5 border border-white/15 backdrop-blur-md min-w-[6.5rem]">
-                  <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-emerald-100/80">
-                    {selectedAccount && selectedAccount.total_credit <= 0 ? 'Balance' : 'Due'}
+                <div className="shrink-0 text-right rounded-2xl bg-black/15 dark:bg-black/25 px-3 py-2 sm:px-3.5 sm:py-2.5 border border-white/15 backdrop-blur-md min-w-[7.75rem] sm:min-w-[9rem]">
+                  <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-emerald-100/85">
+                    Credit / wallet
                   </p>
-                  <p className="text-lg sm:text-2xl font-bold text-white tabular-nums leading-tight mt-0.5">
-                    {selectedAccount ? formatPrice(selectedAccount.total_credit) : '—'}
-                  </p>
+                  {selectedAccount ? (
+                    <div className="mt-1.5 space-y-1.5 text-left sm:text-right">
+                      <div>
+                        <p className="text-[9px] font-semibold uppercase tracking-wide text-emerald-100/70">
+                          {selectedAccount.total_credit <= 0 ? 'Tab balance' : 'On tab (due)'}
+                        </p>
+                        <p className="text-base sm:text-xl font-bold text-white tabular-nums leading-tight">
+                          {formatPrice(selectedAccount.total_credit)}
+                        </p>
+                      </div>
+                      <div className="pt-1 border-t border-white/10">
+                        <p className="text-[9px] font-semibold uppercase tracking-wide text-violet-200/85">
+                          Store wallet
+                        </p>
+                        <p className="text-sm sm:text-lg font-bold text-violet-100 tabular-nums leading-tight">
+                          {formatPrice(accountWalletBalance(selectedAccount))}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-lg font-bold text-white/60 mt-1">—</p>
+                  )}
                 </div>
               </div>
 
@@ -1378,6 +1635,154 @@ export function CreditList() {
                     )}
                   </div>
                 </section>
+
+                {(() => {
+                  const pendingClaims = transactions.filter(
+                    (t) => t.type === 'payment' && t.public_claim_status === 'pending'
+                  );
+                  const rejectedClaims = transactions.filter(
+                    (t) => t.type === 'payment' && t.public_claim_status === 'rejected'
+                  );
+                  if (pendingClaims.length === 0 && rejectedClaims.length === 0) return null;
+                  return (
+                    <section className="space-y-3">
+                      <div className="flex items-center">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-950/60">
+                          <Clock className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+                        </div>
+                        <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-600 dark:text-slate-400 ml-2">
+                          Pending approval
+                        </h3>
+                      </div>
+                      {pendingClaims.length > 0 ? (
+                        <div className="space-y-2 rounded-xl border border-amber-200/80 bg-amber-50/50 p-3 dark:border-amber-900/40 dark:bg-amber-950/20">
+                          <p className="text-xs text-amber-900 dark:text-amber-200/90">
+                            Customer-reported from the public credit link — shown as{' '}
+                            <span className="font-semibold">pending approval</span> until you approve or reject.
+                          </p>
+                          <ul className="space-y-2">
+                            {pendingClaims.map((t) => (
+                              <li
+                                key={t.id}
+                                className="flex flex-col gap-2 rounded-lg border border-amber-200/60 bg-white/90 px-3 py-2.5 dark:border-amber-800/50 dark:bg-slate-900/80 sm:flex-row sm:items-center sm:justify-between"
+                              >
+                                <div className="min-w-0">
+                                  <div className="mb-1 flex flex-wrap items-center gap-2">
+                                    <span className="inline-flex rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900 dark:bg-amber-400/15 dark:text-amber-100">
+                                      Pending approval
+                                    </span>
+                                  </div>
+                                  <p className="text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                                    {formatPrice(t.amount)} ·{' '}
+                                    {t.payment_method === 'cash' ? 'Cash' : 'M-Pesa'}
+                                  </p>
+                                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                    {formatDate(t.created_at)}
+                                    {formatRecorderLabel(t.user_name, t.recorder_role)
+                                      ? ` · ${formatRecorderLabel(t.user_name, t.recorder_role)}`
+                                      : null}
+                                  </p>
+                                </div>
+                                {canManageCreditProfiles ? (
+                                  <div className="flex shrink-0 gap-2">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-8 min-w-[4.5rem] text-xs"
+                                      disabled={
+                                        claimReviewBusy !== null && claimReviewBusy.transactionId === t.id
+                                      }
+                                      onClick={() =>
+                                        selectedAccount &&
+                                        void reviewPublicPaymentClaim(
+                                          {
+                                            kind: 'tab',
+                                            transactionId: t.id,
+                                            creditAccountId: selectedAccount.id,
+                                            customerName: selectedAccount.customer_name,
+                                            amount: t.amount,
+                                            paymentMethod:
+                                              t.payment_method === 'cash' ? 'cash' : 'mpesa',
+                                            createdAt: t.created_at,
+                                            customerReference: null,
+                                          },
+                                          'reject',
+                                          selectedAccount.id
+                                        )
+                                      }
+                                    >
+                                      {claimReviewBusy?.transactionId === t.id &&
+                                      claimReviewBusy.action === 'reject' ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : (
+                                        'Reject'
+                                      )}
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      className="h-8 min-w-[4.5rem] bg-emerald-600 text-xs hover:bg-emerald-700"
+                                      disabled={
+                                        claimReviewBusy !== null && claimReviewBusy.transactionId === t.id
+                                      }
+                                      onClick={() =>
+                                        selectedAccount &&
+                                        void reviewPublicPaymentClaim(
+                                          {
+                                            kind: 'tab',
+                                            transactionId: t.id,
+                                            creditAccountId: selectedAccount.id,
+                                            customerName: selectedAccount.customer_name,
+                                            amount: t.amount,
+                                            paymentMethod:
+                                              t.payment_method === 'cash' ? 'cash' : 'mpesa',
+                                            createdAt: t.created_at,
+                                            customerReference: null,
+                                          },
+                                          'approve',
+                                          selectedAccount.id
+                                        )
+                                      }
+                                    >
+                                      {claimReviewBusy?.transactionId === t.id &&
+                                      claimReviewBusy.action === 'approve' ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : (
+                                        'Accept'
+                                      )}
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <p className="text-[11px] font-medium text-amber-800 dark:text-amber-300">
+                                    Pending approval (owner/admin)
+                                  </p>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      {rejectedClaims.length > 0 ? (
+                        <div className="rounded-lg border border-slate-200/80 bg-slate-50/80 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                          <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
+                            Rejected claims
+                          </p>
+                          <ul className="space-y-1">
+                            {rejectedClaims.map((t) => (
+                              <li
+                                key={t.id}
+                                className="text-xs text-slate-600 dark:text-slate-400 tabular-nums"
+                              >
+                                {formatPrice(t.amount)} · {formatDate(t.created_at)}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                    </section>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -1568,7 +1973,7 @@ export function CreditList() {
                       <p className="text-sm font-medium truncate">{toProperCustomerName(a.customer_name)}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                         {candPhones.length > 0 ? formatPhonesForDisplay(candPhones) : 'No phone'} ·{' '}
-                        {formatPrice(a.total_credit)} due
+                        {formatCreditWalletSlash(a)} credit / wallet
                       </p>
                     </div>
                   </label>

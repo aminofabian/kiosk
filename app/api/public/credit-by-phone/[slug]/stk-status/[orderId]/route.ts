@@ -42,6 +42,7 @@ export async function GET(
         state: result.state,
         message: result.message,
         newBalance: result.newBalance,
+        newWalletBalance: result.newWalletBalance,
       },
     });
   } catch (e) {

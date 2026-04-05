@@ -111,7 +111,11 @@ export function SplitPaymentForm({ total, onPaymentsChange }: SplitPaymentFormPr
   const isNewCustomer = !hasMatches && creditPhone.trim().length >= 6;
   // Validation: total must match and credit must have customer info
   const newCustomerHasName = !isNewCustomer || !!(creditPayment?.customerName && creditPayment.customerName.trim().length > 0);
-  const isValid = Math.abs(remaining) < 0.01 && totalPaid > 0 && allCreditHasPhone && newCustomerHasName &&
+  const isValid =
+    Math.abs(remaining) < 0.01 &&
+    (total < 0.01 ? Math.abs(totalPaid) < 0.01 : totalPaid > 0) &&
+    allCreditHasPhone &&
+    newCustomerHasName &&
     (!cashPayment || cashAmount >= cashPayment.amount);
 
   useEffect(() => {
@@ -151,7 +155,8 @@ export function SplitPaymentForm({ total, onPaymentsChange }: SplitPaymentFormPr
     updatePaymentAmount(index, newAmount);
   };
 
-  const formatPrice = (price: number) => `KES ${price.toFixed(0)}`;
+  const formatPrice = (n: number) =>
+    `KES ${n.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
   const availableMethods = paymentMethods.filter(
     m => !payments.some(p => p.method === m.value)
@@ -292,8 +297,28 @@ export function SplitPaymentForm({ total, onPaymentsChange }: SplitPaymentFormPr
                                     {phonesLine}
                                   </div>
                                 ) : null}
-                                <div className="text-sm font-semibold text-[#1c6a1e] mt-0.5">
-                                  Balance: KES {acc.total_credit.toFixed(0)}
+                                <div className="mt-1 space-y-0.5">
+                                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                    Credit / wallet
+                                  </p>
+                                  <p className="text-sm font-semibold text-[#1c6a1e] tabular-nums leading-snug">
+                                    KES{' '}
+                                    {Number(acc.total_credit).toLocaleString('en-KE', {
+                                      minimumFractionDigits: 0,
+                                      maximumFractionDigits: 0,
+                                    })}
+                                    <span className="text-slate-400 dark:text-slate-500 font-normal mx-1">
+                                      /
+                                    </span>
+                                    KES{' '}
+                                    {Number(acc.wallet_balance ?? 0).toLocaleString('en-KE', {
+                                      minimumFractionDigits: 0,
+                                      maximumFractionDigits: 0,
+                                    })}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground">
+                                    Tab · store wallet
+                                  </p>
                                 </div>
                               </button>
                               );

@@ -10,6 +10,12 @@ export async function OPTIONS() {
   return optionsResponse();
 }
 
+const EPS = 0.01;
+
+function roundMoney(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -22,16 +28,25 @@ export async function POST(
     const body = await request.json();
     const { amount, paymentMethod, notes } = body;
 
-    if (!amount || amount <= 0) {
+    const rawAmount = Number(amount);
+    if (!Number.isFinite(rawAmount) || rawAmount <= 0) {
       return jsonResponse(
         { success: false, message: 'Payment amount must be greater than 0' },
         400
       );
     }
 
+    const paymentTotal = roundMoney(rawAmount);
+
     // Verify account exists
-    const account = await queryOne<{ id: string; total_credit: number; customer_name: string }>(
-      'SELECT id, total_credit, customer_name FROM credit_accounts WHERE id = ? AND business_id = ?',
+    const account = await queryOne<{
+      id: string;
+      total_credit: number;
+      customer_name: string;
+      wallet_balance: number;
+    }>(
+      `SELECT id, total_credit, customer_name, COALESCE(wallet_balance, 0) AS wallet_balance
+       FROM credit_accounts WHERE id = ? AND business_id = ?`,
       [accountId, auth.businessId]
     );
 
@@ -42,35 +57,41 @@ export async function POST(
       );
     }
 
-    if (amount > account.total_credit) {
+    const owed = Math.max(0, roundMoney(account.total_credit));
+    const appliedToTab = roundMoney(Math.min(paymentTotal, owed));
+    const excessToWallet = roundMoney(Math.max(0, paymentTotal - appliedToTab));
+
+    if (appliedToTab < EPS && excessToWallet < EPS) {
       return jsonResponse(
-        { success: false, message: 'Payment amount cannot exceed outstanding balance' },
+        { success: false, message: 'Nothing to apply: tab is clear and amount is too small' },
         400
       );
     }
 
     const now = Math.floor(Date.now() / 1000);
-    const transactionId = generateUUID();
+    let transactionId: string | null = null;
 
-    // Create credit transaction (payment)
-    await execute(
-      `INSERT INTO credit_transactions (
-        id, credit_account_id, type, amount, payment_method, 
-        notes, recorded_by, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        transactionId,
-        accountId,
-        'payment',
-        amount,
-        paymentMethod,
-        notes || null,
-        auth.userId,
-        now,
-      ]
-    );
+    if (appliedToTab > EPS) {
+      transactionId = generateUUID();
+      await execute(
+        `INSERT INTO credit_transactions (
+          id, credit_account_id, type, amount, payment_method, 
+          notes, recorded_by, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          transactionId,
+          accountId,
+          'payment',
+          appliedToTab,
+          paymentMethod,
+          notes || null,
+          auth.userId,
+          now,
+        ]
+      );
+    }
 
-    // Update shift expected_closing_cash if payment is cash
+    // Update shift expected_closing_cash if payment is cash (full tender received)
     // Admin/owner can record cash payments without an open shift (no drawer update).
     // Cashiers need an open shift so the cash is attributed to their drawer.
     if (paymentMethod === 'cash') {
@@ -94,37 +115,75 @@ export async function POST(
       } else {
         await execute(
           `UPDATE shifts SET expected_closing_cash = expected_closing_cash + ? WHERE id = ?`,
-          [amount, shift.id]
+          [paymentTotal, shift.id]
         );
       }
     }
 
-    // Update credit account balance
+    // Tab balance: only reduce by amount applied to debt; excess tops up wallet in one update
+    const newBalance = roundMoney(owed - appliedToTab);
+    const walletIncrement = excessToWallet > EPS ? excessToWallet : 0;
+    const newWalletBalance = roundMoney(account.wallet_balance + walletIncrement);
+
     await execute(
       `UPDATE credit_accounts 
-       SET total_credit = total_credit - ?, 
+       SET total_credit = ?, 
+           wallet_balance = wallet_balance + ?,
            last_transaction_at = ? 
-       WHERE id = ?`,
-      [amount, now, accountId]
+       WHERE id = ? AND business_id = ?`,
+      [newBalance, walletIncrement, now, accountId, auth.businessId]
     );
 
-    const newBalance = account.total_credit - amount;
+    let walletTransactionId: string | null = null;
+    if (excessToWallet > EPS) {
+      walletTransactionId = generateUUID();
+      await execute(
+        `INSERT INTO wallet_transactions (
+          id, credit_account_id, sale_id, type, amount, notes, recorded_by, created_at
+        ) VALUES (?, ?, NULL, 'credit', ?, ?, ?, ?)`,
+        [
+          walletTransactionId,
+          accountId,
+          excessToWallet,
+          notes ? `Overpayment (tab payment): ${notes}` : 'Overpayment recorded with tab payment',
+          auth.userId,
+          now,
+        ]
+      );
+    }
+
     logActivity({
       businessId: auth.businessId,
       action: 'update',
       entityType: 'credit',
       entityId: accountId,
       entityNameSnapshot: account.customer_name,
-      details: { amount, paymentMethod, newBalance, cleared: newBalance === 0 },
+      details: {
+        paymentTotal,
+        appliedToTab,
+        excessToWallet,
+        paymentMethod,
+        newBalance,
+        newWalletBalance,
+        cleared: newBalance < EPS,
+      },
       performedBy: auth.userId,
     }).catch(() => {});
 
     return jsonResponse({
       success: true,
-      message: 'Payment recorded successfully',
+      message:
+        excessToWallet > EPS
+          ? 'Payment recorded; excess credited to store wallet'
+          : 'Payment recorded successfully',
       data: {
         transactionId,
+        walletTransactionId,
         newBalance,
+        newWalletBalance,
+        paymentTotal,
+        appliedToTab,
+        creditedToWallet: excessToWallet,
       },
     });
   } catch (error) {

@@ -126,8 +126,16 @@ export function CreditForm({
                   {phonesLine ? (
                     <div className="text-xs text-muted-foreground line-clamp-2">{phonesLine}</div>
                   ) : null}
-                  <div className="text-sm font-semibold text-[#1c6a1e] mt-0.5">
-                    Balance: {formatPrice(acc.total_credit)}
+                  <div className="mt-1 space-y-0.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      Credit / wallet
+                    </p>
+                    <p className="text-sm font-semibold text-[#1c6a1e] tabular-nums leading-snug">
+                      {formatPrice(acc.total_credit)}
+                      <span className="text-slate-400 dark:text-slate-500 font-normal mx-1">/</span>
+                      {formatPrice(acc.wallet_balance ?? 0)}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">Tab · store wallet</p>
                   </div>
                 </button>
               );

@@ -8,6 +8,7 @@ import type {
 } from '@/lib/types/public-credit-status';
 import { resolvePublicCreditAccountBySlug } from '@/lib/db/public-credit-resolve';
 import { isPesapalStkConfigured } from '@/lib/pesapal';
+import { SQL_PAYMENT_APPLIES_TO_BALANCE } from '@/lib/db/credit-payment-claim-sql';
 
 export type { PublicCreditStatusPayload };
 
@@ -104,7 +105,7 @@ export async function getPublicCreditStatusBySlug(
     `SELECT
       COALESCE(SUM(CASE WHEN type = 'debt' THEN amount ELSE 0 END), 0) AS lifetime_debt,
       COALESCE(SUM(CASE WHEN type = 'debt' THEN 1 ELSE 0 END), 0) AS debt_count,
-      COALESCE(SUM(CASE WHEN type = 'payment' THEN 1 ELSE 0 END), 0) AS payment_count
+      COALESCE(SUM(CASE WHEN type = 'payment' AND ${SQL_PAYMENT_APPLIES_TO_BALANCE} THEN 1 ELSE 0 END), 0) AS payment_count
      FROM credit_transactions WHERE credit_account_id = ?`,
     [acc.accountId]
   );
@@ -116,6 +117,48 @@ export async function getPublicCreditStatusBySlug(
 
   const debtDetails = await loadPublicDebtDetails(acc.accountId);
 
+  const pendingRows = await query<{
+    amount: number;
+    payment_method: string | null;
+    created_at: number;
+  }>(
+    `SELECT amount, payment_method, created_at
+     FROM credit_transactions
+     WHERE credit_account_id = ? AND type = 'payment' AND public_claim_status = 'pending'
+     ORDER BY created_at DESC`,
+    [acc.accountId]
+  );
+
+  const pendingPaymentApprovals = pendingRows
+    .filter((r) => r.payment_method === 'cash' || r.payment_method === 'mpesa')
+    .map((r) => ({
+      amount: Number(r.amount),
+      paymentMethod: r.payment_method as 'cash' | 'mpesa',
+      submittedAt: r.created_at,
+    }));
+
+  const pendingWalletRows = await query<{
+    amount: number;
+    payment_method: string | null;
+    customer_reference: string | null;
+    created_at: number;
+  }>(
+    `SELECT amount, payment_method, customer_reference, created_at
+     FROM wallet_transactions
+     WHERE credit_account_id = ? AND type = 'credit' AND public_claim_status = 'pending'
+     ORDER BY created_at DESC`,
+    [acc.accountId]
+  );
+
+  const pendingWalletApprovals = pendingWalletRows
+    .filter((r) => r.payment_method === 'cash' || r.payment_method === 'mpesa')
+    .map((r) => ({
+      amount: Number(r.amount),
+      paymentMethod: r.payment_method as 'cash' | 'mpesa',
+      submittedAt: r.created_at,
+      reference: r.customer_reference?.trim() || null,
+    }));
+
   return {
     ok: true,
     data: {
@@ -125,6 +168,7 @@ export async function getPublicCreditStatusBySlug(
       maskedPhone: maskPhoneForPublicDisplay(phones, acc.targetNorm),
       slugDigits: acc.slugDigits,
       totalCredit,
+      walletBalance: acc.walletBalance,
       settled: totalCredit <= 0,
       lifetimeDebtTotal,
       debtCount,
@@ -132,6 +176,8 @@ export async function getPublicCreditStatusBySlug(
       lastActivityAt: acc.lastTransactionAt,
       debtDetails,
       pesapalPromptAvailable,
+      pendingPaymentApprovals,
+      pendingWalletApprovals,
     },
   };
 }

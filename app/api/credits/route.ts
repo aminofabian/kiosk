@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
       ca.customer_name,
       ca.customer_phone,
       ca.total_credit,
+      COALESCE(ca.wallet_balance, 0) AS wallet_balance,
       ca.last_transaction_at,
       ca.created_at,
       COALESCE((

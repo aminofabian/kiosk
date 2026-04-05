@@ -441,6 +441,34 @@ export async function runMigrations() {
       console.error('⚠ public_credit_pesapal_pending migration skipped:', error);
     }
 
+    try {
+      const { migratePublicCreditPesapalPendingKind } = await import('./migrate-public-credit-pesapal-pending-kind');
+      await migratePublicCreditPesapalPendingKind();
+    } catch (error) {
+      console.error('⚠ public_credit_pesapal_pending kind migration skipped:', error);
+    }
+
+    try {
+      const { migrateCreditPublicPaymentClaim } = await import('./migrate-credit-public-payment-claim');
+      await migrateCreditPublicPaymentClaim();
+    } catch (error) {
+      console.error('⚠ credit public payment claim migration skipped:', error);
+    }
+
+    try {
+      const { migrateCustomerWallet } = await import('./migrate-customer-wallet');
+      await migrateCustomerWallet();
+    } catch (error) {
+      console.error('⚠ customer wallet migration skipped:', error);
+    }
+
+    try {
+      const { migrateWalletTransactionsPublicClaim } = await import('./migrate-wallet-transactions-public-claim');
+      await migrateWalletTransactionsPublicClaim();
+    } catch (error) {
+      console.error('⚠ wallet_transactions public claim migration skipped:', error);
+    }
+
     console.log('✅ Migration completed successfully!');
     return true;
   } catch (error) {

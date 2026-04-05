@@ -12,6 +12,12 @@ import {
 } from '@/lib/utils/credit-phones';
 import type { Sale } from '@/lib/db/types';
 
+const EPS = 0.01;
+
+function roundMoney(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 export async function OPTIONS() {
   return optionsResponse();
 }
@@ -122,23 +128,145 @@ export async function POST(request: NextRequest) {
     const now = Math.floor(Date.now() / 1000);
     const saleId = generateUUID();
 
-    const totalAmount = items.reduce(
-      (sum: number, item: { quantity: number; price: number }) =>
-        sum + item.quantity * item.price,
-      0
+    const totalAmount = roundMoney(
+      items.reduce(
+        (sum: number, item: { quantity: number; price: number }) =>
+          sum + item.quantity * item.price,
+        0
+      )
     );
 
-    // Validate split payments total matches order total
+    let cashReceivedNum = 0;
+    if (typeof cashReceived === 'number' && Number.isFinite(cashReceived)) {
+      cashReceivedNum = roundMoney(cashReceived);
+    } else if (typeof cashReceived === 'string' && cashReceived.trim() !== '') {
+      cashReceivedNum = roundMoney(parseFloat(cashReceived));
+    }
+
+    const walletCreditAccountIdRaw =
+      typeof body.walletCreditAccountId === 'string' ? body.walletCreditAccountId.trim() : '';
+
+    let walletAmountApplied = 0;
+    let walletSourceAccountId: string | null = null;
+
+    if (!fromEdit) {
+      const rawWallet = Number(body.walletAmountApplied);
+      if (Number.isFinite(rawWallet) && rawWallet > EPS) {
+        walletAmountApplied = roundMoney(rawWallet);
+      }
+      if (walletAmountApplied > EPS) {
+        if (paymentMethod === 'credit') {
+          if (!creditAccountId) {
+            return jsonResponse(
+              {
+                success: false,
+                message: 'To pay from wallet on a credit sale, select an existing customer account first',
+              },
+              400
+            );
+          }
+          walletSourceAccountId = creditAccountId;
+        } else {
+          if (!walletCreditAccountIdRaw) {
+            return jsonResponse(
+              { success: false, message: 'Select a customer to apply wallet balance' },
+              400
+            );
+          }
+          walletSourceAccountId = walletCreditAccountIdRaw;
+        }
+        const wRow = await queryOne<{ wallet_balance: number }>(
+          `SELECT COALESCE(wallet_balance, 0) AS wallet_balance FROM credit_accounts WHERE id = ? AND business_id = ?`,
+          [walletSourceAccountId, auth.businessId]
+        );
+        if (!wRow) {
+          return jsonResponse(
+            { success: false, message: 'Wallet customer account not found' },
+            400
+          );
+        }
+        if (walletAmountApplied - wRow.wallet_balance > EPS) {
+          return jsonResponse(
+            { success: false, message: 'Insufficient wallet balance' },
+            400
+          );
+        }
+        if (walletAmountApplied - totalAmount > EPS) {
+          return jsonResponse(
+            { success: false, message: 'Wallet amount cannot exceed order total' },
+            400
+          );
+        }
+      }
+    }
+
+    const amountDue = roundMoney(Math.max(0, totalAmount - walletAmountApplied));
+
+    if (
+      !fromEdit &&
+      paymentMethod === 'credit' &&
+      amountDue < EPS &&
+      !creditAccountId
+    ) {
+      return jsonResponse(
+        {
+          success: false,
+          message:
+            'When the wallet covers the full total on a credit sale, select the existing customer account first',
+        },
+        400
+      );
+    }
+
+    // Validate split payments total matches amount due (after wallet)
     if (paymentMethod === 'split' && splitPayments && !fromEdit) {
       const splitTotal = (splitPayments as SplitPaymentInput[]).reduce(
         (sum, p) => sum + p.amount,
         0
       );
-      if (Math.abs(splitTotal - totalAmount) > 0.01) {
+      if (Math.abs(splitTotal - amountDue) > 0.01) {
         return jsonResponse(
-          { success: false, message: 'Split payment total must equal order total' },
+          {
+            success: false,
+            message:
+              amountDue < totalAmount - EPS
+                ? 'Split payment total must equal amount due after wallet (remaining to pay)'
+                : 'Split payment total must equal order total',
+          },
           400
         );
+      }
+    }
+
+    if (!fromEdit && paymentMethod === 'cash') {
+      if (cashReceivedNum + EPS < amountDue) {
+        return jsonResponse(
+          { success: false, message: 'Cash received is less than amount due' },
+          400
+        );
+      }
+    }
+
+    let excessToWallet = 0;
+    let overpayAccountId: string | null = null;
+    if (!fromEdit && paymentMethod === 'cash' && walletCreditAccountIdRaw) {
+      overpayAccountId = walletCreditAccountIdRaw;
+      if (cashReceivedNum > amountDue + EPS) {
+        excessToWallet = roundMoney(cashReceivedNum - amountDue);
+      }
+    }
+    if (!fromEdit && excessToWallet > EPS && overpayAccountId) {
+      if (overpayAccountId !== walletSourceAccountId) {
+        const op = await queryOne<{ id: string }>(
+          'SELECT id FROM credit_accounts WHERE id = ? AND business_id = ?',
+          [overpayAccountId, auth.businessId]
+        );
+        if (!op) {
+          return jsonResponse(
+            { success: false, message: 'Selected customer for wallet (change) was not found' },
+            400
+          );
+        }
       }
     }
 
@@ -157,7 +285,7 @@ export async function POST(request: NextRequest) {
       // Require an open shift for any cash payment so every shilling is tied to a drawer
       const cashAmountForValidation =
         paymentMethod === 'cash'
-          ? totalAmount
+          ? amountDue
           : paymentMethod === 'split' && splitPayments
             ? (splitPayments as SplitPaymentInput[]).find((p) => p.method === 'cash')?.amount ?? 0
             : 0;
@@ -313,6 +441,16 @@ export async function POST(request: NextRequest) {
           ]
         );
       }
+    }
+
+    if (!fromEdit && walletAmountApplied > EPS) {
+      const walletPayId = generateUUID();
+      await execute(
+        `INSERT INTO sale_payments (
+          id, sale_id, payment_method, amount, customer_name, customer_phone, created_at
+        ) VALUES (?, ?, 'wallet', ?, NULL, NULL, ?)`,
+        [walletPayId, saleId, walletAmountApplied, now]
+      );
     }
 
     // Process each item (FIFO or cashier-selected batch)
@@ -556,12 +694,14 @@ export async function POST(request: NextRequest) {
       );
     };
 
-    // Handle credit for regular credit payment
+    // Handle credit for regular credit payment (amount owed after wallet applied)
     if (paymentMethod === 'credit') {
       if (creditAccountId) {
-        await addDebtToExistingAccount(creditAccountId, totalAmount);
-      } else if (customerName) {
-        await handleCreditPayment(customerName, customerPhone || null, totalAmount);
+        if (amountDue > EPS) {
+          await addDebtToExistingAccount(creditAccountId, amountDue);
+        }
+      } else if (customerName && amountDue > EPS) {
+        await handleCreditPayment(customerName, customerPhone || null, amountDue);
       }
     }
 
@@ -607,13 +747,57 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    if (!fromEdit && walletAmountApplied > EPS && walletSourceAccountId) {
+      await execute(
+        `UPDATE credit_accounts
+         SET wallet_balance = wallet_balance - ?
+         WHERE id = ? AND business_id = ? AND wallet_balance + 0.00001 >= ?`,
+        [walletAmountApplied, walletSourceAccountId, auth.businessId, walletAmountApplied]
+      );
+      const walletDebitId = generateUUID();
+      await execute(
+        `INSERT INTO wallet_transactions (
+          id, credit_account_id, sale_id, type, amount, notes, recorded_by, created_at
+        ) VALUES (?, ?, ?, 'debit', ?, NULL, ?, ?)`,
+        [walletDebitId, walletSourceAccountId, saleId, walletAmountApplied, auth.userId, now]
+      );
+    }
+
+    if (!fromEdit && excessToWallet > EPS && overpayAccountId) {
+      await execute(
+        `UPDATE credit_accounts SET wallet_balance = wallet_balance + ? WHERE id = ? AND business_id = ?`,
+        [excessToWallet, overpayAccountId, auth.businessId]
+      );
+      const walletCreditId = generateUUID();
+      await execute(
+        `INSERT INTO wallet_transactions (
+          id, credit_account_id, sale_id, type, amount, notes, recorded_by, created_at
+        ) VALUES (?, ?, ?, 'credit', ?, ?, ?, ?)`,
+        [
+          walletCreditId,
+          overpayAccountId,
+          saleId,
+          excessToWallet,
+          'Cash overpayment (change to wallet)',
+          auth.userId,
+          now,
+        ]
+      );
+    }
+
     return jsonResponse({
       success: true,
       message: 'Sale completed successfully',
       data: {
         saleId,
         totalAmount,
-        change: cashReceived ? cashReceived - totalAmount : 0,
+        amountDue,
+        walletAmountApplied,
+        excessCreditedToWallet: excessToWallet,
+        change:
+          paymentMethod === 'cash' && (cashReceivedNum > 0 || amountDue < EPS)
+            ? roundMoney(Math.max(0, cashReceivedNum - amountDue - excessToWallet))
+            : 0,
       },
     });
   } catch (error) {

@@ -15,6 +15,7 @@ export type ResolvedPublicCreditAccount = {
   customerName: string;
   customerPhone: string | null;
   totalCredit: number;
+  walletBalance: number;
   lastTransactionAt: number | null;
   businessName: string;
   targetNorm: string;
@@ -44,7 +45,8 @@ export async function resolvePublicCreditAccountBySlug(
 
   const ph = sqlCreditAccountMatchesPhoneDigits('ca.customer_phone', targetNorm);
   let sql = `
-    SELECT ca.id, ca.business_id, ca.customer_name, ca.customer_phone, ca.total_credit, ca.last_transaction_at,
+    SELECT ca.id, ca.business_id, ca.customer_name, ca.customer_phone, ca.total_credit, ca.wallet_balance,
+           ca.last_transaction_at,
            b.name AS business_name
     FROM credit_accounts ca
     INNER JOIN businesses b ON b.id = ca.business_id
@@ -62,6 +64,7 @@ export async function resolvePublicCreditAccountBySlug(
     customer_name: string;
     customer_phone: string | null;
     total_credit: number;
+    wallet_balance: number;
     last_transaction_at: number | null;
     business_name: string;
   }>(sql, params);
@@ -86,6 +89,7 @@ export async function resolvePublicCreditAccountBySlug(
       customerName: acc.customer_name,
       customerPhone: acc.customer_phone,
       totalCredit: Number(acc.total_credit),
+      walletBalance: Number(acc.wallet_balance ?? 0),
       lastTransactionAt: acc.last_transaction_at,
       businessName: acc.business_name,
       targetNorm,

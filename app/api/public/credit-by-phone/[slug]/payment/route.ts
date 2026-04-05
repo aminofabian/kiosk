@@ -51,8 +51,13 @@ export async function POST(
 
     return jsonResponse({
       success: true,
-      message: 'Payment recorded. Your balance is cleared.',
-      data: { newBalance: result.newBalance, transactionId: result.transactionId },
+      message:
+        'Payment submitted. It will appear on your balance after the store reviews and approves it.',
+      data: {
+        newBalance: result.newBalance,
+        transactionId: result.transactionId,
+        pendingApproval: true,
+      },
     });
   } catch (e) {
     console.error('public credit payment:', e);

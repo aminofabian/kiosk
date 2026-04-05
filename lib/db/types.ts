@@ -246,6 +246,8 @@ export interface CreditAccount {
   /** All numbers when returned from credits APIs (stored as JSON in DB column `customer_phone`) */
   customer_phones?: string[];
   total_credit: number;
+  /** Prepaid store balance (usable at checkout; credited on cash overpayment when customer is linked) */
+  wallet_balance: number;
   last_transaction_at: number | null;
   created_at: number;
   /** Sum of all debt transactions; set when loaded from the credits list API */
@@ -266,6 +268,28 @@ export interface CreditTransaction {
   notes: string | null;
   recorded_by: string;
   created_at: number;
+  /** Customer self-reported payment from public link; pending until admin approves */
+  public_claim_status?: 'pending' | 'rejected' | null;
+  claim_reviewed_at?: number | null;
+  claim_reviewed_by?: string | null;
+}
+
+export interface WalletTransaction {
+  id: string;
+  credit_account_id: string;
+  sale_id: string | null;
+  type: 'credit' | 'debit';
+  amount: number;
+  notes: string | null;
+  recorded_by: string;
+  created_at: number;
+  /** Customer-reported top-up from public link; pending until admin approves */
+  public_claim_status?: 'pending' | 'rejected' | null;
+  claim_reviewed_at?: number | null;
+  claim_reviewed_by?: string | null;
+  payment_method?: 'cash' | 'mpesa' | null;
+  /** M-Pesa confirmation code or receipt reference from customer */
+  customer_reference?: string | null;
 }
 
 export interface StockAdjustment {

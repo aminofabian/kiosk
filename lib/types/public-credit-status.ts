@@ -20,6 +20,8 @@ export type PublicCreditStatusPayload = {
   maskedPhone: string;
   slugDigits: string;
   totalCredit: number;
+  /** Prepaid store balance (usable at checkout; e.g. cash overpayment credited to wallet). */
+  walletBalance: number;
   settled: boolean;
   lifetimeDebtTotal: number;
   debtCount: number;
@@ -29,4 +31,20 @@ export type PublicCreditStatusPayload = {
   debtDetails: PublicCreditDebtEntry[];
   /** Pesapal STK / hosted checkout is configured (M-Pesa prompt button can be shown). */
   pesapalPromptAvailable: boolean;
+  /**
+   * Customer-recorded payments waiting for admin approval (not yet applied to balance).
+   */
+  pendingPaymentApprovals: Array<{
+    amount: number;
+    paymentMethod: 'cash' | 'mpesa';
+    submittedAt: number;
+  }>;
+  /** Customer-reported wallet top-ups awaiting admin approval */
+  pendingWalletApprovals: Array<{
+    amount: number;
+    paymentMethod: 'cash' | 'mpesa';
+    submittedAt: number;
+    /** M-Pesa confirmation code or receipt ref when provided */
+    reference: string | null;
+  }>;
 };

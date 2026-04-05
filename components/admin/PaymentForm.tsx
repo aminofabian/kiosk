@@ -44,8 +44,11 @@ export function PaymentForm({
   }, [account.id]);
 
   const paymentAmount = parseFloat(amount) || 0;
-  const isFullPayment = paymentAmount >= account.total_credit;
-  const remainingAfter = account.total_credit - paymentAmount;
+  const owed = Math.max(0, account.total_credit);
+  const appliedToTab = Math.min(paymentAmount, owed);
+  const toWallet = Math.max(0, paymentAmount - appliedToTab);
+  const isFullPayment = owed > 0 && appliedToTab >= owed - 0.009;
+  const remainingAfter = Math.max(0, owed - appliedToTab);
 
   const formatPrice = (price: number) =>
     `KES ${price.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
@@ -56,11 +59,6 @@ export function PaymentForm({
 
     if (paymentAmount <= 0) {
       setError('Payment amount must be greater than 0');
-      return;
-    }
-
-    if (paymentAmount > account.total_credit) {
-      setError('Payment amount cannot exceed outstanding balance');
       return;
     }
 
@@ -89,13 +87,21 @@ export function PaymentForm({
   const denseSummary =
     paymentAmount > 0 ? (
       <p className="text-[11px] leading-snug text-slate-600 dark:text-slate-400 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-        <span className="tabular-nums">Owing {formatPrice(account.total_credit)}</span>
+        <span className="tabular-nums">Owing {formatPrice(owed)}</span>
         <span className="text-slate-400 dark:text-slate-500" aria-hidden>
           →
         </span>
         <span className="tabular-nums font-medium text-slate-800 dark:text-slate-200">
           Pay {formatPrice(paymentAmount)}
         </span>
+        {toWallet > 0.009 && (
+          <>
+            <span className="text-slate-400 dark:text-slate-500">·</span>
+            <span className="tabular-nums font-semibold text-violet-600 dark:text-violet-400">
+              Wallet +{formatPrice(toWallet)}
+            </span>
+          </>
+        )}
         <span className="text-slate-400 dark:text-slate-500">·</span>
         <span
           className={cn(
@@ -105,7 +111,7 @@ export function PaymentForm({
               : 'text-amber-600 dark:text-amber-400'
           )}
         >
-          Left {formatPrice(Math.max(0, remainingAfter))}
+          Tab left {formatPrice(remainingAfter)}
         </span>
         {isFullPayment && (
           <span className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400 font-medium">
@@ -147,7 +153,6 @@ export function PaymentForm({
                     type="number"
                     step="0.01"
                     min={0}
-                    max={account.total_credit}
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder={account.total_credit.toString()}
@@ -284,7 +289,6 @@ export function PaymentForm({
                 type="number"
                 step="0.01"
                 min={0}
-                max={account.total_credit}
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder={account.total_credit.toString()}
@@ -294,6 +298,9 @@ export function PaymentForm({
                   drawerFooter ? 'h-11' : 'h-12'
                 )}
               />
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                You can pay more than the balance; the extra is credited to this customer&apos;s store wallet.
+              </p>
               <div className="flex gap-2 pt-1">
                 <Button
                   type="button"
@@ -363,17 +370,29 @@ export function PaymentForm({
                 )}
               >
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600 dark:text-slate-400">Current balance</span>
-                  <span className="font-medium">{formatPrice(account.total_credit)}</span>
+                  <span className="text-slate-600 dark:text-slate-400">Current tab balance</span>
+                  <span className="font-medium">{formatPrice(owed)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-600 dark:text-slate-400">This payment</span>
                   <span className="font-medium">{formatPrice(paymentAmount)}</span>
                 </div>
+                {appliedToTab > 0.009 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-600 dark:text-slate-400">Applied to tab</span>
+                    <span className="font-medium tabular-nums">{formatPrice(appliedToTab)}</span>
+                  </div>
+                )}
+                {toWallet > 0.009 && (
+                  <div className="flex justify-between text-sm text-violet-700 dark:text-violet-300">
+                    <span>Credited to wallet</span>
+                    <span className="font-semibold tabular-nums">+{formatPrice(toWallet)}</span>
+                  </div>
+                )}
                 <div className="h-px bg-slate-200 dark:bg-slate-700" />
                 <div className="flex justify-between items-center">
                   <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                    Remaining
+                    Tab remaining
                   </span>
                   <span
                     className={cn(
@@ -383,9 +402,14 @@ export function PaymentForm({
                         : 'text-amber-600 dark:text-amber-400'
                     )}
                   >
-                    {formatPrice(Math.max(0, remainingAfter))}
+                    {formatPrice(remainingAfter)}
                   </span>
                 </div>
+                {owed < 0.01 && paymentAmount > 0 && (
+                  <p className="text-sm text-violet-700 dark:text-violet-300 pt-1">
+                    No tab balance — the full amount will be added to their store wallet.
+                  </p>
+                )}
                 {isFullPayment && (
                   <p className="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300 pt-1">
                     <CheckCircle2 className="h-4 w-4 shrink-0" />

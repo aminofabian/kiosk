@@ -5,7 +5,7 @@ import type { Sale, SaleItem } from '@/lib/db/types';
 interface SplitPayment {
   id: string;
   sale_id: string;
-  payment_method: 'cash' | 'mpesa' | 'credit';
+  payment_method: 'cash' | 'mpesa' | 'credit' | 'wallet';
   amount: number;
   customer_name: string | null;
   customer_phone: string | null;
@@ -37,8 +37,18 @@ function receiptTitle(method: Sale['payment_method']): string {
   }
 }
 
+function paymentMethodLabel(method: SplitPayment['payment_method']): string {
+  if (method === 'wallet') return 'WALLET';
+  return method;
+}
+
 export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
   const formatPrice = (price: number) => price.toFixed(0);
+
+  const walletPaid =
+    splitPayments?.filter((p) => p.payment_method === 'wallet').reduce((s, p) => s + p.amount, 0) ?? 0;
+  const showWalletSupplement =
+    sale.payment_method !== 'split' && walletPaid > 0 && splitPayments && splitPayments.length > 0;
 
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp * 1000);
@@ -195,7 +205,7 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
                 </span>
               </div>
             )}
-            {sale.payment_method === 'cash' && (
+            {sale.payment_method === 'cash' && !showWalletSupplement && (
               <div className="receipt-meta-row grid grid-cols-[auto_minmax(0,1fr)] gap-x-1.5 print:gap-x-1 items-baseline font-bold text-[12px] print:text-[9px]">
                 <span className="text-black shrink-0">CASH:</span>
                 <span className="receipt-amount tabular-nums text-black text-right">
@@ -203,12 +213,45 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
                 </span>
               </div>
             )}
-            {sale.payment_method === 'mpesa' && (
+            {sale.payment_method === 'mpesa' && !showWalletSupplement && (
               <div className="receipt-meta-row grid grid-cols-[auto_minmax(0,1fr)] gap-x-1.5 print:gap-x-1 items-baseline font-bold text-[12px] print:text-[9px]">
                 <span className="text-black shrink-0">MPESA:</span>
                 <span className="receipt-amount tabular-nums text-black text-right">
                   KES {formatPrice(sale.total_amount)}
                 </span>
+              </div>
+            )}
+            {showWalletSupplement && splitPayments && (
+              <div className="space-y-0.5 pt-1 border-t border-dotted border-black">
+                {splitPayments.map((payment) => (
+                  <div
+                    key={payment.id}
+                    className="receipt-meta-row grid grid-cols-[minmax(0,1fr)_auto] gap-x-1 print:gap-x-0.5 font-bold text-[11px] print:text-[9px] items-baseline"
+                  >
+                    <span className="uppercase text-black min-w-0 break-words leading-tight">
+                      {paymentMethodLabel(payment.payment_method)}
+                      {payment.payment_method === 'credit' && payment.customer_name && (
+                        <span className="normal-case font-semibold">
+                          {' '}
+                          ({payment.customer_name})
+                        </span>
+                      )}
+                    </span>
+                    <span className="receipt-amount tabular-nums text-black text-right shrink-0">
+                      KES {formatPrice(payment.amount)}
+                    </span>
+                  </div>
+                ))}
+                {(sale.payment_method === 'cash' || sale.payment_method === 'mpesa') && (
+                  <div className="receipt-meta-row grid grid-cols-[minmax(0,1fr)_auto] gap-x-1 print:gap-x-0.5 font-bold text-[11px] print:text-[9px] items-baseline">
+                    <span className="uppercase text-black">
+                      {sale.payment_method === 'cash' ? 'CASH' : 'MPESA'} (remainder)
+                    </span>
+                    <span className="receipt-amount tabular-nums text-black text-right shrink-0">
+                      KES {formatPrice(Math.max(0, sale.total_amount - walletPaid))}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
             {sale.payment_method === 'split' && splitPayments && splitPayments.length > 0 && (
@@ -219,7 +262,7 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
                     className="receipt-meta-row grid grid-cols-[minmax(0,1fr)_auto] gap-x-1 print:gap-x-0.5 font-bold text-[11px] print:text-[9px] items-baseline"
                   >
                     <span className="uppercase text-black min-w-0 break-words leading-tight">
-                      {payment.payment_method}
+                      {paymentMethodLabel(payment.payment_method)}
                       {payment.payment_method === 'credit' && payment.customer_name && (
                         <span className="normal-case font-semibold">
                           {' '}

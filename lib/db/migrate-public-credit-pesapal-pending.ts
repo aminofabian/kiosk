@@ -22,6 +22,7 @@ export async function migratePublicCreditPesapalPending() {
         merchant_reference TEXT NOT NULL UNIQUE,
         amount REAL NOT NULL,
         balance_snapshot REAL NOT NULL,
+        kind TEXT NOT NULL DEFAULT 'tab' CHECK (kind IN ('tab', 'wallet')),
         created_at INTEGER NOT NULL DEFAULT (unixepoch()),
         applied_at INTEGER,
         FOREIGN KEY (credit_account_id) REFERENCES credit_accounts(id) ON DELETE CASCADE,

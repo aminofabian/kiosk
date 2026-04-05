@@ -326,7 +326,7 @@ CREATE INDEX IF NOT EXISTS idx_sale_items_type ON sale_items(item_type_snapshot)
 CREATE TABLE IF NOT EXISTS sale_payments (
   id TEXT PRIMARY KEY,
   sale_id TEXT NOT NULL,
-  payment_method TEXT NOT NULL CHECK (payment_method IN ('cash', 'mpesa', 'credit')),
+  payment_method TEXT NOT NULL CHECK (payment_method IN ('cash', 'mpesa', 'credit', 'wallet')),
   amount REAL NOT NULL,
   customer_name TEXT, -- for credit portion
   customer_phone TEXT, -- for credit portion
@@ -360,7 +360,7 @@ CREATE INDEX IF NOT EXISTS idx_shifts_status ON shifts(business_id, status);
 CREATE INDEX IF NOT EXISTS idx_shifts_date ON shifts(business_id, started_at DESC);
 
 -- ============================================
--- 14. credit_accounts (Customer Debts)
+-- 14. credit_accounts (Customer Debts + Wallet)
 -- ============================================
 CREATE TABLE IF NOT EXISTS credit_accounts (
   id TEXT PRIMARY KEY,
@@ -368,17 +368,44 @@ CREATE TABLE IF NOT EXISTS credit_accounts (
   customer_name TEXT NOT NULL,
   customer_phone TEXT, -- JSON array of strings, e.g. ["0712…","0733…"]; legacy plain text ok until migrated
   total_credit REAL NOT NULL DEFAULT 0, -- running balance
+  wallet_balance REAL NOT NULL DEFAULT 0, -- prepaid store credit (overpayment / top-ups)
   last_transaction_at INTEGER,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
 );
+
+-- ============================================
+-- 14b. wallet_transactions (customer store wallet ledger)
+-- ============================================
+CREATE TABLE IF NOT EXISTS wallet_transactions (
+  id TEXT PRIMARY KEY,
+  credit_account_id TEXT NOT NULL,
+  sale_id TEXT,
+  type TEXT NOT NULL CHECK (type IN ('credit', 'debit')),
+  amount REAL NOT NULL,
+  notes TEXT,
+  recorded_by TEXT NOT NULL,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  public_claim_status TEXT,
+  claim_reviewed_at INTEGER,
+  claim_reviewed_by TEXT,
+  payment_method TEXT,
+  customer_reference TEXT,
+  FOREIGN KEY (credit_account_id) REFERENCES credit_accounts(id) ON DELETE CASCADE,
+  FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE SET NULL,
+  FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE RESTRICT,
+  FOREIGN KEY (claim_reviewed_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_wallet_transactions_account ON wallet_transactions(credit_account_id);
+CREATE INDEX IF NOT EXISTS idx_wallet_transactions_sale ON wallet_transactions(sale_id);
 
 CREATE INDEX IF NOT EXISTS idx_credit_accounts_business_id ON credit_accounts(business_id);
 CREATE INDEX IF NOT EXISTS idx_credit_accounts_phone ON credit_accounts(business_id, customer_phone);
 CREATE INDEX IF NOT EXISTS idx_credit_accounts_name ON credit_accounts(business_id, customer_name);
 
 -- ============================================
--- 15. credit_transactions
+-- 15. credit_transactions (tab debt / payments)
 -- ============================================
 CREATE TABLE IF NOT EXISTS credit_transactions (
   id TEXT PRIMARY KEY,
@@ -390,9 +417,13 @@ CREATE TABLE IF NOT EXISTS credit_transactions (
   notes TEXT,
   recorded_by TEXT NOT NULL,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  public_claim_status TEXT, -- NULL = normal; 'pending' = customer self-report awaiting admin; 'rejected' = declined
+  claim_reviewed_at INTEGER,
+  claim_reviewed_by TEXT,
   FOREIGN KEY (credit_account_id) REFERENCES credit_accounts(id) ON DELETE CASCADE,
   FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE SET NULL,
-  FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE RESTRICT
+  FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE RESTRICT,
+  FOREIGN KEY (claim_reviewed_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_credit_transactions_account_id ON credit_transactions(credit_account_id);
@@ -410,6 +441,7 @@ CREATE TABLE IF NOT EXISTS public_credit_pesapal_pending (
   merchant_reference TEXT NOT NULL UNIQUE,
   amount REAL NOT NULL,
   balance_snapshot REAL NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'tab' CHECK (kind IN ('tab', 'wallet')),
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   applied_at INTEGER,
   FOREIGN KEY (credit_account_id) REFERENCES credit_accounts(id) ON DELETE CASCADE,
