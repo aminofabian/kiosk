@@ -34,9 +34,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         disabled: { status: 403, message: result.message },
         nothing_owed: { status: 400, message: result.message },
         not_configured: { status: 503, message: result.message },
-        pesapal_error: { status: 502, message: result.message },
+        // 503: payment provider error (avoid 502 — many proxies use that for “origin down”)
+        pesapal_error: { status: 503, message: result.message },
       };
       const m = map[result.code] ?? { status: 400, message: result.message };
+      if (result.code === 'pesapal_error') {
+        console.error('[public stk-push] pesapal_error:', result.message);
+      }
       return jsonResponse({ success: false, message: m.message, code: result.code }, m.status);
     }
 
