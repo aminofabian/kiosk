@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS businesses (
   timezone TEXT NOT NULL DEFAULT 'Africa/Nairobi',
   settings TEXT, -- JSON stored as TEXT
   active INTEGER NOT NULL DEFAULT 1, -- 1 = active, 0 = suspended
+  loyalty_points_per_kes REAL NOT NULL DEFAULT 0.01, -- 0 = off in settings; default 0.01 ≈ 1 pt per 100 KES
   created_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
@@ -369,6 +370,7 @@ CREATE TABLE IF NOT EXISTS credit_accounts (
   customer_phone TEXT, -- JSON array of strings, e.g. ["0712…","0733…"]; legacy plain text ok until migrated
   total_credit REAL NOT NULL DEFAULT 0, -- running balance
   wallet_balance REAL NOT NULL DEFAULT 0, -- prepaid store credit (overpayment / top-ups)
+  loyalty_points_balance INTEGER NOT NULL DEFAULT 0,
   last_transaction_at INTEGER,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
@@ -399,6 +401,26 @@ CREATE TABLE IF NOT EXISTS wallet_transactions (
 
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_account ON wallet_transactions(credit_account_id);
 CREATE INDEX IF NOT EXISTS idx_wallet_transactions_sale ON wallet_transactions(sale_id);
+
+-- ============================================
+-- 14c. loyalty_transactions (earn / redeem / adjust)
+-- ============================================
+CREATE TABLE IF NOT EXISTS loyalty_transactions (
+  id TEXT PRIMARY KEY,
+  credit_account_id TEXT NOT NULL,
+  sale_id TEXT,
+  type TEXT NOT NULL CHECK (type IN ('earn', 'redeem', 'adjust')),
+  points INTEGER NOT NULL,
+  notes TEXT,
+  recorded_by TEXT NOT NULL,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  FOREIGN KEY (credit_account_id) REFERENCES credit_accounts(id) ON DELETE CASCADE,
+  FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE SET NULL,
+  FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE RESTRICT
+);
+
+CREATE INDEX IF NOT EXISTS idx_loyalty_transactions_account ON loyalty_transactions(credit_account_id);
+CREATE INDEX IF NOT EXISTS idx_loyalty_transactions_sale ON loyalty_transactions(sale_id);
 
 CREATE INDEX IF NOT EXISTS idx_credit_accounts_business_id ON credit_accounts(business_id);
 CREATE INDEX IF NOT EXISTS idx_credit_accounts_phone ON credit_accounts(business_id, customer_phone);

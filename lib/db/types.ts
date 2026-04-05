@@ -23,6 +23,8 @@ export interface Business {
   timezone: string;
   settings: string | null; // JSON stored as string
   active: number; // 1 = active, 0 = suspended
+  /** Points per 1 KES of sale total when customer linked; 0 disables earning */
+  loyalty_points_per_kes?: number;
   created_at: number; // Unix timestamp
 }
 
@@ -248,6 +250,8 @@ export interface CreditAccount {
   total_credit: number;
   /** Prepaid store balance (usable at checkout; credited on cash overpayment when customer is linked) */
   wallet_balance: number;
+  /** Loyalty points balance (earn on linked sales when business earn rate is set) */
+  loyalty_points_balance?: number;
   last_transaction_at: number | null;
   created_at: number;
   /** Sum of all debt transactions; set when loaded from the credits list API */
@@ -272,6 +276,19 @@ export interface CreditTransaction {
   public_claim_status?: 'pending' | 'rejected' | null;
   claim_reviewed_at?: number | null;
   claim_reviewed_by?: string | null;
+}
+
+export type LoyaltyTransactionType = 'earn' | 'redeem' | 'adjust';
+
+export interface LoyaltyTransaction {
+  id: string;
+  credit_account_id: string;
+  sale_id: string | null;
+  type: LoyaltyTransactionType;
+  points: number;
+  notes: string | null;
+  recorded_by: string;
+  created_at: number;
 }
 
 export interface WalletTransaction {

@@ -169,6 +169,8 @@ export async function getPublicCreditStatusBySlug(
       slugDigits: acc.slugDigits,
       totalCredit,
       walletBalance: acc.walletBalance,
+      loyaltyPointsBalance: acc.loyaltyPointsBalance,
+      loyaltyPointsPerKes: acc.loyaltyPointsPerKes,
       settled: totalCredit <= 0,
       lifetimeDebtTotal,
       debtCount,

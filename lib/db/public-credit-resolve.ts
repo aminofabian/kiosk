@@ -16,6 +16,9 @@ export type ResolvedPublicCreditAccount = {
   customerPhone: string | null;
   totalCredit: number;
   walletBalance: number;
+  loyaltyPointsBalance: number;
+  /** Business earn rate; 0 means points are not earned on sales */
+  loyaltyPointsPerKes: number;
   lastTransactionAt: number | null;
   businessName: string;
   targetNorm: string;
@@ -46,6 +49,8 @@ export async function resolvePublicCreditAccountBySlug(
   const ph = sqlCreditAccountMatchesPhoneDigits('ca.customer_phone', targetNorm);
   let sql = `
     SELECT ca.id, ca.business_id, ca.customer_name, ca.customer_phone, ca.total_credit, ca.wallet_balance,
+           COALESCE(ca.loyalty_points_balance, 0) AS loyalty_points_balance,
+           COALESCE(b.loyalty_points_per_kes, 0) AS loyalty_points_per_kes,
            ca.last_transaction_at,
            b.name AS business_name
     FROM credit_accounts ca
@@ -65,6 +70,8 @@ export async function resolvePublicCreditAccountBySlug(
     customer_phone: string | null;
     total_credit: number;
     wallet_balance: number;
+    loyalty_points_balance: number;
+    loyalty_points_per_kes: number;
     last_transaction_at: number | null;
     business_name: string;
   }>(sql, params);
@@ -90,6 +97,8 @@ export async function resolvePublicCreditAccountBySlug(
       customerPhone: acc.customer_phone,
       totalCredit: Number(acc.total_credit),
       walletBalance: Number(acc.wallet_balance ?? 0),
+      loyaltyPointsBalance: Math.max(0, Math.floor(Number(acc.loyalty_points_balance ?? 0))),
+      loyaltyPointsPerKes: Number(acc.loyalty_points_per_kes ?? 0),
       lastTransactionAt: acc.last_transaction_at,
       businessName: acc.business_name,
       targetNorm,

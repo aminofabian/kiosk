@@ -90,6 +90,11 @@ export async function POST(request: NextRequest) {
       [keepAccountId, ...mergeAccountIds]
     );
 
+    await execute(
+      `UPDATE loyalty_transactions SET credit_account_id = ? WHERE credit_account_id IN (${mergePh})`,
+      [keepAccountId, ...mergeAccountIds]
+    );
+
     const owedRow = await queryOne<{ owed: number; last_ts: number | null }>(
       `SELECT 
         COALESCE(SUM(CASE WHEN type = 'debt' THEN amount ELSE 0 END), 0) -
@@ -108,6 +113,13 @@ export async function POST(request: NextRequest) {
       [auth.businessId, ...allIds]
     );
     const mergedWalletBalance = Number(walletSumRow?.w ?? 0);
+
+    const loyaltySumRow = await queryOne<{ s: number }>(
+      `SELECT COALESCE(SUM(COALESCE(loyalty_points_balance, 0)), 0) AS s
+       FROM credit_accounts WHERE business_id = ? AND id IN (${placeholders})`,
+      [auth.businessId, ...allIds]
+    );
+    const mergedLoyaltyPoints = Math.max(0, Math.floor(Number(loyaltySumRow?.s ?? 0)));
 
     const phoneRows = await query<{ customer_phone: string | null }>(
       `SELECT customer_phone FROM credit_accounts WHERE business_id = ? AND id IN (${placeholders})`,
@@ -150,9 +162,10 @@ export async function POST(request: NextRequest) {
         customer_phone = ?,
         total_credit = ?,
         wallet_balance = ?,
+        loyalty_points_balance = ?,
         last_transaction_at = ?
        WHERE id = ? AND business_id = ?`,
-      [nextName, nextPhoneStored, newBalance, mergedWalletBalance, lastAt, keepAccountId, auth.businessId]
+      [nextName, nextPhoneStored, newBalance, mergedWalletBalance, mergedLoyaltyPoints, lastAt, keepAccountId, auth.businessId]
     );
 
     const delPh = mergeAccountIds.map(() => '?').join(',');

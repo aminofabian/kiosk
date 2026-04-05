@@ -1,4 +1,5 @@
 import { execute } from './index';
+import { DEFAULT_LOYALTY_POINTS_PER_KES } from '@/lib/utils/loyalty-points';
 import type { UnitType } from '@/lib/constants';
 
 // Simple UUID generator (for seeding, we don't need crypto.randomUUID)
@@ -20,9 +21,9 @@ export async function seedDatabase() {
     const businessId = generateUUID();
     console.log('Creating business...');
     await execute(
-      `INSERT INTO businesses (id, name, currency, timezone, created_at) 
-       VALUES (?, ?, ?, ?, ?)`,
-      [businessId, 'Demo Grocery Store', 'KES', 'Africa/Nairobi', now]
+      `INSERT INTO businesses (id, name, currency, timezone, loyalty_points_per_kes, created_at) 
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [businessId, 'Demo Grocery Store', 'KES', 'Africa/Nairobi', DEFAULT_LOYALTY_POINTS_PER_KES, now]
     );
     console.log(`✓ Created business: ${businessId}`);
 

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { query, execute, queryOne } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
+import { DEFAULT_LOYALTY_POINTS_PER_KES } from '@/lib/utils/loyalty-points';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireSuperAdmin, isAuthResponse } from '@/lib/auth/api-auth';
 import bcrypt from 'bcryptjs';
@@ -79,9 +80,16 @@ export async function POST(request: NextRequest) {
 
     // Create business
     await execute(
-      `INSERT INTO businesses (id, name, currency, timezone, active, created_at)
-       VALUES (?, ?, ?, ?, 1, ?)`,
-      [businessId, name.trim(), currency || 'KES', timezone || 'Africa/Nairobi', now]
+      `INSERT INTO businesses (id, name, currency, timezone, active, loyalty_points_per_kes, created_at)
+       VALUES (?, ?, ?, ?, 1, ?, ?)`,
+      [
+        businessId,
+        name.trim(),
+        currency || 'KES',
+        timezone || 'Africa/Nairobi',
+        DEFAULT_LOYALTY_POINTS_PER_KES,
+        now,
+      ]
     );
 
     // Create owner user

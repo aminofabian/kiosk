@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { query, queryOne, execute } from '@/lib/db';
+import { reverseLoyaltyForVoidedSale } from '@/lib/db/loyalty';
 import type { Sale, SaleItem } from '@/lib/db/types';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
@@ -211,6 +212,8 @@ export async function PATCH(
     if (walletRows.length > 0) {
       await execute(`DELETE FROM wallet_transactions WHERE sale_id = ?`, [saleId]);
     }
+
+    await reverseLoyaltyForVoidedSale(saleId, auth.businessId);
 
     // 3. Reverse shift expected_closing_cash for cash portion
     let cashAmount = 0;

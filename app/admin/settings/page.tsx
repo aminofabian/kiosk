@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { apiGet, apiPatch } from '@/lib/utils/api-client';
 import { toast } from 'sonner';
-import { Settings, Loader2, Plus, Trash2, GripVertical, Tag, Palette } from 'lucide-react';
+import { Settings, Loader2, Plus, Trash2, GripVertical, Tag, Palette, Gift } from 'lucide-react';
 import type { ProductTypeConfig } from '@/lib/types/product-types';
 
 type ProductType = ProductTypeConfig;
@@ -35,13 +35,21 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newType, setNewType] = useState<ProductTypeConfig>(DEFAULT_NEW_TYPE);
+  const [loyaltyPointsPerKesInput, setLoyaltyPointsPerKesInput] = useState('0');
+  const [loyaltySaving, setLoyaltySaving] = useState(false);
 
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const res = await apiGet<{ productTypes: ProductType[] }>('/api/settings');
-      if (res.success && res.data?.productTypes) {
-        setProductTypes(res.data.productTypes);
+      const res = await apiGet<{
+        productTypes: ProductType[];
+        loyaltyPointsPerKes?: number;
+      }>('/api/settings');
+      if (res.success && res.data) {
+        if (res.data.productTypes) setProductTypes(res.data.productTypes);
+        if (res.data.loyaltyPointsPerKes !== undefined) {
+          setLoyaltyPointsPerKesInput(String(res.data.loyaltyPointsPerKes));
+        }
       }
     } catch (e) {
       console.error(e);
@@ -124,6 +132,32 @@ export default function AdminSettingsPage() {
     handleSave(next);
   };
 
+  const handleSaveLoyalty = async () => {
+    const raw = loyaltyPointsPerKesInput.trim().replace(',', '.');
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0 || n > 5) {
+      toast.error('Rate must be a number from 0 (off) up to 5 points per KES');
+      return;
+    }
+    setLoyaltySaving(true);
+    try {
+      const res = await apiPatch<{ loyaltyPointsPerKes: number }>('/api/settings', {
+        loyaltyPointsPerKes: n,
+      });
+      if (res.success && res.data?.loyaltyPointsPerKes !== undefined) {
+        setLoyaltyPointsPerKesInput(String(res.data.loyaltyPointsPerKes));
+        toast.success('Loyalty rate saved');
+      } else {
+        toast.error(res.message || 'Failed to save');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to save loyalty rate');
+    } finally {
+      setLoyaltySaving(false);
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="min-h-screen px-3 py-4 sm:px-4 md:px-6 lg:px-8">
@@ -141,6 +175,64 @@ export default function AdminSettingsPage() {
               </p>
             </div>
           </div>
+
+          <Card className="mb-6 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <CardHeader className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Gift className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                Loyalty points
+              </CardTitle>
+              <CardDescription>
+                When a sale is linked to a customer (credit tab, split credit, or wallet-linked phone),
+                they earn points: <span className="font-mono text-slate-700 dark:text-slate-300">floor(sale total × rate)</span>.
+                Example: rate <span className="font-mono">0.01</span> → 100 KES = 1 point. Set to{' '}
+                <span className="font-mono">0</span> to turn earning off.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6">
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-7 h-7 animate-spin text-[#1c6a1e]" />
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+                  <div className="flex-1 space-y-2">
+                    <Label htmlFor="loyalty-rate">Points per 1 KES</Label>
+                    <Input
+                      id="loyalty-rate"
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      max={5}
+                      step="0.0001"
+                      value={loyaltyPointsPerKesInput}
+                      onChange={(e) => setLoyaltyPointsPerKesInput(e.target.value)}
+                      className="h-10 max-w-xs font-mono text-sm"
+                      placeholder="0.01"
+                    />
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Allowed range: 0–5. Customers see their balance on the public credit status page.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    disabled={loyaltySaving}
+                    className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white shrink-0"
+                    onClick={() => void handleSaveLoyalty()}
+                  >
+                    {loyaltySaving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Saving…
+                      </>
+                    ) : (
+                      'Save rate'
+                    )}
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <Card className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
             <CardHeader className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">

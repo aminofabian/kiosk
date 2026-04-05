@@ -469,6 +469,20 @@ export async function runMigrations() {
       console.error('⚠ wallet_transactions public claim migration skipped:', error);
     }
 
+    try {
+      const { migrateLoyalty } = await import('./migrate-loyalty');
+      await migrateLoyalty();
+    } catch (error) {
+      console.error('⚠ loyalty migration skipped:', error);
+    }
+
+    try {
+      const { migrateLoyaltyDefaultEnable } = await import('./migrate-loyalty-default-enable');
+      await migrateLoyaltyDefaultEnable();
+    } catch (error) {
+      console.error('⚠ loyalty default rate migration skipped:', error);
+    }
+
     console.log('✅ Migration completed successfully!');
     return true;
   } catch (error) {

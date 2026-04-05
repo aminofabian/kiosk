@@ -10,7 +10,6 @@ import {
   Plus,
   Store,
   Wallet,
-  Sparkles,
   TrendingDown,
   Banknote,
   ShoppingBag,
@@ -37,6 +36,7 @@ import {
   PUBLIC_WALLET_TOPUP_MAX_KES,
   PUBLIC_WALLET_TOPUP_MIN_KES,
 } from '@/lib/constants/public-wallet-topup';
+import { loyaltyPointsEarned } from '@/lib/utils/loyalty-points';
 
 function formatKes(n: number) {
   return `KES ${Math.round(n).toLocaleString('en-KE')}`;
@@ -59,8 +59,6 @@ const SECTION_LABEL =
 const DIALOG_SHELL =
   'gap-0 overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-0 shadow-2xl ring-1 ring-slate-900/[0.04] dark:border-slate-700 dark:bg-slate-950 dark:ring-white/[0.06] sm:max-w-md';
 
-type ComingSoonKind = 'loyalty' | null;
-
 const WALLET_TOPUP_PRESETS_KES = [100, 200, 500, 1000, 2000, 5000] as const;
 
 export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
@@ -70,7 +68,6 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
   const [payOpen, setPayOpen] = useState(false);
   const [payMethod, setPayMethod] = useState<'mpesa' | 'cash'>('mpesa');
   const [paySubmitting, setPaySubmitting] = useState(false);
-  const [comingSoon, setComingSoon] = useState<ComingSoonKind>(null);
   const [itemsOpen, setItemsOpen] = useState(false);
   const [stkOpen, setStkOpen] = useState(false);
   const [stkStep, setStkStep] = useState<'form' | 'waiting' | 'failed'>('form');
@@ -363,6 +360,10 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
         : 0;
   const progressDeg = paidPortion * 360;
 
+  const loyaltyPts = data.loyaltyPointsBalance ?? 0;
+  const loyaltyRate = data.loyaltyPointsPerKes ?? 0;
+  const loyaltyExample100 = loyaltyPointsEarned(100, loyaltyRate);
+
   const recordPaymentButtonClass = cn(
     'w-full gap-2.5 rounded-2xl border-2 border-emerald-400/90 border-b-emerald-700/30 dark:border-emerald-400/50',
     'bg-gradient-to-b from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 active:from-emerald-700 active:to-emerald-800',
@@ -375,34 +376,6 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
     'shadow-md shadow-emerald-900/[0.06] hover:border-emerald-600 hover:bg-emerald-50/90 hover:shadow-lg',
     'dark:border-emerald-500/70 dark:bg-emerald-950/40 dark:text-emerald-100 dark:hover:bg-emerald-950/70',
     'active:scale-[0.99] transition-all duration-150'
-  );
-
-  const ComingSoonModal = (
-    <Dialog open={comingSoon !== null} onOpenChange={(o) => !o && setComingSoon(null)}>
-      <DialogContent className={cn(DIALOG_SHELL, 'p-6 pt-8')}>
-        <DialogHeader className="space-y-2 text-left">
-          <DialogTitle className="flex items-center gap-3 text-lg font-semibold tracking-tight">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-950/60">
-              <Sparkles className="h-5 w-5 text-amber-600 dark:text-amber-400" aria-hidden />
-            </span>
-            Coming soon
-          </DialogTitle>
-          <DialogDescription className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-            {comingSoon === 'loyalty' && (
-              <>
-                <strong>Loyalty points</strong>, tiers, and member perks are on the way. You&apos;ll
-                earn on purchases and unlock rewards here.
-              </>
-            )}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter className="border-t border-slate-100 bg-slate-50/80 px-6 py-4 dark:border-slate-800 dark:bg-slate-900/50">
-          <Button type="button" className="w-full rounded-xl sm:w-auto" onClick={() => setComingSoon(null)}>
-            Got it
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 
   const PayModal = (
@@ -1086,25 +1059,41 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-100 dark:bg-rose-950/50">
                     <Gift className="h-5 w-5 text-rose-700 dark:text-rose-300" aria-hidden />
                   </div>
-                  <span className="rounded-full border border-rose-200/60 bg-white/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300">
-                    Soon
+                  <span
+                    className={cn(
+                      'rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
+                      loyaltyRate > 0
+                        ? 'border-emerald-200/80 bg-emerald-50/90 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200'
+                        : 'border-slate-200/70 bg-white/80 text-slate-600 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-400'
+                    )}
+                  >
+                    {loyaltyRate > 0 ? 'Earning on' : 'Earning off'}
                   </span>
                 </div>
-                <h2 className="mt-3 text-sm font-semibold text-slate-900 dark:text-white">Loyalty</h2>
-                <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">Points &amp; perks</p>
-                <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                  Rewards and member benefits are on the way.
+                <h2 className="mt-3 text-sm font-semibold text-slate-900 dark:text-white">Loyalty points</h2>
+                <p className="mt-2 text-2xl font-bold tabular-nums tracking-tight text-slate-900 dark:text-white">
+                  {loyaltyPts.toLocaleString('en-KE')}
+                  <span className="ml-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    pts
+                  </span>
                 </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="mt-4 w-full rounded-xl border-rose-200 text-rose-900 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-100 dark:hover:bg-rose-950/40"
-                  onClick={() => setComingSoon('loyalty')}
-                >
-                  <Sparkles className="h-4 w-4" aria-hidden />
-                  Learn more
-                </Button>
+                <p className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+                  {loyaltyRate > 0 ? (
+                    <>
+                      When the store links your tab or wallet at checkout, you earn about{' '}
+                      <span className="font-semibold text-slate-800 dark:text-slate-200 tabular-nums">
+                        {loyaltyExample100}
+                      </span>{' '}
+                      point{loyaltyExample100 === 1 ? '' : 's'} per {formatKes(100)} spent (whole points only; exact
+                      total depends on each sale).
+                    </>
+                  ) : (
+                    <>
+                      This store has not enabled point earning yet. Your balance stays on file for when they turn it
+                      on.
+                    </>
+                  )}
+                </p>
               </div>
             </div>
           </section>
@@ -1139,8 +1128,9 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
             <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
               This page reflects the tab balance and store wallet we have on file for the number in your link. M-Pesa
               prompt checkout is provided when the store has online payments configured. Recording a payment manually
-              sends a claim to the store; your tab balance updates after they approve it.               You can also record a wallet top-up you already made (amount and M-Pesa code) for staff to approve.
-              Loyalty perks will appear here when available.
+              sends a claim to the store; your tab balance updates after they approve it. You can also record a wallet
+              top-up you already made (amount and M-Pesa code) for staff to approve. Loyalty points accrue when the
+              store links you at checkout and has earning turned on in settings.
             </p>
           </footer>
         </div>
@@ -1435,7 +1425,6 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
 
       {PayModal}
       {WalletClaimModal}
-      {ComingSoonModal}
     </div>
   );
 }

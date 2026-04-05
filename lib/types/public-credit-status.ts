@@ -22,6 +22,10 @@ export type PublicCreditStatusPayload = {
   totalCredit: number;
   /** Prepaid store balance (usable at checkout; e.g. cash overpayment credited to wallet). */
   walletBalance: number;
+  /** Current loyalty points for this customer at this store */
+  loyaltyPointsBalance: number;
+  /** Store earn rate (points per 1 KES of sale when customer is linked at checkout); 0 = earning off */
+  loyaltyPointsPerKes: number;
   settled: boolean;
   lifetimeDebtTotal: number;
   debtCount: number;

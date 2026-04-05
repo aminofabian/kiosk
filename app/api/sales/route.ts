@@ -11,6 +11,7 @@ import {
   sqlCreditAccountMatchesPhoneDigits,
 } from '@/lib/utils/credit-phones';
 import type { Sale } from '@/lib/db/types';
+import { awardLoyaltyPointsForSale } from '@/lib/db/loyalty';
 
 const EPS = 0.01;
 
@@ -201,6 +202,9 @@ export async function POST(request: NextRequest) {
     }
 
     const amountDue = roundMoney(Math.max(0, totalAmount - walletAmountApplied));
+
+    /** Credit account to earn loyalty for this sale (linked customer on tab, split credit, or wallet customer). */
+    let loyaltyEarnAccountId: string | null = null;
 
     if (
       !fromEdit &&
@@ -598,7 +602,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Handle credit account creation if payment is credit or split with credit
-    const handleCreditPayment = async (creditCustomerName: string, creditCustomerPhone: string | null, creditAmount: number) => {
+    const handleCreditPayment = async (
+      creditCustomerName: string,
+      creditCustomerPhone: string | null,
+      creditAmount: number
+    ): Promise<string> => {
       // Match by normalized phone first; fallback to name-only records if no phone provided
       const trimmedName = creditCustomerName.trim();
       const nameForStorage = toProperCustomerName(creditCustomerName);
@@ -674,6 +682,8 @@ export async function POST(request: NextRequest) {
           now,
         ]
       );
+
+      return creditAccountId;
     };
 
     // Add debt to an existing credit account by ID
@@ -697,11 +707,16 @@ export async function POST(request: NextRequest) {
     // Handle credit for regular credit payment (amount owed after wallet applied)
     if (paymentMethod === 'credit') {
       if (creditAccountId) {
+        loyaltyEarnAccountId = creditAccountId;
         if (amountDue > EPS) {
           await addDebtToExistingAccount(creditAccountId, amountDue);
         }
       } else if (customerName && amountDue > EPS) {
-        await handleCreditPayment(customerName, customerPhone || null, amountDue);
+        loyaltyEarnAccountId = await handleCreditPayment(
+          customerName,
+          customerPhone || null,
+          amountDue
+        );
       }
     }
 
@@ -739,7 +754,7 @@ export async function POST(request: NextRequest) {
           );
         }
 
-        await handleCreditPayment(
+        loyaltyEarnAccountId = await handleCreditPayment(
           existingByPhone?.customer_name || splitCreditName,
           splitCreditPhone,
           creditPayment.amount
@@ -785,6 +800,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!loyaltyEarnAccountId && walletCreditAccountIdRaw) {
+      loyaltyEarnAccountId = walletCreditAccountIdRaw;
+    }
+
+    let loyaltyPointsAwarded = 0;
+    if (!fromEdit && loyaltyEarnAccountId) {
+      const lr = await awardLoyaltyPointsForSale({
+        businessId: auth.businessId,
+        creditAccountId: loyaltyEarnAccountId,
+        saleId,
+        totalAmountKes: totalAmount,
+        recordedByUserId: auth.userId,
+      });
+      loyaltyPointsAwarded = lr.awarded;
+    }
+
     return jsonResponse({
       success: true,
       message: 'Sale completed successfully',
@@ -794,6 +825,7 @@ export async function POST(request: NextRequest) {
         amountDue,
         walletAmountApplied,
         excessCreditedToWallet: excessToWallet,
+        loyaltyPointsAwarded,
         change:
           paymentMethod === 'cash' && (cashReceivedNum > 0 || amountDue < EPS)
             ? roundMoney(Math.max(0, cashReceivedNum - amountDue - excessToWallet))

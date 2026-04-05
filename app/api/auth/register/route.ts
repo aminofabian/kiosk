@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { execute, queryOne } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
+import { DEFAULT_LOYALTY_POINTS_PER_KES } from '@/lib/utils/loyalty-points';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 
 const SALT_ROUNDS = 12;
@@ -49,9 +50,9 @@ export async function POST(request: NextRequest) {
 
     // Create business
     await execute(
-      `INSERT INTO businesses (id, name, currency, timezone, created_at) 
-       VALUES (?, ?, ?, ?, ?)`,
-      [businessId, businessName, 'KES', 'Africa/Nairobi', now]
+      `INSERT INTO businesses (id, name, currency, timezone, loyalty_points_per_kes, created_at) 
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [businessId, businessName, 'KES', 'Africa/Nairobi', DEFAULT_LOYALTY_POINTS_PER_KES, now]
     );
 
     // Create owner user

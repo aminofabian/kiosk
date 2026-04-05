@@ -40,6 +40,7 @@ import {
   Trash2,
   Link2,
   Clock,
+  Gift,
 } from 'lucide-react';
 import type { CreditAccount, CreditTransaction, SaleItem } from '@/lib/db/types';
 import { PaymentForm } from './PaymentForm';
@@ -1373,6 +1374,15 @@ export function CreditList() {
                         </p>
                         <p className="text-sm sm:text-lg font-bold text-violet-100 tabular-nums leading-tight">
                           {formatPrice(accountWalletBalance(selectedAccount))}
+                        </p>
+                      </div>
+                      <div className="pt-1 border-t border-white/10">
+                        <p className="text-[9px] font-semibold uppercase tracking-wide text-rose-200/90 flex items-center gap-1">
+                          <Gift className="h-3 w-3 opacity-90 shrink-0" aria-hidden />
+                          Loyalty
+                        </p>
+                        <p className="text-sm sm:text-lg font-bold text-rose-50 tabular-nums leading-tight">
+                          {(selectedAccount.loyalty_points_balance ?? 0).toLocaleString('en-KE')} pts
                         </p>
                       </div>
                     </div>
