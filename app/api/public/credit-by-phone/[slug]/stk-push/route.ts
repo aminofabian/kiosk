@@ -7,21 +7,11 @@ export async function OPTIONS() {
 }
 
 /**
- * Public: start Pesapal hosted checkout / M-Pesa prompt for the current credit balance.
- * Body (optional): { "phone": "0712…" } — required if the account has no phone on file.
+ * Public: start Pesapal hosted M-Pesa checkout for the current credit balance (same flow as POS checkout).
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   try {
     const { slug } = await params;
-    let phone: string | null = null;
-    try {
-      const body = await request.json();
-      if (body && typeof body.phone === 'string') {
-        phone = body.phone.trim() || null;
-      }
-    } catch {
-      /* empty body */
-    }
 
     const origin = request.headers.get('origin') || request.headers.get('host') || '';
     const protocol = origin.includes('localhost') ? 'http' : 'https';
@@ -29,7 +19,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const result = await initiatePublicCreditStkPush(slug, {
       callbackBaseUrl,
-      phoneNumber: phone,
     });
 
     if (!result.ok) {
@@ -41,7 +30,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         nothing_owed: { status: 400, message: result.message },
         not_configured: { status: 503, message: result.message },
         pesapal_error: { status: 502, message: result.message },
-        phone_required: { status: 400, message: result.message },
       };
       const m = map[result.code] ?? { status: 400, message: result.message };
       return jsonResponse({ success: false, message: m.message, code: result.code }, m.status);

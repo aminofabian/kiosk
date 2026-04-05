@@ -8,11 +8,8 @@ import {
   isPaymentFailed,
   isPesapalStkConfigured,
   submitOrderRequest,
-  formatPhoneNumber,
   getPaymentStatusMessage,
 } from '@/lib/pesapal';
-import { parseCreditPhones } from '@/lib/utils/credit-phones';
-import { customerFirstName } from '@/lib/utils/credit-public-slug';
 import { generateUUID } from '@/lib/utils/uuid';
 async function pickAttributionUserId(businessId: string): Promise<string | null> {
   const row = await queryOne<{ id: string }>(
@@ -26,22 +23,10 @@ async function pickAttributionUserId(businessId: string): Promise<string | null>
   return row?.id ?? null;
 }
 
-function firstPhoneForBilling(customerPhone: string | null): string | null {
-  const phones = parseCreditPhones(customerPhone);
-  if (phones.length === 0) return null;
-  try {
-    return formatPhoneNumber(phones[0]);
-  } catch {
-    return null;
-  }
-}
-
 export async function initiatePublicCreditStkPush(
   slugParam: string,
   opts: {
     callbackBaseUrl: string;
-    /** Optional override; otherwise first number on the credit account is used for the prompt. */
-    phoneNumber?: string | null;
   }
 ): Promise<
   | {
@@ -75,35 +60,24 @@ export async function initiatePublicCreditStkPush(
     return { ok: false, code: resolved.code, message: msg };
   }
 
-  const { accountId, businessId, customerName, customerPhone, totalCredit } = resolved.data;
+  const { accountId, businessId, customerName, totalCredit } = resolved.data;
   const amount = Number(totalCredit);
 
   if (amount <= 0) {
     return { ok: false, code: 'nothing_owed', message: 'There is no balance to pay' };
   }
 
-  const phoneRaw = opts.phoneNumber?.trim() || firstPhoneForBilling(customerPhone);
-  if (!phoneRaw) {
-    return {
-      ok: false,
-      code: 'phone_required',
-      message: 'Enter the Safaricom number that should receive the M-Pesa prompt.',
-    };
-  }
-
-  const firstName = customerFirstName(customerName);
   const merchantReference = `PC-${generateUUID().replace(/-/g, '').slice(0, 16).toUpperCase()}`;
   const callbackUrl = `${opts.callbackBaseUrl.replace(/\/$/, '')}/api/pesapal/callback`;
 
   let orderResult: Awaited<ReturnType<typeof submitOrderRequest>>;
   try {
+    // Same as POS checkout: no billing phone — customer completes M-Pesa on Pesapal's hosted page.
     orderResult = await submitOrderRequest({
       merchantReference,
       amount,
       description: `Credit balance · ${customerName}`.slice(0, 120),
       callbackUrl,
-      phoneNumber: phoneRaw ?? undefined,
-      firstName: firstName || undefined,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Could not start payment';

@@ -29,6 +29,4 @@ export type PublicCreditStatusPayload = {
   debtDetails: PublicCreditDebtEntry[];
   /** Pesapal STK / hosted checkout is configured (M-Pesa prompt button can be shown). */
   pesapalPromptAvailable: boolean;
-  /** Account has a phone on file to pre-target the M-Pesa prompt; if false, customer should enter a number. */
-  stkPromptHasStoredPhone: boolean;
 };

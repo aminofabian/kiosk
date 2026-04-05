@@ -17,8 +17,6 @@ import {
   Smartphone,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -65,7 +63,6 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
   const [itemsOpen, setItemsOpen] = useState(false);
   const [stkOpen, setStkOpen] = useState(false);
   const [stkStep, setStkStep] = useState<'form' | 'waiting' | 'failed'>('form');
-  const [stkPhone, setStkPhone] = useState('');
   const [stkSubmitting, setStkSubmitting] = useState(false);
   const [stkOrderId, setStkOrderId] = useState<string | null>(null);
   const [stkFailMessage, setStkFailMessage] = useState<string | null>(null);
@@ -128,7 +125,6 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
 
   const resetStk = useCallback(() => {
     setStkStep('form');
-    setStkPhone('');
     setStkOrderId(null);
     setStkFailMessage(null);
     setStkSubmitting(false);
@@ -139,21 +135,11 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
     setStkSubmitting(true);
     setStkFailMessage(null);
     try {
-      if (!data.stkPromptHasStoredPhone && !stkPhone.trim()) {
-        toast.error('Enter the M-Pesa phone number that should get the payment prompt.');
-        return;
-      }
       const enc = encodeURIComponent(phoneSlug);
-      const body: { phone?: string } = {};
-      if (!data.stkPromptHasStoredPhone) {
-        body.phone = stkPhone.trim();
-      } else if (stkPhone.trim()) {
-        body.phone = stkPhone.trim();
-      }
       const res = await fetch(`/api/public/credit-by-phone/${enc}/stk-push`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({}),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
@@ -179,7 +165,7 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
     } finally {
       setStkSubmitting(false);
     }
-  }, [data, phoneSlug, stkPhone]);
+  }, [data, phoneSlug]);
 
   useEffect(() => {
     if (!stkOpen || stkStep !== 'waiting' || !stkOrderId) return;
@@ -830,7 +816,7 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
                   ? 'Complete the payment in the window that opened (or use the link). This page checks automatically when M-Pesa confirms.'
                   : stkStep === 'failed'
                     ? stkFailMessage || 'The payment did not go through. You can try again or pay at the store.'
-                    : `Amount due: ${formatKes(data.totalCredit)}. You will get a secure M-Pesa checkout to pay this balance.`}
+                    : `Amount due: ${formatKes(data.totalCredit)}. A secure window will open — enter your M-Pesa details there, same as paying at the till.`}
               </DialogDescription>
           </DialogHeader>
           </div>
@@ -845,31 +831,10 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
                   {formatKes(data.totalCredit)}
                 </p>
               </div>
-              {data.stkPromptHasStoredPhone ? (
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  The prompt will be sent to the phone number we have on file for this account. Enter a different Safaricom
-                  number below only if you want the prompt on another line.
-                </p>
-              ) : (
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  Enter the Safaricom number that should receive the M-Pesa payment prompt (07… or 254…).
-                </p>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="stk-mpesa-phone" className="text-xs font-medium text-slate-600 dark:text-slate-400">
-                  {data.stkPromptHasStoredPhone ? 'Different M-Pesa number (optional)' : 'M-Pesa phone number'}
-                </Label>
-                <Input
-                  id="stk-mpesa-phone"
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  placeholder={data.stkPromptHasStoredPhone ? 'Leave blank to use number on file' : 'e.g. 0712345678'}
-                  value={stkPhone}
-                  onChange={(e) => setStkPhone(e.target.value)}
-                  className="h-11 rounded-xl border-slate-200 bg-white dark:border-slate-600 dark:bg-slate-900"
-                />
-              </div>
+              <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
+                Tap continue to open Pesapal&apos;s payment window. Enter your Safaricom number there to get the M-Pesa
+                prompt — we don&apos;t collect your number on this page.
+              </p>
             </div>
           )}
 

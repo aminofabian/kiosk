@@ -95,7 +95,6 @@ export async function getPublicCreditStatusBySlug(
   const acc = resolved.data;
   const phones = parseCreditPhones(acc.customerPhone);
   const pesapalPromptAvailable = isPesapalStkConfigured();
-  const stkPromptHasStoredPhone = phones.length > 0;
 
   const stats = await queryOne<{
     lifetime_debt: number;
@@ -133,7 +132,6 @@ export async function getPublicCreditStatusBySlug(
       lastActivityAt: acc.lastTransactionAt,
       debtDetails,
       pesapalPromptAvailable,
-      stkPromptHasStoredPhone,
     },
   };
 }
