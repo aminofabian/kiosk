@@ -627,7 +627,6 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
 
   const pendingWalletApprovals = data.pendingWalletApprovals ?? [];
   const showPayButtons = !data.settled && data.pendingPaymentApprovals.length === 0;
-  const mobileStickyDouble = showPayButtons && data.pesapalPromptAvailable;
   const pendingTotalKes = data.pendingPaymentApprovals.reduce((s, p) => s + p.amount, 0);
   const pendingWalletTotalKes = pendingWalletApprovals.reduce((s, p) => s + p.amount, 0);
   const anyPendingApproval =
@@ -637,11 +636,11 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
     <div
       className={cn(
         'relative min-h-[100dvh] overflow-x-hidden bg-gradient-to-b from-slate-100 via-white to-emerald-50/35 dark:from-slate-950 dark:via-slate-950 dark:to-emerald-950/20 sm:pb-10',
-        showPayButtons && mobileStickyDouble
-          ? 'pb-[calc(10.5rem+env(safe-area-inset-bottom))]'
+        showPayButtons && data.pesapalPromptAvailable
+          ? 'max-sm:pb-[calc(15rem+env(safe-area-inset-bottom))]'
           : showPayButtons
-            ? 'pb-[calc(5.25rem+env(safe-area-inset-bottom))]'
-            : 'pb-8'
+            ? 'max-sm:pb-[calc(12rem+env(safe-area-inset-bottom))]'
+            : 'max-sm:pb-[calc(10.75rem+env(safe-area-inset-bottom))]'
       )}
     >
       <div
@@ -1002,7 +1001,7 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
                     ? 'Pay instantly with M-Pesa, or record a payment you already made (amount + confirmation code) for staff to approve.'
                     : 'Record a top-up you already made for staff to approve, or ask them to add money at the store.'}
                 </p>
-                <div className="mt-4 flex w-full min-w-0 flex-col gap-2.5">
+                <div className="mt-4 hidden w-full min-w-0 flex-col gap-2.5 sm:flex">
                   <Button
                     type="button"
                     variant="outline"
@@ -1047,6 +1046,9 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
                     Record top-up
                   </Button>
                 </div>
+                <p className="mt-3 text-[11px] leading-snug text-slate-500 dark:text-slate-400 sm:hidden">
+                  Add money, record a wallet top-up, and pay your tab from the bar fixed at the bottom of this screen.
+                </p>
               </div>
 
               <div
@@ -1136,30 +1138,113 @@ export function CustomerCreditPublicView({ phoneSlug }: { phoneSlug: string }) {
         </div>
       </main>
 
-      {showPayButtons && (
-        <div className="fixed bottom-0 left-0 right-0 z-30 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 sm:hidden">
-          <div className="rounded-2xl border border-slate-200/90 bg-white/95 p-3 shadow-[0_-8px_32px_-4px_rgba(15,23,42,0.12)] backdrop-blur-lg dark:border-slate-700 dark:bg-slate-950/95 dark:shadow-black/40">
-            <div className="flex flex-col gap-2">
-            {data.pesapalPromptAvailable && (
-              <Button
-                type="button"
-                size="touch-lg"
-                variant="outline"
-                className={cn(mpesaPromptButtonClass, 'shadow-sm')}
-                onClick={() => openTabStkDialog()}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200/90 bg-white/92 px-3 pt-2 shadow-[0_-12px_40px_-8px_rgba(15,23,42,0.14)] backdrop-blur-xl backdrop-saturate-150 dark:border-slate-700/90 dark:bg-slate-950/92 dark:shadow-black/50 sm:hidden"
+        style={{ paddingBottom: 'max(0.65rem, env(safe-area-inset-bottom))' }}
+        role="region"
+        aria-label="Pay tab and wallet"
+      >
+          {showPayButtons ? (
+            <>
+              <p className="mb-1.5 px-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                Pay credit tab
+              </p>
+              <div
+                className={cn(
+                  'grid gap-2',
+                  data.pesapalPromptAvailable ? 'grid-cols-2' : 'grid-cols-1'
+                )}
               >
-                <Smartphone className="h-5 w-5 shrink-0" aria-hidden />
-                M-Pesa prompt · {formatKes(data.totalCredit)}
-              </Button>
+                {data.pesapalPromptAvailable && (
+                  <Button
+                    type="button"
+                    size="touch-lg"
+                    variant="outline"
+                    className={cn(mpesaPromptButtonClass, 'shadow-sm min-h-[3.25rem] text-sm')}
+                    onClick={() => openTabStkDialog()}
+                  >
+                    <Smartphone className="h-5 w-5 shrink-0" aria-hidden />
+                    <span className="min-w-0 text-left leading-tight">
+                      M-Pesa
+                      <span className="block text-[11px] font-normal opacity-90 tabular-nums">
+                        {formatKes(data.totalCredit)}
+                      </span>
+                    </span>
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  size="touch-lg"
+                  className={cn(recordPaymentButtonClass, 'min-h-[3.25rem] text-sm')}
+                  onClick={() => setPayOpen(true)}
+                >
+                  <Banknote className="h-5 w-5 shrink-0" aria-hidden />
+                  <span className="min-w-0 text-left leading-tight">
+                    Record payment
+                    <span className="block text-[11px] font-normal opacity-95 tabular-nums">
+                      {formatKes(data.totalCredit)}
+                    </span>
+                  </span>
+                </Button>
+              </div>
+              <div className="my-2.5 h-px bg-slate-200/90 dark:bg-slate-700/80" aria-hidden />
+            </>
+          ) : null}
+          <p className="mb-1.5 px-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-violet-700/90 dark:text-violet-300/90">
+            Store wallet
+          </p>
+          <div
+            className={cn(
+              'grid gap-2 pb-0.5',
+              data.pesapalPromptAvailable ? 'grid-cols-2' : 'grid-cols-1'
             )}
-            <Button type="button" size="touch-lg" className={recordPaymentButtonClass} onClick={() => setPayOpen(true)}>
-              <Banknote className="h-6 w-6 shrink-0" aria-hidden />
-              Record payment · {formatKes(data.totalCredit)}
+          >
+            <Button
+              type="button"
+              size="touch-lg"
+              variant="outline"
+              disabled={!data.pesapalPromptAvailable}
+              className={cn(
+                'min-h-[3.25rem] justify-center gap-2 rounded-xl border-2 border-violet-300 bg-violet-50/90 text-sm font-semibold text-violet-900 shadow-sm',
+                'hover:bg-violet-100/90 dark:border-violet-600 dark:bg-violet-950/40 dark:text-violet-100 dark:hover:bg-violet-950/60',
+                'disabled:pointer-events-none disabled:opacity-45'
+              )}
+              onClick={() => {
+                if (!data.pesapalPromptAvailable) {
+                  toast.error(
+                    'M-Pesa checkout is not set up for this store yet. Ask staff to top up your wallet at the till.'
+                  );
+                  return;
+                }
+                setWalletPickInput('');
+                setWalletPickError(null);
+                setWalletPickOpen(true);
+              }}
+            >
+              <Plus className="h-5 w-5 shrink-0" aria-hidden />
+              Add money
             </Button>
-            </div>
+            <Button
+              type="button"
+              size="touch-lg"
+              variant="outline"
+              className={cn(
+                'min-h-[3.25rem] justify-center gap-2 rounded-xl border-2 border-dashed border-violet-400/80 bg-white/95 text-sm font-semibold text-violet-900 shadow-sm',
+                'dark:border-violet-600/70 dark:bg-violet-950/25 dark:text-violet-100'
+              )}
+              onClick={() => {
+                setWalletClaimAmount('');
+                setWalletClaimMpesa('');
+                setWalletClaimNotes('');
+                setWalletClaimMethod('mpesa');
+                setWalletClaimOpen(true);
+              }}
+            >
+              <Banknote className="h-5 w-5 shrink-0" aria-hidden />
+              Record top-up
+            </Button>
           </div>
         </div>
-      )}
 
       <Dialog open={itemsOpen} onOpenChange={setItemsOpen}>
         <DialogContent

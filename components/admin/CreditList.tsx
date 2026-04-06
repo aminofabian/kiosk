@@ -619,7 +619,7 @@ export function CreditList() {
   // ——— Loading ———
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
+      <div className="flex flex-col items-center justify-center py-20 max-md:py-28 touch-manipulation">
         <div className="relative">
           <div className="h-14 w-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
             <Loader2 className="h-7 w-7 text-[#1c6a1e] animate-spin" />
@@ -639,8 +639,8 @@ export function CreditList() {
   // ——— Error ———
   if (error) {
     return (
-      <Card className="border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 overflow-hidden">
-        <CardContent className="p-8">
+      <Card className="border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 overflow-hidden max-md:rounded-3xl">
+        <CardContent className="p-8 max-md:p-6">
           <div className="flex flex-col items-center text-center max-w-sm mx-auto">
             <div className="h-14 w-14 rounded-2xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-4">
               <AlertCircle className="h-7 w-7 text-amber-600 dark:text-amber-400" />
@@ -663,8 +663,8 @@ export function CreditList() {
   // ——— Empty (no accounts at all) ———
   if (accounts.length === 0) {
     return (
-      <Card className="border-emerald-200 dark:border-emerald-900/50 bg-gradient-to-br from-emerald-50/80 to-white dark:from-emerald-950/20 dark:to-[#0f1a0d] overflow-hidden">
-        <CardContent className="p-10 md:p-14">
+        <Card className="border-emerald-200 dark:border-emerald-900/50 bg-gradient-to-br from-emerald-50/80 to-white dark:from-emerald-950/20 dark:to-[#0f1a0d] overflow-hidden max-md:rounded-3xl max-md:border-emerald-200/70">
+        <CardContent className="p-10 md:p-14 max-md:p-8">
           <div className="flex flex-col items-center text-center max-w-md mx-auto">
             <div className="h-20 w-20 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-5 shadow-inner">
               <Sparkles className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
@@ -693,10 +693,10 @@ export function CreditList() {
   const creditorFilterActive = creditorFilter !== 'all';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-md:space-y-4">
       {/* Summary */}
-      <Card className="overflow-hidden border-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-white shadow-xl shadow-slate-900/20">
-        <CardContent className="p-6 md:p-8">
+      <Card className="overflow-hidden border-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-white shadow-xl shadow-slate-900/20 max-md:rounded-3xl max-md:shadow-2xl max-md:shadow-slate-900/35">
+        <CardContent className="p-6 md:p-8 max-md:p-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
             <div>
               {creditView === 'outstanding' ? (
@@ -704,7 +704,7 @@ export function CreditList() {
                   <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                     Total outstanding
                   </p>
-                  <p className="mt-1 text-3xl md:text-4xl font-bold tracking-tight">
+                  <p className="mt-1 text-3xl max-md:text-[2rem] md:text-4xl font-bold tracking-tight tabular-nums">
                     {listEmpty ? formatPrice(0) : formatPrice(totalOutstanding)}
                   </p>
                   <p className="mt-2 text-sm text-slate-400">
@@ -753,8 +753,8 @@ export function CreditList() {
       </Card>
 
       {canManageCreditProfiles && pendingPublicClaims.length > 0 ? (
-        <Card className="overflow-hidden border-2 border-amber-400 bg-gradient-to-br from-amber-50 via-amber-50/90 to-orange-50/70 shadow-lg shadow-amber-900/10 dark:border-amber-600 dark:from-amber-950/50 dark:via-amber-950/40 dark:to-orange-950/25 dark:shadow-black/30">
-          <CardContent className="p-4 sm:p-5">
+        <Card className="overflow-hidden border-2 border-amber-400 bg-gradient-to-br from-amber-50 via-amber-50/90 to-orange-50/70 shadow-lg shadow-amber-900/10 dark:border-amber-600 dark:from-amber-950/50 dark:via-amber-950/40 dark:to-orange-950/25 dark:shadow-black/30 max-md:rounded-3xl max-md:border-amber-300/90">
+          <CardContent className="p-4 sm:p-5 max-md:p-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex gap-3 min-w-0">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-md shadow-amber-900/25 dark:bg-amber-600">
@@ -868,16 +868,16 @@ export function CreditList() {
       ) : null}
 
       {/* View toggle + Search + Sort */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-3 max-md:gap-3.5 touch-manipulation">
         <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
-          <div className="flex rounded-lg bg-slate-100 dark:bg-slate-800/80 p-1 gap-0.5 w-full sm:w-auto">
+          <div className="flex rounded-2xl max-md:p-1.5 bg-slate-100/95 dark:bg-slate-800/90 p-1 gap-1 w-full sm:w-auto ring-1 ring-slate-200/60 dark:ring-slate-700/80">
             <button
               type="button"
               onClick={() => setCreditView('outstanding')}
               className={cn(
-                'flex-1 sm:flex-none px-3 py-2 rounded-md text-xs font-medium transition-colors',
+                'flex-1 sm:flex-none px-3 max-md:min-h-11 max-md:rounded-xl py-2 rounded-md text-xs font-semibold transition-all active:scale-[0.98]',
                 creditView === 'outstanding'
-                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-600/60'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               )}
             >
@@ -888,9 +888,9 @@ export function CreditList() {
               type="button"
               onClick={() => setCreditView('paid')}
               className={cn(
-                'flex-1 sm:flex-none px-3 py-2 rounded-md text-xs font-medium transition-colors',
+                'flex-1 sm:flex-none px-3 max-md:min-h-11 max-md:rounded-xl py-2 rounded-md text-xs font-semibold transition-all active:scale-[0.98]',
                 creditView === 'paid'
-                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-600/60'
                   : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               )}
             >
@@ -908,10 +908,10 @@ export function CreditList() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={cn(
-                'w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50',
-                'pl-10 pr-4 py-3 text-sm placeholder:text-slate-400',
+                'w-full rounded-2xl max-md:min-h-[3rem] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50',
+                'pl-10 pr-4 py-3 max-md:py-3 max-md:text-base text-sm placeholder:text-slate-400',
                 'focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]',
-                'transition-colors'
+                'transition-colors shadow-sm'
               )}
             />
           </div>
@@ -924,10 +924,10 @@ export function CreditList() {
               aria-label="Filter by creditor"
               title="Accounts whose latest credit entry was recorded by this staff member"
               className={cn(
-                'w-full appearance-none rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50',
-                'pl-10 pr-10 py-3 text-sm text-slate-900 dark:text-white',
+                'w-full appearance-none rounded-2xl max-md:min-h-[3rem] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50',
+                'pl-10 pr-10 py-3 max-md:text-base text-sm text-slate-900 dark:text-white',
                 'focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]',
-                'transition-colors cursor-pointer'
+                'transition-colors cursor-pointer shadow-sm'
               )}
             >
               <option value="all">All creditors</option>
@@ -941,18 +941,18 @@ export function CreditList() {
               ))}
             </select>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <ArrowUpDown className="h-4 w-4 text-slate-400 hidden sm:block" />
-            <div className="flex rounded-lg bg-slate-100 dark:bg-slate-800/80 p-1 gap-0.5">
+          <div className="flex items-center gap-2 shrink-0 min-w-0">
+            <ArrowUpDown className="h-4 w-4 text-slate-400 hidden sm:block shrink-0" />
+            <div className="flex rounded-2xl max-md:p-1 bg-slate-100/95 dark:bg-slate-800/90 p-1 gap-1 max-md:w-full max-md:overflow-x-auto max-md:scrollbar-none max-md:snap-x max-md:snap-mandatory ring-1 ring-slate-200/60 dark:ring-slate-700/80">
               {sortOptions.map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
                   onClick={() => setSortBy(opt.value)}
                   className={cn(
-                    'px-3 py-2 rounded-md text-xs font-medium transition-colors',
+                    'px-3 max-md:min-h-10 max-md:snap-start max-md:shrink-0 py-2 rounded-xl text-xs font-semibold transition-all active:scale-[0.98]',
                     sortBy === opt.value
-                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-600/60'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                   )}
                 >
@@ -965,8 +965,8 @@ export function CreditList() {
       </div>
 
       {listEmpty ? (
-        <Card className="border-emerald-200 dark:border-emerald-900/50 bg-gradient-to-br from-emerald-50/80 to-white dark:from-emerald-950/20 dark:to-[#0f1a0d] overflow-hidden">
-          <CardContent className="p-10 md:p-14">
+        <Card className="border-emerald-200 dark:border-emerald-900/50 bg-gradient-to-br from-emerald-50/80 to-white dark:from-emerald-950/20 dark:to-[#0f1a0d] overflow-hidden max-md:rounded-3xl max-md:border-emerald-200/70">
+          <CardContent className="p-10 md:p-14 max-md:p-8">
             <div className="flex flex-col items-center text-center max-w-md mx-auto">
               <div className="h-20 w-20 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-5 shadow-inner">
                 <Sparkles className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
@@ -1037,7 +1037,7 @@ export function CreditList() {
       ) : (
         <>
           {/* Creditor list — cards on small/medium, table on large */}
-          <div className="space-y-3 lg:hidden">
+          <div className="space-y-3 max-md:space-y-2.5 lg:hidden">
             {visibleAccounts.map((account, index) => {
               const displayName = toProperCustomerName(account.customer_name);
               const cardPhones = accountPhonesList(account);
@@ -1046,17 +1046,18 @@ export function CreditList() {
               <Card
                 key={account.id}
                 className={cn(
-                  'group overflow-hidden border border-slate-200 dark:border-slate-800',
-                  'bg-white dark:bg-slate-900/50 hover:border-slate-300 dark:hover:border-slate-700',
+                  'group overflow-hidden bg-white dark:bg-slate-900/80 max-md:shadow-md max-md:shadow-slate-900/10 dark:max-md:shadow-black/40',
+                  'border border-slate-200/90 dark:border-slate-800 max-md:rounded-2xl sm:rounded-xl',
+                  'hover:border-slate-300 dark:hover:border-slate-700 max-md:active:scale-[0.995]',
                   'hover:shadow-md hover:shadow-slate-200/50 dark:hover:shadow-slate-900/50',
-                  'transition-all duration-200 cursor-pointer'
+                  'transition-all duration-200 cursor-pointer touch-manipulation'
                 )}
               >
                 <CardContent className="p-0">
                   <button
                     type="button"
                     onClick={() => handleOpenPaymentDrawer(account)}
-                    className="w-full text-left flex items-center gap-3 sm:gap-4 p-4 sm:p-5"
+                    className="w-full text-left flex items-center gap-3 sm:gap-4 p-4 sm:p-5 max-md:py-4"
                   >
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-sm font-bold tabular-nums text-slate-600 dark:text-slate-300">
                       {index + 1}
@@ -1134,9 +1135,9 @@ export function CreditList() {
                       </div>
                       <span
                         className={cn(
-                          'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors pointer-events-none',
+                          'inline-flex items-center gap-1.5 rounded-xl max-md:px-3.5 max-md:py-2 px-3 py-1.5 text-xs font-semibold transition-colors pointer-events-none',
                           creditView === 'outstanding'
-                            ? 'bg-[#1c6a1e] text-white group-hover:bg-[#2a8a30]'
+                            ? 'bg-[#1c6a1e] text-white group-hover:bg-[#2a8a30] shadow-sm shadow-[#1c6a1e]/25'
                             : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100 group-hover:bg-slate-300 dark:group-hover:bg-slate-600'
                         )}
                       >
@@ -1311,7 +1312,7 @@ export function CreditList() {
         }}
         direction="right"
       >
-        <DrawerContent className="!w-full !max-w-[min(100vw,520px)] sm:!max-w-[600px] md:!max-w-[680px] lg:!max-w-[760px] flex h-full max-h-[100dvh] min-h-0 flex-col border-0 border-l border-slate-200/80 dark:border-slate-800 p-0 shadow-2xl shadow-slate-900/15 dark:shadow-black/40">
+        <DrawerContent className="!w-full !max-w-[min(100vw,520px)] sm:!max-w-[600px] md:!max-w-[680px] lg:!max-w-[760px] flex h-full max-h-[100dvh] min-h-0 flex-col border-0 border-l border-slate-200/80 dark:border-slate-800 p-0 shadow-2xl shadow-slate-900/15 dark:shadow-black/40 max-lg:pt-[env(safe-area-inset-top,0px)]">
           <DrawerHeader className="relative shrink-0 overflow-hidden border-0 px-5 pt-5 pb-4 pr-14 bg-gradient-to-br from-emerald-600 via-emerald-800 to-teal-900 dark:from-emerald-950 dark:via-emerald-900 dark:to-slate-950">
             <div
               className="pointer-events-none absolute -right-20 -top-24 h-56 w-56 rounded-full bg-white/10 blur-3xl"

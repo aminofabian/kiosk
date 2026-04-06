@@ -8,6 +8,8 @@ import "./globals.css";
 
 export const viewport: Viewport = {
   themeColor: "#1c6a1e",
+  /** Lets `env(safe-area-inset-*)` apply when installed as a web app or in Safari. */
+  viewportFit: "cover",
 };
 
 export async function generateMetadata(): Promise<Metadata> {

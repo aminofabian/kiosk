@@ -23,8 +23,8 @@ export function AdminBottomNav() {
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-[#1c2e18]/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 md:hidden safe-area-inset-bottom">
-      <div className="flex items-stretch h-16 px-1">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/92 dark:bg-[#1c2e18]/92 backdrop-blur-xl backdrop-saturate-150 border-t border-slate-200/90 dark:border-slate-800/90 shadow-[0_-4px_24px_-2px_rgba(15,23,42,0.08)] dark:shadow-black/40 md:hidden safe-area-bottom">
+      <div className="flex h-14 items-stretch px-1 pt-0.5">
         {MOBILE_NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);

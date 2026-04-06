@@ -11,6 +11,14 @@
   }
 }
 
+/* Mobile / PWA: respect notches and home indicator */
+@utility safe-area-top {
+  padding-top: max(0px, env(safe-area-inset-top));
+}
+@utility safe-area-bottom {
+  padding-bottom: max(0px, env(safe-area-inset-bottom));
+}
+
 @font-face {
   font-family: "En Font";
   src: url("/images/en-font%20(1).woff2") format("woff2");

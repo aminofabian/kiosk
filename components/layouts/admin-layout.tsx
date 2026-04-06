@@ -86,7 +86,7 @@ export function AdminLayout({ children, sidebar }: AdminLayoutProps) {
       </aside>
       
       {/* Main Content */}
-      <main className="flex-1 overflow-auto pb-20 md:pb-0">
+      <main className="flex-1 overflow-auto pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))] md:pb-0">
         {children}
       </main>
       
