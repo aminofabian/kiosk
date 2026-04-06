@@ -94,6 +94,13 @@ export function shouldShowCategory(categoryName: string, shopType: string): bool
     return true;
   }
 
+  // Hardcoded lists only distinguish retail vs grocery. Custom product types (e.g. cereals)
+  // filter by item_type on items; legacy category→mode mapping would wrongly hide e.g.
+  // "Grains & Cereals" (mapped to grocery) when the active type is cereals.
+  if (shopType !== 'retail' && shopType !== 'grocery') {
+    return true;
+  }
+
   return categoryShopType === shopType;
 }
 
