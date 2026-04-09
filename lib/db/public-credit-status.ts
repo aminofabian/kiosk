@@ -7,6 +7,7 @@ import type {
   PublicCreditStatusPayload,
 } from '@/lib/types/public-credit-status';
 import { resolvePublicCreditAccountBySlug } from '@/lib/db/public-credit-resolve';
+import { parseCreditDebtLineItemsJson } from '@/lib/db/credit-debt-line-snapshot';
 import { isPesapalStkConfigured } from '@/lib/pesapal';
 import { SQL_PAYMENT_APPLIES_TO_BALANCE } from '@/lib/db/credit-payment-claim-sql';
 
@@ -20,8 +21,9 @@ async function loadPublicDebtDetails(accountId: string): Promise<PublicCreditDeb
     created_at: number;
     sale_id: string | null;
     notes: string | null;
+    debt_line_items_json: string | null;
   }>(
-    `SELECT amount, created_at, sale_id, notes
+    `SELECT amount, created_at, sale_id, notes, debt_line_items_json
      FROM credit_transactions
      WHERE credit_account_id = ? AND type = 'debt'
      ORDER BY created_at DESC
@@ -46,9 +48,10 @@ async function loadPublicDebtDetails(accountId: string): Promise<PublicCreditDeb
       item_unit_type: string;
     }>(
       `SELECT si.sale_id, si.quantity_sold, si.sell_price_per_unit,
-              i.name AS item_name, i.unit_type AS item_unit_type
+              COALESCE(i.name, 'Item (removed)') AS item_name,
+              COALESCE(i.unit_type, 'pc') AS item_unit_type
        FROM sale_items si
-       JOIN items i ON si.item_id = i.id
+       LEFT JOIN items i ON si.item_id = i.id
        WHERE si.sale_id IN (${ph})
        ORDER BY si.created_at ASC`,
       saleIds
@@ -70,12 +73,32 @@ async function loadPublicDebtDetails(accountId: string): Promise<PublicCreditDeb
     }
   }
 
-  return debts.map((d) => ({
-    recordedAt: d.created_at,
-    amount: Number(d.amount),
-    note: d.notes,
-    items: d.sale_id ? itemsBySaleId[d.sale_id] ?? [] : [],
-  }));
+  return debts.map((d) => {
+    const fromSale = d.sale_id ? itemsBySaleId[d.sale_id] ?? [] : [];
+    if (fromSale.length > 0) {
+      return {
+        recordedAt: d.created_at,
+        amount: Number(d.amount),
+        note: d.notes,
+        items: fromSale,
+      };
+    }
+    const snap = parseCreditDebtLineItemsJson(d.debt_line_items_json);
+    const fromSnap: PublicCreditDebtLineItem[] = snap
+      ? snap.map((r) => ({
+          name: r.item_name,
+          quantity: r.quantity_sold,
+          unitLabel: r.item_unit_type,
+          lineTotal: Math.round(r.quantity_sold * r.sell_price_per_unit * 100) / 100,
+        }))
+      : [];
+    return {
+      recordedAt: d.created_at,
+      amount: Number(d.amount),
+      note: d.notes,
+      items: fromSnap,
+    };
+  });
 }
 
 /**

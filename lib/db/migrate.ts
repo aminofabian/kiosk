@@ -456,6 +456,13 @@ export async function runMigrations() {
     }
 
     try {
+      const { migrateCreditDebtLineItemsSnapshot } = await import('./migrate-credit-debt-line-items-snapshot');
+      await migrateCreditDebtLineItemsSnapshot();
+    } catch (error) {
+      console.error('⚠ credit debt line items snapshot migration skipped:', error);
+    }
+
+    try {
       const { migrateCustomerWallet } = await import('./migrate-customer-wallet');
       await migrateCustomerWallet();
     } catch (error) {

@@ -12,6 +12,7 @@ import {
 } from '@/lib/utils/credit-phones';
 import type { Sale } from '@/lib/db/types';
 import { awardLoyaltyPointsForSale } from '@/lib/db/loyalty';
+import { buildCreditDebtLineItemsSnapshotJson } from '@/lib/db/credit-debt-line-snapshot';
 
 const EPS = 0.01;
 
@@ -601,11 +602,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let debtLineItemsSnapshotJson: string | null = null;
+    if (!fromEdit) {
+      const willRecordCreditDebt =
+        (paymentMethod === 'credit' && amountDue > EPS) ||
+        (paymentMethod === 'split' &&
+          splitPayments &&
+          (splitPayments as SplitPaymentInput[]).some(
+            (p) => p.method === 'credit' && Number(p.amount) > EPS
+          ));
+      if (willRecordCreditDebt) {
+        debtLineItemsSnapshotJson = await buildCreditDebtLineItemsSnapshotJson(saleId);
+      }
+    }
+
     // Handle credit account creation if payment is credit or split with credit
     const handleCreditPayment = async (
       creditCustomerName: string,
       creditCustomerPhone: string | null,
-      creditAmount: number
+      creditAmount: number,
+      debtLineItemsJson: string | null
     ): Promise<string> => {
       // Match by normalized phone first; fallback to name-only records if no phone provided
       const trimmedName = creditCustomerName.trim();
@@ -670,8 +686,8 @@ export async function POST(request: NextRequest) {
       await execute(
         `INSERT INTO credit_transactions (
           id, credit_account_id, sale_id, type, amount, 
-          recorded_by, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          recorded_by, created_at, debt_line_items_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           creditTransactionId,
           creditAccountId,
@@ -680,6 +696,7 @@ export async function POST(request: NextRequest) {
           creditAmount,
           auth.userId,
           now,
+          debtLineItemsJson,
         ]
       );
 
@@ -687,7 +704,11 @@ export async function POST(request: NextRequest) {
     };
 
     // Add debt to an existing credit account by ID
-    const addDebtToExistingAccount = async (accountId: string, amount: number) => {
+    const addDebtToExistingAccount = async (
+      accountId: string,
+      amount: number,
+      debtLineItemsJson: string | null
+    ) => {
       await execute(
         `UPDATE credit_accounts 
          SET total_credit = total_credit + ?, last_transaction_at = ? 
@@ -698,9 +719,9 @@ export async function POST(request: NextRequest) {
       await execute(
         `INSERT INTO credit_transactions (
           id, credit_account_id, sale_id, type, amount, 
-          recorded_by, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [creditTransactionId, accountId, saleId, 'debt', amount, auth.userId, now]
+          recorded_by, created_at, debt_line_items_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [creditTransactionId, accountId, saleId, 'debt', amount, auth.userId, now, debtLineItemsJson]
       );
     };
 
@@ -709,13 +730,14 @@ export async function POST(request: NextRequest) {
       if (creditAccountId) {
         loyaltyEarnAccountId = creditAccountId;
         if (amountDue > EPS) {
-          await addDebtToExistingAccount(creditAccountId, amountDue);
+          await addDebtToExistingAccount(creditAccountId, amountDue, debtLineItemsSnapshotJson);
         }
       } else if (customerName && amountDue > EPS) {
         loyaltyEarnAccountId = await handleCreditPayment(
           customerName,
           customerPhone || null,
-          amountDue
+          amountDue,
+          debtLineItemsSnapshotJson
         );
       }
     }
@@ -757,7 +779,8 @@ export async function POST(request: NextRequest) {
         loyaltyEarnAccountId = await handleCreditPayment(
           existingByPhone?.customer_name || splitCreditName,
           splitCreditPhone,
-          creditPayment.amount
+          creditPayment.amount,
+          debtLineItemsSnapshotJson
         );
       }
     }

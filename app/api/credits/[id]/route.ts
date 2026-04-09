@@ -10,6 +10,7 @@ import {
   serializeCreditPhones,
 } from '@/lib/utils/credit-phones';
 import type { CreditAccount, CreditTransaction, SaleItem } from '@/lib/db/types';
+import { parseCreditDebtLineItemsJson } from '@/lib/db/credit-debt-line-snapshot';
 
 interface SaleItemWithDetails extends SaleItem {
   item_name: string;
@@ -76,10 +77,10 @@ export async function GET(
         `SELECT 
           si.*,
           si.sale_id as sale_id,
-          i.name as item_name,
-          i.unit_type as item_unit_type
+          COALESCE(i.name, 'Item (removed)') as item_name,
+          COALESCE(i.unit_type, 'pc') as item_unit_type
          FROM sale_items si
-         JOIN items i ON si.item_id = i.id
+         LEFT JOIN items i ON si.item_id = i.id
          WHERE si.sale_id IN (${placeholders})
          ORDER BY si.created_at ASC`,
         saleIds
@@ -100,6 +101,29 @@ export async function GET(
           transaction.items = itemsBySaleId[transaction.sale_id] || [];
         }
       }
+    }
+
+    for (const transaction of transactions) {
+      if (transaction.type !== 'debt') continue;
+      const live = transaction.items?.length ?? 0;
+      if (live > 0) continue;
+      const snap = parseCreditDebtLineItemsJson(transaction.debt_line_items_json);
+      if (!snap?.length) continue;
+      const sid = transaction.sale_id ?? '';
+      transaction.items = snap.map((r) => ({
+        id: r.id,
+        sale_id: sid,
+        item_id: '',
+        inventory_batch_id: null,
+        quantity_sold: r.quantity_sold,
+        sell_price_per_unit: r.sell_price_per_unit,
+        buy_price_per_unit: 0,
+        profit: 0,
+        item_type_snapshot: null,
+        created_at: 0,
+        item_name: r.item_name,
+        item_unit_type: r.item_unit_type,
+      }));
     }
 
     return jsonResponse({

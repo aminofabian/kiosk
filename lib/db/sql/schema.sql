@@ -442,6 +442,7 @@ CREATE TABLE IF NOT EXISTS credit_transactions (
   public_claim_status TEXT, -- NULL = normal; 'pending' = customer self-report awaiting admin; 'rejected' = declined
   claim_reviewed_at INTEGER,
   claim_reviewed_by TEXT,
+  debt_line_items_json TEXT, -- snapshot of sale lines when debt recorded (survives sale delete / null sale_id)
   FOREIGN KEY (credit_account_id) REFERENCES credit_accounts(id) ON DELETE CASCADE,
   FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE SET NULL,
   FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE RESTRICT,

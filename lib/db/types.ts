@@ -276,6 +276,8 @@ export interface CreditTransaction {
   public_claim_status?: 'pending' | 'rejected' | null;
   claim_reviewed_at?: number | null;
   claim_reviewed_by?: string | null;
+  /** JSON array of line items copied at debt time; used when sale/items rows are gone */
+  debt_line_items_json?: string | null;
 }
 
 export type LoyaltyTransactionType = 'earn' | 'redeem' | 'adjust';
