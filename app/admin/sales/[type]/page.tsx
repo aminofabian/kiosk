@@ -28,6 +28,7 @@ import {
   X,
   Pencil,
   FileDown,
+  PenLine,
   History,
 } from 'lucide-react';
 import { apiFetch, apiPost } from '@/lib/utils/api-client';
@@ -390,6 +391,215 @@ async function downloadTodaysProductsPdf(opts: {
   doc.save(`${slugFilePart(opts.typeLabel)}-products-${datePart}.pdf`);
 }
 
+/** Same product list as the main PDF, but qty sold / stock / tick omitted — avg price for reference and a blank cell to write quantity. */
+async function downloadTodaysProductsBlankQtyPdf(opts: {
+  typeLabel: string;
+  periodLabel: string;
+  products: DailyProduct[];
+}) {
+  const { default: jsPDF } = await import('jspdf');
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const margin = 12;
+  const contentW = pageW - margin * 2;
+  const footerH = 14;
+
+  const palette = {
+    accent: [22, 163, 74] as const,
+    ink: [15, 23, 42] as const,
+    muted: [100, 116, 139] as const,
+    headerBg: [241, 245, 249] as const,
+    headerInk: [51, 65, 85] as const,
+    border: [226, 232, 240] as const,
+    zebra: [248, 250, 252] as const,
+  };
+
+  const rowH = 12;
+  const headerH = 11;
+  const headerBlockH = 26;
+  const colQtyBoxR = pageW - margin - 6;
+  const colQtyBoxW = 26;
+  const colQtyBoxL = colQtyBoxR - colQtyBoxW;
+  const colAvgR = colQtyBoxL - 5;
+  const colNameL = margin + 14;
+  /** Reserve ~36mm for right-aligned avg price so it is never squeezed by product name width. */
+  const colAvgColumnW = 36;
+  const colNameMaxW = Math.max(42, colAvgR - colNameL - colAvgColumnW - 4);
+  const colNumCx = margin + 7;
+  const qtyFieldH = 6.5;
+
+  const truncateName = (t: string) => {
+    let s = t;
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    while (s.length > 1 && doc.getTextWidth(s) > colNameMaxW) {
+      s = s.length > 4 ? `${s.slice(0, -4)}…` : '…';
+    }
+    return s;
+  };
+
+  const truncateBarcode = (t: string) => {
+    let s = t;
+    doc.setFontSize(7.5);
+    doc.setFont('courier', 'normal');
+    while (s.length > 1 && doc.getTextWidth(s) > colNameMaxW) {
+      s = s.length > 5 ? `${s.slice(0, -4)}…` : '…';
+    }
+    return s;
+  };
+
+  const rowBaseline = (rowY: number) => rowY + rowH * 0.62;
+
+  const drawPageHeader = (yy: number) => {
+    doc.setFillColor(...palette.accent);
+    doc.rect(margin, yy, 3.5, headerBlockH, 'F');
+
+    doc.setTextColor(...palette.ink);
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text(opts.typeLabel, margin + 8, yy + 8);
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...palette.muted);
+    doc.text('Count sheet — avg price · write quantity by hand', margin + 8, yy + 15);
+
+    const printed = new Date().toLocaleString('en-KE', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+    doc.setFontSize(9);
+    doc.text(printed, pageW - margin, yy + 7, { align: 'right' });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(...palette.accent);
+    doc.text(opts.periodLabel, pageW - margin, yy + 15, { align: 'right' });
+
+    doc.setTextColor(...palette.ink);
+    return yy + headerBlockH + 5;
+  };
+
+  const drawTableHeader = (yy: number) => {
+    doc.setFillColor(...palette.headerBg);
+    doc.setDrawColor(...palette.border);
+    doc.setLineWidth(0.25);
+    doc.rect(margin, yy, contentW, headerH, 'FD');
+
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...palette.headerInk);
+    const hy = yy + 7.5;
+    doc.text('#', colNumCx, hy, { align: 'center' });
+    doc.text('Product', colNameL, hy);
+    doc.text('Avg price', colAvgR, hy, { align: 'right' });
+    doc.text('Qty', colQtyBoxL + colQtyBoxW / 2, hy, { align: 'center' });
+
+    return yy + headerH;
+  };
+
+  let y = drawPageHeader(margin);
+  y = drawTableHeader(y);
+
+  opts.products.forEach((p, idx) => {
+    if (y + rowH > pageH - margin - footerH) {
+      doc.addPage();
+      y = drawPageHeader(margin);
+      y = drawTableHeader(y);
+    }
+
+    if (idx % 2 === 1) {
+      doc.setFillColor(...palette.zebra);
+      doc.rect(margin, y, contentW, rowH, 'F');
+    }
+
+    doc.setDrawColor(...palette.border);
+    doc.setLineWidth(0.1);
+    doc.line(margin, y + rowH, pageW - margin, y + rowH);
+
+    const name = getItemDisplayName(p.item_name, p.variant_name);
+    const u = UNIT_LABELS[p.unit_type] || p.unit_type;
+    const by = rowBaseline(y);
+    const barcodeRaw = (p.barcode ?? '').trim();
+    const avgLabel = `${formatPrice(p.avg_sell_price)}/${u}`;
+
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...palette.ink);
+    doc.text(String(idx + 1), colNumCx, by, { align: 'center' });
+    doc.text(truncateName(name), colNameL, y + 4.2);
+    doc.setFontSize(10);
+    doc.text(avgLabel, colAvgR, by, { align: 'right' });
+    doc.setFontSize(12);
+
+    if (barcodeRaw) {
+      doc.setTextColor(...palette.muted);
+      doc.text(truncateBarcode(barcodeRaw), colNameL, y + 9);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(12);
+      doc.setTextColor(...palette.ink);
+    }
+
+    const fieldY = y + (rowH - qtyFieldH) / 2;
+    doc.setDrawColor(...palette.muted);
+    doc.setLineWidth(0.35);
+    doc.roundedRect(colQtyBoxL, fieldY, colQtyBoxW, qtyFieldH, 0.6, 0.6, 'S');
+
+    y += rowH;
+  });
+
+  doc.setDrawColor(...palette.border);
+  doc.setLineWidth(0.25);
+  doc.line(margin, y, pageW - margin, y);
+
+  y += 6;
+  const summaryH = 12;
+  if (y + summaryH > pageH - margin - footerH) {
+    doc.addPage();
+    y = drawPageHeader(margin);
+  }
+
+  doc.setFillColor(...palette.headerBg);
+  doc.setDrawColor(...palette.border);
+  doc.setLineWidth(0.25);
+  doc.roundedRect(margin, y, contentW, summaryH, 1.2, 1.2, 'FD');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(...palette.headerInk);
+  doc.text(
+    `Total: ${opts.products.length} product${opts.products.length === 1 ? '' : 's'}`,
+    margin + 5,
+    y + 8
+  );
+
+  y += summaryH + 6;
+  const noteText =
+    'Average price is for reference only. Enter your counted or requested quantity in the blank Qty box on each row.';
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(...palette.muted);
+  const noteLines = doc.splitTextToSize(noteText, contentW);
+  const noteBlockH = noteLines.length * 4.8 + 2;
+  if (y + noteBlockH > pageH - margin - footerH) {
+    doc.addPage();
+    y = drawPageHeader(margin);
+  }
+  doc.text(noteLines, margin, y + 4);
+
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...palette.muted);
+    doc.text(`Page ${i} of ${totalPages}`, pageW / 2, pageH - 8, { align: 'center' });
+  }
+
+  const datePart = slugFilePart(opts.periodLabel);
+  doc.save(`${slugFilePart(opts.typeLabel)}-count-sheet-${datePart}.pdf`);
+}
+
 // ─── Component ───────────────────────────────────────────────────
 
 export default function SalesByTypePage() {
@@ -417,6 +627,7 @@ export default function SalesByTypePage() {
   const [stockEditNotes, setStockEditNotes] = useState('');
   const [stockSaving, setStockSaving] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfBlankLoading, setPdfBlankLoading] = useState(false);
 
   useEffect(() => {
     if (!typesLoading && itemTypeKeys.length > 0 && type && !itemTypeKeys.includes(type)) {
@@ -621,6 +832,24 @@ export default function SalesByTypePage() {
       setPdfLoading(false);
     }
   };
+
+  const handleDownloadBlankQtyPdf = async () => {
+    if (filteredProducts.length === 0) return;
+    try {
+      setPdfBlankLoading(true);
+      await downloadTodaysProductsBlankQtyPdf({
+        typeLabel,
+        periodLabel: productsPeriodLabel,
+        products: filteredProducts,
+      });
+    } catch {
+      toast.error('Could not create count sheet PDF');
+    } finally {
+      setPdfBlankLoading(false);
+    }
+  };
+
+  const pdfBusy = pdfLoading || pdfBlankLoading;
 
   // Best hour
   const bestHour = hourlySales.reduce<HourlySales | null>(
@@ -1024,14 +1253,15 @@ export default function SalesByTypePage() {
                     {productsPeriodLabel}
                   </Badge>
                 </span>
-                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     className="h-8 text-xs shrink-0"
                     onClick={handleDownloadPdf}
-                    disabled={filteredProducts.length === 0 || pdfLoading}
+                    disabled={filteredProducts.length === 0 || pdfBusy}
+                    title="Sold quantities and stock for verification"
                   >
                     {pdfLoading ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1039,6 +1269,22 @@ export default function SalesByTypePage() {
                       <FileDown className="w-3.5 h-3.5" />
                     )}
                     <span className="ml-1.5">PDF</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs shrink-0"
+                    onClick={handleDownloadBlankQtyPdf}
+                    disabled={filteredProducts.length === 0 || pdfBusy}
+                    title="Item list with avg price and empty quantity boxes to fill in by hand"
+                  >
+                    {pdfBlankLoading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <PenLine className="w-3.5 h-3.5" />
+                    )}
+                    <span className="ml-1.5">Blank qty</span>
                   </Button>
                   <div className="relative flex-1 sm:flex-initial sm:w-48 min-w-0 max-w-full">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
