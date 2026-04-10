@@ -38,6 +38,7 @@ interface DailyProduct {
   variant_name: string | null;
   category_name: string;
   unit_type: string;
+  barcode: string | null;
   total_quantity_sold: number;
   total_revenue: number;
   total_profit: number;
@@ -168,6 +169,7 @@ export async function GET(request: NextRequest) {
         i.variant_name,
         COALESCE(c.name, 'Uncategorized') as category_name,
         i.unit_type,
+        i.barcode,
         COALESCE(SUM(si.quantity_sold), 0) as total_quantity_sold,
         COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
         COALESCE(SUM(si.profit), 0) as total_profit,
@@ -187,7 +189,7 @@ export async function GET(request: NextRequest) {
         ) as current_stock,
         i.min_stock_level
       ${dailyProductsSqlBase}
-      GROUP BY i.id, i.name, i.variant_name, c.name, i.unit_type, i.current_stock, i.min_stock_level
+      GROUP BY i.id, i.name, i.variant_name, c.name, i.unit_type, i.barcode, i.current_stock, i.min_stock_level
       ORDER BY total_revenue DESC`,
         [
           auth.businessId,
@@ -208,6 +210,7 @@ export async function GET(request: NextRequest) {
         i.variant_name,
         COALESCE(c.name, 'Uncategorized') as category_name,
         i.unit_type,
+        i.barcode,
         COALESCE(SUM(si.quantity_sold), 0) as total_quantity_sold,
         COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
         COALESCE(SUM(si.profit), 0) as total_profit,
@@ -216,7 +219,7 @@ export async function GET(request: NextRequest) {
         i.current_stock,
         i.min_stock_level
       ${dailyProductsSqlBase}
-      GROUP BY i.id, i.name, i.variant_name, c.name, i.unit_type, i.current_stock, i.min_stock_level
+      GROUP BY i.id, i.name, i.variant_name, c.name, i.unit_type, i.barcode, i.current_stock, i.min_stock_level
       ORDER BY total_revenue DESC`,
         productsParams
       );

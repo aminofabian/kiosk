@@ -87,6 +87,7 @@ interface DailyProduct {
   variant_name: string | null;
   category_name: string;
   unit_type: string;
+  barcode: string | null;
   total_quantity_sold: number;
   total_revenue: number;
   total_profit: number;
@@ -208,7 +209,7 @@ async function downloadTodaysProductsPdf(opts: {
     zebra: [248, 250, 252] as const,
   };
 
-  const rowH = 10;
+  const rowH = 12;
   const headerH = 11;
   const headerBlockH = 26;
   const colConfirmCx = pageW - margin - 5;
@@ -229,7 +230,18 @@ async function downloadTodaysProductsPdf(opts: {
     return s;
   };
 
-  const rowBaseline = (rowY: number) => rowY + rowH * 0.65;
+  const truncateBarcode = (t: string) => {
+    let s = t;
+    doc.setFontSize(7.5);
+    doc.setFont('courier', 'normal');
+    while (s.length > 1 && doc.getTextWidth(s) > colNameMaxW) {
+      s = s.length > 5 ? `${s.slice(0, -4)}…` : '…';
+    }
+    return s;
+  };
+
+  /** Single baseline for # / Qty / Stock / Tick (vertically centered in row) */
+  const rowBaseline = (rowY: number) => rowY + rowH * 0.62;
 
   const drawPageHeader = (yy: number) => {
     doc.setFillColor(...palette.accent);
@@ -303,14 +315,23 @@ async function downloadTodaysProductsPdf(opts: {
     const name = getItemDisplayName(p.item_name, p.variant_name);
     const u = UNIT_LABELS[p.unit_type] || p.unit_type;
     const by = rowBaseline(y);
+    const barcodeRaw = (p.barcode ?? '').trim();
 
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...palette.ink);
     doc.text(String(idx + 1), colNumCx, by, { align: 'center' });
-    doc.text(truncateName(name), colNameL, by);
+    doc.text(truncateName(name), colNameL, y + 4.2);
     doc.text(`${formatNumber(p.total_quantity_sold)} ${u}`, colQtyR, by, { align: 'right' });
     doc.text(`${formatNumber(p.current_stock)} ${u}`, colStockR, by, { align: 'right' });
+
+    if (barcodeRaw) {
+      doc.setTextColor(...palette.muted);
+      doc.text(truncateBarcode(barcodeRaw), colNameL, y + 9);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(12);
+      doc.setTextColor(...palette.ink);
+    }
 
     const boxX = colConfirmCx - rowTickBoxMm / 2;
     const boxY = y + (rowH - rowTickBoxMm) / 2;
