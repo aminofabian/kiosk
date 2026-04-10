@@ -741,26 +741,28 @@
   body:has(#price-stickers-print) #price-stickers-print * {
     visibility: visible !important;
   }
+  /* Do not fix width to 210mm — landscape sheets are 297mm wide; each .page-break-after sets size inline */
   body:has(#price-stickers-print) #price-stickers-print {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
-    width: 210mm !important;
-    max-width: 210mm !important;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
     background: white !important;
     padding: 0 !important;
     margin: 0 !important;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
   body:has(#price-stickers-print) html,
   body:has(#price-stickers-print) body {
-    width: 210mm !important;
-    max-width: 210mm !important;
-    min-width: 210mm !important;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
     background: white !important;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
   body:has(#price-stickers-print) .page-break-after {
     page-break-after: always;

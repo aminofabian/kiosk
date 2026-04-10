@@ -10,7 +10,6 @@ import {
   Package,
   Loader2,
   Search,
-  FolderTree,
   Store,
   LayoutGrid,
   Scissors,
@@ -18,6 +17,8 @@ import {
   Plus,
   Maximize2,
   X,
+  RectangleVertical,
+  RectangleHorizontal,
 } from 'lucide-react';
 import type { Item, Category } from '@/lib/db/types';
 import { getItemDisplayName } from '@/lib/utils';
@@ -36,6 +37,8 @@ import {
   DrawerTitle,
   DrawerClose,
 } from '@/components/ui/drawer';
+import { CategoryList } from '@/components/pos/CategoryList';
+import { getShopType } from '@/lib/utils/shop-type';
 
 interface ItemWithCategory extends Item {
   category_name?: string;
@@ -110,29 +113,95 @@ function QuantityStepper({
   );
 }
 
-const LABELS_PER_PAGE = 24; // 4 columns x 6 rows on A4
 const LABEL_LAYOUTS = [
   { cols: 4, rows: 6, count: 24, label: '24 labels (4×6)' },
+  { cols: 6, rows: 6, count: 36, label: '36 labels (6×6)' },
+  { cols: 6, rows: 8, count: 48, label: '48 labels (6×8)' },
   { cols: 3, rows: 7, count: 21, label: '21 labels (3×7)' },
   { cols: 3, rows: 4, count: 12, label: '12 labels (3×4)' },
-];
+] as const;
+
+type LabelLayout = (typeof LABEL_LAYOUTS)[number];
+
+/** Tighter row gaps, shorter cell padding, and slightly smaller type as layouts get denser. */
+function getLabelSheetMetrics(layout: LabelLayout) {
+  const veryTight = layout.count >= 48;
+  const tight = layout.rows >= 7 || layout.count >= 36;
+  const colGap = '4mm';
+  const rowGap = veryTight ? '2mm' : tight ? '2.5mm' : '3mm';
+  const pagePadding = veryTight ? '4mm 5mm' : tight ? '4.5mm 5mm' : '5mm';
+  const cellPadding = veryTight ? '1mm 1.5mm' : tight ? '1.25mm 2mm' : '1.75mm 2.25mm';
+  const titleLineHeight = veryTight ? 1.12 : tight ? 1.15 : 1.2;
+  return {
+    colGap,
+    rowGap,
+    pagePadding,
+    cellPadding,
+    alignTop: tight,
+    titlePt: veryTight ? 7.5 : tight ? 8.5 : 10,
+    titleLineHeight,
+    pricePt: veryTight ? 11 : tight ? 12.5 : 14,
+    metaPt: veryTight ? 6.5 : tight ? 7.5 : 8,
+    batchPt: veryTight ? 5 : tight ? 5.5 : 6,
+    barcodePt: veryTight ? 6 : tight ? 7 : 8,
+    stackGapPt: veryTight ? 0.75 : tight ? 1.25 : 2,
+    emptyPt: veryTight ? 8 : 10,
+    preview: {
+      cellPad: veryTight ? 2 : tight ? 3 : 4,
+      stackGapPx: veryTight ? 1.5 : tight ? 2 : 3,
+      title: veryTight ? 4.5 : tight ? 5 : 6,
+      price: veryTight ? 6 : tight ? 7 : 8,
+      meta: veryTight ? 3.5 : tight ? 4 : 5,
+      batch: veryTight ? 3 : tight ? 3.5 : 4,
+      barcode: veryTight ? 3.5 : tight ? 4 : 5,
+      titleLh: titleLineHeight,
+    },
+  };
+}
+
+const PAGE_PORTRAIT_MM = { width: 210, height: 297 } as const;
+const PAGE_LANDSCAPE_MM = { width: 297, height: 210 } as const;
+/** ~96dpi px for scaling the expanded preview to the viewport */
+const PAGE_PORTRAIT_PX = { width: 794, height: 1123 } as const;
+const PAGE_LANDSCAPE_PX = { width: 1123, height: 794 } as const;
 
 export default function PriceStickersPage() {
-  const { productTypes } = useItemTypes();
+  const { productTypes, itemTypeKeys } = useItemTypes();
+  const [shopType, setShopType] = useState(() => getShopType());
   const [items, setItems] = useState<ItemWithCategory[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [itemTypeFilter, setItemTypeFilter] = useState<string>('retail');
   const [aisleFilter, setAisleFilter] = useState<string>('all');
   const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [labelLayout, setLabelLayout] = useState(LABEL_LAYOUTS[0]);
+  const [labelLayout, setLabelLayout] = useState<LabelLayout>(LABEL_LAYOUTS[0]);
   const [showBarcode, setShowBarcode] = useState(true);
   const [showBatchNumber, setShowBatchNumber] = useState(true);
   const [previewExpanded, setPreviewExpanded] = useState(false);
   const [a4Scale, setA4Scale] = useState(1);
   const a4ContainerRef = useRef<HTMLDivElement>(null);
+  const [pageOrientation, setPageOrientation] = useState<'portrait' | 'landscape'>('portrait');
+
+  const sheetMetrics = useMemo(() => getLabelSheetMetrics(labelLayout), [labelLayout]);
+
+  const pageSize = useMemo(() => {
+    if (pageOrientation === 'landscape') {
+      return {
+        ...PAGE_LANDSCAPE_MM,
+        aspectRatio: `${PAGE_LANDSCAPE_MM.width}/${PAGE_LANDSCAPE_MM.height}` as const,
+        px: PAGE_LANDSCAPE_PX,
+        pageSizeCss: 'A4 landscape' as const,
+      };
+    }
+    return {
+      ...PAGE_PORTRAIT_MM,
+      aspectRatio: `${PAGE_PORTRAIT_MM.width}/${PAGE_PORTRAIT_MM.height}` as const,
+      px: PAGE_PORTRAIT_PX,
+      pageSizeCss: 'A4 portrait' as const,
+    };
+  }, [pageOrientation]);
 
   const fetchData = async () => {
     try {
@@ -170,6 +239,12 @@ export default function PriceStickersPage() {
     fetchData();
   }, [itemTypeFilter]);
 
+  useEffect(() => {
+    if (itemTypeKeys.length > 0) {
+      setShopType(getShopType(itemTypeKeys));
+    }
+  }, [itemTypeKeys]);
+
   // Scale A4 to fit viewport when expanded
   useEffect(() => {
     if (!previewExpanded) return;
@@ -177,8 +252,7 @@ export default function PriceStickersPage() {
       const el = a4ContainerRef.current;
       if (!el) return;
       const { clientWidth, clientHeight } = el;
-      const a4WidthPx = 794; // 210mm at 96dpi
-      const a4HeightPx = 1123; // 297mm at 96dpi
+      const { width: a4WidthPx, height: a4HeightPx } = pageSize.px;
       const scale = Math.min(clientWidth / a4WidthPx, clientHeight / a4HeightPx, 1) || 1;
       setA4Scale(scale);
     };
@@ -195,7 +269,7 @@ export default function PriceStickersPage() {
       ro.disconnect();
       window.removeEventListener('resize', updateScale);
     };
-  }, [previewExpanded]);
+  }, [previewExpanded, pageSize.px]);
 
   const aisles = useMemo(() => {
     const set = new Set<string>();
@@ -218,14 +292,14 @@ export default function PriceStickersPage() {
         )
           return false;
       }
-      if (selectedCategory !== 'all' && item.category_id !== selectedCategory) return false;
+      if (selectedCategoryId !== null && item.category_id !== selectedCategoryId) return false;
       if (aisleFilter !== 'all') {
         const aisle = (item as Item & { aisle?: string }).aisle?.trim();
         if (aisle !== aisleFilter) return false;
       }
       return true;
     });
-  }, [items, searchQuery, selectedCategory, aisleFilter]);
+  }, [items, searchQuery, selectedCategoryId, aisleFilter]);
 
   const setQuantity = (id: string, qty: number) => {
     const n = Math.max(0, Math.floor(qty));
@@ -252,14 +326,15 @@ export default function PriceStickersPage() {
     });
   };
 
+  /** All queued stickers for print/preview — uses full catalog so category/aisle filters don’t drop selections. */
   const selectedItems = useMemo(() => {
     const out: ItemWithCategory[] = [];
-    filteredItems.forEach((item) => {
+    items.forEach((item) => {
       const qty = quantities[item.id] ?? 0;
       for (let i = 0; i < qty; i++) out.push(item);
     });
     return out;
-  }, [filteredItems, quantities]);
+  }, [items, quantities]);
 
   const printStickers = () => {
     window.print();
@@ -300,6 +375,17 @@ export default function PriceStickersPage() {
         </div>
 
         <div className="p-4 md:p-8 space-y-6">
+          {!searchQuery.trim() && (
+            <div className="-mx-4 md:-mx-8 border-y border-slate-200/80 dark:border-slate-800/80 overflow-hidden rounded-none">
+              <CategoryList
+                onSelectCategory={setSelectedCategoryId}
+                selectedCategoryId={selectedCategoryId ?? undefined}
+                shopType={shopType}
+                categories={categories}
+              />
+            </div>
+          )}
+
           {/* Filters */}
           <Card className="border-slate-200/80 dark:border-slate-800/80 shadow-sm overflow-hidden">
             <CardContent className="p-5 space-y-5">
@@ -348,20 +434,6 @@ export default function PriceStickersPage() {
                 </div>
               </div>
               <div className="flex flex-wrap gap-3 items-center pt-1">
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger className="w-[180px] h-9 rounded-lg border-slate-200/80 dark:border-slate-700/80">
-                    <FolderTree className="w-4 h-4 mr-2 text-slate-500" />
-                    <SelectValue placeholder="Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All categories</SelectItem>
-                    {categories.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
-                        {c.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
                 {aisles.length > 0 && (
                   <Select value={aisleFilter} onValueChange={setAisleFilter}>
                     <SelectTrigger className="w-[160px] h-9 rounded-lg border-slate-200/80 dark:border-slate-700/80">
@@ -393,6 +465,23 @@ export default function PriceStickersPage() {
                         {l.label}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={pageOrientation}
+                  onValueChange={(v) => setPageOrientation(v as 'portrait' | 'landscape')}
+                >
+                  <SelectTrigger className="w-[158px] h-9 rounded-lg border-slate-200/80 dark:border-slate-700/80">
+                    {pageOrientation === 'landscape' ? (
+                      <RectangleHorizontal className="w-4 h-4 mr-2 text-slate-500 shrink-0" />
+                    ) : (
+                      <RectangleVertical className="w-4 h-4 mr-2 text-slate-500 shrink-0" />
+                    )}
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="portrait">Portrait (210×297 mm)</SelectItem>
+                    <SelectItem value="landscape">Landscape (297×210 mm)</SelectItem>
                   </SelectContent>
                 </Select>
                 <label className="flex items-center gap-2.5 text-sm cursor-pointer text-slate-600 dark:text-slate-400">
@@ -512,7 +601,10 @@ export default function PriceStickersPage() {
                     <Scissors className="w-4 h-4 text-slate-500" />
                     Preview
                   </h3>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap justify-end">
+                    <span className="text-xs font-medium text-slate-500 bg-slate-100 dark:bg-slate-800/50 px-2.5 py-1 rounded-lg">
+                      {pageOrientation === 'landscape' ? 'Landscape' : 'Portrait'}
+                    </span>
                     <span className="text-xs font-medium text-slate-500 bg-slate-100 dark:bg-slate-800/50 px-2.5 py-1 rounded-lg">
                       {labelLayout.count} per page
                     </span>
@@ -530,8 +622,8 @@ export default function PriceStickersPage() {
                 <div
                   className="border-2 border-dashed border-slate-200 dark:border-slate-700/80 p-4 bg-slate-50/50 dark:bg-slate-900/20"
                   style={{
-                    aspectRatio: '210/297',
-                    maxHeight: '420px',
+                    aspectRatio: pageSize.aspectRatio,
+                    maxHeight: pageOrientation === 'landscape' ? '320px' : '420px',
                   }}
                 >
                   <div
@@ -539,38 +631,70 @@ export default function PriceStickersPage() {
                     style={{
                       gridTemplateColumns: `repeat(${labelLayout.cols}, 1fr)`,
                       gridTemplateRows: `repeat(${labelLayout.rows}, 1fr)`,
-                      gap: '4mm',
+                      columnGap: sheetMetrics.colGap,
+                      rowGap: sheetMetrics.rowGap,
                     }}
                   >
                     {Array.from({ length: labelLayout.count }).map((_, i) => {
                       const item = selectedItems[i];
+                      const pv = sheetMetrics.preview;
                       return (
                         <div
                           key={i}
-                          className="border border-slate-200 dark:border-slate-700 p-1 bg-white dark:bg-slate-900 text-[6px] overflow-hidden flex flex-col justify-center shadow-sm"
+                          className={`border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden flex flex-col shadow-sm ${
+                            sheetMetrics.alignTop ? 'justify-start' : 'justify-center'
+                          }`}
+                          style={{ padding: `${pv.cellPad}px` }}
                         >
                           {item ? (
                             <>
-                              <p className="font-semibold leading-tight break-words text-[6px]">
+                              <p
+                                className="font-semibold break-words text-slate-900 dark:text-slate-100"
+                                style={{
+                                  fontSize: `${pv.title}px`,
+                                  lineHeight: pv.titleLh,
+                                }}
+                              >
                                 {getItemDisplayName(item.name, item.variant_name)}
                               </p>
-                              <p className="text-[#1c6a1e] font-bold text-[8px]">{formatPrice(item.current_sell_price)}</p>
+                              <p
+                                className="text-[#1c6a1e] font-bold shrink-0"
+                                style={{ fontSize: `${pv.price}px`, marginTop: `${pv.stackGapPx}px` }}
+                              >
+                                {formatPrice(item.current_sell_price)}
+                              </p>
                               {getAisleLabel(item) && (
-                                <p className="text-[5px] text-slate-500 mt-0.5">{getAisleLabel(item)}</p>
+                                <p
+                                  className="text-slate-500 shrink-0"
+                                  style={{ fontSize: `${pv.meta}px`, marginTop: `${pv.stackGapPx}px` }}
+                                >
+                                  {getAisleLabel(item)}
+                                </p>
                               )}
                               {showBatchNumber && (item as ItemWithCategory).batch_number && (
-                                <p className="text-[4px] text-slate-500">
+                                <p
+                                  className="text-slate-500"
+                                  style={{ fontSize: `${pv.batch}px`, marginTop: `${pv.stackGapPx}px` }}
+                                >
                                   Batch number {(item as ItemWithCategory).batch_number}
                                 </p>
                               )}
                               {showBarcode && item.barcode && (
-                                <p className="font-mono text-[5px] text-slate-500 break-all">
+                                <p
+                                  className="font-mono text-slate-500 break-all"
+                                  style={{ fontSize: `${pv.barcode}px`, marginTop: `${pv.stackGapPx}px` }}
+                                >
                                   {item.barcode}
                                 </p>
                               )}
                             </>
                           ) : (
-                            <span className="text-slate-300 dark:text-slate-600 text-[6px]">—</span>
+                            <span
+                              className="text-slate-300 dark:text-slate-600"
+                              style={{ fontSize: `${pv.title}px` }}
+                            >
+                              —
+                            </span>
                           )}
                         </div>
                       );
@@ -591,10 +715,10 @@ export default function PriceStickersPage() {
               key={pageIndex}
               className="page-break-after"
               style={{
-                width: '210mm',
-                maxWidth: '210mm',
-                height: '297mm',
-                padding: '5mm',
+                width: `${pageSize.width}mm`,
+                maxWidth: `${pageSize.width}mm`,
+                height: `${pageSize.height}mm`,
+                padding: sheetMetrics.pagePadding,
                 boxSizing: 'border-box',
                 overflow: 'hidden',
               }}
@@ -604,59 +728,80 @@ export default function PriceStickersPage() {
                 style={{
                   gridTemplateColumns: `repeat(${labelLayout.cols}, minmax(0, 1fr))`,
                   gridTemplateRows: `repeat(${labelLayout.rows}, minmax(0, 1fr))`,
-                  gap: '4mm',
+                  columnGap: sheetMetrics.colGap,
+                  rowGap: sheetMetrics.rowGap,
                   boxSizing: 'border-box',
                 }}
               >
                 {Array.from({ length: labelLayout.count }).map((_, i) => {
                   const item = selectedItems[pageIndex * labelLayout.count + i];
+                  const sm = sheetMetrics;
                   return (
                     <div
                       key={i}
-                      className="border border-slate-400 p-1.5 flex flex-col justify-center bg-white overflow-hidden min-w-0"
-                      style={{ minHeight: 0, boxSizing: 'border-box' }}
+                      className={`border border-slate-400 flex flex-col bg-white overflow-hidden min-w-0 ${
+                        sm.alignTop ? 'justify-start' : 'justify-center'
+                      }`}
+                      style={{
+                        minHeight: 0,
+                        boxSizing: 'border-box',
+                        padding: sm.cellPadding,
+                      }}
                     >
                       {item ? (
                         <>
                           <p
-                            className="font-semibold leading-tight text-slate-900 overflow-hidden"
-                            style={{ fontSize: '10pt', wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                            className="font-semibold text-slate-900 overflow-hidden shrink-0"
+                            style={{
+                              fontSize: `${sm.titlePt}pt`,
+                              lineHeight: sm.titleLineHeight,
+                              wordBreak: 'break-word',
+                              overflowWrap: 'break-word',
+                            }}
                           >
                             {getItemDisplayName(item.name, item.variant_name)}
                           </p>
                           <p
-                            className="text-[#1c6a1e] font-bold mt-0.5 shrink-0"
-                            style={{ fontSize: '14pt' }}
+                            className="text-[#1c6a1e] font-bold shrink-0"
+                            style={{ fontSize: `${sm.pricePt}pt`, marginTop: `${sm.stackGapPt}pt` }}
                           >
                             {formatPrice(item.current_sell_price)}
                           </p>
                           {getAisleLabel(item) && (
                             <p
-                              className="text-slate-500 mt-0.5 shrink-0"
-                              style={{ fontSize: '8pt' }}
+                              className="text-slate-500 shrink-0"
+                              style={{ fontSize: `${sm.metaPt}pt`, marginTop: `${sm.stackGapPt}pt` }}
                             >
                               {getAisleLabel(item)}
                             </p>
                           )}
                           {showBatchNumber && (item as ItemWithCategory).batch_number && (
                             <p
-                              className="text-slate-500 mt-0.5 shrink-0"
-                              style={{ fontSize: '6pt' }}
+                              className="text-slate-500 shrink-0"
+                              style={{
+                                fontSize: `${sm.batchPt}pt`,
+                                marginTop: `${sm.stackGapPt}pt`,
+                              }}
                             >
                               Batch number {(item as ItemWithCategory).batch_number}
                             </p>
                           )}
                           {showBarcode && item.barcode && (
                             <p
-                              className="font-mono text-slate-500 mt-0.5 overflow-hidden"
-                              style={{ fontSize: '8pt', wordBreak: 'break-all', overflowWrap: 'break-word' }}
+                              className="font-mono text-slate-500 overflow-hidden shrink-0"
+                              style={{
+                                fontSize: `${sm.barcodePt}pt`,
+                                marginTop: `${sm.stackGapPt}pt`,
+                                wordBreak: 'break-all',
+                                overflowWrap: 'break-word',
+                              }}
                             >
                               {item.barcode}
                             </p>
                           )}
                         </>
                       ) : (
-                        <span className="text-slate-300" style={{ fontSize: '10pt' }}>
+                        <span className="text-slate-300" style={{ fontSize: `${sm.emptyPt}pt` }}>
                           —
                         </span>
                       )}
@@ -679,7 +824,9 @@ export default function PriceStickersPage() {
                 <span className="sr-only">Close</span>
               </Button>
             </DrawerClose>
-            <DrawerTitle>Full A4 preview</DrawerTitle>
+            <DrawerTitle>
+              Full A4 preview · {pageOrientation === 'landscape' ? 'Landscape' : 'Portrait'}
+            </DrawerTitle>
           </DrawerHeader>
           <div
             ref={a4ContainerRef}
@@ -688,9 +835,9 @@ export default function PriceStickersPage() {
             <div
               className="border-2 border-slate-200 dark:border-slate-700 bg-white shadow-2xl origin-center"
               style={{
-                width: '210mm',
-                height: '297mm',
-                padding: '5mm',
+                width: `${pageSize.width}mm`,
+                height: `${pageSize.height}mm`,
+                padding: sheetMetrics.pagePadding,
                 boxSizing: 'border-box',
                 transform: `scale(${a4Scale})`,
               }}
@@ -700,59 +847,80 @@ export default function PriceStickersPage() {
                 style={{
                   gridTemplateColumns: `repeat(${labelLayout.cols}, minmax(0, 1fr))`,
                   gridTemplateRows: `repeat(${labelLayout.rows}, minmax(0, 1fr))`,
-                  gap: '4mm',
+                  columnGap: sheetMetrics.colGap,
+                  rowGap: sheetMetrics.rowGap,
                   boxSizing: 'border-box',
                 }}
               >
                 {Array.from({ length: labelLayout.count }).map((_, i) => {
                   const item = selectedItems[i];
+                  const sm = sheetMetrics;
                   return (
                     <div
                       key={i}
-                      className="border border-slate-300 p-1.5 flex flex-col justify-center bg-white overflow-hidden min-w-0"
-                      style={{ minHeight: 0, boxSizing: 'border-box' }}
+                      className={`border border-slate-300 flex flex-col bg-white overflow-hidden min-w-0 ${
+                        sm.alignTop ? 'justify-start' : 'justify-center'
+                      }`}
+                      style={{
+                        minHeight: 0,
+                        boxSizing: 'border-box',
+                        padding: sm.cellPadding,
+                      }}
                     >
                       {item ? (
                         <>
                           <p
-                            className="font-semibold leading-tight text-slate-900 overflow-hidden"
-                            style={{ fontSize: '10pt', wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                            className="font-semibold text-slate-900 overflow-hidden shrink-0"
+                            style={{
+                              fontSize: `${sm.titlePt}pt`,
+                              lineHeight: sm.titleLineHeight,
+                              wordBreak: 'break-word',
+                              overflowWrap: 'break-word',
+                            }}
                           >
                             {getItemDisplayName(item.name, item.variant_name)}
                           </p>
                           <p
-                            className="text-[#1c6a1e] font-bold mt-0.5 shrink-0"
-                            style={{ fontSize: '14pt' }}
+                            className="text-[#1c6a1e] font-bold shrink-0"
+                            style={{ fontSize: `${sm.pricePt}pt`, marginTop: `${sm.stackGapPt}pt` }}
                           >
                             {formatPrice(item.current_sell_price)}
                           </p>
                           {getAisleLabel(item) && (
                             <p
-                              className="text-slate-500 mt-0.5 shrink-0"
-                              style={{ fontSize: '8pt' }}
+                              className="text-slate-500 shrink-0"
+                              style={{ fontSize: `${sm.metaPt}pt`, marginTop: `${sm.stackGapPt}pt` }}
                             >
                               {getAisleLabel(item)}
                             </p>
                           )}
                           {showBatchNumber && (item as ItemWithCategory).batch_number && (
                             <p
-                              className="text-slate-500 mt-0.5 shrink-0"
-                              style={{ fontSize: '6pt' }}
+                              className="text-slate-500 shrink-0"
+                              style={{
+                                fontSize: `${sm.batchPt}pt`,
+                                marginTop: `${sm.stackGapPt}pt`,
+                              }}
                             >
                               Batch number {(item as ItemWithCategory).batch_number}
                             </p>
                           )}
                           {showBarcode && item.barcode && (
                             <p
-                              className="font-mono text-slate-500 mt-0.5 overflow-hidden"
-                              style={{ fontSize: '8pt', wordBreak: 'break-all', overflowWrap: 'break-word' }}
+                              className="font-mono text-slate-500 overflow-hidden shrink-0"
+                              style={{
+                                fontSize: `${sm.barcodePt}pt`,
+                                marginTop: `${sm.stackGapPt}pt`,
+                                wordBreak: 'break-all',
+                                overflowWrap: 'break-word',
+                              }}
                             >
                               {item.barcode}
                             </p>
                           )}
                         </>
                       ) : (
-                        <span className="text-slate-300" style={{ fontSize: '10pt' }}>
+                        <span className="text-slate-300" style={{ fontSize: `${sm.emptyPt}pt` }}>
                           —
                         </span>
                       )}
@@ -771,7 +939,7 @@ export default function PriceStickersPage() {
           __html: `
             @media print {
               @page {
-                size: A4;
+                size: ${pageSize.pageSizeCss};
                 margin: 0;
               }
             }
