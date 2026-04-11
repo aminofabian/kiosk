@@ -71,7 +71,17 @@ export function ItemsManager() {
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
   const [addingVariantToParent, setAddingVariantToParent] = useState<string | null>(null);
-  
+
+  const variantParentDefaultsForForm = useMemo(() => {
+    if (!addingVariantToParent) return undefined;
+    const parent = items.find((i) => i.id === addingVariantToParent);
+    if (!parent) return undefined;
+    return {
+      category_id: parent.category_id,
+      item_type: parent.item_type,
+    };
+  }, [addingVariantToParent, items]);
+
   // Stock adjustment state
   const [stockDrawerOpen, setStockDrawerOpen] = useState(false);
   const [adjustingItem, setAdjustingItem] = useState<ItemWithCategory | null>(null);
@@ -259,6 +269,7 @@ export function ItemsManager() {
 
   const handleEditClick = async () => {
     if (selectedItem) {
+      setAddingVariantToParent(null);
       // Fetch full item details including buy_price
       try {
         const response = await fetch(`/api/items/${selectedItem.id}`);
@@ -574,6 +585,7 @@ export function ItemsManager() {
                 onClick={() => {
                   setEditingItem(null);
                   setSelectedItem(null);
+                  setAddingVariantToParent(null);
                   setDrawerOpen(true);
                 }}
               >
@@ -1289,6 +1301,7 @@ export function ItemsManager() {
               <ItemForm
                 itemId={editingItem?.id}
                 parentItemId={addingVariantToParent || undefined}
+                variantParentDefaults={variantParentDefaultsForForm}
                 defaultMode={editingItem?.isParent ? 'parent' : 'standalone'}
                 initialData={editingItem ? {
                   name: editingItem.name,

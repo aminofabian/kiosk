@@ -520,3 +520,23 @@ CREATE TABLE IF NOT EXISTS expenses (
 CREATE INDEX IF NOT EXISTS idx_expenses_business_id ON expenses(business_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_active ON expenses(business_id, active);
 CREATE INDEX IF NOT EXISTS idx_expenses_created_by ON expenses(created_by);
+
+-- ============================================
+-- External HTTP API keys (integrations, mobile backends)
+-- ============================================
+CREATE TABLE IF NOT EXISTS external_api_keys (
+  id TEXT PRIMARY KEY,
+  business_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  label TEXT,
+  token_hash TEXT NOT NULL UNIQUE,
+  token_prefix TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  last_used_at INTEGER,
+  FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_external_api_keys_business_id ON external_api_keys(business_id);
+CREATE INDEX IF NOT EXISTS idx_external_api_keys_token_hash ON external_api_keys(token_hash);

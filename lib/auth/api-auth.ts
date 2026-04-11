@@ -1,5 +1,6 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from './config';
+import { resolveAppSession } from './session-resolve';
 import { jsonResponse } from '@/lib/utils/api-response';
 import { hasPermission } from './permissions';
 import { queryOne } from '@/lib/db';
@@ -36,8 +37,8 @@ export interface SuperAdminContext {
 }
 
 export async function getAuthContext(): Promise<AuthContext | null> {
-  const session = await getServerSession(authOptions);
-  
+  const session = await resolveAppSession();
+
   if (!session?.user) {
     return null;
   }

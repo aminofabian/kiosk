@@ -1,8 +1,7 @@
-import { getServerSession } from 'next-auth';
-import { authOptions } from './config';
+import { resolveAppSession } from './session-resolve';
 
 export async function getSession() {
-  return await getServerSession(authOptions);
+  return await resolveAppSession();
 }
 
 export async function getCurrentUser() {

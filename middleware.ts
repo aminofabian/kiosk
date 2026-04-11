@@ -77,18 +77,13 @@ export default withAuth(
         }
 
         const publicRoutes = [
-          '/login', 
-          '/register', 
+          '/login',
+          '/register',
           '/forgot-password',
           '/reset-password',
           '/pos/login',
-          '/api/auth', 
-          '/api/domain',
-          '/api/db',
-          '/api/superadmin/setup',
-          '/api/public/',
-          '/superadmin/login', 
-          '/superadmin/setup'
+          '/superadmin/login',
+          '/superadmin/setup',
         ];
         if (publicRoutes.some((route) => pathname.startsWith(route))) {
           return true;
@@ -112,6 +107,8 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\..*|api/db).*)',
+    // API routes authenticate inside each handler (session cookie or external API key).
+    // Matching /api here would block cookie-less clients before the handler runs.
+    '/((?!_next/static|_next/image|favicon.ico|.*\\..*|api/).*)',
   ],
 };

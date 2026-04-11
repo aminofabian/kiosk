@@ -59,6 +59,19 @@ export interface User {
   created_at: number;
 }
 
+/** Server-only secret is stored as SHA-256 hex in `token_hash`; `token_prefix` is for display. */
+export interface ExternalApiKey {
+  id: string;
+  business_id: string;
+  user_id: string;
+  label: string | null;
+  token_hash: string;
+  token_prefix: string;
+  active: number;
+  created_at: number;
+  last_used_at: number | null;
+}
+
 export interface Category {
   id: string;
   business_id: string;

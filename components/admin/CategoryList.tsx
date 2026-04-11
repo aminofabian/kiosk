@@ -1,10 +1,13 @@
 'use client';
 
+import Link from 'next/link';
+import { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Pencil, Trash2, Folder, Loader2, Package } from 'lucide-react';
+import { Plus, Pencil, Trash2, Folder, Loader2, Package, FileDown, Combine, Eraser } from 'lucide-react';
 import type { Category } from '@/lib/db/types';
+import { categorySlugById } from '@/lib/utils/category-slug';
 
 export interface CategoryWithCount extends Category {
   item_count?: number;
@@ -16,6 +19,10 @@ interface CategoryListProps {
   onEditCategory: (category: Category) => void;
   onDeleteCategory: (categoryId: string) => void;
   deletingId: string | null;
+  /** Opens merge dialog (e.g. move products from an old category into a new one). */
+  onOpenMerge?: () => void;
+  /** Opens dialog to permanently remove inactive categories that have no products. */
+  onOpenPurgeInactive?: () => void;
 }
 
 export function CategoryList({
@@ -24,7 +31,12 @@ export function CategoryList({
   onEditCategory,
   onDeleteCategory,
   deletingId,
+  onOpenMerge,
+  onOpenPurgeInactive,
 }: CategoryListProps) {
+  const slugById = useMemo(() => categorySlugById(categories), [categories]);
+  const hasInactive = categories.some((c) => c.active === 0);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -33,13 +45,38 @@ export function CategoryList({
             {categories.length} categor{categories.length === 1 ? 'y' : 'ies'}
           </p>
         </div>
-        <Button
-          onClick={onAddCategory}
-          className="bg-[#1c6a1e] hover:bg-[#1e8a72] text-white shadow-md shadow-[#1c6a1e]/20"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Category
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {onOpenMerge && categories.length >= 2 && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onOpenMerge}
+              className="rounded-none border-slate-300 dark:border-slate-600"
+            >
+              <Combine className="h-4 w-4 mr-2" />
+              Merge categories
+            </Button>
+          )}
+          {onOpenPurgeInactive && hasInactive && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onOpenPurgeInactive}
+              className="rounded-none border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300"
+              title="Permanently delete inactive categories that have no products"
+            >
+              <Eraser className="h-4 w-4 mr-2" />
+              Remove inactive
+            </Button>
+          )}
+          <Button
+            onClick={onAddCategory}
+            className="bg-[#1c6a1e] hover:bg-[#1e8a72] text-white shadow-md shadow-[#1c6a1e]/20 rounded-none"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Category
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
@@ -78,6 +115,14 @@ export function CategoryList({
                           <span>{count === 1 ? 'product' : 'products'}</span>
                         </span>
                       </div>
+                      <Link
+                        href={`/admin/categories/${encodeURIComponent(slugById.get(category.id) ?? '')}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-[#1c6a1e] hover:text-[#166534] hover:underline"
+                      >
+                        <FileDown className="h-3.5 w-3.5 shrink-0" />
+                        Product list · PDF
+                      </Link>
                     </div>
                   </div>
 

@@ -679,6 +679,8 @@ interface ItemFormProps {
     aisle_number?: string | null;
   };
   parentItemId?: string; // If set, we're creating a variant for this parent
+  /** When creating a variant, parent row fields to pre-fill (category + product type). */
+  variantParentDefaults?: { category_id: string; item_type?: string | null };
   defaultMode?: FormMode;
   onSuccess?: (updatedItem?: Item) => void;
   onCancel?: () => void;
@@ -688,6 +690,7 @@ export function ItemForm({
   itemId,
   initialData,
   parentItemId,
+  variantParentDefaults,
   defaultMode = 'standalone',
   onSuccess,
   onCancel
@@ -754,8 +757,14 @@ export function ItemForm({
   const [packagingUnitQty, setPackagingUnitQty] = useState<string>(
     initialData?.packaging_unit_qty?.toString() || ''
   );
-  const { productTypes } = useItemTypes();
-  const [itemType, setItemType] = useState<string>(initialData?.item_type || productTypes[0]?.key || 'retail');
+  const { productTypes, itemTypeKeys } = useItemTypes();
+  const defaultNewItemType = useMemo(
+    () => productTypes.find((t) => t.key === 'retail')?.key ?? 'retail',
+    [productTypes]
+  );
+  const [itemType, setItemType] = useState<string>(
+    initialData?.item_type ?? defaultNewItemType
+  );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   /** Synchronous guard — state updates are async, so a second submit can fire before `isSubmitting` paints. */
@@ -861,6 +870,22 @@ export function ItemForm({
     );
   }, [categories, categorySearchQuery]);
 
+  // Keep mode in sync when opening the drawer for a new variant vs new standalone vs edit
+  useEffect(() => {
+    if (itemId) {
+      if (initialData?.parent_item_id) setMode('variant');
+      else if (defaultMode === 'parent') setMode('parent');
+      else setMode('standalone');
+      return;
+    }
+    if (parentItemId) {
+      setMode('variant');
+      setSelectedParentId(parentItemId);
+      return;
+    }
+    setMode(defaultMode);
+  }, [itemId, initialData?.parent_item_id, parentItemId, defaultMode]);
+
   useEffect(() => {
     async function fetchData() {
       try {
@@ -881,11 +906,15 @@ export function ItemForm({
           setParentItems(parentsResult.data ?? []);
         }
 
-        // If parentItemId is set, get the parent's category
+        // If parentItemId is set, inherit category + product type from parent (when in API list)
         if (parentItemId && parentsResult.success) {
           const parent = (parentsResult.data ?? []).find((p: Item) => p.id === parentItemId);
           if (parent) {
             setCategoryId(parent.category_id);
+            const pt = parent.item_type;
+            if (pt && itemTypeKeys.includes(pt)) {
+              setItemType(pt);
+            }
           }
         }
 
@@ -914,7 +943,26 @@ export function ItemForm({
       }
     }
     fetchData();
-  }, [parentItemId, itemId, initialData?.parent_item_id]);
+  }, [parentItemId, itemId, initialData?.parent_item_id, itemTypeKeys]);
+
+  // Pre-fill category + type from parent row when creating a variant (immediate; works before parents fetch)
+  useEffect(() => {
+    if (itemId || !parentItemId || !variantParentDefaults) return;
+    setCategoryId(variantParentDefaults.category_id);
+    const pt = variantParentDefaults.item_type;
+    if (pt && itemTypeKeys.includes(pt)) {
+      setItemType(pt);
+    } else {
+      setItemType(defaultNewItemType);
+    }
+  }, [
+    itemId,
+    parentItemId,
+    variantParentDefaults?.category_id,
+    variantParentDefaults?.item_type,
+    itemTypeKeys,
+    defaultNewItemType,
+  ]);
 
   // Sync form state when initialData changes (e.g. switching items to edit) - prevents stale values
   useEffect(() => {
@@ -923,7 +971,10 @@ export function ItemForm({
       if (!itemId) {
         setName('');
         setVariantName('');
-        if (!parentItemId) setCategoryId('');
+        if (!parentItemId) {
+          setCategoryId('');
+          setItemType(defaultNewItemType);
+        }
         setUnitType('piece');
         setSellPrice('');
         setBuyPrice('');
@@ -952,7 +1003,10 @@ export function ItemForm({
     setExpiryDate(initialData.expiry_date ? new Date(initialData.expiry_date * 1000).toISOString().split('T')[0] : '');
     setAisleNumber(initialData.aisle_number || '');
     setSelectedParentId(initialData.parent_item_id || '');
-    setItemType(initialData.item_type || productTypes[0]?.key || 'retail');
+    setItemType(
+      initialData.item_type ??
+        (productTypes.find((t) => t.key === 'retail')?.key ?? 'retail')
+    );
     // Stock: use current value from DB, not stale
     const unitType = initialData.unit_type || 'piece';
     if (unitType === 'piece') {
