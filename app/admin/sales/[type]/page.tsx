@@ -58,6 +58,7 @@ import {
   downloadProductCountSheetPdf,
   dailyProductsToCountSheetRows,
 } from '@/lib/pdf/product-count-sheet';
+import { downloadProductWeeklyCountSheetPdf } from '@/lib/pdf/product-weekly-count-sheet';
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -194,15 +195,14 @@ async function downloadTodaysProductsPdf(opts: {
   periodLabel: string;
   products: DailyProduct[];
 }) {
-  // Portrait A4 + larger type: on phones, “fit width” maps the page’s narrow edge to the
-  // screen, so portrait reads much larger than landscape; body text is bumped for legibility.
+  // Compact portrait A4: tighter margins and row height to reduce page count when printing.
   const { default: jsPDF } = await import('jspdf');
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  const margin = 12;
+  const margin = 9;
   const contentW = pageW - margin * 2;
-  const footerH = 14;
+  const footerH = 9;
 
   const palette = {
     accent: [22, 163, 74] as const,
@@ -214,20 +214,20 @@ async function downloadTodaysProductsPdf(opts: {
     zebra: [248, 250, 252] as const,
   };
 
-  const rowH = 12;
-  const headerH = 11;
-  const headerBlockH = 26;
-  const colConfirmCx = pageW - margin - 5;
-  const colStockR = pageW - margin - 17;
-  const colQtyR = pageW - margin - 54;
-  const colNameL = margin + 14;
-  const colNameMaxW = Math.max(42, colQtyR - colNameL - 6);
-  const colNumCx = margin + 7;
-  const rowTickBoxMm = 4.2;
+  const rowH = 9;
+  const headerH = 8;
+  const headerBlockH = 20;
+  const colConfirmCx = pageW - margin - 4;
+  const colStockR = pageW - margin - 16;
+  const colQtyR = pageW - margin - 50;
+  const colNameL = margin + 12;
+  const colNameMaxW = Math.max(40, colQtyR - colNameL - 5);
+  const colNumCx = margin + 6;
+  const rowTickBoxMm = 3.6;
 
   const truncateName = (t: string) => {
     let s = t;
-    doc.setFontSize(12);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     while (s.length > 1 && doc.getTextWidth(s) > colNameMaxW) {
       s = s.length > 4 ? `${s.slice(0, -4)}…` : '…';
@@ -237,7 +237,7 @@ async function downloadTodaysProductsPdf(opts: {
 
   const truncateBarcode = (t: string) => {
     let s = t;
-    doc.setFontSize(7.5);
+    doc.setFontSize(6.5);
     doc.setFont('courier', 'normal');
     while (s.length > 1 && doc.getTextWidth(s) > colNameMaxW) {
       s = s.length > 5 ? `${s.slice(0, -4)}…` : '…';
@@ -246,36 +246,36 @@ async function downloadTodaysProductsPdf(opts: {
   };
 
   /** Single baseline for # / Qty / Stock / Tick (vertically centered in row) */
-  const rowBaseline = (rowY: number) => rowY + rowH * 0.62;
+  const rowBaseline = (rowY: number) => rowY + rowH * 0.55;
 
   const drawPageHeader = (yy: number) => {
     doc.setFillColor(...palette.accent);
-    doc.rect(margin, yy, 3.5, headerBlockH, 'F');
+    doc.rect(margin, yy, 3, headerBlockH, 'F');
 
     doc.setTextColor(...palette.ink);
-    doc.setFontSize(20);
+    doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text(opts.typeLabel, margin + 8, yy + 8);
+    doc.text(opts.typeLabel, margin + 7, yy + 6.2);
 
-    doc.setFontSize(11);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...palette.muted);
-    doc.text('Products sold — quantity & stock', margin + 8, yy + 15);
+    doc.text('Products sold — quantity & stock', margin + 7, yy + 11.2);
 
     const printed = new Date().toLocaleString('en-KE', {
       dateStyle: 'medium',
       timeStyle: 'short',
     });
-    doc.setFontSize(9);
-    doc.text(printed, pageW - margin, yy + 7, { align: 'right' });
+    doc.setFontSize(8);
+    doc.text(printed, pageW - margin, yy + 5.2, { align: 'right' });
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
+    doc.setFontSize(11);
     doc.setTextColor(...palette.accent);
-    doc.text(opts.periodLabel, pageW - margin, yy + 15, { align: 'right' });
+    doc.text(opts.periodLabel, pageW - margin, yy + 11.2, { align: 'right' });
 
     doc.setTextColor(...palette.ink);
-    return yy + headerBlockH + 5;
+    return yy + headerBlockH + 3;
   };
 
   const drawTableHeader = (yy: number) => {
@@ -284,15 +284,15 @@ async function downloadTodaysProductsPdf(opts: {
     doc.setLineWidth(0.25);
     doc.rect(margin, yy, contentW, headerH, 'FD');
 
-    doc.setFontSize(11);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...palette.headerInk);
-    const hy = yy + 7.5;
+    const hy = yy + 5.4;
     doc.text('#', colNumCx, hy, { align: 'center' });
     doc.text('Product', colNameL, hy);
     doc.text('Qty sold', colQtyR, hy, { align: 'right' });
     doc.text('Stock', colStockR, hy, { align: 'right' });
-    doc.setFontSize(10);
+    doc.setFontSize(8);
     doc.text('Tick', colConfirmCx, hy, { align: 'center' });
 
     return yy + headerH;
@@ -322,19 +322,19 @@ async function downloadTodaysProductsPdf(opts: {
     const by = rowBaseline(y);
     const barcodeRaw = (p.barcode ?? '').trim();
 
-    doc.setFontSize(12);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...palette.ink);
     doc.text(String(idx + 1), colNumCx, by, { align: 'center' });
-    doc.text(truncateName(name), colNameL, y + 4.2);
+    doc.text(truncateName(name), colNameL, y + 3.2);
     doc.text(`${formatNumber(p.total_quantity_sold)} ${u}`, colQtyR, by, { align: 'right' });
     doc.text(`${formatNumber(p.current_stock)} ${u}`, colStockR, by, { align: 'right' });
 
     if (barcodeRaw) {
       doc.setTextColor(...palette.muted);
-      doc.text(truncateBarcode(barcodeRaw), colNameL, y + 9);
+      doc.text(truncateBarcode(barcodeRaw), colNameL, y + 6.6);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(12);
+      doc.setFontSize(10);
       doc.setTextColor(...palette.ink);
     }
 
@@ -351,8 +351,8 @@ async function downloadTodaysProductsPdf(opts: {
   doc.setLineWidth(0.25);
   doc.line(margin, y, pageW - margin, y);
 
-  y += 6;
-  const summaryH = 12;
+  y += 4;
+  const summaryH = 9;
   if (y + summaryH > pageH - margin - footerH) {
     doc.addPage();
     y = drawPageHeader(margin);
@@ -361,21 +361,21 @@ async function downloadTodaysProductsPdf(opts: {
   doc.setFillColor(...palette.headerBg);
   doc.setDrawColor(...palette.border);
   doc.setLineWidth(0.25);
-  doc.roundedRect(margin, y, contentW, summaryH, 1.2, 1.2, 'FD');
+  doc.roundedRect(margin, y, contentW, summaryH, 1, 1, 'FD');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
+  doc.setFontSize(10);
   doc.setTextColor(...palette.headerInk);
   const totalLabel = `Total: ${opts.products.length} product${opts.products.length === 1 ? '' : 's'}`;
-  doc.text(totalLabel, margin + 5, y + 8);
+  doc.text(totalLabel, margin + 4, y + 6.2);
 
-  y += summaryH + 6;
+  y += summaryH + 4;
   const noteText =
     'Tick each box in the table (required) to confirm that row’s quantity sold and stock figures are correct.';
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
+  doc.setFontSize(8.5);
   doc.setTextColor(...palette.muted);
   const noteLines = doc.splitTextToSize(noteText, contentW);
-  const noteBlockH = noteLines.length * 4.8 + 2;
+  const noteBlockH = noteLines.length * 3.9 + 1;
   if (y + noteBlockH > pageH - margin - footerH) {
     doc.addPage();
     y = drawPageHeader(margin);
@@ -385,10 +385,10 @@ async function downloadTodaysProductsPdf(opts: {
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    doc.setFontSize(10);
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(...palette.muted);
-    doc.text(`Page ${i} of ${totalPages}`, pageW / 2, pageH - 8, { align: 'center' });
+    doc.text(`Page ${i} of ${totalPages}`, pageW / 2, pageH - 6.5, { align: 'center' });
   }
 
   const datePart = slugFilePart(opts.periodLabel);
@@ -410,6 +410,24 @@ async function downloadTodaysProductsBlankQtyPdf(opts: {
     footnote:
       'Average price is for reference only. Enter your counted or requested quantity in the blank Qty box on each row.',
     saveFileName: `${slugFilePart(opts.typeLabel)}-count-sheet-${datePart}.pdf`,
+    rows: dailyProductsToCountSheetRows(opts.products, UNIT_LABELS),
+  });
+}
+
+async function downloadTodaysProductsWeeklyBlankPdf(opts: {
+  typeLabel: string;
+  periodLabel: string;
+  products: DailyProduct[];
+}) {
+  const datePart = slugFilePart(opts.periodLabel);
+  await downloadProductWeeklyCountSheetPdf({
+    headline: opts.typeLabel,
+    subtitleLine: 'Weekly sheet — Mon–Sun quantity boxes per product (portrait)',
+    periodLine: opts.periodLabel,
+    priceColumnHeader: 'Avg',
+    footnote:
+      'Write quantity sold for each weekday in the boxes (Mon through Sun). Average price is for reference only; it does not apply to a specific calendar week unless you align this sheet with your own week.',
+    saveFileName: `${slugFilePart(opts.typeLabel)}-weekly-sheet-${datePart}.pdf`,
     rows: dailyProductsToCountSheetRows(opts.products, UNIT_LABELS),
   });
 }
@@ -442,6 +460,7 @@ export default function SalesByTypePage() {
   const [stockSaving, setStockSaving] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfBlankLoading, setPdfBlankLoading] = useState(false);
+  const [pdfWeeklyLoading, setPdfWeeklyLoading] = useState(false);
 
   useEffect(() => {
     if (!typesLoading && itemTypeKeys.length > 0 && type && !itemTypeKeys.includes(type)) {
@@ -663,7 +682,23 @@ export default function SalesByTypePage() {
     }
   };
 
-  const pdfBusy = pdfLoading || pdfBlankLoading;
+  const handleDownloadWeeklyBlankPdf = async () => {
+    if (filteredProducts.length === 0) return;
+    try {
+      setPdfWeeklyLoading(true);
+      await downloadTodaysProductsWeeklyBlankPdf({
+        typeLabel,
+        periodLabel: productsPeriodLabel,
+        products: filteredProducts,
+      });
+    } catch {
+      toast.error('Could not create weekly sheet PDF');
+    } finally {
+      setPdfWeeklyLoading(false);
+    }
+  };
+
+  const pdfBusy = pdfLoading || pdfBlankLoading || pdfWeeklyLoading;
 
   // Best hour
   const bestHour = hourlySales.reduce<HourlySales | null>(
@@ -1099,6 +1134,23 @@ export default function SalesByTypePage() {
                       <PenLine className="w-3.5 h-3.5" />
                     )}
                     <span className="ml-1.5">Blank qty</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs shrink-0"
+                    onClick={handleDownloadWeeklyBlankPdf}
+                    disabled={filteredProducts.length === 0 || pdfBusy}
+                    title="Portrait PDF: wide Mon–Sun boxes; avg price under each product name"
+                  >
+                    {pdfWeeklyLoading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <CalendarDays className="w-3.5 h-3.5" />
+                    )}
+                    <span className="ml-1.5 hidden sm:inline">Weekly blank</span>
+                    <span className="ml-1.5 sm:hidden">Week</span>
                   </Button>
                   <div className="relative flex-1 sm:flex-initial sm:w-48 min-w-0 max-w-full">
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
