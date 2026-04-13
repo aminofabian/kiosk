@@ -13,6 +13,7 @@ import {
 import type { Sale } from '@/lib/db/types';
 import { awardLoyaltyPointsForSale } from '@/lib/db/loyalty';
 import { buildCreditDebtLineItemsSnapshotJson } from '@/lib/db/credit-debt-line-snapshot';
+import { migrateCreditDebtLineItemsSnapshot } from '@/lib/db/migrate-credit-debt-line-items-snapshot';
 
 const EPS = 0.01;
 
@@ -612,6 +613,7 @@ export async function POST(request: NextRequest) {
             (p) => p.method === 'credit' && Number(p.amount) > EPS
           ));
       if (willRecordCreditDebt) {
+        await migrateCreditDebtLineItemsSnapshot();
         debtLineItemsSnapshotJson = await buildCreditDebtLineItemsSnapshotJson(saleId);
       }
     }

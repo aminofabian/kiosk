@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Drawer,
+  DrawerClose,
   DrawerContent,
   DrawerHeader,
   DrawerTitle,
@@ -174,6 +175,9 @@ export function CreditList() {
   const [selectedAccount, setSelectedAccount] = useState<CreditAccount | null>(null);
   const [transactions, setTransactions] = useState<CreditTransactionWithDetails[]>([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  /** Bumped when opening another account or closing the drawer so stale fetches cannot overwrite state. */
+  const creditDetailGenRef = useRef(0);
+
   const [transferUsers, setTransferUsers] = useState<TransferStaffRow[]>([]);
   const [transferToUserId, setTransferToUserId] = useState('');
   const [transferIncludePayments, setTransferIncludePayments] = useState(false);
@@ -191,6 +195,20 @@ export function CreditList() {
   const [editCustomerName, setEditCustomerName] = useState('');
   const [editCustomerPhones, setEditCustomerPhones] = useState<string[]>(['']);
   const [editCustomerSaving, setEditCustomerSaving] = useState(false);
+
+  const dismissCreditDrawerChrome = useCallback(() => {
+    creditDetailGenRef.current += 1;
+    setLoadingDetails(false);
+    setCustomerEditModalOpen(false);
+    setMergeModalOpen(false);
+    setTransferModalOpen(false);
+    setTransferToUserId('');
+    setTransferIncludePayments(false);
+    setMergeSearchQuery('');
+    setMergeSelectedIds([]);
+    setMergeNameOverride('');
+    setMergePhonesText('');
+  }, []);
 
   useEffect(() => {
     if (!selectedAccount) return;
@@ -287,6 +305,7 @@ export function CreditList() {
     formatRecorderLabel(acc.last_credit_by_name, acc.last_credit_by_role);
 
   const handleOpenPaymentDrawer = async (account: CreditAccount) => {
+    const gen = ++creditDetailGenRef.current;
     setSelectedAccount(account);
     setDrawerOpen(true);
     setLoadingDetails(true);
@@ -295,17 +314,21 @@ export function CreditList() {
       const result = await apiGet<{ account: CreditAccount; transactions: CreditTransactionWithDetails[] }>(
         `/api/credits/${account.id}`
       );
-      if (result.success && result.data?.transactions) {
-        setTransactions(result.data.transactions);
+      if (gen !== creditDetailGenRef.current) return;
+      if (result.success && result.data) {
+        setTransactions(result.data.transactions ?? []);
       }
     } catch (err) {
       console.error('Error fetching credit details:', err);
     } finally {
-      setLoadingDetails(false);
+      if (gen === creditDetailGenRef.current) {
+        setLoadingDetails(false);
+      }
     }
   };
 
   const openCreditAccountById = async (creditAccountId: string) => {
+    const gen = ++creditDetailGenRef.current;
     setDrawerOpen(true);
     setLoadingDetails(true);
     setTransactions([]);
@@ -314,23 +337,29 @@ export function CreditList() {
       const result = await apiGet<{ account: CreditAccount; transactions: CreditTransactionWithDetails[] }>(
         `/api/credits/${creditAccountId}`
       );
+      if (gen !== creditDetailGenRef.current) return;
       if (result.success && result.data) {
         if (result.data.account) setSelectedAccount(result.data.account);
-        if (result.data.transactions) setTransactions(result.data.transactions);
+        setTransactions(result.data.transactions ?? []);
       } else {
         toast.error(result.message || 'Could not load customer');
+        dismissCreditDrawerChrome();
         setDrawerOpen(false);
       }
     } catch (err) {
       console.error('Error opening credit account:', err);
       toast.error('Could not load customer');
+      dismissCreditDrawerChrome();
       setDrawerOpen(false);
     } finally {
-      setLoadingDetails(false);
+      if (gen === creditDetailGenRef.current) {
+        setLoadingDetails(false);
+      }
     }
   };
 
   const handlePaymentSuccess = async () => {
+    dismissCreditDrawerChrome();
     setDrawerOpen(false);
     setSelectedAccount(null);
     try {
@@ -382,13 +411,15 @@ export function CreditList() {
   };
 
   const silentReloadDrawerDetail = async (accountId: string) => {
+    const gen = creditDetailGenRef.current;
     try {
       const result = await apiGet<{
         account: CreditAccount;
         transactions: CreditTransactionWithDetails[];
       }>(`/api/credits/${accountId}`);
+      if (gen !== creditDetailGenRef.current) return;
       if (result.success && result.data) {
-        if (result.data.transactions) setTransactions(result.data.transactions);
+        setTransactions(result.data.transactions ?? []);
         if (result.data.account) setSelectedAccount(result.data.account);
       }
     } catch (err) {
@@ -1298,17 +1329,7 @@ export function CreditList() {
         open={drawerOpen}
         onOpenChange={(open) => {
           setDrawerOpen(open);
-          if (!open) {
-            setCustomerEditModalOpen(false);
-            setMergeModalOpen(false);
-            setTransferModalOpen(false);
-            setTransferToUserId('');
-            setTransferIncludePayments(false);
-            setMergeSearchQuery('');
-            setMergeSelectedIds([]);
-            setMergeNameOverride('');
-            setMergePhonesText('');
-          }
+          if (!open) dismissCreditDrawerChrome();
         }}
         direction="right"
       >
@@ -1322,15 +1343,16 @@ export function CreditList() {
               className="pointer-events-none absolute -left-10 bottom-0 h-40 w-40 rounded-full bg-teal-300/25 dark:bg-teal-500/10 blur-2xl"
               aria-hidden
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setDrawerOpen(false)}
-              className="absolute right-3 top-3 h-9 w-9 rounded-full text-white hover:bg-white/20 z-20 border border-white/10"
-            >
-              <X className="h-5 w-5" />
-              <span className="sr-only">Close</span>
-            </Button>
+            <DrawerClose asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-3 top-3 h-9 w-9 rounded-full text-white hover:bg-white/20 z-20 border border-white/10"
+              >
+                <X className="h-5 w-5" />
+                <span className="sr-only">Close</span>
+              </Button>
+            </DrawerClose>
             <div className="relative z-10 flex flex-col gap-4">
               <div className="flex gap-3 items-start">
                 <div

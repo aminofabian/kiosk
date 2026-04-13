@@ -66,6 +66,17 @@ export async function GET(
       [accountId]
     );
 
+    for (const row of transactions) {
+      const raw = row.type;
+      if (typeof raw !== 'string') continue;
+      const n = raw.trim().toLowerCase();
+      if (n === 'debt' || n === 'payment') {
+        row.type = n as CreditTransaction['type'];
+      } else if (n === 'credit' || n === 'tab' || n === 'owed') {
+        row.type = 'debt';
+      }
+    }
+
     // Fetch sale items for each transaction that has a sale_id
     const saleIds = transactions
       .filter((t) => t.sale_id)
