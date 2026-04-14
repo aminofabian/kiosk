@@ -42,6 +42,7 @@ import {
   Link2,
   Clock,
   Gift,
+  Printer,
 } from 'lucide-react';
 import type { CreditAccount, CreditTransaction, SaleItem } from '@/lib/db/types';
 import { PaymentForm } from './PaymentForm';
@@ -64,6 +65,40 @@ interface CreditTransactionWithDetails extends CreditTransaction {
   recorder_role?: string | null;
   sale_date?: number;
   items?: SaleItemWithDetails[];
+}
+
+/** True when a tab-debt row can be reprinted (linked sale, line snapshot, or live items). */
+function escapeHtml(text: string): string {
+  const d = document.createElement('div');
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+function formatKesPlain(n: number): string {
+  return `KES ${Number(n).toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+}
+
+function formatDateTimePlain(ts: number): string {
+  return new Date(ts * 1000).toLocaleString('en-KE', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function debtDisplayTimestamp(t: CreditTransactionWithDetails): number {
+  if (typeof t.sale_date === 'number' && t.sale_date > 0) return t.sale_date;
+  return t.created_at;
+}
+
+function creditDebtCanReprintReceipt(t: CreditTransactionWithDetails): boolean {
+  if (t.type !== 'debt') return false;
+  if (t.sale_id) return true;
+  if (t.items && t.items.length > 0) return true;
+  const j = t.debt_line_items_json;
+  return typeof j === 'string' && j.trim().length > 0;
 }
 
 function formatRecorderLabel(name?: string | null, role?: string | null): string | null {
@@ -646,6 +681,168 @@ export function CreditList() {
     if (creditView !== 'outstanding') return 0;
     return visibleAccounts.reduce((sum, acc) => sum + acc.total_credit, 0);
   }, [creditView, visibleAccounts]);
+
+  const printPendingTabItemsForCustomer = useCallback(() => {
+    if (!selectedAccount) {
+      toast.error('Open a customer first');
+      return;
+    }
+    if (loadingDetails) {
+      toast.error('Still loading history — try again in a moment');
+      return;
+    }
+    if (typeof document === 'undefined') return;
+
+    const debtPaid = computeDebtPaidStatus(transactions);
+    const unpaidDebts = transactions
+      .filter((t) => t.type === 'debt' && debtPaid.get(t.id) !== true)
+      .sort((a, b) => a.created_at - b.created_at);
+
+    if (unpaidDebts.length === 0) {
+      toast.error('No pending tab charges for this customer');
+      return;
+    }
+
+    const businessName = user?.businessName?.trim() || 'Store';
+    const printedAt = new Date().toLocaleString('en-KE', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    const printedBy = user?.name?.trim();
+    const customerName = toProperCustomerName(selectedAccount.customer_name);
+    const customerPhones = formatPhonesForDisplay(accountPhonesList(selectedAccount));
+    const grandTotal = unpaidDebts.reduce((s, t) => s + Number(t.amount), 0);
+
+    const debtBlocksHtml = unpaidDebts
+      .map((d, idx) => {
+        const when = formatDateTimePlain(debtDisplayTimestamp(d));
+        const recorder = formatRecorderLabel(d.user_name, d.recorder_role);
+        const saleRef = d.sale_id ? d.sale_id.slice(0, 8).toUpperCase() : null;
+        const items = d.items ?? [];
+        let linesHtml: string;
+        if (items.length === 0) {
+          linesHtml =
+            '<p class="no-lines">No line-item breakdown for this charge (amount only).</p>';
+        } else {
+          const body = items
+            .map((it) => {
+              const line = Number(it.quantity_sold) * Number(it.sell_price_per_unit);
+              const ut = it.item_unit_type || 'pc';
+              const qtyLabel =
+                ut === 'kg'
+                  ? `${it.quantity_sold} kg`
+                  : it.quantity_sold === 1
+                    ? '1 pc'
+                    : `${it.quantity_sold} pcs`;
+              return `<tr>
+                <td>${escapeHtml(it.item_name)}</td>
+                <td class="num">${escapeHtml(qtyLabel)}</td>
+                <td class="num">${escapeHtml(formatKesPlain(it.sell_price_per_unit))}</td>
+                <td class="amt">${escapeHtml(formatKesPlain(line))}</td>
+              </tr>`;
+            })
+            .join('');
+          linesHtml = `<table class="lines">
+            <thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th style="text-align:right">Line</th></tr></thead>
+            <tbody>${body}</tbody>
+          </table>`;
+        }
+        return `<section class="debt-block">
+          <h2>Charge ${idx + 1} · ${escapeHtml(formatKesPlain(d.amount))}</h2>
+          <p class="debt-meta"><strong>When:</strong> ${escapeHtml(when)}</p>
+          ${recorder ? `<p class="debt-meta"><strong>Recorded by:</strong> ${escapeHtml(recorder)}</p>` : ''}
+          ${saleRef ? `<p class="debt-meta"><strong>Sale ref:</strong> ${escapeHtml(saleRef)}</p>` : ''}
+          ${linesHtml}
+        </section>`;
+      })
+      .join('');
+
+    const fullHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>Pending tab items — ${escapeHtml(customerName)}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 24px; color: #111; font-size: 13px; }
+    h1 { font-size: 1.25rem; margin: 0 0 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+    h2 { font-size: 1rem; margin: 0 0 8px; color: #222; }
+    .meta { color: #444; font-size: 12px; margin-bottom: 16px; }
+    .meta p { margin: 2px 0; }
+    .debt-block { margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid #ccc; page-break-inside: avoid; }
+    .debt-block:last-of-type { border-bottom: none; }
+    .debt-meta { margin: 4px 0; font-size: 12px; color: #333; }
+    .no-lines { font-style: italic; color: #666; font-size: 12px; margin: 8px 0 0; }
+    table.lines { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+    table.lines th, table.lines td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #e5e5e5; vertical-align: top; }
+    table.lines th { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #555; background: #f4f4f4; }
+    table.lines td.num { text-align: right; white-space: nowrap; color: #444; }
+    table.lines td.amt { text-align: right; font-weight: 700; white-space: nowrap; }
+    .total-bar { margin-top: 24px; padding-top: 16px; border-top: 2px solid #111; font-size: 15px; font-weight: 800; display: flex; justify-content: space-between; }
+    @media print {
+      body { margin: 12mm; }
+      @page { margin: 12mm; size: A4; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Pending tab items</h1>
+  <div class="meta">
+    <p><strong>${escapeHtml(businessName)}</strong></p>
+    <p><strong>Customer:</strong> ${escapeHtml(customerName)}</p>
+    <p><strong>Phone(s):</strong> ${escapeHtml(customerPhones || '—')}</p>
+    <p>Printed ${escapeHtml(printedAt)}${printedBy ? ` · ${escapeHtml(printedBy)}` : ''}</p>
+    <p>${unpaidDebts.length} unpaid charge${unpaidDebts.length === 1 ? '' : 's'} (oldest paid first when collecting)</p>
+  </div>
+  ${debtBlocksHtml}
+  <div class="total-bar">
+    <span>Total still due on tab</span>
+    <span>${escapeHtml(formatKesPlain(grandTotal))}</span>
+  </div>
+</body>
+</html>`;
+
+    const iframe = document.createElement('iframe');
+    iframe.setAttribute('title', 'Pending tab items print');
+    iframe.setAttribute('aria-hidden', 'true');
+    iframe.style.cssText =
+      'position:fixed;inset:0;width:0;height:0;border:0;opacity:0;pointer-events:none;visibility:hidden';
+    document.body.appendChild(iframe);
+
+    const idoc = iframe.contentDocument;
+    const iwin = iframe.contentWindow;
+    if (!idoc || !iwin) {
+      iframe.remove();
+      toast.error('Could not open print preview');
+      return;
+    }
+
+    idoc.open();
+    idoc.write(fullHtml);
+    idoc.close();
+
+    const removeFrame = () => {
+      try {
+        iframe.remove();
+      } catch {
+        /* ignore */
+      }
+    };
+
+    try {
+      iwin.focus();
+      iwin.print();
+    } catch {
+      toast.error('Print failed');
+      removeFrame();
+      return;
+    }
+    iwin.addEventListener('afterprint', removeFrame, { once: true });
+    setTimeout(removeFrame, 2500);
+  }, [selectedAccount, transactions, loadingDetails, user?.businessName, user?.name]);
 
   // ——— Loading ———
   if (loading) {
@@ -1449,51 +1646,71 @@ export function CreditList() {
                 </div>
               )}
 
-              {canManageCreditProfiles && (
+              {selectedAccount &&
+              (canManageCreditProfiles || selectedAccount.total_credit > 0) ? (
                 <div className="rounded-xl border border-white/10 bg-white/10 dark:bg-black/25 backdrop-blur-sm px-3 py-2.5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Sparkles className="h-3.5 w-3.5 text-amber-200/90 shrink-0" aria-hidden />
-                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50">
-                      Admin tools
-                    </span>
-                  </div>
+                  {canManageCreditProfiles ? (
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="h-3.5 w-3.5 text-amber-200/90 shrink-0" aria-hidden />
+                      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50">
+                        Admin tools
+                      </span>
+                    </div>
+                  ) : null}
                   <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      title="Edit customer name and phone numbers"
-                      className="h-8 gap-1.5 border-0 bg-white/20 text-white hover:bg-white/30 shadow-none text-xs font-medium"
-                      onClick={() => setCustomerEditModalOpen(true)}
-                    >
-                      <Smartphone className="h-3.5 w-3.5 opacity-90" aria-hidden />
-                      Edit profile
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      title="Merge duplicate credit profiles into this customer"
-                      className="h-8 gap-1.5 border-0 bg-amber-500/25 text-white hover:bg-amber-500/40 shadow-none text-xs font-medium"
-                      onClick={() => setMergeModalOpen(true)}
-                    >
-                      <GitMerge className="h-3.5 w-3.5 opacity-90" aria-hidden />
-                      Merge
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      title="Reassign staff attribution on credit records"
-                      className="h-8 gap-1.5 border-0 bg-white/20 text-white hover:bg-white/30 shadow-none text-xs font-medium"
-                      onClick={() => setTransferModalOpen(true)}
-                    >
-                      <ArrowLeftRight className="h-3.5 w-3.5 opacity-90" aria-hidden />
-                      Reassign
-                    </Button>
+                    {canManageCreditProfiles ? (
+                      <>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          title="Edit customer name and phone numbers"
+                          className="h-8 gap-1.5 border-0 bg-white/20 text-white hover:bg-white/30 shadow-none text-xs font-medium"
+                          onClick={() => setCustomerEditModalOpen(true)}
+                        >
+                          <Smartphone className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                          Edit profile
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          title="Merge duplicate credit profiles into this customer"
+                          className="h-8 gap-1.5 border-0 bg-amber-500/25 text-white hover:bg-amber-500/40 shadow-none text-xs font-medium"
+                          onClick={() => setMergeModalOpen(true)}
+                        >
+                          <GitMerge className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                          Merge
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          title="Reassign staff attribution on credit records"
+                          className="h-8 gap-1.5 border-0 bg-white/20 text-white hover:bg-white/30 shadow-none text-xs font-medium"
+                          onClick={() => setTransferModalOpen(true)}
+                        >
+                          <ArrowLeftRight className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                          Reassign
+                        </Button>
+                      </>
+                    ) : null}
+                    {selectedAccount.total_credit > 0 ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        title="Print each unpaid tab charge with line items and dates for this customer"
+                        className="h-8 gap-1.5 border-0 bg-white/20 text-white hover:bg-white/30 shadow-none text-xs font-medium"
+                        onClick={printPendingTabItemsForCustomer}
+                      >
+                        <Printer className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                        Print pending items
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
           </DrawerHeader>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-gradient-to-b from-slate-100/80 to-slate-50 dark:from-slate-950 dark:to-slate-900 px-4 py-4 sm:px-5">
@@ -1577,6 +1794,25 @@ export function CreditList() {
                                         <CheckCircle className="h-3 w-3 mr-1" />
                                         Paid
                                       </span>
+                                    )}
+                                    {creditDebtCanReprintReceipt(transaction) && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 mr-1 text-slate-500 hover:text-slate-800 hover:bg-slate-200/80 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700"
+                                        title="Reprint credit receipt"
+                                        onClick={() => {
+                                          window.open(
+                                            `/pos/receipt/credit-transaction/${transaction.id}?print=true`,
+                                            '_blank',
+                                            'noopener,noreferrer'
+                                          );
+                                        }}
+                                      >
+                                        <Printer className="h-4 w-4" aria-hidden />
+                                        <span className="sr-only">Reprint credit receipt</span>
+                                      </Button>
                                     )}
                                     <span
                                       className={cn(
