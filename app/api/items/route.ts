@@ -282,13 +282,17 @@ export async function GET(request: NextRequest) {
         // Sellable items in category
         items = await query<Item>(
           `SELECT i.* FROM items i
-           WHERE i.business_id = ? AND i.category_id = ? AND i.active = 1${itemTypeFilter.replace(' AND ', ' AND i.')}${noBarcodeFilterAlias}
+           LEFT JOIN items p ON i.parent_item_id = p.id AND p.business_id = i.business_id
+           WHERE i.business_id = ? AND (
+             i.category_id = ?
+             OR (i.parent_item_id IS NOT NULL AND p.category_id = ?)
+           ) AND i.active = 1${itemTypeFilter.replace(' AND ', ' AND i.')}${noBarcodeFilterAlias}
            AND (
              i.parent_item_id IS NOT NULL  
              OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1)
            )
            ORDER BY i.name ASC`,
-          [auth.businessId, categoryId, ...itemTypeParam]
+          [auth.businessId, categoryId, categoryId, ...itemTypeParam]
         );
       } else {
         items = await query<Item>(

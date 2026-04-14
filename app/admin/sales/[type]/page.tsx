@@ -164,6 +164,30 @@ function getLocalDateKeyDaysAgo(daysAgo: number): string {
   return `${y}-${m}-${day}`;
 }
 
+function getWeekStartMonday(dateYmd: string): string {
+  const [y, m, d] = dateYmd.split('-').map(Number);
+  const dt = new Date(y, (m || 1) - 1, d || 1);
+  dt.setHours(12, 0, 0, 0);
+  const day = dt.getDay(); // 0 Sun, 1 Mon, ... 6 Sat
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  dt.setDate(dt.getDate() + diffToMonday);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
+function getWeekEndSunday(mondayYmd: string): string {
+  const [y, m, d] = mondayYmd.split('-').map(Number);
+  const dt = new Date(y, (m || 1) - 1, d || 1);
+  dt.setHours(12, 0, 0, 0);
+  dt.setDate(dt.getDate() + 6);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
 const UNIT_LABELS: Record<string, string> = {
   kg: 'kg',
   g: 'g',
@@ -460,7 +484,11 @@ export default function SalesByTypePage() {
   const [stockSaving, setStockSaving] = useState(false);
   const [pdfLoading, setPdfLoading] = useState(false);
   const [pdfBlankLoading, setPdfBlankLoading] = useState(false);
-  const [pdfWeeklyLoading, setPdfWeeklyLoading] = useState(false);
+  const [pdfWeeklyRangeLoading, setPdfWeeklyRangeLoading] = useState(false);
+  const [weeklyRangeDialogOpen, setWeeklyRangeDialogOpen] = useState(false);
+  const [weekStartMonday, setWeekStartMonday] = useState<string>(() =>
+    getWeekStartMonday(getLocalDateKeyDaysAgo(0))
+  );
 
   useEffect(() => {
     if (!typesLoading && itemTypeKeys.length > 0 && type && !itemTypeKeys.includes(type)) {
@@ -682,23 +710,26 @@ export default function SalesByTypePage() {
     }
   };
 
-  const handleDownloadWeeklyBlankPdf = async () => {
+  const handleDownloadWeeklyRangePdf = async () => {
     if (filteredProducts.length === 0) return;
+    const monday = getWeekStartMonday(weekStartMonday);
+    const sunday = getWeekEndSunday(monday);
     try {
-      setPdfWeeklyLoading(true);
+      setPdfWeeklyRangeLoading(true);
       await downloadTodaysProductsWeeklyBlankPdf({
         typeLabel,
-        periodLabel: productsPeriodLabel,
+        periodLabel: `${monday} to ${sunday}`,
         products: filteredProducts,
       });
     } catch {
-      toast.error('Could not create weekly sheet PDF');
+      toast.error('Could not create weekly range PDF');
     } finally {
-      setPdfWeeklyLoading(false);
+      setPdfWeeklyRangeLoading(false);
     }
   };
 
-  const pdfBusy = pdfLoading || pdfBlankLoading || pdfWeeklyLoading;
+  const weekEndSunday = getWeekEndSunday(getWeekStartMonday(weekStartMonday));
+  const pdfBusy = pdfLoading || pdfBlankLoading || pdfWeeklyRangeLoading;
 
   // Best hour
   const bestHour = hourlySales.reduce<HourlySales | null>(
@@ -1140,11 +1171,11 @@ export default function SalesByTypePage() {
                     variant="outline"
                     size="sm"
                     className="h-8 text-xs shrink-0"
-                    onClick={handleDownloadWeeklyBlankPdf}
+                    onClick={() => setWeeklyRangeDialogOpen(true)}
                     disabled={filteredProducts.length === 0 || pdfBusy}
-                    title="Portrait PDF: wide Mon–Sun boxes; avg price under each product name"
+                    title="Weekly blank PDF with Monday-Sunday range picker"
                   >
-                    {pdfWeeklyLoading ? (
+                    {pdfWeeklyRangeLoading ? (
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
                       <CalendarDays className="w-3.5 h-3.5" />
@@ -1457,6 +1488,60 @@ export default function SalesByTypePage() {
                   </DialogFooter>
                 </div>
               )}
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={weeklyRangeDialogOpen} onOpenChange={setWeeklyRangeDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Weekly blank (Mon-Sun)</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-1">
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Pick a week. The start date is always aligned to Monday and end date is Sunday.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="week-range-monday">From (Monday)</Label>
+                    <Input
+                      id="week-range-monday"
+                      type="date"
+                      value={weekStartMonday}
+                      onChange={(e) => setWeekStartMonday(getWeekStartMonday(e.target.value))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="week-range-sunday">To (Sunday)</Label>
+                    <Input
+                      id="week-range-sunday"
+                      type="date"
+                      value={weekEndSunday}
+                      readOnly
+                      className="bg-slate-50 dark:bg-slate-900"
+                    />
+                  </div>
+                </div>
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setWeeklyRangeDialogOpen(false)}
+                    disabled={pdfWeeklyRangeLoading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      await handleDownloadWeeklyRangePdf();
+                      setWeeklyRangeDialogOpen(false);
+                    }}
+                    disabled={filteredProducts.length === 0 || pdfBusy}
+                  >
+                    {pdfWeeklyRangeLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Download weekly range PDF'}
+                  </Button>
+                </DialogFooter>
+              </div>
             </DialogContent>
           </Dialog>
         </div>

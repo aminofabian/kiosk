@@ -19,6 +19,7 @@ import { Loader2 } from 'lucide-react';
 import type { Category } from '@/lib/db/types';
 import { apiPost } from '@/lib/utils/api-client';
 import { toast } from 'sonner';
+import Link from 'next/link';
 
 function CategoriesPageContent() {
   const searchParams = useSearchParams();
@@ -151,12 +152,19 @@ function CategoriesPageContent() {
     <AdminLayout>
       <div className="p-6 sm:p-8">
         <div className="mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
-            Category Management
-          </h1>
-          <p className="mt-1.5 text-slate-600 dark:text-slate-400">
-            Organize your products into categories
-          </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
+                Category Management
+              </h1>
+              <p className="mt-1.5 text-slate-600 dark:text-slate-400">
+                Organize your products into categories
+              </p>
+            </div>
+            <Button asChild variant="outline" className="rounded-none">
+              <Link href="/admin/categories/type">Type weekly sheets</Link>
+            </Button>
+          </div>
         </div>
 
         {isLoading ? (

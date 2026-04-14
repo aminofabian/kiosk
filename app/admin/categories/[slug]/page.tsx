@@ -6,13 +6,17 @@ import { useParams } from 'next/navigation';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, FileDown, Loader2, Package } from 'lucide-react';
+import { ArrowLeft, CalendarDays, FileDown, Loader2, Package } from 'lucide-react';
 import type { Item } from '@/lib/db/types';
 import { getItemDisplayName } from '@/lib/utils';
 import { findCategoryBySlug, slugifyCategoryName } from '@/lib/utils/category-slug';
 import { downloadProductCountSheetPdf } from '@/lib/pdf/product-count-sheet';
+import { downloadProductWeeklyCountSheetPdf } from '@/lib/pdf/product-weekly-count-sheet';
 import type { CategoryWithCount } from '@/components/admin/CategoryList';
 import { toast } from 'sonner';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const UNIT_LABELS: Record<string, string> = {
   kg: 'kg',
@@ -26,6 +30,30 @@ const UNIT_LABELS: Record<string, string> = {
 
 const formatPrice = (price: number) =>
   `KES ${price.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+
+function getWeekStartMonday(dateYmd: string): string {
+  const [y, m, d] = dateYmd.split('-').map(Number);
+  const dt = new Date(y, (m || 1) - 1, d || 1);
+  dt.setHours(12, 0, 0, 0);
+  const day = dt.getDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  dt.setDate(dt.getDate() + diffToMonday);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
+function getWeekEndSunday(mondayYmd: string): string {
+  const [y, m, d] = mondayYmd.split('-').map(Number);
+  const dt = new Date(y, (m || 1) - 1, d || 1);
+  dt.setHours(12, 0, 0, 0);
+  dt.setDate(dt.getDate() + 6);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
 
 export default function CategorySlugPage() {
   const params = useParams();
@@ -44,6 +72,11 @@ export default function CategorySlugPage() {
   const [itemsLoading, setItemsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [pdfWeeklyRangeLoading, setPdfWeeklyRangeLoading] = useState(false);
+  const [weeklyRangeDialogOpen, setWeeklyRangeDialogOpen] = useState(false);
+  const [weekStartMonday, setWeekStartMonday] = useState<string>(() =>
+    getWeekStartMonday(new Date().toISOString().slice(0, 10))
+  );
 
   const category = useMemo(
     () => (categories.length ? findCategoryBySlug(categories, slug) : null),
@@ -81,13 +114,13 @@ export default function CategorySlugPage() {
     (async () => {
       try {
         setItemsLoading(true);
-        const res = await fetch(`/api/items?categoryId=${encodeURIComponent(category.id)}`, {
+        const res = await fetch(`/api/items?categoryId=${encodeURIComponent(category.id)}&sellableOnly=true`, {
           cache: 'no-store',
         });
         const result = await res.json();
         if (cancelled) return;
         if (result.success && Array.isArray(result.data)) {
-          setItems(result.data);
+          setItems(result.data as Item[]);
         } else {
           setItems([]);
           toast.error(result.message || 'Could not load items');
@@ -107,7 +140,16 @@ export default function CategorySlugPage() {
   }, [category?.id]);
 
   const countSheetRows = useMemo(() => {
-    return items.map((i) => {
+    const parentIdsWithVariants = new Set(
+      items.filter((i) => !!i.parent_item_id).map((i) => i.parent_item_id as string)
+    );
+    const printableItems = items.filter((i) => {
+      // Exclude grouping parent rows when they have child variants.
+      if (!i.parent_item_id && parentIdsWithVariants.has(i.id)) return false;
+      return true;
+    });
+
+    return printableItems.map((i) => {
       const u = UNIT_LABELS[i.unit_type] || i.unit_type;
       return {
         displayName: getItemDisplayName(i.name, i.variant_name),
@@ -136,6 +178,31 @@ export default function CategorySlugPage() {
       toast.error('Could not create PDF');
     } finally {
       setPdfLoading(false);
+    }
+  };
+
+  const weekEndSunday = getWeekEndSunday(getWeekStartMonday(weekStartMonday));
+  const handleDownloadWeeklyRangePdf = async () => {
+    if (!category || countSheetRows.length === 0) return;
+    const monday = getWeekStartMonday(weekStartMonday);
+    const sunday = getWeekEndSunday(monday);
+    try {
+      setPdfWeeklyRangeLoading(true);
+      const safeName = slugifyCategoryName(category.name);
+      await downloadProductWeeklyCountSheetPdf({
+        headline: category.name,
+        subtitleLine: 'Weekly sheet — Mon-Sun quantity boxes per product',
+        periodLine: `${monday} to ${sunday}`,
+        priceColumnHeader: 'Price',
+        footnote:
+          'Write quantity sold for each weekday in the boxes (Mon through Sun). Price is for reference only.',
+        saveFileName: `${safeName}-weekly-sheet-${monday}-to-${sunday}.pdf`,
+        rows: countSheetRows,
+      });
+    } catch {
+      toast.error('Could not create weekly range PDF');
+    } finally {
+      setPdfWeeklyRangeLoading(false);
     }
   };
 
@@ -198,20 +265,40 @@ export default function CategorySlugPage() {
               Active products in this category · printable count sheet (blank quantities)
             </p>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="h-10 rounded-none border-slate-300 shrink-0"
-            onClick={handleDownloadPdf}
-            disabled={countSheetRows.length === 0 || pdfLoading || itemsLoading}
-          >
-            {pdfLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <FileDown className="h-4 w-4" />
-            )}
-            <span className="ml-2">Download PDF</span>
-          </Button>
+          <div className="shrink-0 rounded-2xl border border-slate-200/80 bg-white/80 p-2 shadow-sm backdrop-blur-sm dark:border-slate-700/80 dark:bg-slate-900/70">
+            <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 rounded-xl border-slate-300 bg-white dark:bg-slate-950"
+              onClick={handleDownloadPdf}
+              disabled={countSheetRows.length === 0 || pdfLoading || itemsLoading || pdfWeeklyRangeLoading}
+            >
+              {pdfLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4" />
+              )}
+              <span className="ml-2">Download PDF</span>
+            </Button>
+            <Button
+              type="button"
+              className="h-10 rounded-xl border-0 bg-gradient-to-r from-[#1c6a1e] to-[#2a8a30] text-white shadow-lg shadow-[#1c6a1e]/30 hover:from-[#195d1b] hover:to-[#247729]"
+              onClick={() => setWeeklyRangeDialogOpen(true)}
+              disabled={countSheetRows.length === 0 || itemsLoading || pdfLoading || pdfWeeklyRangeLoading}
+            >
+              {pdfWeeklyRangeLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <CalendarDays className="h-4 w-4" />
+              )}
+              <span className="ml-2">Weekly blank</span>
+            </Button>
+            </div>
+            <p className="px-1.5 pt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+              Mon-Sun picker with ready-to-print weekly boxes.
+            </p>
+          </div>
         </div>
 
         <Card className="rounded-none border border-slate-200 dark:border-slate-700">
@@ -280,6 +367,70 @@ export default function CategorySlugPage() {
             )}
           </CardContent>
         </Card>
+
+        <Dialog open={weeklyRangeDialogOpen} onOpenChange={setWeeklyRangeDialogOpen}>
+          <DialogContent className="sm:max-w-md border-slate-200/80 bg-gradient-to-b from-white to-slate-50 dark:border-slate-700 dark:from-slate-900 dark:to-slate-950">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] text-white">
+                  <CalendarDays className="h-4 w-4" />
+                </span>
+                Weekly blank (Mon-Sun)
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-1">
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Pick a week. Start aligns to Monday and end is Sunday.
+              </p>
+              <div className="rounded-xl border border-slate-200/80 bg-white/70 p-3 dark:border-slate-700 dark:bg-slate-900/70">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="category-week-range-monday">From (Monday)</Label>
+                  <Input
+                    id="category-week-range-monday"
+                    type="date"
+                    value={weekStartMonday}
+                    onChange={(e) => setWeekStartMonday(getWeekStartMonday(e.target.value))}
+                    className="rounded-lg"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="category-week-range-sunday">To (Sunday)</Label>
+                  <Input
+                    id="category-week-range-sunday"
+                    type="date"
+                    value={weekEndSunday}
+                    readOnly
+                    className="rounded-lg bg-slate-50 dark:bg-slate-900"
+                  />
+                </div>
+              </div>
+              </div>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-lg"
+                  onClick={() => setWeeklyRangeDialogOpen(false)}
+                  disabled={pdfWeeklyRangeLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  className="rounded-lg bg-gradient-to-r from-[#1c6a1e] to-[#2a8a30] text-white hover:from-[#195d1b] hover:to-[#247729]"
+                  onClick={async () => {
+                    await handleDownloadWeeklyRangePdf();
+                    setWeeklyRangeDialogOpen(false);
+                  }}
+                  disabled={countSheetRows.length === 0 || itemsLoading || pdfLoading || pdfWeeklyRangeLoading}
+                >
+                  {pdfWeeklyRangeLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Download weekly PDF'}
+                </Button>
+              </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </AdminLayout>
   );
