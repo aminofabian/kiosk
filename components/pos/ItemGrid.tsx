@@ -43,6 +43,9 @@ interface ItemGridProps {
   stockListFilter?: 'all' | 'out' | 'low';
 }
 
+/** Debounce POS grid search so rapid typing does not hit /api/items every keystroke */
+const ITEM_SEARCH_DEBOUNCE_MS = 280;
+
 // Stock status helpers
 function getStockStatus(stock: number): 'negative' | 'out' | 'low' | 'ok' {
   if (stock < 0) return 'negative';
@@ -423,93 +426,97 @@ export function ItemGrid({
     }
 
     if (searchQuery) {
-      const searchKey = `${searchQuery}\0${shopType}`;
-      if (lastSearchRef.current === searchKey) return;
-      lastSearchRef.current = searchKey;
-
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      async function searchItems() {
-        try {
-          setLoading(true);
-          setError(null);
-
-          // Request limited results with sellableOnly for faster response
-          const response = await fetch(
-            `/api/items?search=${encodeURIComponent(searchQuery || '')}&sellableOnly=true&limit=50`,
-            { signal: controller.signal, cache: 'no-store' }
-          );
-
+      const q = searchQuery;
+      const tid = window.setTimeout(() => {
+        void (async () => {
           if (controller.signal.aborted) return;
 
-          const result = await response.json();
+          const searchKey = `${q}\0${shopType}`;
+          if (lastSearchRef.current === searchKey) return;
+          lastSearchRef.current = searchKey;
 
-          if (result.success) {
-            const allItems: Item[] = result.data;
+          try {
+            setLoading(true);
+            setError(null);
 
-            let filteredItems: Item[];
-            let isShowingOtherShopType = false;
+            const response = await fetch(
+              `/api/items?search=${encodeURIComponent(q)}&sellableOnly=true&limit=50`,
+              { signal: controller.signal, cache: 'no-store' }
+            );
 
-            if (shopType === SHOP_TYPE_ALL) {
-              filteredItems = allItems;
-            } else {
-              const matchesTypeFilter = (items: Item[], type: string) =>
-                items.filter((item) => {
-                  const categoryName = categoryMap.get(item.category_id);
-                  if (categoryName && !shouldShowCategory(categoryName, type)) return false;
-                  return itemMatchesShopType(item, type);
-                });
+            if (controller.signal.aborted) return;
 
-              filteredItems = matchesTypeFilter(allItems, shopType);
+            const result = await response.json();
 
-              if (filteredItems.length === 0 && allItems.length > 0) {
-                const keys = itemTypeKeys?.length ? itemTypeKeys : ['grocery', 'retail'];
-                for (const key of keys) {
-                  if (key === shopType) continue;
-                  const alt = matchesTypeFilter(allItems, key);
-                  if (alt.length > 0) {
-                    filteredItems = alt;
-                    isShowingOtherShopType = true;
-                    break;
+            if (result.success) {
+              const allItems: Item[] = result.data;
+
+              let filteredItems: Item[];
+              let isShowingOtherShopType = false;
+
+              if (shopType === SHOP_TYPE_ALL) {
+                filteredItems = allItems;
+              } else {
+                const matchesTypeFilter = (items: Item[], type: string) =>
+                  items.filter((item) => {
+                    const categoryName = categoryMap.get(item.category_id);
+                    if (categoryName && !shouldShowCategory(categoryName, type)) return false;
+                    return itemMatchesShopType(item, type);
+                  });
+
+                filteredItems = matchesTypeFilter(allItems, shopType);
+
+                if (filteredItems.length === 0 && allItems.length > 0) {
+                  const keys = itemTypeKeys?.length ? itemTypeKeys : ['grocery', 'retail'];
+                  for (const key of keys) {
+                    if (key === shopType) continue;
+                    const alt = matchesTypeFilter(allItems, key);
+                    if (alt.length > 0) {
+                      filteredItems = alt;
+                      isShowingOtherShopType = true;
+                      break;
+                    }
                   }
                 }
               }
+
+              setShowingOtherShopType(isShowingOtherShopType);
+
+              const grouped = groupItemsForDisplay(filteredItems);
+              setGroupedItems(grouped);
+
+              const processedItems: ItemWithVariants[] = grouped.flatMap((group) => {
+                if (group.type === 'parent' && group.children) {
+                  return group.children.map((child) => ({
+                    ...child,
+                    parentName: group.parent?.name,
+                  }));
+                }
+                return group.item ? [group.item] : [];
+              });
+              setItems(processedItems);
+            } else {
+              setError(result.message || 'Failed to search items');
             }
-
-            setShowingOtherShopType(isShowingOtherShopType);
-
-            // Use optimized grouping function
-            const grouped = groupItemsForDisplay(filteredItems);
-            setGroupedItems(grouped);
-
-            // Create flat list for backward compatibility
-            const processedItems: ItemWithVariants[] = grouped.flatMap(group => {
-              if (group.type === 'parent' && group.children) {
-                return group.children.map(child => ({
-                  ...child,
-                  parentName: group.parent?.name,
-                }));
-              }
-              return group.item ? [group.item] : [];
-            });
-            setItems(processedItems);
-          } else {
-            setError(result.message || 'Failed to search items');
+          } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') return;
+            setError('Failed to search items');
+            console.error('Error searching items:', err);
+          } finally {
+            if (!controller.signal.aborted) {
+              setLoading(false);
+            }
           }
-        } catch (err) {
-          if (err instanceof Error && err.name === 'AbortError') return;
-          setError('Failed to search items');
-          console.error('Error searching items:', err);
-        } finally {
-          if (!controller.signal.aborted) {
-            setLoading(false);
-          }
-        }
-      }
+        })();
+      }, ITEM_SEARCH_DEBOUNCE_MS);
 
-      searchItems();
-      return;
+      return () => {
+        window.clearTimeout(tid);
+        controller.abort();
+      };
     }
 
     // Reset last search when query is cleared

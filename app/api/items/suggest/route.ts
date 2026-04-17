@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { query } from '@/lib/db';
-import { buildFtsMatchQuery, itemsFtsAvailable } from '@/lib/db/item-fts';
+import { buildFtsFuzzyProbeMatch, buildFtsMatchQuery, itemsFtsAvailable } from '@/lib/db/item-fts';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
 
@@ -101,6 +101,7 @@ export async function GET(request: NextRequest) {
     const searchWords = searchLower.split(/\s+/).filter((w) => w.length > 0);
     const useItemFts = await itemsFtsAvailable();
     const ftsMatch = useItemFts ? buildFtsMatchQuery(q) : null;
+    const ftsFuzzyProbe = useItemFts ? buildFtsFuzzyProbeMatch(q) : null;
 
     // Base SELECT with parent name and sibling count (FROM varies: LIKE vs FTS)
     const selectList = `
@@ -210,18 +211,31 @@ export async function GET(request: NextRequest) {
     if (items.length < 3 && searchLower.length >= 2) {
       const existingIds = new Set(items.map(i => i.id));
 
-      // Strategy A: Character-sequence pattern (handles typos, missing chars, transpositions)
       const fuzzyLimit = limit - items.length;
+      const fuzzyCap = fuzzyLimit + 10;
 
       if (searchWords.length <= 1) {
-        const fuzzyPattern = charSequencePattern(searchLower);
-        const fuzzyItems = await query<SuggestItem>(
-          `${selectClause}
-           WHERE ${activeFilter}
-             AND (LOWER(i.name) LIKE ? OR LOWER(COALESCE(i.variant_name, '')) LIKE ? OR LOWER(COALESCE(p.name, '')) LIKE ?)
-           LIMIT ?`,
-          [auth.businessId, fuzzyPattern, fuzzyPattern, fuzzyPattern, fuzzyLimit + 10]
-        );
+        let fuzzyItems: SuggestItem[];
+
+        if (ftsFuzzyProbe) {
+          fuzzyItems = await query<SuggestItem>(
+            `${selectList}${fromFts}
+             WHERE ${activeFilterFts}
+               AND items_fts MATCH ?
+             ORDER BY bm25(items_fts), i.name ASC
+             LIMIT ?`,
+            [auth.businessId, ftsFuzzyProbe, Math.min(200, fuzzyCap * 8)]
+          );
+        } else {
+          const fuzzyPattern = charSequencePattern(searchLower);
+          fuzzyItems = await query<SuggestItem>(
+            `${selectClause}
+             WHERE ${activeFilter}
+               AND (LOWER(i.name) LIKE ? OR LOWER(COALESCE(i.variant_name, '')) LIKE ? OR LOWER(COALESCE(p.name, '')) LIKE ?)
+             LIMIT ?`,
+            [auth.businessId, fuzzyPattern, fuzzyPattern, fuzzyPattern, fuzzyCap]
+          );
+        }
 
         // Score fuzzy results by similarity and add best ones
         const scored = fuzzyItems
@@ -256,24 +270,36 @@ export async function GET(request: NextRequest) {
           existingIds.add(item.id);
         }
       } else {
-        // Multi-word fuzzy: at least one word must fuzzy-match
-        const fuzzyConditions = searchWords
-          .map(() => `(LOWER(i.name) LIKE ? OR LOWER(i.variant_name) LIKE ? OR LOWER(p.name) LIKE ?)`)
-          .join(' OR ');
+        let fuzzyItems: SuggestItem[];
 
-        const fuzzyParams: string[] = [];
-        for (const word of searchWords) {
-          const pattern = charSequencePattern(word);
-          fuzzyParams.push(pattern, pattern, pattern);
+        if (ftsFuzzyProbe) {
+          fuzzyItems = await query<SuggestItem>(
+            `${selectList}${fromFts}
+             WHERE ${activeFilterFts}
+               AND items_fts MATCH ?
+             ORDER BY bm25(items_fts), i.name ASC
+             LIMIT ?`,
+            [auth.businessId, ftsFuzzyProbe, Math.min(200, fuzzyCap * 8)]
+          );
+        } else {
+          const fuzzyConditions = searchWords
+            .map(() => `(LOWER(i.name) LIKE ? OR LOWER(i.variant_name) LIKE ? OR LOWER(p.name) LIKE ?)`)
+            .join(' OR ');
+
+          const fuzzyParams: string[] = [];
+          for (const word of searchWords) {
+            const pattern = charSequencePattern(word);
+            fuzzyParams.push(pattern, pattern, pattern);
+          }
+
+          fuzzyItems = await query<SuggestItem>(
+            `${selectClause}
+             WHERE ${activeFilter}
+               AND (${fuzzyConditions})
+             LIMIT ?`,
+            [auth.businessId, ...fuzzyParams, fuzzyCap]
+          );
         }
-
-        const fuzzyItems = await query<SuggestItem>(
-          `${selectClause}
-           WHERE ${activeFilter}
-             AND (${fuzzyConditions})
-           LIMIT ?`,
-          [auth.businessId, ...fuzzyParams, fuzzyLimit + 10]
-        );
 
         const scored = fuzzyItems
           .filter(fi => !existingIds.has(fi.id))

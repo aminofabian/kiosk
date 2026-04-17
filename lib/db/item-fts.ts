@@ -57,3 +57,23 @@ export function buildFtsMatchQuery(raw: string): string | null {
   const lastClause = last.length < 2 ? escapePhraseToken(last) : `${last}*`;
   return [...complete, lastClause].join(' AND ');
 }
+
+/**
+ * Loose FTS MATCH for the suggest fuzzy phase: short prefix(es) joined with OR
+ * so we scan at most a few hundred index hits instead of a table-wide LIKE.
+ */
+export function buildFtsFuzzyProbeMatch(raw: string): string | null {
+  const trimmed = raw.trim().toLowerCase();
+  if (trimmed.length < 2) return null;
+  const words = trimmed.split(/\s+/).filter(Boolean).slice(0, 5);
+  const parts: string[] = [];
+  for (const w of words) {
+    const t = normalizeToken(w);
+    if (!t || t.length < 2) continue;
+    const pl = Math.min(3, t.length);
+    parts.push(`${t.slice(0, pl)}*`);
+  }
+  if (parts.length === 0) return null;
+  if (parts.length === 1) return parts[0];
+  return `(${parts.join(' OR ')})`;
+}
