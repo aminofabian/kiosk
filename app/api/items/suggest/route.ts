@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { query } from '@/lib/db';
+import { buildFtsMatchQuery, itemsFtsAvailable } from '@/lib/db/item-fts';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
 
@@ -98,9 +99,11 @@ export async function GET(request: NextRequest) {
 
     const searchLower = q.toLowerCase();
     const searchWords = searchLower.split(/\s+/).filter((w) => w.length > 0);
+    const useItemFts = await itemsFtsAvailable();
+    const ftsMatch = useItemFts ? buildFtsMatchQuery(q) : null;
 
-    // Base SELECT with parent name and sibling count
-    const selectClause = `
+    // Base SELECT with parent name and sibling count (FROM varies: LIKE vs FTS)
+    const selectList = `
       SELECT i.id, i.name, i.variant_name, i.current_sell_price, i.unit_type,
              i.parent_item_id, c.name as category_name,
              p.name as parent_name,
@@ -110,10 +113,20 @@ export async function GET(request: NextRequest) {
                 AND s.active = 1 
                 AND i.parent_item_id IS NOT NULL),
                0
-             ) as sibling_count
+             ) as sibling_count`;
+
+    const fromLike = `
       FROM items i
       LEFT JOIN categories c ON i.category_id = c.id
       LEFT JOIN items p ON i.parent_item_id = p.id`;
+
+    const fromFts = `
+      FROM items_fts
+      INNER JOIN items i ON i.id = items_fts.item_id
+      LEFT JOIN categories c ON i.category_id = c.id
+      LEFT JOIN items p ON i.parent_item_id = p.id`;
+
+    const selectClause = `${selectList}${fromLike}`;
 
     // Filter: only show sellable items (children or standalone, not empty parents)
     const activeFilter = `
@@ -123,10 +136,26 @@ export async function GET(request: NextRequest) {
         OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1)
       )`;
 
+    const activeFilterFts = `
+      items_fts.business_id = ? AND i.active = 1
+      AND (
+        i.parent_item_id IS NOT NULL
+        OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1)
+      )`;
+
     let items: SuggestItem[];
 
-    // === Phase 1: Exact LIKE matching (fast) ===
-    if (searchWords.length <= 1) {
+    // === Phase 1: FTS (indexed) or LIKE fallback ===
+    if (ftsMatch) {
+      items = await query<SuggestItem>(
+        `${selectList}${fromFts}
+         WHERE ${activeFilterFts}
+           AND items_fts MATCH ?
+         ORDER BY bm25(items_fts), i.name ASC
+         LIMIT ?`,
+        [auth.businessId, ftsMatch, limit]
+      );
+    } else if (searchWords.length <= 1) {
       const contains = `%${searchLower}%`;
       const starts = `${searchLower}%`;
 

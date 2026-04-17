@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { query, execute, queryOne } from '@/lib/db';
+import { buildFtsMatchQuery, itemsFtsAvailable } from '@/lib/db/item-fts';
 import { generateUUID } from '@/lib/utils/uuid';
 import { generateBatchNumber } from '@/lib/utils/batch-number';
 import type { Item } from '@/lib/db/types';
@@ -58,8 +59,11 @@ export async function GET(request: NextRequest) {
         [auth.businessId, parentId, ...itemTypeParam]
       );
     } else if (search) {
+      const rawSearch = search;
       const searchLower = search.toLowerCase().trim();
       const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50;
+      const useItemFts = await itemsFtsAvailable();
+      const ftsMatch = useItemFts ? buildFtsMatchQuery(rawSearch) : null;
 
       // Check if search looks like a barcode (numeric and 8+ digits)
       const isBarcodeLike = /^\d{8,}$/.test(search.trim());
@@ -114,13 +118,25 @@ export async function GET(request: NextRequest) {
         // Split search into words for multi-word matching
         const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
 
-        if (searchWords.length === 1) {
+        const sellableFilter = sellableOnly
+          ? ` AND (i.parent_item_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1))`
+          : '';
+
+        if (ftsMatch) {
+          items = await query<Item>(
+            `SELECT i.* FROM items_fts
+             INNER JOIN items i ON i.id = items_fts.item_id
+             WHERE items_fts.business_id = ?
+               AND items_fts MATCH ?
+               AND i.active = 1${sellableFilter}
+             ORDER BY bm25(items_fts), i.name ASC
+             LIMIT ?`,
+            [auth.businessId, ftsMatch, limit]
+          );
+        } else if (searchWords.length === 1) {
           // Single word search - match name, variant_name, and parent name (for variants)
           const searchContains = `%${searchLower}%`;
           const searchStarts = `${searchLower}%`;
-          const sellableFilter = sellableOnly
-            ? ` AND (i.parent_item_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1))`
-            : '';
           items = await query<Item>(
             `SELECT i.* FROM items i
              LEFT JOIN items p ON i.parent_item_id = p.id AND p.business_id = i.business_id
@@ -167,15 +183,12 @@ export async function GET(request: NextRequest) {
           // For ordering, prioritize exact phrase match, then first word starts
           const exactPhrase = `%${searchLower}%`;
           const firstWordStarts = `${searchWords[0]}%`;
-          const sellableFilterMulti = sellableOnly
-            ? ` AND (i.parent_item_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1))`
-            : '';
 
           items = await query<Item>(
             `SELECT i.* FROM items i
              LEFT JOIN items p ON i.parent_item_id = p.id AND p.business_id = i.business_id
              WHERE i.business_id = ? AND i.active = 1 
-             AND (${wordConditions})${sellableFilterMulti}
+             AND (${wordConditions})${sellableFilter}
              ORDER BY 
                CASE 
                  WHEN LOWER(i.name) LIKE ? THEN 1

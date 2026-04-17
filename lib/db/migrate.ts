@@ -490,6 +490,13 @@ export async function runMigrations() {
       console.error('⚠ loyalty default rate migration skipped:', error);
     }
 
+    try {
+      const { migrateItemsFts } = await import('./migrate-items-fts');
+      await migrateItemsFts();
+    } catch (error) {
+      console.error('⚠ items_fts migration skipped:', error);
+    }
+
     console.log('✅ Migration completed successfully!');
     return true;
   } catch (error) {
