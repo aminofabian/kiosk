@@ -57,6 +57,7 @@ function getAisleLabel(item: ItemWithCategory): string {
 }
 
 const LABEL_LAYOUTS = [
+  { cols: 1, rows: 2, count: 2, label: '2 labels (1×2) - Large' },
   { cols: 4, rows: 6, count: 24, label: '24 labels (4×6)' },
   { cols: 6, rows: 6, count: 36, label: '36 labels (6×6)' },
   { cols: 6, rows: 8, count: 48, label: '48 labels (6×8)' },
@@ -68,39 +69,40 @@ type LabelLayout = (typeof LABEL_LAYOUTS)[number];
 
 /** Tighter row gaps, shorter cell padding, and slightly smaller type as layouts get denser. */
 function getLabelSheetMetrics(layout: LabelLayout) {
+  const huge = layout.count <= 2;
   const veryTight = layout.count >= 48;
   const tight = layout.rows >= 7 || layout.count >= 36;
   const colGap = '4mm';
-  const rowGap = veryTight ? '2mm' : tight ? '2.5mm' : '3mm';
-  const pagePadding = veryTight ? '4mm 5mm' : tight ? '4.5mm 5mm' : '5mm';
-  const cellPadding = veryTight ? '1mm 1.5mm' : tight ? '1.25mm 2mm' : '1.75mm 2.25mm';
-  const titleLineHeight = veryTight ? 1.12 : tight ? 1.15 : 1.2;
+  const rowGap = huge ? '5mm' : veryTight ? '2mm' : tight ? '2.5mm' : '3mm';
+  const pagePadding = huge ? '7mm 8mm' : veryTight ? '4mm 5mm' : tight ? '4.5mm 5mm' : '5mm';
+  const cellPadding = huge ? '3mm 4mm' : veryTight ? '1mm 1.5mm' : tight ? '1.25mm 2mm' : '1.75mm 2.25mm';
+  const titleLineHeight = huge ? 1.18 : veryTight ? 1.12 : tight ? 1.15 : 1.2;
   /** Cap logo height; width is 100% of cell — sized for at-a-glance readability on real labels. */
-  const logoMaxHeightMm = veryTight ? 18 : tight ? 22.5 : 27;
+  const logoMaxHeightMm = huge ? 42 : veryTight ? 18 : tight ? 22.5 : 27;
   return {
     colGap,
     rowGap,
     pagePadding,
     cellPadding,
-    alignTop: tight,
+    alignTop: tight && !huge,
     logoMaxHeightMm,
-    titlePt: veryTight ? 7.5 : tight ? 8.5 : 10,
+    titlePt: huge ? 16 : veryTight ? 7.5 : tight ? 8.5 : 10,
     titleLineHeight,
-    pricePt: veryTight ? 11 : tight ? 12.5 : 14,
-    metaPt: veryTight ? 6.5 : tight ? 7.5 : 8,
-    batchPt: veryTight ? 5 : tight ? 5.5 : 6,
-    barcodePt: veryTight ? 6 : tight ? 7 : 8,
-    stackGapPt: veryTight ? 0.75 : tight ? 1.25 : 2,
-    emptyPt: veryTight ? 8 : 10,
+    pricePt: huge ? 24 : veryTight ? 11 : tight ? 12.5 : 14,
+    metaPt: huge ? 11 : veryTight ? 6.5 : tight ? 7.5 : 8,
+    batchPt: huge ? 8 : veryTight ? 5 : tight ? 5.5 : 6,
+    barcodePt: huge ? 10 : veryTight ? 6 : tight ? 7 : 8,
+    stackGapPt: huge ? 2.8 : veryTight ? 0.75 : tight ? 1.25 : 2,
+    emptyPt: huge ? 16 : veryTight ? 8 : 10,
     preview: {
-      cellPad: veryTight ? 2 : tight ? 3 : 4,
-      stackGapPx: veryTight ? 1.5 : tight ? 2 : 3,
-      logoMaxPx: veryTight ? 66 : tight ? 84 : 102,
-      title: veryTight ? 4.5 : tight ? 5 : 6,
-      price: veryTight ? 6 : tight ? 7 : 8,
-      meta: veryTight ? 3.5 : tight ? 4 : 5,
-      batch: veryTight ? 3 : tight ? 3.5 : 4,
-      barcode: veryTight ? 3.5 : tight ? 4 : 5,
+      cellPad: huge ? 10 : veryTight ? 2 : tight ? 3 : 4,
+      stackGapPx: huge ? 8 : veryTight ? 1.5 : tight ? 2 : 3,
+      logoMaxPx: huge ? 180 : veryTight ? 66 : tight ? 84 : 102,
+      title: huge ? 12 : veryTight ? 4.5 : tight ? 5 : 6,
+      price: huge ? 16 : veryTight ? 6 : tight ? 7 : 8,
+      meta: huge ? 8.5 : veryTight ? 3.5 : tight ? 4 : 5,
+      batch: huge ? 7 : veryTight ? 3 : tight ? 3.5 : 4,
+      barcode: huge ? 8 : veryTight ? 3.5 : tight ? 4 : 5,
       titleLh: titleLineHeight,
     },
   };
