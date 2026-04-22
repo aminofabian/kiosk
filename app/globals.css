@@ -741,6 +741,24 @@
   body:has(#price-stickers-print) #price-stickers-print * {
     visibility: visible !important;
   }
+  /* <img> can fail to show in some print engines when ancestors use visibility toggling */
+  body:has(#price-stickers-print) #price-stickers-print img {
+    visibility: visible !important;
+    display: block !important;
+    max-width: 100% !important;
+    height: auto !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  /* Text can disappear in some engines with the body visibility trick; force ink on price text */
+  body:has(#price-stickers-print) #price-stickers-print p,
+  body:has(#price-stickers-print) #price-stickers-print span,
+  body:has(#price-stickers-print) #price-stickers-print div {
+    visibility: visible !important;
+    opacity: 1 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
   /* Do not fix width to 210mm — landscape sheets are 297mm wide; each .page-break-after sets size inline */
   body:has(#price-stickers-print) #price-stickers-print {
     position: absolute !important;
