@@ -603,11 +603,12 @@ function StickerLabelBlock({
   const displayName = getItemDisplayName(item.name, item.variant_name);
 
   const priceVal = item.current_sell_price;
-  const logoBand = round ? '28%' : '33%';
+  const compactLayout = sm.preview.title <= 5 || sm.titlePt <= 8.5;
+  const logoBand = round ? '28%' : compactLayout ? '30%' : '33%';
 
   if (mode === 'preview') {
     const pv = sm.preview;
-    const nameLines = round ? 2 : 3;
+    const nameLines = round ? 2 : compactLayout ? 2 : 3;
     const nameMaxPx = nameLines * pv.title * pv.titleLh;
     return (
       <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden">
@@ -685,7 +686,7 @@ function StickerLabelBlock({
     );
   }
 
-  const nameLinesPrint = round ? 2 : 3;
+  const nameLinesPrint = round ? 2 : compactLayout ? 2 : 3;
   const nameMaxPt = nameLinesPrint * sm.titlePt * sm.titleLineHeight;
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden">
