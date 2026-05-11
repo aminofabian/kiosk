@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Drawer,
   DrawerClose,
@@ -11,7 +11,7 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerDescription,
-} from '@/components/ui/drawer';
+} from "@/components/ui/drawer";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   ArrowRight,
   Loader2,
@@ -43,17 +43,24 @@ import {
   Clock,
   Gift,
   Printer,
-} from 'lucide-react';
-import type { CreditAccount, CreditTransaction, SaleItem } from '@/lib/db/types';
-import { PaymentForm } from './PaymentForm';
-import { apiGet, apiPatch, apiPost } from '@/lib/utils/api-client';
-import { cn } from '@/lib/utils';
-import { toProperCustomerName } from '@/lib/utils/customer-name';
-import { formatPhonesForDisplay, parseCreditPhones } from '@/lib/utils/credit-phones';
-import { creditStatusSlugFromPhone } from '@/lib/utils/credit-public-slug';
-import { useCurrentUser } from '@/lib/hooks/use-current-user';
-import { toast } from 'sonner';
-import { Textarea } from '@/components/ui/textarea';
+} from "lucide-react";
+import type {
+  CreditAccount,
+  CreditTransaction,
+  SaleItem,
+} from "@/lib/db/types";
+import { PaymentForm } from "./PaymentForm";
+import { apiGet, apiPatch, apiPost } from "@/lib/utils/api-client";
+import { cn } from "@/lib/utils";
+import { toProperCustomerName } from "@/lib/utils/customer-name";
+import {
+  formatPhonesForDisplay,
+  parseCreditPhones,
+} from "@/lib/utils/credit-phones";
+import { creditStatusSlugFromPhone } from "@/lib/utils/credit-public-slug";
+import { useCurrentUser } from "@/lib/hooks/use-current-user";
+import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
 
 interface SaleItemWithDetails extends SaleItem {
   item_name: string;
@@ -69,39 +76,42 @@ interface CreditTransactionWithDetails extends CreditTransaction {
 
 /** True when a tab-debt row can be reprinted (linked sale, line snapshot, or live items). */
 function escapeHtml(text: string): string {
-  const d = document.createElement('div');
+  const d = document.createElement("div");
   d.textContent = text;
   return d.innerHTML;
 }
 
 function formatKesPlain(n: number): string {
-  return `KES ${Number(n).toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  return `KES ${Number(n).toLocaleString("en-KE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
 function formatDateTimePlain(ts: number): string {
-  return new Date(ts * 1000).toLocaleString('en-KE', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
+  return new Date(ts * 1000).toLocaleString("en-KE", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
 function debtDisplayTimestamp(t: CreditTransactionWithDetails): number {
-  if (typeof t.sale_date === 'number' && t.sale_date > 0) return t.sale_date;
+  if (typeof t.sale_date === "number" && t.sale_date > 0) return t.sale_date;
   return t.created_at;
 }
 
 function creditDebtCanReprintReceipt(t: CreditTransactionWithDetails): boolean {
-  if (t.type !== 'debt') return false;
+  if (t.type !== "debt") return false;
   if (t.sale_id) return true;
   if (t.items && t.items.length > 0) return true;
   const j = t.debt_line_items_json;
-  return typeof j === 'string' && j.trim().length > 0;
+  return typeof j === "string" && j.trim().length > 0;
 }
 
-function formatRecorderLabel(name?: string | null, role?: string | null): string | null {
+function formatRecorderLabel(
+  name?: string | null,
+  role?: string | null,
+): string | null {
   const n = name?.trim();
   if (!n) return null;
   const r = role?.trim();
@@ -110,7 +120,8 @@ function formatRecorderLabel(name?: string | null, role?: string | null): string
 }
 
 function accountPhonesList(acc: CreditAccount): string[] {
-  if (acc.customer_phones && acc.customer_phones.length > 0) return acc.customer_phones;
+  if (acc.customer_phones && acc.customer_phones.length > 0)
+    return acc.customer_phones;
   return parseCreditPhones(acc.customer_phone);
 }
 
@@ -120,13 +131,15 @@ function phonesSearchMatch(phones: string[], q: string): boolean {
 }
 
 function getInitials(name: string): string {
-  return name
-    .trim()
-    .split(/\s+/)
-    .map((w) => w[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase() || '?';
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .map((w) => w[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "?"
+  );
 }
 
 function avatarColor(name: string): string {
@@ -138,17 +151,20 @@ function avatarColor(name: string): string {
 
 /** FIFO: which debt transactions are fully paid vs pending (oldest debts paid first) */
 function computeDebtPaidStatus(
-  transactions: CreditTransactionWithDetails[]
+  transactions: CreditTransactionWithDetails[],
 ): Map<string, boolean> {
   const debts = transactions
-    .filter((t) => t.type === 'debt')
+    .filter((t) => t.type === "debt")
     .sort((a, b) => a.created_at - b.created_at);
+  // Only count payments that are NOT pending approval and NOT rejected
   const payments = transactions
     .filter(
       (t) =>
-        t.type === 'payment' &&
-        t.public_claim_status !== 'pending' &&
-        t.public_claim_status !== 'rejected'
+        t.type === "payment" &&
+        t.public_claim_status !== "pending" &&
+        t.public_claim_status !== "rejected" &&
+        (t.payment_approval_status === null ||
+          t.payment_approval_status === "approved"),
     )
     .sort((a, b) => a.created_at - b.created_at);
 
@@ -179,12 +195,12 @@ interface TransferStaffRow {
 }
 
 interface PendingPublicClaimRow {
-  kind: 'tab' | 'wallet';
+  kind: "tab" | "wallet";
   transactionId: string;
   creditAccountId: string;
   customerName: string;
   amount: number;
-  paymentMethod: 'cash' | 'mpesa';
+  paymentMethod: "cash" | "mpesa";
   createdAt: number;
   customerReference: string | null;
 }
@@ -192,7 +208,8 @@ interface PendingPublicClaimRow {
 export function CreditList() {
   const { user } = useCurrentUser();
   /** Customer edit, merge, reassign — API is owner + admin only; cashiers never see these. */
-  const canManageCreditProfiles = user?.role === 'owner' || user?.role === 'admin';
+  const canManageCreditProfiles =
+    user?.role === "owner" || user?.role === "admin";
 
   const [customerEditModalOpen, setCustomerEditModalOpen] = useState(false);
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
@@ -201,34 +218,53 @@ export function CreditList() {
   const [accounts, setAccounts] = useState<CreditAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   /** 'all' | user id | '__none__' for accounts with no recorded creditor on last debt */
-  const [creditorFilter, setCreditorFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'name' | 'amount' | 'date'>('amount');
-  const [creditView, setCreditView] = useState<'outstanding' | 'paid'>('outstanding');
+  const [creditorFilter, setCreditorFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"name" | "amount" | "date">("amount");
+  const [creditView, setCreditView] = useState<"outstanding" | "paid">(
+    "outstanding",
+  );
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [selectedAccount, setSelectedAccount] = useState<CreditAccount | null>(null);
-  const [transactions, setTransactions] = useState<CreditTransactionWithDetails[]>([]);
+  const [selectedAccount, setSelectedAccount] = useState<CreditAccount | null>(
+    null,
+  );
+  const [transactions, setTransactions] = useState<
+    CreditTransactionWithDetails[]
+  >([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
   /** Bumped when opening another account or closing the drawer so stale fetches cannot overwrite state. */
   const creditDetailGenRef = useRef(0);
 
   const [transferUsers, setTransferUsers] = useState<TransferStaffRow[]>([]);
-  const [transferToUserId, setTransferToUserId] = useState('');
+  const [transferToUserId, setTransferToUserId] = useState("");
   const [transferIncludePayments, setTransferIncludePayments] = useState(false);
   const [transferSubmitting, setTransferSubmitting] = useState(false);
   const [claimReviewBusy, setClaimReviewBusy] = useState<{
     transactionId: string;
-    action: 'approve' | 'reject';
+    action: "approve" | "reject";
   } | null>(null);
-  const [pendingPublicClaims, setPendingPublicClaims] = useState<PendingPublicClaimRow[]>([]);
-  const [mergeSearchQuery, setMergeSearchQuery] = useState('');
+  const [pendingPublicClaims, setPendingPublicClaims] = useState<
+    PendingPublicClaimRow[]
+  >([]);
+  const [pendingPaymentCount, setPendingPaymentCount] = useState(0);
+  const [allowNewCreditAccounts, setAllowNewCreditAccounts] =
+    useState<boolean>(true);
+  const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [approvalDialogData, setApprovalDialogData] = useState<{
+    transactionId: string;
+    customerName: string;
+    amount: number;
+    paymentMethod: string | null;
+  } | null>(null);
+  const [approvalSubmitting, setApprovalSubmitting] = useState(false);
+  const [mergeSearchQuery, setMergeSearchQuery] = useState("");
   const [mergeSelectedIds, setMergeSelectedIds] = useState<string[]>([]);
-  const [mergeNameOverride, setMergeNameOverride] = useState('');
-  const [mergePhonesText, setMergePhonesText] = useState('');
+  const [mergeNameOverride, setMergeNameOverride] = useState("");
+  const [mergePhonesText, setMergePhonesText] = useState("");
   const [mergeSubmitting, setMergeSubmitting] = useState(false);
-  const [editCustomerName, setEditCustomerName] = useState('');
-  const [editCustomerPhones, setEditCustomerPhones] = useState<string[]>(['']);
+  const [editCustomerName, setEditCustomerName] = useState("");
+  const [editCustomerPhones, setEditCustomerPhones] = useState<string[]>([""]);
   const [editCustomerSaving, setEditCustomerSaving] = useState(false);
 
   const dismissCreditDrawerChrome = useCallback(() => {
@@ -237,12 +273,12 @@ export function CreditList() {
     setCustomerEditModalOpen(false);
     setMergeModalOpen(false);
     setTransferModalOpen(false);
-    setTransferToUserId('');
+    setTransferToUserId("");
     setTransferIncludePayments(false);
-    setMergeSearchQuery('');
+    setMergeSearchQuery("");
     setMergeSelectedIds([]);
-    setMergeNameOverride('');
-    setMergePhonesText('');
+    setMergeNameOverride("");
+    setMergePhonesText("");
   }, []);
 
   useEffect(() => {
@@ -250,7 +286,7 @@ export function CreditList() {
     if (!drawerOpen && !customerEditModalOpen) return;
     setEditCustomerName(toProperCustomerName(selectedAccount.customer_name));
     const phones = accountPhonesList(selectedAccount);
-    setEditCustomerPhones(phones.length > 0 ? phones : ['']);
+    setEditCustomerPhones(phones.length > 0 ? phones : [""]);
   }, [
     selectedAccount?.id,
     selectedAccount?.customer_name,
@@ -265,15 +301,15 @@ export function CreditList() {
       try {
         setLoading(true);
         setError(null);
-        const result = await apiGet<CreditAccount[]>('/api/credits');
+        const result = await apiGet<CreditAccount[]>("/api/credits");
         if (result.success) {
           setAccounts(result.data ?? []);
         } else {
-          setError(result.message || 'Failed to load credits');
+          setError(result.message || "Failed to load credits");
         }
       } catch (err) {
-        setError('Failed to load credits');
-        console.error('Error fetching credits:', err);
+        setError("Failed to load credits");
+        console.error("Error fetching credits:", err);
       } finally {
         setLoading(false);
       }
@@ -287,7 +323,9 @@ export function CreditList() {
       return;
     }
     try {
-      const result = await apiGet<{ claims: PendingPublicClaimRow[] }>('/api/credits/pending-claims');
+      const result = await apiGet<{ claims: PendingPublicClaimRow[] }>(
+        "/api/credits/pending-claims",
+      );
       if (result.success && result.data?.claims) {
         setPendingPublicClaims(result.data.claims);
       } else {
@@ -300,13 +338,38 @@ export function CreditList() {
 
   useEffect(() => {
     void fetchPendingClaims();
-  }, [fetchPendingClaims]);
+    if (canManageCreditProfiles) {
+      apiGet<{ pending: unknown[] }>("/api/credits/pending-payments")
+        .then((result) => {
+          if (result.success && result.data?.pending) {
+            setPendingPaymentCount(result.data.pending.length);
+          } else {
+            setPendingPaymentCount(0);
+          }
+        })
+        .catch(() => setPendingPaymentCount(0));
+
+      apiGet<{ creditSettings: { allow_new_credit_accounts?: boolean } }>(
+        "/api/credits/settings",
+      )
+        .then((result) => {
+          if (result.success && result.data?.creditSettings) {
+            setAllowNewCreditAccounts(
+              result.data.creditSettings.allow_new_credit_accounts !== false,
+            );
+          }
+        })
+        .catch(() => {});
+    }
+  }, [fetchPendingClaims, canManageCreditProfiles]);
 
   useEffect(() => {
     if (!transferModalOpen || !canManageCreditProfiles) return;
     let cancelled = false;
     (async () => {
-      const result = await apiGet<TransferStaffRow[]>('/api/credits/transfer-users');
+      const result = await apiGet<TransferStaffRow[]>(
+        "/api/credits/transfer-users",
+      );
       if (!cancelled && result.success) {
         setTransferUsers(result.data ?? []);
       }
@@ -317,24 +380,62 @@ export function CreditList() {
   }, [transferModalOpen, canManageCreditProfiles]);
 
   const formatPrice = (price: number) =>
-    `KES ${price.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    `KES ${price.toLocaleString("en-KE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
-  const accountWalletBalance = (acc: CreditAccount) => Number(acc.wallet_balance ?? 0);
+  const formatLastDebt = (timestamp: number | null | undefined) => {
+    if (!timestamp) return "—";
+    const now = Math.floor(Date.now() / 1000);
+    const diff = now - timestamp;
+    if (diff < 60) return "Just now";
+    if (diff < 3600) {
+      const m = Math.floor(diff / 60);
+      return `${m} min ago`;
+    }
+    if (diff < 86400) {
+      const h = Math.floor(diff / 3600);
+      return `${h} hr ago`;
+    }
+    if (diff < 172800) return "Yesterday";
+    if (diff < 604800) {
+      const d = Math.floor(diff / 86400);
+      return `${d} days ago`;
+    }
+    if (diff < 2592000) {
+      const w = Math.floor(diff / 604800);
+      return `${w} week${w > 1 ? "s" : ""} ago`;
+    }
+    if (diff < 31536000) {
+      const m = Math.floor(diff / 2592000);
+      return `${m} month${m > 1 ? "s" : ""} ago`;
+    }
+    const y = Math.floor(diff / 31536000);
+    return `${y} year${y > 1 ? "s" : ""} ago`;
+  };
+
+  /** True when the oldest unpaid debt is more than 1 week old */
+  const isStaleDebt = (timestamp: number | null | undefined) => {
+    if (!timestamp) return false;
+    return Date.now() / 1000 - timestamp >= 604800;
+  };
+
+  const accountWalletBalance = (acc: CreditAccount) =>
+    Number(acc.wallet_balance ?? 0);
 
   /** Tab (credit) / store wallet — for list cells */
   const formatCreditWalletSlash = (acc: CreditAccount) =>
     `${formatPrice(acc.total_credit)} / ${formatPrice(accountWalletBalance(acc))}`;
 
   const formatDate = (timestamp: number | null) => {
-    if (!timestamp) return '—';
-    return new Date(timestamp * 1000).toLocaleDateString('en-KE', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+    if (!timestamp) return "—";
+    return new Date(timestamp * 1000).toLocaleDateString("en-KE", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   };
 
-  const lifetimeDebtTotal = (acc: CreditAccount) => Number(acc.lifetime_debt_total ?? 0);
+  const lifetimeDebtTotal = (acc: CreditAccount) =>
+    Number(acc.lifetime_debt_total ?? 0);
 
   const lastCreditByLabel = (acc: CreditAccount) =>
     formatRecorderLabel(acc.last_credit_by_name, acc.last_credit_by_role);
@@ -346,15 +447,16 @@ export function CreditList() {
     setLoadingDetails(true);
     setTransactions([]);
     try {
-      const result = await apiGet<{ account: CreditAccount; transactions: CreditTransactionWithDetails[] }>(
-        `/api/credits/${account.id}`
-      );
+      const result = await apiGet<{
+        account: CreditAccount;
+        transactions: CreditTransactionWithDetails[];
+      }>(`/api/credits/${account.id}`);
       if (gen !== creditDetailGenRef.current) return;
       if (result.success && result.data) {
         setTransactions(result.data.transactions ?? []);
       }
     } catch (err) {
-      console.error('Error fetching credit details:', err);
+      console.error("Error fetching credit details:", err);
     } finally {
       if (gen === creditDetailGenRef.current) {
         setLoadingDetails(false);
@@ -369,21 +471,22 @@ export function CreditList() {
     setTransactions([]);
     setSelectedAccount(null);
     try {
-      const result = await apiGet<{ account: CreditAccount; transactions: CreditTransactionWithDetails[] }>(
-        `/api/credits/${creditAccountId}`
-      );
+      const result = await apiGet<{
+        account: CreditAccount;
+        transactions: CreditTransactionWithDetails[];
+      }>(`/api/credits/${creditAccountId}`);
       if (gen !== creditDetailGenRef.current) return;
       if (result.success && result.data) {
         if (result.data.account) setSelectedAccount(result.data.account);
         setTransactions(result.data.transactions ?? []);
       } else {
-        toast.error(result.message || 'Could not load customer');
+        toast.error(result.message || "Could not load customer");
         dismissCreditDrawerChrome();
         setDrawerOpen(false);
       }
     } catch (err) {
-      console.error('Error opening credit account:', err);
-      toast.error('Could not load customer');
+      console.error("Error opening credit account:", err);
+      toast.error("Could not load customer");
       dismissCreditDrawerChrome();
       setDrawerOpen(false);
     } finally {
@@ -398,20 +501,34 @@ export function CreditList() {
     setDrawerOpen(false);
     setSelectedAccount(null);
     try {
-      const result = await apiGet<CreditAccount[]>('/api/credits');
+      const result = await apiGet<CreditAccount[]>("/api/credits");
       if (result.success) setAccounts(result.data ?? []);
     } catch (err) {
-      console.error('Error refreshing credits:', err);
+      console.error("Error refreshing credits:", err);
     }
     await fetchPendingClaims();
+    if (canManageCreditProfiles) {
+      try {
+        const result = await apiGet<{ pending: unknown[] }>(
+          "/api/credits/pending-payments",
+        );
+        setPendingPaymentCount(
+          result.success && result.data?.pending
+            ? result.data.pending.length
+            : 0,
+        );
+      } catch {
+        setPendingPaymentCount(0);
+      }
+    }
   };
 
   const refreshCreditsList = async () => {
     try {
-      const result = await apiGet<CreditAccount[]>('/api/credits');
+      const result = await apiGet<CreditAccount[]>("/api/credits");
       if (result.success) setAccounts(result.data ?? []);
     } catch (err) {
-      console.error('Error refreshing credits:', err);
+      console.error("Error refreshing credits:", err);
     }
   };
 
@@ -419,27 +536,32 @@ export function CreditList() {
     if (!selectedAccount) return;
     const name = editCustomerName.trim();
     if (!name) {
-      toast.error('Customer name is required');
+      toast.error("Customer name is required");
       return;
     }
     setEditCustomerSaving(true);
     try {
-      const phonesPayload = editCustomerPhones.map((p) => p.trim()).filter(Boolean);
-      const result = await apiPatch<{ account: CreditAccount }>(`/api/credits/${selectedAccount.id}`, {
-        customerName: name,
-        customerPhones: phonesPayload,
-      });
+      const phonesPayload = editCustomerPhones
+        .map((p) => p.trim())
+        .filter(Boolean);
+      const result = await apiPatch<{ account: CreditAccount }>(
+        `/api/credits/${selectedAccount.id}`,
+        {
+          customerName: name,
+          customerPhones: phonesPayload,
+        },
+      );
       if (result.success && result.data?.account) {
-        toast.success('Customer details saved');
+        toast.success("Customer details saved");
         setSelectedAccount(result.data.account);
         setCustomerEditModalOpen(false);
         await refreshCreditsList();
       } else {
-        toast.error(result.message || 'Could not save');
+        toast.error(result.message || "Could not save");
       }
     } catch (err) {
-      console.error('Error saving customer details:', err);
-      toast.error('Could not save');
+      console.error("Error saving customer details:", err);
+      toast.error("Could not save");
     } finally {
       setEditCustomerSaving(false);
     }
@@ -458,40 +580,45 @@ export function CreditList() {
         if (result.data.account) setSelectedAccount(result.data.account);
       }
     } catch (err) {
-      console.error('Error reloading credit detail:', err);
+      console.error("Error reloading credit detail:", err);
     }
   };
 
   const reviewPublicPaymentClaim = async (
     claim: PendingPublicClaimRow,
-    action: 'approve' | 'reject',
-    creditAccountIdForReload?: string | null
+    action: "approve" | "reject",
+    creditAccountIdForReload?: string | null,
   ) => {
     setClaimReviewBusy({ transactionId: claim.transactionId, action });
     try {
       const path =
-        claim.kind === 'wallet'
+        claim.kind === "wallet"
           ? `/api/credits/wallet-claims/${claim.transactionId}`
           : `/api/credits/claims/${claim.transactionId}`;
-      const result = await apiPost<{ newBalance?: number; newWalletBalance?: number }>(path, {
+      const result = await apiPost<{
+        newBalance?: number;
+        newWalletBalance?: number;
+      }>(path, {
         action,
       });
       if (result.success) {
         toast.success(
-          result.message ?? (action === 'approve' ? 'Payment accepted' : 'Claim rejected')
+          result.message ??
+            (action === "approve" ? "Payment accepted" : "Claim rejected"),
         );
         await fetchPendingClaims();
         await refreshCreditsList();
-        const reloadId = creditAccountIdForReload ?? selectedAccount?.id ?? null;
+        const reloadId =
+          creditAccountIdForReload ?? selectedAccount?.id ?? null;
         if (reloadId && drawerOpen && selectedAccount?.id === reloadId) {
           await silentReloadDrawerDetail(reloadId);
         }
       } else {
-        toast.error(result.message || 'Could not update claim');
+        toast.error(result.message || "Could not update claim");
       }
     } catch (err) {
-      console.error('claim review:', err);
-      toast.error('Could not update claim');
+      console.error("claim review:", err);
+      toast.error("Could not update claim");
     } finally {
       setClaimReviewBusy(null);
     }
@@ -499,7 +626,7 @@ export function CreditList() {
 
   const handleTransferRecorder = async () => {
     if (!selectedAccount || !transferToUserId) {
-      toast.error('Choose a staff member to transfer to');
+      toast.error("Choose a staff member to transfer to");
       return;
     }
     setTransferSubmitting(true);
@@ -508,22 +635,22 @@ export function CreditList() {
         `/api/credits/${selectedAccount.id}/transfer-recorder`,
         {
           toUserId: transferToUserId,
-          scope: transferIncludePayments ? 'all' : 'debts',
-        }
+          scope: transferIncludePayments ? "all" : "debts",
+        },
       );
       if (result.success) {
-        toast.success(result.message ?? 'Recorder updated');
-        setTransferToUserId('');
+        toast.success(result.message ?? "Recorder updated");
+        setTransferToUserId("");
         setTransferIncludePayments(false);
         setTransferModalOpen(false);
         await refreshCreditsList();
         await silentReloadDrawerDetail(selectedAccount.id);
       } else {
-        toast.error(result.message || 'Transfer failed');
+        toast.error(result.message || "Transfer failed");
       }
     } catch (err) {
       console.error(err);
-      toast.error('Transfer failed');
+      toast.error("Transfer failed");
     } finally {
       setTransferSubmitting(false);
     }
@@ -537,55 +664,61 @@ export function CreditList() {
       .filter((a) => {
         if (!q) return true;
         return (
-          a.customer_name.toLowerCase().includes(q) || phonesSearchMatch(accountPhonesList(a), q)
+          a.customer_name.toLowerCase().includes(q) ||
+          phonesSearchMatch(accountPhonesList(a), q)
         );
       })
       .sort((a, b) =>
         toProperCustomerName(a.customer_name).localeCompare(
-          toProperCustomerName(b.customer_name)
-        )
+          toProperCustomerName(b.customer_name),
+        ),
       );
   }, [accounts, selectedAccount, mergeSearchQuery]);
 
   const toggleMergeId = (id: string) => {
     setMergeSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
   };
 
   const handleMergeCustomers = async () => {
     if (!selectedAccount || mergeSelectedIds.length === 0) {
-      toast.error('Select at least one other profile to merge');
+      toast.error("Select at least one other profile to merge");
       return;
     }
     setMergeSubmitting(true);
     try {
       const mergePhoneLines = mergePhonesText
-        .split('\n')
+        .split("\n")
         .map((l) => l.trim())
         .filter(Boolean);
-      const result = await apiPost<{ mergedCount: number; newBalance: number }>('/api/credits/merge', {
-        keepAccountId: selectedAccount.id,
-        mergeAccountIds: mergeSelectedIds,
-        customerName: mergeNameOverride.trim() || undefined,
-        ...(mergePhoneLines.length > 0 ? { customerPhones: mergePhoneLines } : {}),
-      });
+      const result = await apiPost<{ mergedCount: number; newBalance: number }>(
+        "/api/credits/merge",
+        {
+          keepAccountId: selectedAccount.id,
+          mergeAccountIds: mergeSelectedIds,
+          customerName: mergeNameOverride.trim() || undefined,
+          ...(mergePhoneLines.length > 0
+            ? { customerPhones: mergePhoneLines }
+            : {}),
+        },
+      );
       if (result.success) {
-        toast.success(result.message ?? 'Profiles merged');
+        toast.success(result.message ?? "Profiles merged");
         setMergeSelectedIds([]);
-        setMergeSearchQuery('');
-        setMergeNameOverride('');
-        setMergePhonesText('');
+        setMergeSearchQuery("");
+        setMergeNameOverride("");
+        setMergePhonesText("");
         setMergeModalOpen(false);
         await refreshCreditsList();
         await fetchPendingClaims();
         await silentReloadDrawerDetail(selectedAccount.id);
       } else {
-        toast.error(result.message || 'Merge failed');
+        toast.error(result.message || "Merge failed");
       }
     } catch (err) {
       console.error(err);
-      toast.error('Merge failed');
+      toast.error("Merge failed");
     } finally {
       setMergeSubmitting(false);
     }
@@ -601,24 +734,24 @@ export function CreditList() {
   }, [selectedAccount]);
 
   const handleCopyPublicCreditLink = () => {
-    if (!publicCreditSlug || typeof window === 'undefined') return;
+    if (!publicCreditSlug || typeof window === "undefined") return;
     const url = `${window.location.origin}/c/${encodeURIComponent(publicCreditSlug)}`;
     void navigator.clipboard.writeText(url).then(
       () =>
         toast.success(
-          'Customer status link copied — they can open it to see balance and paid-up status'
+          "Customer status link copied — they can open it to see balance and paid-up status",
         ),
-      () => toast.error('Could not copy link')
+      () => toast.error("Could not copy link"),
     );
   };
 
   const outstandingCount = useMemo(
     () => accounts.filter((a) => a.total_credit > 0).length,
-    [accounts]
+    [accounts],
   );
   const paidUpCount = useMemo(
     () => accounts.filter((a) => a.total_credit <= 0).length,
-    [accounts]
+    [accounts],
   );
 
   const creditorOptions = useMemo(() => {
@@ -630,7 +763,7 @@ export function CreditList() {
       const label =
         formatRecorderLabel(a.last_credit_by_name, a.last_credit_by_role) ??
         a.last_credit_by_name ??
-        'Unknown';
+        "Unknown";
       byId.set(id, label);
     }
     return [...byId.entries()]
@@ -640,35 +773,42 @@ export function CreditList() {
 
   const hasCreditorUnknown = useMemo(
     () => accounts.some((a) => !a.last_credit_by_user_id),
-    [accounts]
+    [accounts],
   );
 
   const visibleAccounts = useMemo(() => {
     return accounts
-      .filter((acc) => (creditView === 'outstanding' ? acc.total_credit > 0 : acc.total_credit <= 0))
+      .filter((acc) =>
+        creditView === "outstanding"
+          ? acc.total_credit > 0
+          : acc.total_credit <= 0,
+      )
       .filter((acc) => {
-        if (creditorFilter === 'all') return true;
-        if (creditorFilter === '__none__') return !acc.last_credit_by_user_id;
+        if (creditorFilter === "all") return true;
+        if (creditorFilter === "__none__") return !acc.last_credit_by_user_id;
         return acc.last_credit_by_user_id === creditorFilter;
       })
       .filter((acc) => {
         if (!searchQuery.trim()) return true;
         const q = searchQuery.toLowerCase();
         return (
-          acc.customer_name.toLowerCase().includes(q) || phonesSearchMatch(accountPhonesList(acc), q)
+          acc.customer_name.toLowerCase().includes(q) ||
+          phonesSearchMatch(accountPhonesList(acc), q)
         );
       })
       .sort((a, b) => {
-        if (sortBy === 'name') {
+        if (sortBy === "name") {
           return toProperCustomerName(a.customer_name).localeCompare(
-            toProperCustomerName(b.customer_name)
+            toProperCustomerName(b.customer_name),
           );
         }
-        if (sortBy === 'date') return (b.last_transaction_at ?? 0) - (a.last_transaction_at ?? 0);
-        if (sortBy === 'amount') {
-          if (creditView === 'paid') {
+        if (sortBy === "date")
+          return (b.last_transaction_at ?? 0) - (a.last_transaction_at ?? 0);
+        if (sortBy === "amount") {
+          if (creditView === "paid") {
             return (
-              Number(b.lifetime_debt_total ?? 0) - Number(a.lifetime_debt_total ?? 0)
+              Number(b.lifetime_debt_total ?? 0) -
+              Number(a.lifetime_debt_total ?? 0)
             );
           }
           return b.total_credit - a.total_credit;
@@ -678,42 +818,44 @@ export function CreditList() {
   }, [accounts, creditorFilter, creditView, searchQuery, sortBy]);
 
   const totalOutstanding = useMemo(() => {
-    if (creditView !== 'outstanding') return 0;
+    if (creditView !== "outstanding") return 0;
     return visibleAccounts.reduce((sum, acc) => sum + acc.total_credit, 0);
   }, [creditView, visibleAccounts]);
 
   const printPendingTabItemsForCustomer = useCallback(() => {
     if (!selectedAccount) {
-      toast.error('Open a customer first');
+      toast.error("Open a customer first");
       return;
     }
     if (loadingDetails) {
-      toast.error('Still loading history — try again in a moment');
+      toast.error("Still loading history — try again in a moment");
       return;
     }
-    if (typeof document === 'undefined') return;
+    if (typeof document === "undefined") return;
 
     const debtPaid = computeDebtPaidStatus(transactions);
     const unpaidDebts = transactions
-      .filter((t) => t.type === 'debt' && debtPaid.get(t.id) !== true)
+      .filter((t) => t.type === "debt" && debtPaid.get(t.id) !== true)
       .sort((a, b) => a.created_at - b.created_at);
 
     if (unpaidDebts.length === 0) {
-      toast.error('No pending tab charges for this customer');
+      toast.error("No pending tab charges for this customer");
       return;
     }
 
-    const businessName = user?.businessName?.trim() || 'Store';
-    const printedAt = new Date().toLocaleString('en-KE', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    const businessName = user?.businessName?.trim() || "Store";
+    const printedAt = new Date().toLocaleString("en-KE", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
     const printedBy = user?.name?.trim();
     const customerName = toProperCustomerName(selectedAccount.customer_name);
-    const customerPhones = formatPhonesForDisplay(accountPhonesList(selectedAccount));
+    const customerPhones = formatPhonesForDisplay(
+      accountPhonesList(selectedAccount),
+    );
     const grandTotal = unpaidDebts.reduce((s, t) => s + Number(t.amount), 0);
 
     const debtBlocksHtml = unpaidDebts
@@ -729,13 +871,14 @@ export function CreditList() {
         } else {
           const body = items
             .map((it) => {
-              const line = Number(it.quantity_sold) * Number(it.sell_price_per_unit);
-              const ut = it.item_unit_type || 'pc';
+              const line =
+                Number(it.quantity_sold) * Number(it.sell_price_per_unit);
+              const ut = it.item_unit_type || "pc";
               const qtyLabel =
-                ut === 'kg'
+                ut === "kg"
                   ? `${it.quantity_sold} kg`
                   : it.quantity_sold === 1
-                    ? '1 pc'
+                    ? "1 pc"
                     : `${it.quantity_sold} pcs`;
               return `<tr>
                 <td>${escapeHtml(it.item_name)}</td>
@@ -744,7 +887,7 @@ export function CreditList() {
                 <td class="amt">${escapeHtml(formatKesPlain(line))}</td>
               </tr>`;
             })
-            .join('');
+            .join("");
           linesHtml = `<table class="lines">
             <thead><tr><th>Item</th><th>Qty</th><th>Unit</th><th style="text-align:right">Line</th></tr></thead>
             <tbody>${body}</tbody>
@@ -753,12 +896,12 @@ export function CreditList() {
         return `<section class="debt-block">
           <h2>Charge ${idx + 1} · ${escapeHtml(formatKesPlain(d.amount))}</h2>
           <p class="debt-meta"><strong>When:</strong> ${escapeHtml(when)}</p>
-          ${recorder ? `<p class="debt-meta"><strong>Recorded by:</strong> ${escapeHtml(recorder)}</p>` : ''}
-          ${saleRef ? `<p class="debt-meta"><strong>Sale ref:</strong> ${escapeHtml(saleRef)}</p>` : ''}
+          ${recorder ? `<p class="debt-meta"><strong>Recorded by:</strong> ${escapeHtml(recorder)}</p>` : ""}
+          ${saleRef ? `<p class="debt-meta"><strong>Sale ref:</strong> ${escapeHtml(saleRef)}</p>` : ""}
           ${linesHtml}
         </section>`;
       })
-      .join('');
+      .join("");
 
     const fullHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -793,9 +936,9 @@ export function CreditList() {
   <div class="meta">
     <p><strong>${escapeHtml(businessName)}</strong></p>
     <p><strong>Customer:</strong> ${escapeHtml(customerName)}</p>
-    <p><strong>Phone(s):</strong> ${escapeHtml(customerPhones || '—')}</p>
-    <p>Printed ${escapeHtml(printedAt)}${printedBy ? ` · ${escapeHtml(printedBy)}` : ''}</p>
-    <p>${unpaidDebts.length} unpaid charge${unpaidDebts.length === 1 ? '' : 's'} (oldest paid first when collecting)</p>
+    <p><strong>Phone(s):</strong> ${escapeHtml(customerPhones || "—")}</p>
+    <p>Printed ${escapeHtml(printedAt)}${printedBy ? ` · ${escapeHtml(printedBy)}` : ""}</p>
+    <p>${unpaidDebts.length} unpaid charge${unpaidDebts.length === 1 ? "" : "s"} (oldest paid first when collecting)</p>
   </div>
   ${debtBlocksHtml}
   <div class="total-bar">
@@ -805,18 +948,18 @@ export function CreditList() {
 </body>
 </html>`;
 
-    const iframe = document.createElement('iframe');
-    iframe.setAttribute('title', 'Pending tab items print');
-    iframe.setAttribute('aria-hidden', 'true');
+    const iframe = document.createElement("iframe");
+    iframe.setAttribute("title", "Pending tab items print");
+    iframe.setAttribute("aria-hidden", "true");
     iframe.style.cssText =
-      'position:fixed;inset:0;width:0;height:0;border:0;opacity:0;pointer-events:none;visibility:hidden';
+      "position:fixed;inset:0;width:0;height:0;border:0;opacity:0;pointer-events:none;visibility:hidden";
     document.body.appendChild(iframe);
 
     const idoc = iframe.contentDocument;
     const iwin = iframe.contentWindow;
     if (!idoc || !iwin) {
       iframe.remove();
-      toast.error('Could not open print preview');
+      toast.error("Could not open print preview");
       return;
     }
 
@@ -836,13 +979,19 @@ export function CreditList() {
       iwin.focus();
       iwin.print();
     } catch {
-      toast.error('Print failed');
+      toast.error("Print failed");
       removeFrame();
       return;
     }
-    iwin.addEventListener('afterprint', removeFrame, { once: true });
+    iwin.addEventListener("afterprint", removeFrame, { once: true });
     setTimeout(removeFrame, 2500);
-  }, [selectedAccount, transactions, loadingDetails, user?.businessName, user?.name]);
+  }, [
+    selectedAccount,
+    transactions,
+    loadingDetails,
+    user?.businessName,
+    user?.name,
+  ]);
 
   // ——— Loading ———
   if (loading) {
@@ -873,8 +1022,12 @@ export function CreditList() {
             <div className="h-14 w-14 rounded-2xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-4">
               <AlertCircle className="h-7 w-7 text-amber-600 dark:text-amber-400" />
             </div>
-            <h3 className="font-semibold text-slate-900 dark:text-white">Couldn&apos;t load credits</h3>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">{error}</p>
+            <h3 className="font-semibold text-slate-900 dark:text-white">
+              Couldn&apos;t load credits
+            </h3>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              {error}
+            </p>
             <Button
               variant="outline"
               className="mt-6 border-slate-300 dark:border-slate-600"
@@ -891,13 +1044,15 @@ export function CreditList() {
   // ——— Empty (no accounts at all) ———
   if (accounts.length === 0) {
     return (
-        <Card className="border-emerald-200 dark:border-emerald-900/50 bg-gradient-to-br from-emerald-50/80 to-white dark:from-emerald-950/20 dark:to-[#0f1a0d] overflow-hidden max-md:rounded-3xl max-md:border-emerald-200/70">
+      <Card className="border-emerald-200 dark:border-emerald-900/50 bg-gradient-to-br from-emerald-50/80 to-white dark:from-emerald-950/20 dark:to-[#0f1a0d] overflow-hidden max-md:rounded-3xl max-md:border-emerald-200/70">
         <CardContent className="p-10 md:p-14 max-md:p-8">
           <div className="flex flex-col items-center text-center max-w-md mx-auto">
             <div className="h-20 w-20 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-5 shadow-inner">
               <Sparkles className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
             </div>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">No credit customers yet</h3>
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+              No credit customers yet
+            </h3>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
               Credit sales will create customer accounts here.
             </p>
@@ -908,17 +1063,18 @@ export function CreditList() {
   }
 
   // ——— Main content ———
-  const sortOptions: { value: 'name' | 'amount' | 'date'; label: string }[] = [
+  const sortOptions: { value: "name" | "amount" | "date"; label: string }[] = [
     {
-      value: 'amount',
-      label: creditView === 'outstanding' ? 'Highest balance' : 'Highest amount',
+      value: "amount",
+      label:
+        creditView === "outstanding" ? "Highest balance" : "Highest amount",
     },
-    { value: 'name', label: 'Name' },
-    { value: 'date', label: 'Recent' },
+    { value: "name", label: "Name" },
+    { value: "date", label: "Recent" },
   ];
 
   const listEmpty = visibleAccounts.length === 0;
-  const creditorFilterActive = creditorFilter !== 'all';
+  const creditorFilterActive = creditorFilter !== "all";
 
   return (
     <div className="space-y-6 max-md:space-y-4">
@@ -927,7 +1083,7 @@ export function CreditList() {
         <CardContent className="p-6 md:p-8 max-md:p-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
             <div>
-              {creditView === 'outstanding' ? (
+              {creditView === "outstanding" ? (
                 <>
                   <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
                     Total outstanding
@@ -938,13 +1094,13 @@ export function CreditList() {
                   <p className="mt-2 text-sm text-slate-400">
                     {listEmpty
                       ? searchQuery
-                        ? 'No matches in this list'
+                        ? "No matches in this list"
                         : creditorFilterActive
-                          ? 'No matches for this creditor filter'
+                          ? "No matches for this creditor filter"
                           : outstandingCount === 0
-                            ? 'Everyone is paid up — switch to Paid up to see them'
-                            : 'No balances due in this filtered list'
-                      : `Across ${visibleAccounts.length} customer${visibleAccounts.length !== 1 ? 's' : ''}`}
+                            ? "Everyone is paid up — switch to Paid up to see them"
+                            : "No balances due in this filtered list"
+                      : `Across ${visibleAccounts.length} customer${visibleAccounts.length !== 1 ? "s" : ""}`}
                   </p>
                 </>
               ) : (
@@ -953,24 +1109,24 @@ export function CreditList() {
                     Paid up
                   </p>
                   <p className="mt-1 text-3xl md:text-4xl font-bold tracking-tight">
-                    {listEmpty ? '0' : visibleAccounts.length}
+                    {listEmpty ? "0" : visibleAccounts.length}
                   </p>
                   <p className="mt-2 text-sm text-slate-400">
                     {listEmpty
                       ? searchQuery
-                        ? 'No matches in this list'
+                        ? "No matches in this list"
                         : creditorFilterActive
-                          ? 'No matches for this creditor filter'
+                          ? "No matches for this creditor filter"
                           : paidUpCount === 0
-                            ? 'No zero-balance accounts yet'
-                            : 'Try clearing search'
-                      : `Customer${visibleAccounts.length !== 1 ? 's' : ''} with no balance due`}
+                            ? "No zero-balance accounts yet"
+                            : "Try clearing search"
+                      : `Customer${visibleAccounts.length !== 1 ? "s" : ""} with no balance due`}
                   </p>
                 </>
               )}
             </div>
             <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-sm">
-              {creditView === 'outstanding' ? (
+              {creditView === "outstanding" ? (
                 <DollarSign className="h-7 w-7 text-white/90" />
               ) : (
                 <CheckCircle className="h-7 w-7 text-emerald-300" />
@@ -994,11 +1150,12 @@ export function CreditList() {
                   </p>
                   <p className="mt-1 text-sm font-semibold text-amber-950 dark:text-amber-50">
                     {pendingPublicClaims.length === 1
-                      ? '1 claim needs your decision'
+                      ? "1 claim needs your decision"
                       : `${pendingPublicClaims.length} claims need your decision`}
                   </p>
                   <p className="mt-1 text-xs text-amber-900/85 dark:text-amber-200/80">
-                    Tab payments reduce credit balance; wallet top-ups add store wallet. Reject if the claim is wrong.
+                    Tab payments reduce credit balance; wallet top-ups add store
+                    wallet. Reject if the claim is wrong.
                   </p>
                 </div>
               </div>
@@ -1016,22 +1173,25 @@ export function CreditList() {
                     <p className="mt-1">
                       <span
                         className={cn(
-                          'inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide',
-                          claim.kind === 'wallet'
-                            ? 'bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-200'
-                            : 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                          "inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+                          claim.kind === "wallet"
+                            ? "bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-200"
+                            : "bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
                         )}
                       >
-                        {claim.kind === 'wallet' ? 'Wallet top-up' : 'Tab payment'}
+                        {claim.kind === "wallet"
+                          ? "Wallet top-up"
+                          : "Tab payment"}
                       </span>
                     </p>
                     <p className="mt-0.5 text-lg font-bold tabular-nums text-amber-700 dark:text-amber-300">
                       {formatPrice(claim.amount)}
                     </p>
                     <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
-                      {claim.paymentMethod === 'cash' ? 'Cash' : 'M-Pesa'} · Submitted {formatDate(claim.createdAt)}
+                      {claim.paymentMethod === "cash" ? "Cash" : "M-Pesa"} ·
+                      Submitted {formatDate(claim.createdAt)}
                     </p>
-                    {claim.kind === 'wallet' && claim.customerReference ? (
+                    {claim.kind === "wallet" && claim.customerReference ? (
                       <p className="mt-1 font-mono text-xs text-slate-700 dark:text-slate-300">
                         Ref: {claim.customerReference}
                       </p>
@@ -1040,7 +1200,9 @@ export function CreditList() {
                       type="button"
                       variant="link"
                       className="mt-2 h-auto p-0 text-xs font-medium text-[#1c6a1e] dark:text-emerald-400"
-                      onClick={() => void openCreditAccountById(claim.creditAccountId)}
+                      onClick={() =>
+                        void openCreditAccountById(claim.creditAccountId)
+                      }
                     >
                       Open customer drawer
                     </Button>
@@ -1055,10 +1217,16 @@ export function CreditList() {
                         claimReviewBusy !== null &&
                         claimReviewBusy.transactionId === claim.transactionId
                       }
-                      onClick={() => void reviewPublicPaymentClaim(claim, 'reject', claim.creditAccountId)}
+                      onClick={() =>
+                        void reviewPublicPaymentClaim(
+                          claim,
+                          "reject",
+                          claim.creditAccountId,
+                        )
+                      }
                     >
                       {claimReviewBusy?.transactionId === claim.transactionId &&
-                      claimReviewBusy.action === 'reject' ? (
+                      claimReviewBusy.action === "reject" ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <>
@@ -1075,10 +1243,16 @@ export function CreditList() {
                         claimReviewBusy !== null &&
                         claimReviewBusy.transactionId === claim.transactionId
                       }
-                      onClick={() => void reviewPublicPaymentClaim(claim, 'approve', claim.creditAccountId)}
+                      onClick={() =>
+                        void reviewPublicPaymentClaim(
+                          claim,
+                          "approve",
+                          claim.creditAccountId,
+                        )
+                      }
                     >
                       {claimReviewBusy?.transactionId === claim.transactionId &&
-                      claimReviewBusy.action === 'approve' ? (
+                      claimReviewBusy.action === "approve" ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <>
@@ -1095,35 +1269,126 @@ export function CreditList() {
         </Card>
       ) : null}
 
+      {canManageCreditProfiles && pendingPaymentCount > 0 ? (
+        <Card className="overflow-hidden border-2 border-amber-400 bg-gradient-to-br from-amber-50 via-amber-50/90 to-orange-50/70 shadow-lg shadow-amber-900/10 dark:border-amber-600 dark:from-amber-950/50 dark:via-amber-950/40 dark:to-orange-950/25 dark:shadow-black/30 max-md:rounded-3xl max-md:border-amber-300/90">
+          <CardContent className="p-4 sm:p-5 max-md:p-4">
+            <div className="flex gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-md shadow-amber-900/25 dark:bg-amber-600">
+                <AlertCircle className="h-6 w-6" aria-hidden />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                  Cashier payments — pending approval
+                </p>
+                <p className="mt-1 text-sm font-semibold text-amber-950 dark:text-amber-50">
+                  {pendingPaymentCount === 1
+                    ? "1 payment pending approval from cashiers"
+                    : `${pendingPaymentCount} payments pending approval from cashiers`}
+                </p>
+                <p className="mt-1 text-xs text-amber-900/85 dark:text-amber-200/80">
+                  Payments submitted by cashiers require admin review before
+                  being applied.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {/* Accept new credit toggle (admin only) */}
+      {canManageCreditProfiles ? (
+        <Card className="overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-sm max-md:rounded-2xl">
+          <CardContent className="p-4 sm:p-5 max-md:p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                  New credit accounts
+                </p>
+                <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
+                  {allowNewCreditAccounts
+                    ? "New customers can take credit at the till"
+                    : "Only existing credit customers can take credit"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  const next = !allowNewCreditAccounts;
+                  try {
+                    const result = await apiPatch("/api/credits/settings", {
+                      creditSettings: {
+                        allow_new_credit_accounts: next,
+                      },
+                    });
+                    if (result.success) {
+                      setAllowNewCreditAccounts(next);
+                      toast.success(
+                        next
+                          ? "New credit accounts are now allowed"
+                          : "New credit accounts are now blocked",
+                      );
+                    } else {
+                      toast.error(result.message || "Failed to update setting");
+                    }
+                  } catch {
+                    toast.error("Failed to update setting");
+                  }
+                }}
+                className={cn(
+                  "relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30",
+                  allowNewCreditAccounts
+                    ? "bg-[#1c6a1e]"
+                    : "bg-slate-300 dark:bg-slate-600",
+                )}
+                role="switch"
+                aria-checked={allowNewCreditAccounts}
+                aria-label="Toggle new credit accounts"
+              >
+                <span
+                  className={cn(
+                    "pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out",
+                    allowNewCreditAccounts ? "translate-x-5" : "translate-x-0",
+                  )}
+                />
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {/* View toggle + Search + Sort */}
       <div className="flex flex-col gap-3 max-md:gap-3.5 touch-manipulation">
         <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
           <div className="flex rounded-2xl max-md:p-1.5 bg-slate-100/95 dark:bg-slate-800/90 p-1 gap-1 w-full sm:w-auto ring-1 ring-slate-200/60 dark:ring-slate-700/80">
             <button
               type="button"
-              onClick={() => setCreditView('outstanding')}
+              onClick={() => setCreditView("outstanding")}
               className={cn(
-                'flex-1 sm:flex-none px-3 max-md:min-h-11 max-md:rounded-xl py-2 rounded-md text-xs font-semibold transition-all active:scale-[0.98]',
-                creditView === 'outstanding'
-                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-600/60'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                "flex-1 sm:flex-none px-3 max-md:min-h-11 max-md:rounded-xl py-2 rounded-md text-xs font-semibold transition-all active:scale-[0.98]",
+                creditView === "outstanding"
+                  ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-600/60"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white",
               )}
             >
               Outstanding
-              <span className="ml-1.5 tabular-nums opacity-70">({outstandingCount})</span>
+              <span className="ml-1.5 tabular-nums opacity-70">
+                ({outstandingCount})
+              </span>
             </button>
             <button
               type="button"
-              onClick={() => setCreditView('paid')}
+              onClick={() => setCreditView("paid")}
               className={cn(
-                'flex-1 sm:flex-none px-3 max-md:min-h-11 max-md:rounded-xl py-2 rounded-md text-xs font-semibold transition-all active:scale-[0.98]',
-                creditView === 'paid'
-                  ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-600/60'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                "flex-1 sm:flex-none px-3 max-md:min-h-11 max-md:rounded-xl py-2 rounded-md text-xs font-semibold transition-all active:scale-[0.98]",
+                creditView === "paid"
+                  ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-600/60"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white",
               )}
             >
               Paid up
-              <span className="ml-1.5 tabular-nums opacity-70">({paidUpCount})</span>
+              <span className="ml-1.5 tabular-nums opacity-70">
+                ({paidUpCount})
+              </span>
             </button>
           </div>
         </div>
@@ -1136,10 +1401,10 @@ export function CreditList() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={cn(
-                'w-full rounded-2xl max-md:min-h-[3rem] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50',
-                'pl-10 pr-4 py-3 max-md:py-3 max-md:text-base text-sm placeholder:text-slate-400',
-                'focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]',
-                'transition-colors shadow-sm'
+                "w-full rounded-2xl max-md:min-h-[3rem] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50",
+                "pl-10 pr-4 py-3 max-md:py-3 max-md:text-base text-sm placeholder:text-slate-400",
+                "focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]",
+                "transition-colors shadow-sm",
               )}
             />
           </div>
@@ -1152,10 +1417,10 @@ export function CreditList() {
               aria-label="Filter by creditor"
               title="Accounts whose latest credit entry was recorded by this staff member"
               className={cn(
-                'w-full appearance-none rounded-2xl max-md:min-h-[3rem] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50',
-                'pl-10 pr-10 py-3 max-md:text-base text-sm text-slate-900 dark:text-white',
-                'focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]',
-                'transition-colors cursor-pointer shadow-sm'
+                "w-full appearance-none rounded-2xl max-md:min-h-[3rem] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50",
+                "pl-10 pr-10 py-3 max-md:text-base text-sm text-slate-900 dark:text-white",
+                "focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]",
+                "transition-colors cursor-pointer shadow-sm",
               )}
             >
               <option value="all">All creditors</option>
@@ -1178,10 +1443,10 @@ export function CreditList() {
                   type="button"
                   onClick={() => setSortBy(opt.value)}
                   className={cn(
-                    'px-3 max-md:min-h-10 max-md:snap-start max-md:shrink-0 py-2 rounded-xl text-xs font-semibold transition-all active:scale-[0.98]',
+                    "px-3 max-md:min-h-10 max-md:snap-start max-md:shrink-0 py-2 rounded-xl text-xs font-semibold transition-all active:scale-[0.98]",
                     sortBy === opt.value
-                      ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-600/60'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                      ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-600/60"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white",
                   )}
                 >
                   {opt.label}
@@ -1200,22 +1465,24 @@ export function CreditList() {
                 <Sparkles className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
               </div>
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                {creditView === 'outstanding' ? 'No outstanding credits' : 'No paid-up customers'}
+                {creditView === "outstanding"
+                  ? "No outstanding credits"
+                  : "No paid-up customers"}
               </h3>
               <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
                 {searchQuery && creditorFilterActive
-                  ? 'No customers match this search and creditor filter together. Try adjusting one or both.'
+                  ? "No customers match this search and creditor filter together. Try adjusting one or both."
                   : searchQuery
-                    ? 'No customers match your search. Try a different name or phone.'
+                    ? "No customers match your search. Try a different name or phone."
                     : creditorFilterActive
-                      ? 'No accounts match the selected creditor. Pick someone else or reset the creditor filter.'
-                      : creditView === 'outstanding'
+                      ? "No accounts match the selected creditor. Pick someone else or reset the creditor filter."
+                      : creditView === "outstanding"
                         ? outstandingCount === 0
-                          ? 'There are no outstanding balances. Open Paid up to see customers at zero balance.'
-                          : 'No results for the current sort and filters.'
+                          ? "There are no outstanding balances. Open Paid up to see customers at zero balance."
+                          : "No results for the current sort and filters."
                         : paidUpCount === 0
-                          ? 'Customers will appear here once their balance is cleared.'
-                          : 'No results for the current sort and filters.'}
+                          ? "Customers will appear here once their balance is cleared."
+                          : "No results for the current sort and filters."}
               </p>
               <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
                 {creditorFilterActive && (
@@ -1223,7 +1490,7 @@ export function CreditList() {
                     variant="ghost"
                     size="sm"
                     className="text-slate-600 dark:text-slate-400"
-                    onClick={() => setCreditorFilter('all')}
+                    onClick={() => setCreditorFilter("all")}
                   >
                     All creditors
                   </Button>
@@ -1233,27 +1500,27 @@ export function CreditList() {
                     variant="ghost"
                     size="sm"
                     className="text-slate-600 dark:text-slate-400"
-                    onClick={() => setSearchQuery('')}
+                    onClick={() => setSearchQuery("")}
                   >
                     Clear search
                   </Button>
                 )}
-                {creditView === 'paid' && outstandingCount > 0 && (
+                {creditView === "paid" && outstandingCount > 0 && (
                   <Button
                     variant="outline"
                     size="sm"
                     className="border-slate-300 dark:border-slate-600"
-                    onClick={() => setCreditView('outstanding')}
+                    onClick={() => setCreditView("outstanding")}
                   >
                     Show outstanding
                   </Button>
                 )}
-                {creditView === 'outstanding' && paidUpCount > 0 && (
+                {creditView === "outstanding" && paidUpCount > 0 && (
                   <Button
                     variant="outline"
                     size="sm"
                     className="border-slate-300 dark:border-slate-600"
-                    onClick={() => setCreditView('paid')}
+                    onClick={() => setCreditView("paid")}
                   >
                     Show paid up
                   </Button>
@@ -1271,112 +1538,193 @@ export function CreditList() {
               const cardPhones = accountPhonesList(account);
               const cardPhonesLine = formatPhonesForDisplay(cardPhones);
               return (
-              <Card
-                key={account.id}
-                className={cn(
-                  'group overflow-hidden bg-white dark:bg-slate-900/80 max-md:shadow-md max-md:shadow-slate-900/10 dark:max-md:shadow-black/40',
-                  'border border-slate-200/90 dark:border-slate-800 max-md:rounded-2xl sm:rounded-xl',
-                  'hover:border-slate-300 dark:hover:border-slate-700 max-md:active:scale-[0.995]',
-                  'hover:shadow-md hover:shadow-slate-200/50 dark:hover:shadow-slate-900/50',
-                  'transition-all duration-200 cursor-pointer touch-manipulation'
-                )}
-              >
-                <CardContent className="p-0">
-                  <button
-                    type="button"
-                    onClick={() => handleOpenPaymentDrawer(account)}
-                    className="w-full text-left flex items-center gap-3 sm:gap-4 p-4 sm:p-5 max-md:py-4"
-                  >
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-sm font-bold tabular-nums text-slate-600 dark:text-slate-300">
-                      {index + 1}
-                    </span>
-                    <div
-                      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white shadow-inner"
-                      style={{ backgroundColor: avatarColor(displayName) }}
+                <Card
+                  key={account.id}
+                  className={cn(
+                    "group overflow-hidden bg-white dark:bg-slate-900/80 max-md:shadow-md max-md:shadow-slate-900/10 dark:max-md:shadow-black/40",
+                    "border border-slate-200/90 dark:border-slate-800 max-md:rounded-2xl sm:rounded-xl",
+                    "hover:border-slate-300 dark:hover:border-slate-700 max-md:active:scale-[0.995]",
+                    "hover:shadow-md hover:shadow-slate-200/50 dark:hover:shadow-slate-900/50",
+                    "transition-all duration-200 cursor-pointer touch-manipulation",
+                  )}
+                >
+                  <CardContent className="p-0">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenPaymentDrawer(account)}
+                      className="w-full text-left flex items-center gap-3 sm:gap-4 p-4 sm:p-5 max-md:py-4"
                     >
-                      {getInitials(displayName)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold text-slate-900 dark:text-white truncate">
-                          {displayName}
-                        </h3>
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800 text-sm font-bold tabular-nums text-slate-600 dark:text-slate-300">
+                        {index + 1}
+                      </span>
+                      <div
+                        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white shadow-inner"
+                        style={{ backgroundColor: avatarColor(displayName) }}
+                      >
+                        {getInitials(displayName)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-semibold text-slate-900 dark:text-white truncate">
+                            {displayName}
+                          </h3>
+                          {account.has_pending_payment === 1 && (
+                            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 shrink-0 animate-pulse">
+                              Pending
+                            </span>
+                          )}
+                          <span
+                            className={cn(
+                              "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium",
+                              creditView === "outstanding"
+                                ? "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300"
+                                : "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300",
+                            )}
+                          >
+                            {creditView === "outstanding"
+                              ? "Outstanding"
+                              : "Paid up"}
+                          </span>
+                        </div>
+                        {cardPhones.length > 0 && (
+                          <p
+                            className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 line-clamp-2"
+                            title={cardPhonesLine}
+                          >
+                            {cardPhonesLine}
+                          </p>
+                        )}
+                        <p
+                          className={cn(
+                            "mt-1 text-[11px]",
+                            isStaleDebt(account.oldest_unpaid_debt_at)
+                              ? "text-rose-500 dark:text-rose-400 font-medium"
+                              : "text-slate-400 dark:text-slate-500",
+                          )}
+                        >
+                          Oldest unpaid:{" "}
+                          {formatLastDebt(account.oldest_unpaid_debt_at)}
+                        </p>
+                        {lastCreditByLabel(account) && (
+                          <p className="mt-1 flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 min-w-0">
+                            <User className="h-3 w-3 shrink-0" aria-hidden />
+                            <span
+                              className="truncate"
+                              title={lastCreditByLabel(account) ?? undefined}
+                            >
+                              Credit: {lastCreditByLabel(account)}
+                            </span>
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-end gap-2 shrink-0 max-w-[55%]">
+                        {creditView === "paid" && (
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 -mb-1">
+                            Lifetime total
+                          </span>
+                        )}
+                        <p
+                          className={cn(
+                            "font-bold tabular-nums",
+                            creditView === "paid"
+                              ? "text-lg text-emerald-600 dark:text-emerald-400"
+                              : "hidden",
+                          )}
+                        >
+                          {creditView === "paid"
+                            ? formatPrice(lifetimeDebtTotal(account))
+                            : null}
+                        </p>
+                        <div
+                          className={cn(
+                            "text-right",
+                            creditView === "paid" ? "space-y-0.5" : "",
+                          )}
+                        >
+                          <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Credit / wallet
+                          </p>
+                          <p
+                            className={cn(
+                              "font-bold tabular-nums leading-snug",
+                              creditView === "outstanding"
+                                ? "text-base sm:text-lg text-amber-600 dark:text-amber-400"
+                                : "text-sm sm:text-base text-slate-700 dark:text-slate-200",
+                            )}
+                          >
+                            {formatCreditWalletSlash(account)}
+                          </p>
+                        </div>
                         <span
                           className={cn(
-                            'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium',
-                            creditView === 'outstanding'
-                              ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300'
-                              : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300'
+                            "inline-flex items-center gap-1.5 rounded-xl max-md:px-3.5 max-md:py-2 px-3 py-1.5 text-xs font-semibold transition-colors pointer-events-none",
+                            account.has_pending_payment === 1
+                              ? "bg-rose-500 dark:bg-rose-600 text-white dark:text-rose-100 cursor-pointer"
+                              : creditView === "outstanding"
+                                ? "bg-[#1c6a1e] text-white group-hover:bg-[#2a8a30] shadow-sm shadow-[#1c6a1e]/25"
+                                : "bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100 group-hover:bg-slate-300 dark:group-hover:bg-slate-600",
                           )}
                         >
-                          {creditView === 'outstanding' ? 'Outstanding' : 'Paid up'}
-                        </span>
-                      </div>
-                      {cardPhones.length > 0 && (
-                        <p
-                          className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 line-clamp-2"
-                          title={cardPhonesLine}
-                        >
-                          {cardPhonesLine}
-                        </p>
-                      )}
-                      <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
-                        Last activity: {formatDate(account.last_transaction_at)}
-                      </p>
-                      {lastCreditByLabel(account) && (
-                        <p className="mt-1 flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 min-w-0">
-                          <User className="h-3 w-3 shrink-0" aria-hidden />
-                          <span className="truncate" title={lastCreditByLabel(account) ?? undefined}>
-                            Credit: {lastCreditByLabel(account)}
-                          </span>
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end gap-2 shrink-0 max-w-[55%]">
-                      {creditView === 'paid' && (
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 -mb-1">
-                          Lifetime total
-                        </span>
-                      )}
-                      <p
-                        className={cn(
-                          'font-bold tabular-nums',
-                          creditView === 'paid' ? 'text-lg text-emerald-600 dark:text-emerald-400' : 'hidden'
-                        )}
-                      >
-                        {creditView === 'paid' ? formatPrice(lifetimeDebtTotal(account)) : null}
-                      </p>
-                      <div className={cn('text-right', creditView === 'paid' ? 'space-y-0.5' : '')}>
-                        <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                          Credit / wallet
-                        </p>
-                        <p
-                          className={cn(
-                            'font-bold tabular-nums leading-snug',
-                            creditView === 'outstanding'
-                              ? 'text-base sm:text-lg text-amber-600 dark:text-amber-400'
-                              : 'text-sm sm:text-base text-slate-700 dark:text-slate-200'
+                          {account.has_pending_payment === 1
+                            ? "Pending"
+                            : creditView === "outstanding"
+                              ? "Collect"
+                              : "View"}
+                          {account.has_pending_payment !== 1 && (
+                            <ArrowRight className="h-3.5 w-3.5" />
                           )}
-                        >
-                          {formatCreditWalletSlash(account)}
-                        </p>
+                        </span>
                       </div>
-                      <span
-                        className={cn(
-                          'inline-flex items-center gap-1.5 rounded-xl max-md:px-3.5 max-md:py-2 px-3 py-1.5 text-xs font-semibold transition-colors pointer-events-none',
-                          creditView === 'outstanding'
-                            ? 'bg-[#1c6a1e] text-white group-hover:bg-[#2a8a30] shadow-sm shadow-[#1c6a1e]/25'
-                            : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100 group-hover:bg-slate-300 dark:group-hover:bg-slate-600'
-                        )}
-                      >
-                        {creditView === 'outstanding' ? 'Collect' : 'View'}
-                        <ArrowRight className="h-3.5 w-3.5" />
-                      </span>
-                    </div>
-                  </button>
-                </CardContent>
-              </Card>
-            );
+                    </button>
+                    {account.has_pending_payment === 1 &&
+                      canManageCreditProfiles && (
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            const result = await apiGet<{
+                              pending: {
+                                id: string;
+                                credit_account_id: string;
+                                amount: number;
+                                payment_method: string | null;
+                                created_at: number;
+                              }[];
+                            }>("/api/credits/pending-payments");
+                            if (result.success && result.data?.pending) {
+                              const accountPending = (
+                                result.data.pending as {
+                                  credit_account_id: string;
+                                  id: string;
+                                  amount: number;
+                                  payment_method: string | null;
+                                  created_at: number;
+                                }[]
+                              ).filter(
+                                (p: { credit_account_id?: string }) =>
+                                  (p as { credit_account_id?: string })
+                                    .credit_account_id === account.id,
+                              );
+                              if (accountPending.length > 0) {
+                                const pmt = accountPending[0];
+                                setApprovalDialogOpen(true);
+                                setApprovalDialogData({
+                                  transactionId: pmt.id,
+                                  customerName: account.customer_name,
+                                  amount: pmt.amount,
+                                  paymentMethod: pmt.payment_method,
+                                });
+                              }
+                            }
+                          }}
+                          className="w-full px-3 py-2 flex items-center justify-center gap-1.5 rounded-b-2xl bg-rose-50 dark:bg-rose-950/30 hover:bg-rose-100 dark:hover:bg-rose-900/40 border-t border-rose-200 dark:border-rose-800 text-xs font-semibold text-rose-700 dark:text-rose-300 transition-colors"
+                        >
+                          Review pending payment
+                        </button>
+                      )}
+                  </CardContent>
+                </Card>
+              );
             })}
           </div>
 
@@ -1399,9 +1747,9 @@ export function CreditList() {
                         Credit by
                       </th>
                       <th className="text-left px-4 py-3 font-semibold text-slate-600 dark:text-slate-400 w-[1%] whitespace-nowrap">
-                        Last activity
+                        Oldest unpaid
                       </th>
-                      {creditView === 'paid' && (
+                      {creditView === "paid" && (
                         <th className="text-right px-4 py-3 font-semibold text-slate-600 dark:text-slate-400 w-[1%] whitespace-nowrap">
                           Amount
                         </th>
@@ -1419,99 +1767,174 @@ export function CreditList() {
                   </thead>
                   <tbody>
                     {visibleAccounts.map((account, index) => {
-                      const displayName = toProperCustomerName(account.customer_name);
+                      const displayName = toProperCustomerName(
+                        account.customer_name,
+                      );
                       const rowPhones = accountPhonesList(account);
                       const phonesLine = formatPhonesForDisplay(rowPhones);
                       return (
-                      <tr
-                        key={account.id}
-                        onClick={() => handleOpenPaymentDrawer(account)}
-                        className={cn(
-                          'border-b border-slate-100 dark:border-slate-800 last:border-b-0',
-                          'cursor-pointer transition-colors',
-                          'hover:bg-slate-50 dark:hover:bg-slate-800/60'
-                        )}
-                      >
-                        <td className="px-2 py-3 align-middle text-center tabular-nums text-slate-500 dark:text-slate-400 font-medium">
-                          {index + 1}
-                        </td>
-                        <td className="px-4 py-3 align-middle">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div
-                              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white shadow-inner"
-                              style={{ backgroundColor: avatarColor(displayName) }}
-                            >
-                              {getInitials(displayName)}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-semibold text-slate-900 dark:text-white truncate">
-                                  {displayName}
-                                </span>
-                                <span
-                                  className={cn(
-                                    'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0',
-                                    creditView === 'outstanding'
-                                      ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300'
-                                      : 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300'
+                        <tr
+                          key={account.id}
+                          onClick={() => handleOpenPaymentDrawer(account)}
+                          className={cn(
+                            "border-b border-slate-100 dark:border-slate-800 last:border-b-0",
+                            "cursor-pointer transition-colors",
+                            isStaleDebt(account.oldest_unpaid_debt_at)
+                              ? "bg-rose-50/70 dark:bg-rose-950/30 hover:bg-rose-100/80 dark:hover:bg-rose-900/40"
+                              : "hover:bg-slate-50 dark:hover:bg-slate-800/60",
+                          )}
+                        >
+                          <td className="px-2 py-3 align-middle text-center tabular-nums text-slate-500 dark:text-slate-400 font-medium">
+                            {index + 1}
+                          </td>
+                          <td className="px-4 py-3 align-middle">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div
+                                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xs font-bold text-white shadow-inner"
+                                style={{
+                                  backgroundColor: avatarColor(displayName),
+                                }}
+                              >
+                                {getInitials(displayName)}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-semibold text-slate-900 dark:text-white truncate">
+                                    {displayName}
+                                  </span>
+                                  {account.has_pending_payment === 1 && (
+                                    <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 shrink-0 animate-pulse">
+                                      Pending
+                                    </span>
                                   )}
-                                >
-                                  {creditView === 'outstanding' ? 'Outstanding' : 'Paid up'}
-                                </span>
+                                  <span
+                                    className={cn(
+                                      "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0",
+                                      creditView === "outstanding"
+                                        ? "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300"
+                                        : "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300",
+                                    )}
+                                  >
+                                    {creditView === "outstanding"
+                                      ? "Outstanding"
+                                      : "Paid up"}
+                                  </span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
-                        <td
-                          className="px-4 py-3 align-middle text-slate-600 dark:text-slate-400 max-w-[11rem]"
-                          title={phonesLine || undefined}
-                        >
-                          <span className="block truncate text-sm">
-                            {rowPhones.length > 0 ? phonesLine : '—'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 align-middle text-slate-600 dark:text-slate-400 max-w-[12rem]">
-                          <span
-                            className="block truncate text-sm"
-                            title={lastCreditByLabel(account) ?? undefined}
-                          >
-                            {lastCreditByLabel(account) ?? '—'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 align-middle text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                          {formatDate(account.last_transaction_at)}
-                        </td>
-                        {creditView === 'paid' && (
-                          <td className="px-4 py-3 align-middle text-right font-semibold tabular-nums whitespace-nowrap text-emerald-600 dark:text-emerald-400">
-                            {formatPrice(lifetimeDebtTotal(account))}
                           </td>
-                        )}
-                        <td
-                          className={cn(
-                            'px-4 py-3 align-middle text-right font-bold tabular-nums whitespace-nowrap',
-                            creditView === 'outstanding'
-                              ? 'text-amber-600 dark:text-amber-400'
-                              : 'text-slate-600 dark:text-slate-300'
-                          )}
-                          title={`Tab: ${formatPrice(account.total_credit)} · Wallet: ${formatPrice(accountWalletBalance(account))}`}
-                        >
-                          {formatCreditWalletSlash(account)}
-                        </td>
-                        <td className="px-4 py-3 align-middle text-right">
-                          <span
+                          <td
+                            className="px-4 py-3 align-middle text-slate-600 dark:text-slate-400 max-w-[11rem]"
+                            title={phonesLine || undefined}
+                          >
+                            <span className="block truncate text-sm">
+                              {rowPhones.length > 0 ? phonesLine : "—"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 align-middle text-slate-600 dark:text-slate-400 max-w-[12rem]">
+                            <span
+                              className="block truncate text-sm"
+                              title={lastCreditByLabel(account) ?? undefined}
+                            >
+                              {lastCreditByLabel(account) ?? "—"}
+                            </span>
+                          </td>
+                          <td
                             className={cn(
-                              'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium pointer-events-none',
-                              creditView === 'outstanding'
-                                ? 'bg-[#1c6a1e] text-white'
-                                : 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100'
+                              "px-4 py-3 align-middle whitespace-nowrap",
+                              isStaleDebt(account.oldest_unpaid_debt_at)
+                                ? "text-rose-500 dark:text-rose-400 font-medium"
+                                : "text-slate-500 dark:text-slate-400",
                             )}
                           >
-                            {creditView === 'outstanding' ? 'Collect' : 'View'}
-                            <ArrowRight className="h-3.5 w-3.5" />
-                          </span>
-                        </td>
-                      </tr>
-                    );
+                            {formatLastDebt(account.oldest_unpaid_debt_at)}
+                          </td>
+                          {creditView === "paid" && (
+                            <td className="px-4 py-3 align-middle text-right font-semibold tabular-nums whitespace-nowrap text-emerald-600 dark:text-emerald-400">
+                              {formatPrice(lifetimeDebtTotal(account))}
+                            </td>
+                          )}
+                          <td
+                            className={cn(
+                              "px-4 py-3 align-middle text-right font-bold tabular-nums whitespace-nowrap",
+                              creditView === "outstanding"
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-slate-600 dark:text-slate-300",
+                            )}
+                            title={`Tab: ${formatPrice(account.total_credit)} · Wallet: ${formatPrice(accountWalletBalance(account))}`}
+                          >
+                            {formatCreditWalletSlash(account)}
+                          </td>
+                          <td className="px-4 py-3 align-middle text-right">
+                            {account.has_pending_payment === 1 &&
+                            canManageCreditProfiles ? (
+                              <button
+                                type="button"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  const result = await apiGet<{
+                                    pending: {
+                                      id: string;
+                                      credit_account_id: string;
+                                      amount: number;
+                                      payment_method: string | null;
+                                      created_at: number;
+                                    }[];
+                                  }>("/api/credits/pending-payments");
+                                  if (result.success && result.data?.pending) {
+                                    const accountPending = (
+                                      result.data.pending as {
+                                        credit_account_id: string;
+                                        id: string;
+                                        amount: number;
+                                        payment_method: string | null;
+                                        created_at: number;
+                                      }[]
+                                    ).filter(
+                                      (p: { credit_account_id?: string }) =>
+                                        (p as { credit_account_id?: string })
+                                          .credit_account_id === account.id,
+                                    );
+                                    if (accountPending.length > 0) {
+                                      const pmt = accountPending[0];
+                                      setApprovalDialogOpen(true);
+                                      setApprovalDialogData({
+                                        transactionId: pmt.id,
+                                        customerName: account.customer_name,
+                                        amount: pmt.amount,
+                                        paymentMethod: pmt.payment_method,
+                                      });
+                                    }
+                                  }
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors bg-rose-500 dark:bg-rose-600 text-white hover:bg-rose-600 dark:hover:bg-rose-500"
+                              >
+                                Pending
+                              </button>
+                            ) : (
+                              <span
+                                className={cn(
+                                  "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium pointer-events-none",
+                                  account.has_pending_payment === 1
+                                    ? "bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300"
+                                    : creditView === "outstanding"
+                                      ? "bg-[#1c6a1e] text-white"
+                                      : "bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100",
+                                )}
+                              >
+                                {account.has_pending_payment === 1
+                                  ? "Pending"
+                                  : creditView === "outstanding"
+                                    ? "Collect"
+                                    : "View"}
+                                {account.has_pending_payment !== 1 && (
+                                  <ArrowRight className="h-3.5 w-3.5" />
+                                )}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
                     })}
                   </tbody>
                 </table>
@@ -1556,22 +1979,31 @@ export function CreditList() {
                   className="flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center rounded-2xl text-sm sm:text-lg font-bold text-white shadow-lg ring-2 ring-white/30"
                   style={{
                     backgroundColor: selectedAccount
-                      ? avatarColor(toProperCustomerName(selectedAccount.customer_name))
-                      : 'transparent',
+                      ? avatarColor(
+                          toProperCustomerName(selectedAccount.customer_name),
+                        )
+                      : "transparent",
                   }}
                 >
                   {selectedAccount
-                    ? getInitials(toProperCustomerName(selectedAccount.customer_name))
-                    : '—'}
+                    ? getInitials(
+                        toProperCustomerName(selectedAccount.customer_name),
+                      )
+                    : "—"}
                 </div>
                 <div className="min-w-0 flex-1 pt-0.5">
                   <DrawerTitle className="text-lg sm:text-xl font-bold text-white tracking-tight text-left truncate">
-                    {selectedAccount ? toProperCustomerName(selectedAccount.customer_name) : '—'}
+                    {selectedAccount
+                      ? toProperCustomerName(selectedAccount.customer_name)
+                      : "—"}
                   </DrawerTitle>
                   <DrawerDescription className="text-emerald-100/90 text-xs sm:text-sm mt-1 text-left whitespace-pre-line line-clamp-2 sm:line-clamp-3">
-                    {selectedAccount && accountPhonesList(selectedAccount).length > 0
-                      ? formatPhonesForDisplay(accountPhonesList(selectedAccount))
-                      : 'No phone on file'}
+                    {selectedAccount &&
+                    accountPhonesList(selectedAccount).length > 0
+                      ? formatPhonesForDisplay(
+                          accountPhonesList(selectedAccount),
+                        )
+                      : "No phone on file"}
                   </DrawerDescription>
                 </div>
                 <div className="shrink-0 text-right rounded-2xl bg-black/15 dark:bg-black/25 px-3 py-2 sm:px-3.5 sm:py-2.5 border border-white/15 backdrop-blur-md min-w-[7.75rem] sm:min-w-[9rem]">
@@ -1582,7 +2014,9 @@ export function CreditList() {
                     <div className="mt-1.5 space-y-1.5 text-left sm:text-right">
                       <div>
                         <p className="text-[9px] font-semibold uppercase tracking-wide text-emerald-100/70">
-                          {selectedAccount.total_credit <= 0 ? 'Tab balance' : 'On tab (due)'}
+                          {selectedAccount.total_credit <= 0
+                            ? "Tab balance"
+                            : "On tab (due)"}
                         </p>
                         <p className="text-base sm:text-xl font-bold text-white tabular-nums leading-tight">
                           {formatPrice(selectedAccount.total_credit)}
@@ -1598,11 +2032,17 @@ export function CreditList() {
                       </div>
                       <div className="pt-1 border-t border-white/10">
                         <p className="text-[9px] font-semibold uppercase tracking-wide text-rose-200/90 flex items-center gap-1">
-                          <Gift className="h-3 w-3 opacity-90 shrink-0" aria-hidden />
+                          <Gift
+                            className="h-3 w-3 opacity-90 shrink-0"
+                            aria-hidden
+                          />
                           Loyalty
                         </p>
                         <p className="text-sm sm:text-lg font-bold text-rose-50 tabular-nums leading-tight">
-                          {(selectedAccount.loyalty_points_balance ?? 0).toLocaleString('en-KE')} pts
+                          {(
+                            selectedAccount.loyalty_points_balance ?? 0
+                          ).toLocaleString("en-KE")}{" "}
+                          pts
                         </p>
                       </div>
                     </div>
@@ -1629,7 +2069,8 @@ export function CreditList() {
                         /c/{publicCreditSlug}
                       </p>
                       <p className="text-[10px] text-white/55 mt-0.5 leading-snug">
-                        Share so they can see what they owe — or that they&apos;re paid up.
+                        Share so they can see what they owe — or that
+                        they&apos;re paid up.
                       </p>
                     </div>
                   </div>
@@ -1640,7 +2081,10 @@ export function CreditList() {
                     className="h-9 shrink-0 border-0 bg-white/25 text-white hover:bg-white/35 shadow-none text-xs font-semibold sm:self-center"
                     onClick={handleCopyPublicCreditLink}
                   >
-                    <Link2 className="h-3.5 w-3.5 mr-1.5 opacity-90" aria-hidden />
+                    <Link2
+                      className="h-3.5 w-3.5 mr-1.5 opacity-90"
+                      aria-hidden
+                    />
                     Copy link
                   </Button>
                 </div>
@@ -1651,7 +2095,10 @@ export function CreditList() {
                 <div className="rounded-xl border border-white/10 bg-white/10 dark:bg-black/25 backdrop-blur-sm px-3 py-2.5">
                   {canManageCreditProfiles ? (
                     <div className="flex items-center gap-2 mb-2">
-                      <Sparkles className="h-3.5 w-3.5 text-amber-200/90 shrink-0" aria-hidden />
+                      <Sparkles
+                        className="h-3.5 w-3.5 text-amber-200/90 shrink-0"
+                        aria-hidden
+                      />
                       <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50">
                         Admin tools
                       </span>
@@ -1668,7 +2115,10 @@ export function CreditList() {
                           className="h-8 gap-1.5 border-0 bg-white/20 text-white hover:bg-white/30 shadow-none text-xs font-medium"
                           onClick={() => setCustomerEditModalOpen(true)}
                         >
-                          <Smartphone className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                          <Smartphone
+                            className="h-3.5 w-3.5 opacity-90"
+                            aria-hidden
+                          />
                           Edit profile
                         </Button>
                         <Button
@@ -1679,7 +2129,10 @@ export function CreditList() {
                           className="h-8 gap-1.5 border-0 bg-amber-500/25 text-white hover:bg-amber-500/40 shadow-none text-xs font-medium"
                           onClick={() => setMergeModalOpen(true)}
                         >
-                          <GitMerge className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                          <GitMerge
+                            className="h-3.5 w-3.5 opacity-90"
+                            aria-hidden
+                          />
                           Merge
                         </Button>
                         <Button
@@ -1690,7 +2143,10 @@ export function CreditList() {
                           className="h-8 gap-1.5 border-0 bg-white/20 text-white hover:bg-white/30 shadow-none text-xs font-medium"
                           onClick={() => setTransferModalOpen(true)}
                         >
-                          <ArrowLeftRight className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                          <ArrowLeftRight
+                            className="h-3.5 w-3.5 opacity-90"
+                            aria-hidden
+                          />
                           Reassign
                         </Button>
                       </>
@@ -1704,7 +2160,10 @@ export function CreditList() {
                         className="h-8 gap-1.5 border-0 bg-white/20 text-white hover:bg-white/30 shadow-none text-xs font-medium"
                         onClick={printPendingTabItemsForCustomer}
                       >
-                        <Printer className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                        <Printer
+                          className="h-3.5 w-3.5 opacity-90"
+                          aria-hidden
+                        />
                         Print pending items
                       </Button>
                     ) : null}
@@ -1733,7 +2192,9 @@ export function CreditList() {
                       </div>
                     ) : (
                       (() => {
-                        const debtTransactions = transactions.filter((t) => t.type === 'debt');
+                        const debtTransactions = transactions.filter(
+                          (t) => t.type === "debt",
+                        );
                         const debtPaid = computeDebtPaidStatus(transactions);
                         if (debtTransactions.length === 0) {
                           return (
@@ -1751,41 +2212,46 @@ export function CreditList() {
                             <div
                               key={transaction.id}
                               className={cn(
-                                'relative pl-5',
-                                idx === debtTransactions.length - 1 ? 'pb-0' : 'pb-4'
+                                "relative pl-5",
+                                idx === debtTransactions.length - 1
+                                  ? "pb-0"
+                                  : "pb-4",
                               )}
                             >
                               <div
                                 className={cn(
-                                  'absolute left-0 top-1.5 h-3 w-3 rounded-full border-2',
+                                  "absolute left-0 top-1.5 h-3 w-3 rounded-full border-2",
                                   isPaid
-                                    ? 'bg-emerald-500 border-emerald-400 dark:border-emerald-600'
-                                    : 'bg-amber-400 border-amber-300 dark:border-amber-600'
+                                    ? "bg-emerald-500 border-emerald-400 dark:border-emerald-600"
+                                    : "bg-amber-400 border-amber-300 dark:border-amber-600",
                                 )}
-                                style={{ marginLeft: '-6px' }}
+                                style={{ marginLeft: "-6px" }}
                               />
                               <div
                                 className={cn(
-                                  'rounded-xl border p-3 shadow-sm',
+                                  "rounded-xl border p-3 shadow-sm",
                                   isPaid
-                                    ? 'border-slate-200/80 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800/80'
-                                    : 'border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-800/90'
+                                    ? "border-slate-200/80 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800/80"
+                                    : "border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-800/90",
                                 )}
                               >
                                 <div className="flex items-center justify-between mb-2">
                                   <span
                                     className={cn(
-                                      'text-xs font-medium',
+                                      "text-xs font-medium",
                                       isPaid
-                                        ? 'text-slate-500 line-through'
-                                        : 'text-slate-600 dark:text-slate-400'
+                                        ? "text-slate-500 line-through"
+                                        : "text-slate-600 dark:text-slate-400",
                                     )}
                                   >
                                     {transaction.sale_date
-                                      ? new Date(transaction.sale_date * 1000).toLocaleDateString(
-                                          'en-KE',
-                                          { year: 'numeric', month: 'short', day: 'numeric' }
-                                        )
+                                      ? new Date(
+                                          transaction.sale_date * 1000,
+                                        ).toLocaleDateString("en-KE", {
+                                          year: "numeric",
+                                          month: "short",
+                                          day: "numeric",
+                                        })
                                       : formatDate(transaction.created_at)}
                                   </span>
                                   <div className="flex items-center">
@@ -1795,7 +2261,9 @@ export function CreditList() {
                                         Paid
                                       </span>
                                     )}
-                                    {creditDebtCanReprintReceipt(transaction) && (
+                                    {creditDebtCanReprintReceipt(
+                                      transaction,
+                                    ) && (
                                       <Button
                                         type="button"
                                         variant="ghost"
@@ -1805,64 +2273,80 @@ export function CreditList() {
                                         onClick={() => {
                                           window.open(
                                             `/pos/receipt/credit-transaction/${transaction.id}?print=true`,
-                                            '_blank',
-                                            'noopener,noreferrer'
+                                            "_blank",
+                                            "noopener,noreferrer",
                                           );
                                         }}
                                       >
-                                        <Printer className="h-4 w-4" aria-hidden />
-                                        <span className="sr-only">Reprint credit receipt</span>
+                                        <Printer
+                                          className="h-4 w-4"
+                                          aria-hidden
+                                        />
+                                        <span className="sr-only">
+                                          Reprint credit receipt
+                                        </span>
                                       </Button>
                                     )}
                                     <span
                                       className={cn(
-                                        'font-semibold',
+                                        "font-semibold",
                                         isPaid
-                                          ? 'text-slate-500 line-through text-sm'
-                                          : 'text-amber-600 dark:text-amber-400'
+                                          ? "text-slate-500 line-through text-sm"
+                                          : "text-amber-600 dark:text-amber-400",
                                       )}
                                     >
                                       {formatPrice(transaction.amount)}
                                     </span>
                                   </div>
                                 </div>
-                                {formatRecorderLabel(transaction.user_name, transaction.recorder_role) ? (
+                                {formatRecorderLabel(
+                                  transaction.user_name,
+                                  transaction.recorder_role,
+                                ) ? (
                                   <p className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 mb-2">
-                                    <User className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden />
+                                    <User
+                                      className="h-3.5 w-3.5 shrink-0 text-slate-400"
+                                      aria-hidden
+                                    />
                                     <span>
-                                      Credit by{' '}
+                                      Credit by{" "}
                                       <span className="font-medium text-slate-800 dark:text-slate-200">
                                         {formatRecorderLabel(
                                           transaction.user_name,
-                                          transaction.recorder_role
+                                          transaction.recorder_role,
                                         )}
                                       </span>
                                     </span>
                                   </p>
                                 ) : null}
-                                {transaction.items && transaction.items.length > 0 ? (
+                                {transaction.items &&
+                                transaction.items.length > 0 ? (
                                   <div className="space-y-2">
                                     {transaction.items.map((item) => (
                                       <div
                                         key={item.id}
                                         className={cn(
-                                          'flex items-center justify-between py-1.5 px-2 rounded-lg',
-                                          isPaid ? 'bg-slate-100 dark:bg-slate-800' : 'bg-slate-50 dark:bg-slate-800'
+                                          "flex items-center justify-between py-1.5 px-2 rounded-lg",
+                                          isPaid
+                                            ? "bg-slate-100 dark:bg-slate-800"
+                                            : "bg-slate-50 dark:bg-slate-800",
                                         )}
                                       >
                                         <div className="flex items-center min-w-0">
                                           <Package
                                             className={cn(
-                                              'h-3.5 w-3.5 shrink-0 mr-2',
-                                              isPaid ? 'text-slate-400' : 'text-slate-500'
+                                              "h-3.5 w-3.5 shrink-0 mr-2",
+                                              isPaid
+                                                ? "text-slate-400"
+                                                : "text-slate-500",
                                             )}
                                           />
                                           <span
                                             className={cn(
-                                              'text-sm truncate',
+                                              "text-sm truncate",
                                               isPaid
-                                                ? 'text-slate-500 line-through'
-                                                : 'text-slate-700 dark:text-slate-300 font-medium'
+                                                ? "text-slate-500 line-through"
+                                                : "text-slate-700 dark:text-slate-300 font-medium",
                                             )}
                                           >
                                             {item.item_name}
@@ -1870,21 +2354,23 @@ export function CreditList() {
                                         </div>
                                         <div
                                           className={cn(
-                                            'flex items-center shrink-0 text-xs',
-                                            isPaid && 'line-through text-slate-400'
+                                            "flex items-center shrink-0 text-xs",
+                                            isPaid &&
+                                              "line-through text-slate-400",
                                           )}
                                         >
                                           <span className="text-slate-500 dark:text-slate-400 mr-2">
-                                            {item.quantity_sold}{' '}
-                                            {item.item_unit_type === 'kg'
-                                              ? 'kg'
+                                            {item.quantity_sold}{" "}
+                                            {item.item_unit_type === "kg"
+                                              ? "kg"
                                               : item.quantity_sold === 1
-                                                ? 'pc'
-                                                : 'pcs'}
+                                                ? "pc"
+                                                : "pcs"}
                                           </span>
                                           <span className="font-semibold text-slate-700 dark:text-slate-300 min-w-[4rem] text-right">
                                             {formatPrice(
-                                              item.sell_price_per_unit * item.quantity_sold
+                                              item.sell_price_per_unit *
+                                                item.quantity_sold,
                                             )}
                                           </span>
                                         </div>
@@ -1893,7 +2379,8 @@ export function CreditList() {
                                   </div>
                                 ) : (
                                   <p className="text-xs text-slate-500 dark:text-slate-400 italic py-1">
-                                    No line-item breakdown (credit not tied to a sale with items).
+                                    No line-item breakdown (credit not tied to a
+                                    sale with items).
                                   </p>
                                 )}
                               </div>
@@ -1906,13 +2393,34 @@ export function CreditList() {
                 </section>
 
                 {(() => {
+                  // Internal pending payments (recorded by cashier, awaiting admin approval)
+                  const pendingApprovalPayments = transactions.filter(
+                    (t) =>
+                      t.type === "payment" &&
+                      t.payment_approval_status === "pending",
+                  );
+                  const rejectedApprovalPayments = transactions.filter(
+                    (t) =>
+                      t.type === "payment" &&
+                      t.payment_approval_status === "rejected",
+                  );
                   const pendingClaims = transactions.filter(
-                    (t) => t.type === 'payment' && t.public_claim_status === 'pending'
+                    (t) =>
+                      t.type === "payment" &&
+                      t.public_claim_status === "pending",
                   );
                   const rejectedClaims = transactions.filter(
-                    (t) => t.type === 'payment' && t.public_claim_status === 'rejected'
+                    (t) =>
+                      t.type === "payment" &&
+                      t.public_claim_status === "rejected",
                   );
-                  if (pendingClaims.length === 0 && rejectedClaims.length === 0) return null;
+                  if (
+                    pendingApprovalPayments.length === 0 &&
+                    rejectedApprovalPayments.length === 0 &&
+                    pendingClaims.length === 0 &&
+                    rejectedClaims.length === 0
+                  )
+                    return null;
                   return (
                     <section className="space-y-3">
                       <div className="flex items-center">
@@ -1923,11 +2431,184 @@ export function CreditList() {
                           Pending approval
                         </h3>
                       </div>
+
+                      {/* Internal payments pending admin approval (submitted by cashiers) */}
+                      {pendingApprovalPayments.length > 0 ? (
+                        <div className="space-y-2 rounded-xl border border-amber-200/80 bg-amber-50/50 p-3 dark:border-amber-900/40 dark:bg-amber-950/20">
+                          <p className="text-xs text-amber-900 dark:text-amber-200/90">
+                            These payments were recorded by a cashier and need
+                            your approval. Once approved, the customer balance
+                            will be reduced.
+                          </p>
+                          <ul className="space-y-2">
+                            {pendingApprovalPayments.map((t) => (
+                              <li
+                                key={t.id}
+                                className="flex flex-col gap-2 rounded-lg border border-amber-200/60 bg-white/90 px-3 py-2.5 dark:border-amber-800/50 dark:bg-slate-900/80 sm:flex-row sm:items-center sm:justify-between"
+                              >
+                                <div className="min-w-0">
+                                  <div className="mb-1 flex flex-wrap items-center gap-2">
+                                    <span className="inline-flex rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900 dark:bg-amber-400/15 dark:text-amber-100">
+                                      Pending — cashier payment
+                                    </span>
+                                  </div>
+                                  <p className="text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                                    {formatPrice(t.amount)} ·{" "}
+                                    {t.payment_method === "cash"
+                                      ? "Cash"
+                                      : "M-Pesa"}
+                                  </p>
+                                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                    {formatDate(t.created_at)}
+                                    {formatRecorderLabel(
+                                      t.user_name,
+                                      t.recorder_role,
+                                    )
+                                      ? ` · By ${formatRecorderLabel(t.user_name, t.recorder_role)}`
+                                      : null}
+                                  </p>
+                                </div>
+                                {canManageCreditProfiles ? (
+                                  <div className="flex shrink-0 gap-2">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-8 min-w-[4.5rem] text-xs"
+                                      disabled={
+                                        claimReviewBusy !== null &&
+                                        claimReviewBusy.transactionId === t.id
+                                      }
+                                      onClick={async () => {
+                                        setClaimReviewBusy({
+                                          transactionId: t.id,
+                                          action: "reject",
+                                        });
+                                        try {
+                                          const result = await apiPost(
+                                            `/api/credits/pending-payments/${t.id}`,
+                                            { action: "reject" },
+                                          );
+                                          if (result.success) {
+                                            toast.success("Payment rejected.");
+                                            await handlePaymentSuccess();
+                                            await silentReloadDrawerDetail(
+                                              selectedAccount!.id,
+                                            );
+                                          } else {
+                                            toast.error(
+                                              result.message ||
+                                                "Could not reject",
+                                            );
+                                          }
+                                        } catch {
+                                          toast.error(
+                                            "Could not reject payment",
+                                          );
+                                        } finally {
+                                          setClaimReviewBusy(null);
+                                        }
+                                      }}
+                                    >
+                                      {claimReviewBusy?.transactionId ===
+                                        t.id &&
+                                      claimReviewBusy.action === "reject" ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : (
+                                        "Reject"
+                                      )}
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      className="h-8 min-w-[4.5rem] bg-emerald-600 text-xs hover:bg-emerald-700"
+                                      disabled={
+                                        claimReviewBusy !== null &&
+                                        claimReviewBusy.transactionId === t.id
+                                      }
+                                      onClick={async () => {
+                                        setClaimReviewBusy({
+                                          transactionId: t.id,
+                                          action: "approve",
+                                        });
+                                        try {
+                                          const result = await apiPost(
+                                            `/api/credits/pending-payments/${t.id}`,
+                                            { action: "approve" },
+                                          );
+                                          if (result.success) {
+                                            toast.success("Payment approved!");
+                                            await handlePaymentSuccess();
+                                            await silentReloadDrawerDetail(
+                                              selectedAccount!.id,
+                                            );
+                                          } else {
+                                            toast.error(
+                                              result.message ||
+                                                "Could not approve",
+                                            );
+                                          }
+                                        } catch {
+                                          toast.error(
+                                            "Could not approve payment",
+                                          );
+                                        } finally {
+                                          setClaimReviewBusy(null);
+                                        }
+                                      }}
+                                    >
+                                      {claimReviewBusy?.transactionId ===
+                                        t.id &&
+                                      claimReviewBusy.action === "approve" ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : (
+                                        "Approve"
+                                      )}
+                                    </Button>
+                                  </div>
+                                ) : (
+                                  <p className="text-[11px] font-medium text-amber-800 dark:text-amber-300">
+                                    Pending approval (owner/admin)
+                                  </p>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+
+                      {/* Rejected internal payments */}
+                      {rejectedApprovalPayments.length > 0 ? (
+                        <div className="rounded-lg border border-slate-200/80 bg-slate-50/80 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/40">
+                          <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mb-1">
+                            Rejected payments
+                          </p>
+                          <ul className="space-y-1">
+                            {rejectedApprovalPayments.map((t) => (
+                              <li
+                                key={t.id}
+                                className="text-xs text-slate-600 dark:text-slate-400 tabular-nums"
+                              >
+                                {formatPrice(t.amount)} ·{" "}
+                                {formatDate(t.created_at)}
+                                {t.payment_method === "cash"
+                                  ? " Cash"
+                                  : " M-Pesa"}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+
                       {pendingClaims.length > 0 ? (
                         <div className="space-y-2 rounded-xl border border-amber-200/80 bg-amber-50/50 p-3 dark:border-amber-900/40 dark:bg-amber-950/20">
                           <p className="text-xs text-amber-900 dark:text-amber-200/90">
-                            Customer-reported from the public credit link — shown as{' '}
-                            <span className="font-semibold">pending approval</span> until you approve or reject.
+                            Customer-reported from the public credit link —
+                            shown as{" "}
+                            <span className="font-semibold">
+                              pending approval
+                            </span>{" "}
+                            until you approve or reject.
                           </p>
                           <ul className="space-y-2">
                             {pendingClaims.map((t) => (
@@ -1942,12 +2623,17 @@ export function CreditList() {
                                     </span>
                                   </div>
                                   <p className="text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
-                                    {formatPrice(t.amount)} ·{' '}
-                                    {t.payment_method === 'cash' ? 'Cash' : 'M-Pesa'}
+                                    {formatPrice(t.amount)} ·{" "}
+                                    {t.payment_method === "cash"
+                                      ? "Cash"
+                                      : "M-Pesa"}
                                   </p>
                                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
                                     {formatDate(t.created_at)}
-                                    {formatRecorderLabel(t.user_name, t.recorder_role)
+                                    {formatRecorderLabel(
+                                      t.user_name,
+                                      t.recorder_role,
+                                    )
                                       ? ` · ${formatRecorderLabel(t.user_name, t.recorder_role)}`
                                       : null}
                                   </p>
@@ -1960,32 +2646,37 @@ export function CreditList() {
                                       variant="outline"
                                       className="h-8 min-w-[4.5rem] text-xs"
                                       disabled={
-                                        claimReviewBusy !== null && claimReviewBusy.transactionId === t.id
+                                        claimReviewBusy !== null &&
+                                        claimReviewBusy.transactionId === t.id
                                       }
                                       onClick={() =>
                                         selectedAccount &&
                                         void reviewPublicPaymentClaim(
                                           {
-                                            kind: 'tab',
+                                            kind: "tab",
                                             transactionId: t.id,
                                             creditAccountId: selectedAccount.id,
-                                            customerName: selectedAccount.customer_name,
+                                            customerName:
+                                              selectedAccount.customer_name,
                                             amount: t.amount,
                                             paymentMethod:
-                                              t.payment_method === 'cash' ? 'cash' : 'mpesa',
+                                              t.payment_method === "cash"
+                                                ? "cash"
+                                                : "mpesa",
                                             createdAt: t.created_at,
                                             customerReference: null,
                                           },
-                                          'reject',
-                                          selectedAccount.id
+                                          "reject",
+                                          selectedAccount.id,
                                         )
                                       }
                                     >
-                                      {claimReviewBusy?.transactionId === t.id &&
-                                      claimReviewBusy.action === 'reject' ? (
+                                      {claimReviewBusy?.transactionId ===
+                                        t.id &&
+                                      claimReviewBusy.action === "reject" ? (
                                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                       ) : (
-                                        'Reject'
+                                        "Reject"
                                       )}
                                     </Button>
                                     <Button
@@ -1993,32 +2684,37 @@ export function CreditList() {
                                       size="sm"
                                       className="h-8 min-w-[4.5rem] bg-emerald-600 text-xs hover:bg-emerald-700"
                                       disabled={
-                                        claimReviewBusy !== null && claimReviewBusy.transactionId === t.id
+                                        claimReviewBusy !== null &&
+                                        claimReviewBusy.transactionId === t.id
                                       }
                                       onClick={() =>
                                         selectedAccount &&
                                         void reviewPublicPaymentClaim(
                                           {
-                                            kind: 'tab',
+                                            kind: "tab",
                                             transactionId: t.id,
                                             creditAccountId: selectedAccount.id,
-                                            customerName: selectedAccount.customer_name,
+                                            customerName:
+                                              selectedAccount.customer_name,
                                             amount: t.amount,
                                             paymentMethod:
-                                              t.payment_method === 'cash' ? 'cash' : 'mpesa',
+                                              t.payment_method === "cash"
+                                                ? "cash"
+                                                : "mpesa",
                                             createdAt: t.created_at,
                                             customerReference: null,
                                           },
-                                          'approve',
-                                          selectedAccount.id
+                                          "approve",
+                                          selectedAccount.id,
                                         )
                                       }
                                     >
-                                      {claimReviewBusy?.transactionId === t.id &&
-                                      claimReviewBusy.action === 'approve' ? (
+                                      {claimReviewBusy?.transactionId ===
+                                        t.id &&
+                                      claimReviewBusy.action === "approve" ? (
                                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                                       ) : (
-                                        'Accept'
+                                        "Accept"
                                       )}
                                     </Button>
                                   </div>
@@ -2043,7 +2739,8 @@ export function CreditList() {
                                 key={t.id}
                                 className="text-xs text-slate-600 dark:text-slate-400 tabular-nums"
                               >
-                                {formatPrice(t.amount)} · {formatDate(t.created_at)}
+                                {formatPrice(t.amount)} ·{" "}
+                                {formatDate(t.created_at)}
                               </li>
                             ))}
                           </ul>
@@ -2058,10 +2755,10 @@ export function CreditList() {
           {selectedAccount && (
             <div
               className={cn(
-                'shrink-0 border-t border-slate-200/90 dark:border-slate-800',
-                'bg-slate-100/95 dark:bg-slate-950/95 backdrop-blur-md',
-                'px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]',
-                'shadow-[0_-12px_32px_-8px_rgba(15,23,42,0.12)] dark:shadow-[0_-12px_32px_-8px_rgba(0,0,0,0.45)]'
+                "shrink-0 border-t border-slate-200/90 dark:border-slate-800",
+                "bg-slate-100/95 dark:bg-slate-950/95 backdrop-blur-md",
+                "px-3 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]",
+                "shadow-[0_-12px_32px_-8px_rgba(15,23,42,0.12)] dark:shadow-[0_-12px_32px_-8px_rgba(0,0,0,0.45)]",
               )}
             >
               {selectedAccount.total_credit > 0 ? (
@@ -2075,7 +2772,9 @@ export function CreditList() {
               ) : (
                 <div className="rounded-xl border border-dashed border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50 px-4 py-4 text-center">
                   <CheckCircle className="h-8 w-8 text-emerald-500 mx-auto mb-1.5" />
-                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">Nothing to collect</p>
+                  <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                    Nothing to collect
+                  </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     History above shows past credit and payments.
                   </p>
@@ -2089,7 +2788,7 @@ export function CreditList() {
       {/* Admin-only modals (stack above drawer) */}
       <Dialog
         open={Boolean(
-          customerEditModalOpen && selectedAccount && canManageCreditProfiles
+          customerEditModalOpen && selectedAccount && canManageCreditProfiles,
         )}
         onOpenChange={setCustomerEditModalOpen}
       >
@@ -2097,13 +2796,15 @@ export function CreditList() {
           <DialogHeader>
             <DialogTitle>Edit customer name &amp; phones</DialogTitle>
             <DialogDescription>
-              Add as many numbers as needed. Remove all rows to clear saved phones. Lists and checkout
-              match any of these numbers.
+              Add as many numbers as needed. Remove all rows to clear saved
+              phones. Lists and checkout match any of these numbers.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-1">
             <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Name</label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                Name
+              </label>
               <Input
                 value={editCustomerName}
                 onChange={(e) => setEditCustomerName(e.target.value)}
@@ -2121,7 +2822,7 @@ export function CreditList() {
                   variant="outline"
                   size="sm"
                   className="h-8 text-xs"
-                  onClick={() => setEditCustomerPhones((prev) => [...prev, ''])}
+                  onClick={() => setEditCustomerPhones((prev) => [...prev, ""])}
                 >
                   <Plus className="h-3.5 w-3.5 mr-1" aria-hidden />
                   Add number
@@ -2134,7 +2835,7 @@ export function CreditList() {
                       value={phone}
                       onChange={(e) =>
                         setEditCustomerPhones((prev) =>
-                          prev.map((p, j) => (j === i ? e.target.value : p))
+                          prev.map((p, j) => (j === i ? e.target.value : p)),
                         )
                       }
                       placeholder="e.g. 0712 345 678"
@@ -2150,7 +2851,9 @@ export function CreditList() {
                       aria-label={`Remove phone ${i + 1}`}
                       onClick={() =>
                         setEditCustomerPhones((prev) =>
-                          prev.length <= 1 ? [''] : prev.filter((_, j) => j !== i)
+                          prev.length <= 1
+                            ? [""]
+                            : prev.filter((_, j) => j !== i),
                         )
                       }
                     >
@@ -2162,7 +2865,11 @@ export function CreditList() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setCustomerEditModalOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCustomerEditModalOpen(false)}
+            >
               Cancel
             </Button>
             <Button
@@ -2176,7 +2883,7 @@ export function CreditList() {
                   Saving…
                 </>
               ) : (
-                'Save'
+                "Save"
               )}
             </Button>
           </DialogFooter>
@@ -2184,14 +2891,16 @@ export function CreditList() {
       </Dialog>
 
       <Dialog
-        open={Boolean(mergeModalOpen && selectedAccount && canManageCreditProfiles)}
+        open={Boolean(
+          mergeModalOpen && selectedAccount && canManageCreditProfiles,
+        )}
         onOpenChange={(open) => {
           setMergeModalOpen(open);
           if (!open) {
             setMergeSelectedIds([]);
-            setMergeSearchQuery('');
-            setMergeNameOverride('');
-            setMergePhonesText('');
+            setMergeSearchQuery("");
+            setMergeNameOverride("");
+            setMergePhonesText("");
           }
         }}
       >
@@ -2199,12 +2908,14 @@ export function CreditList() {
           <DialogHeader>
             <DialogTitle>Merge duplicate customers</DialogTitle>
             <DialogDescription>
-              Combine other credit profiles into{' '}
+              Combine other credit profiles into{" "}
               <span className="font-medium text-foreground">
-                {selectedAccount ? toProperCustomerName(selectedAccount.customer_name) : ''}
+                {selectedAccount
+                  ? toProperCustomerName(selectedAccount.customer_name)
+                  : ""}
               </span>
-              . Balances and full history move into this profile; merged profiles are removed. This
-              cannot be undone.
+              . Balances and full history move into this profile; merged
+              profiles are removed. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -2228,24 +2939,28 @@ export function CreditList() {
                 mergeCandidates.map((a) => {
                   const candPhones = accountPhonesList(a);
                   return (
-                  <label
-                    key={a.id}
-                    className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/80"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={mergeSelectedIds.includes(a.id)}
-                      onChange={() => toggleMergeId(a.id)}
-                      className="rounded border-slate-300 text-[#1c6a1e] focus:ring-[#1c6a1e] shrink-0"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{toProperCustomerName(a.customer_name)}</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                        {candPhones.length > 0 ? formatPhonesForDisplay(candPhones) : 'No phone'} ·{' '}
-                        {formatCreditWalletSlash(a)} credit / wallet
-                      </p>
-                    </div>
-                  </label>
+                    <label
+                      key={a.id}
+                      className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/80"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={mergeSelectedIds.includes(a.id)}
+                        onChange={() => toggleMergeId(a.id)}
+                        className="rounded border-slate-300 text-[#1c6a1e] focus:ring-[#1c6a1e] shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">
+                          {toProperCustomerName(a.customer_name)}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                          {candPhones.length > 0
+                            ? formatPhonesForDisplay(candPhones)
+                            : "No phone"}{" "}
+                          · {formatCreditWalletSlash(a)} credit / wallet
+                        </p>
+                      </div>
+                    </label>
                   );
                 })
               )}
@@ -2275,7 +2990,11 @@ export function CreditList() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setMergeModalOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setMergeModalOpen(false)}
+            >
               Cancel
             </Button>
             <Button
@@ -2290,7 +3009,7 @@ export function CreditList() {
                   Merging…
                 </>
               ) : (
-                `Merge ${mergeSelectedIds.length || '…'} profile(s)`
+                `Merge ${mergeSelectedIds.length || "…"} profile(s)`
               )}
             </Button>
           </DialogFooter>
@@ -2298,11 +3017,13 @@ export function CreditList() {
       </Dialog>
 
       <Dialog
-        open={Boolean(transferModalOpen && selectedAccount && canManageCreditProfiles)}
+        open={Boolean(
+          transferModalOpen && selectedAccount && canManageCreditProfiles,
+        )}
         onOpenChange={(open) => {
           setTransferModalOpen(open);
           if (!open) {
-            setTransferToUserId('');
+            setTransferToUserId("");
             setTransferIncludePayments(false);
           }
         }}
@@ -2311,13 +3032,16 @@ export function CreditList() {
           <DialogHeader>
             <DialogTitle>Reassign staff on records</DialogTitle>
             <DialogDescription>
-              Change who is recorded as having given or collected credit for this customer. By default
-              only credit sales are updated; use the option below to include payment records too.
+              Change who is recorded as having given or collected credit for
+              this customer. By default only credit sales are updated; use the
+              option below to include payment records too.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-1">
             <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Assign to</label>
+              <label className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                Assign to
+              </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
                 <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
@@ -2326,9 +3050,9 @@ export function CreditList() {
                   onChange={(e) => setTransferToUserId(e.target.value)}
                   aria-label="Transfer credit records to staff member"
                   className={cn(
-                    'w-full appearance-none rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900',
-                    'pl-10 pr-10 py-2.5 text-sm text-slate-900 dark:text-white',
-                    'focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]'
+                    "w-full appearance-none rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900",
+                    "pl-10 pr-10 py-2.5 text-sm text-slate-900 dark:text-white",
+                    "focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]",
                   )}
                 >
                   <option value="">Select staff member…</option>
@@ -2348,13 +3072,17 @@ export function CreditList() {
                 className="mt-1 rounded border-slate-300 text-[#1c6a1e] focus:ring-[#1c6a1e]"
               />
               <span className="text-xs text-slate-600 dark:text-slate-400">
-                Also reassign <span className="font-medium">payment</span> records (who is shown as
-                having recorded each repayment)
+                Also reassign <span className="font-medium">payment</span>{" "}
+                records (who is shown as having recorded each repayment)
               </span>
             </label>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setTransferModalOpen(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setTransferModalOpen(false)}
+            >
               Cancel
             </Button>
             <Button
@@ -2369,8 +3097,92 @@ export function CreditList() {
                   Updating…
                 </>
               ) : (
-                'Apply transfer'
+                "Apply transfer"
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={approvalDialogOpen} onOpenChange={setApprovalDialogOpen}>
+        <DialogContent className="z-[100] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Approve Payment</DialogTitle>
+            <DialogDescription>
+              {approvalDialogData && (
+                <>
+                  <p>
+                    <strong>{approvalDialogData.customerName}</strong> — KES{" "}
+                    {approvalDialogData.amount.toLocaleString("en-KE")}
+                  </p>
+                  <p className="mt-1 text-xs">
+                    Method:{" "}
+                    {approvalDialogData.paymentMethod === "cash"
+                      ? "Cash"
+                      : "M-Pesa"}
+                  </p>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (!approvalDialogData) return;
+                setApprovalSubmitting(true);
+                try {
+                  const res = await apiPost(
+                    `/api/credits/pending-payments/${approvalDialogData.transactionId}`,
+                    { action: "reject" },
+                  );
+                  if (res.success) {
+                    toast.success("Payment rejected");
+                    setApprovalDialogOpen(false);
+                    setApprovalDialogData(null);
+                    await refreshCreditsList();
+                    await fetchPendingClaims();
+                  } else {
+                    toast.error(res.message || "Failed to reject");
+                  }
+                } catch {
+                  toast.error("Failed to reject");
+                } finally {
+                  setApprovalSubmitting(false);
+                }
+              }}
+              disabled={approvalSubmitting}
+            >
+              Reject
+            </Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700"
+              onClick={async () => {
+                if (!approvalDialogData) return;
+                setApprovalSubmitting(true);
+                try {
+                  const res = await apiPost(
+                    `/api/credits/pending-payments/${approvalDialogData.transactionId}`,
+                    { action: "approve" },
+                  );
+                  if (res.success) {
+                    toast.success("Payment approved!");
+                    setApprovalDialogOpen(false);
+                    setApprovalDialogData(null);
+                    await refreshCreditsList();
+                    await fetchPendingClaims();
+                  } else {
+                    toast.error(res.message || "Failed to approve");
+                  }
+                } catch {
+                  toast.error("Failed to approve");
+                } finally {
+                  setApprovalSubmitting(false);
+                }
+              }}
+              disabled={approvalSubmitting}
+            >
+              {approvalSubmitting ? "Processing…" : "Approve"}
             </Button>
           </DialogFooter>
         </DialogContent>

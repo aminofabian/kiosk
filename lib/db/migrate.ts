@@ -1,15 +1,16 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import { execute, query } from './index';
-import { migrateItemVariants } from './migrate-item-variants';
-import { migrateDomains } from './migrate-domains';
-import { migratePasswordResetTokens } from './migrate-password-reset';
-import { migrateBarcodeExpiry } from './migrate-barcode-expiry';
-import { migrateBundlePricing } from './migrate-bundle-pricing';
-import { migrateAisle } from './migrate-aisle';
-import { migrateAislesTable } from './migrate-aisles-table';
+import { readFileSync } from "fs";
+import { join } from "path";
+import { execute, query } from "./index";
+import { migrateItemVariants } from "./migrate-item-variants";
+import { migrateDomains } from "./migrate-domains";
+import { migratePasswordResetTokens } from "./migrate-password-reset";
+import { migrateBarcodeExpiry } from "./migrate-barcode-expiry";
+import { migrateBundlePricing } from "./migrate-bundle-pricing";
+import { migrateAisle } from "./migrate-aisle";
+import { migrateAislesTable } from "./migrate-aisles-table";
+import { migrateCreditPaymentApproval } from "./migrate-credit-payment-approval";
 
-const SCHEMA_PATH = join(process.cwd(), 'lib', 'db', 'sql', 'schema.sql');
+const SCHEMA_PATH = join(process.cwd(), "lib", "db", "sql", "schema.sql");
 
 /**
  * Migration: Add 'restock' to stock_adjustments reason CHECK constraint
@@ -19,24 +20,28 @@ async function migrateStockAdjustmentsReason() {
   try {
     // Check if table exists
     const tableInfo = await query<{ sql: string }>(
-      "SELECT sql FROM sqlite_master WHERE type='table' AND name='stock_adjustments'"
+      "SELECT sql FROM sqlite_master WHERE type='table' AND name='stock_adjustments'",
     );
 
     if (tableInfo.length === 0) {
-      console.log('⚠ stock_adjustments table does not exist, will be created by schema');
+      console.log(
+        "⚠ stock_adjustments table does not exist, will be created by schema",
+      );
       return;
     }
 
     const oldSql = tableInfo[0].sql;
     if (oldSql && oldSql.includes("'restock'")) {
-      console.log('✓ stock_adjustments.reason already includes restock');
+      console.log("✓ stock_adjustments.reason already includes restock");
       return;
     }
 
-    console.log('🔄 Migrating stock_adjustments table to add restock reason...');
+    console.log(
+      "🔄 Migrating stock_adjustments table to add restock reason...",
+    );
 
     // Disable foreign keys temporarily
-    await execute('PRAGMA foreign_keys = OFF');
+    await execute("PRAGMA foreign_keys = OFF");
 
     // Create new table with updated CHECK constraint
     await execute(`
@@ -59,29 +64,37 @@ async function migrateStockAdjustmentsReason() {
 
     // Copy data from old table
     await execute(`
-      INSERT INTO stock_adjustments_new 
+      INSERT INTO stock_adjustments_new
       SELECT * FROM stock_adjustments
     `);
 
     // Drop old table
-    await execute('DROP TABLE stock_adjustments');
+    await execute("DROP TABLE stock_adjustments");
 
     // Rename new table
-    await execute('ALTER TABLE stock_adjustments_new RENAME TO stock_adjustments');
+    await execute(
+      "ALTER TABLE stock_adjustments_new RENAME TO stock_adjustments",
+    );
 
     // Recreate indexes
-    await execute('CREATE INDEX IF NOT EXISTS idx_stock_adjustments_business_id ON stock_adjustments(business_id)');
-    await execute('CREATE INDEX IF NOT EXISTS idx_stock_adjustments_item_id ON stock_adjustments(item_id)');
-    await execute('CREATE INDEX IF NOT EXISTS idx_stock_adjustments_date ON stock_adjustments(business_id, created_at DESC)');
+    await execute(
+      "CREATE INDEX IF NOT EXISTS idx_stock_adjustments_business_id ON stock_adjustments(business_id)",
+    );
+    await execute(
+      "CREATE INDEX IF NOT EXISTS idx_stock_adjustments_item_id ON stock_adjustments(item_id)",
+    );
+    await execute(
+      "CREATE INDEX IF NOT EXISTS idx_stock_adjustments_date ON stock_adjustments(business_id, created_at DESC)",
+    );
 
     // Re-enable foreign keys
-    await execute('PRAGMA foreign_keys = ON');
+    await execute("PRAGMA foreign_keys = ON");
 
-    console.log('✅ Successfully migrated stock_adjustments table');
+    console.log("✅ Successfully migrated stock_adjustments table");
   } catch (error) {
-    console.error('❌ Error migrating stock_adjustments:', error);
+    console.error("❌ Error migrating stock_adjustments:", error);
     // Re-enable foreign keys even on error
-    await execute('PRAGMA foreign_keys = ON').catch(() => { });
+    await execute("PRAGMA foreign_keys = ON").catch(() => {});
     throw error;
   }
 }
@@ -94,24 +107,34 @@ async function migrateInventoryBatchesNullable() {
   try {
     // Check if table exists and has the old constraint
     const tableInfo = await query<{ sql: string }>(
-      "SELECT sql FROM sqlite_master WHERE type='table' AND name='inventory_batches'"
+      "SELECT sql FROM sqlite_master WHERE type='table' AND name='inventory_batches'",
     );
 
     if (tableInfo.length === 0) {
-      console.log('⚠ inventory_batches table does not exist, will be created by schema');
+      console.log(
+        "⚠ inventory_batches table does not exist, will be created by schema",
+      );
       return;
     }
 
     const oldSql = tableInfo[0].sql;
-    if (oldSql && (oldSql.includes('source_breakdown_id TEXT,') || oldSql.includes('source_breakdown_id TEXT NULL'))) {
-      console.log('✓ inventory_batches.source_breakdown_id is already nullable');
+    if (
+      oldSql &&
+      (oldSql.includes("source_breakdown_id TEXT,") ||
+        oldSql.includes("source_breakdown_id TEXT NULL"))
+    ) {
+      console.log(
+        "✓ inventory_batches.source_breakdown_id is already nullable",
+      );
       return;
     }
 
-    console.log('🔄 Migrating inventory_batches table to make source_breakdown_id nullable...');
+    console.log(
+      "🔄 Migrating inventory_batches table to make source_breakdown_id nullable...",
+    );
 
     // Disable foreign keys temporarily
-    await execute('PRAGMA foreign_keys = OFF');
+    await execute("PRAGMA foreign_keys = OFF");
 
     // Create new table with nullable source_breakdown_id
     await execute(`
@@ -133,62 +156,70 @@ async function migrateInventoryBatchesNullable() {
 
     // Copy data from old table
     await execute(`
-      INSERT INTO inventory_batches_new 
+      INSERT INTO inventory_batches_new
       SELECT * FROM inventory_batches
     `);
 
     // Drop old table
-    await execute('DROP TABLE inventory_batches');
+    await execute("DROP TABLE inventory_batches");
 
     // Rename new table
-    await execute('ALTER TABLE inventory_batches_new RENAME TO inventory_batches');
+    await execute(
+      "ALTER TABLE inventory_batches_new RENAME TO inventory_batches",
+    );
 
     // Recreate indexes
-    await execute('CREATE INDEX IF NOT EXISTS idx_inventory_batches_business_id ON inventory_batches(business_id)');
-    await execute('CREATE INDEX IF NOT EXISTS idx_inventory_batches_item_id ON inventory_batches(item_id)');
-    await execute('CREATE INDEX IF NOT EXISTS idx_inventory_batches_received_at ON inventory_batches(item_id, received_at ASC)');
+    await execute(
+      "CREATE INDEX IF NOT EXISTS idx_inventory_batches_business_id ON inventory_batches(business_id)",
+    );
+    await execute(
+      "CREATE INDEX IF NOT EXISTS idx_inventory_batches_item_id ON inventory_batches(item_id)",
+    );
+    await execute(
+      "CREATE INDEX IF NOT EXISTS idx_inventory_batches_received_at ON inventory_batches(item_id, received_at ASC)",
+    );
 
     // Re-enable foreign keys
-    await execute('PRAGMA foreign_keys = ON');
+    await execute("PRAGMA foreign_keys = ON");
 
-    console.log('✅ Successfully migrated inventory_batches table');
+    console.log("✅ Successfully migrated inventory_batches table");
   } catch (error) {
-    console.error('❌ Error migrating inventory_batches:', error);
+    console.error("❌ Error migrating inventory_batches:", error);
     // Re-enable foreign keys even on error
-    await execute('PRAGMA foreign_keys = ON').catch(() => { });
+    await execute("PRAGMA foreign_keys = ON").catch(() => {});
     throw error;
   }
 }
 
 export async function runMigrations() {
   try {
-    console.log('Reading schema file...');
-    const schema = readFileSync(SCHEMA_PATH, 'utf-8');
+    console.log("Reading schema file...");
+    const schema = readFileSync(SCHEMA_PATH, "utf-8");
 
     // Remove comments and split by semicolons
-    const lines = schema.split('\n');
+    const lines = schema.split("\n");
     const cleanedLines: string[] = [];
-    let currentStatement = '';
+    let currentStatement = "";
 
     for (const line of lines) {
       const trimmed = line.trim();
       // Skip empty lines and full-line comments
-      if (!trimmed || trimmed.startsWith('--')) {
+      if (!trimmed || trimmed.startsWith("--")) {
         continue;
       }
 
       // Remove inline comments
-      const withoutComment = trimmed.split('--')[0].trim();
+      const withoutComment = trimmed.split("--")[0].trim();
       if (withoutComment) {
-        currentStatement += withoutComment + ' ';
+        currentStatement += withoutComment + " ";
 
         // If line ends with semicolon, we have a complete statement
-        if (trimmed.endsWith(';')) {
+        if (trimmed.endsWith(";")) {
           const statement = currentStatement.trim();
           if (statement) {
             cleanedLines.push(statement);
           }
-          currentStatement = '';
+          currentStatement = "";
         }
       }
     }
@@ -201,23 +232,27 @@ export async function runMigrations() {
     console.log(`Found ${cleanedLines.length} SQL statements to execute`);
 
     // First, disable foreign key checks temporarily
-    await execute('PRAGMA foreign_keys = OFF');
+    await execute("PRAGMA foreign_keys = OFF");
 
     // Execute each statement
     for (let i = 0; i < cleanedLines.length; i++) {
       const statement = cleanedLines[i];
-      if (statement && !statement.startsWith('PRAGMA foreign_keys')) {
+      if (statement && !statement.startsWith("PRAGMA foreign_keys")) {
         try {
           await execute(statement);
           console.log(`✓ Executed statement ${i + 1}/${cleanedLines.length}`);
         } catch (error) {
           // Some statements like CREATE INDEX IF NOT EXISTS might fail if already exists
           // or if the column doesn't exist yet (will be created by migration)
-          if (error instanceof Error &&
-            (error.message.includes('already exists') ||
-              error.message.includes('duplicate column') ||
-              error.message.includes('no such column'))) {
-            console.log(`⚠ Statement ${i + 1} skipped (${error.message.includes('no such column') ? 'column will be added by migration' : 'already exists'})`);
+          if (
+            error instanceof Error &&
+            (error.message.includes("already exists") ||
+              error.message.includes("duplicate column") ||
+              error.message.includes("no such column"))
+          ) {
+            console.log(
+              `⚠ Statement ${i + 1} skipped (${error.message.includes("no such column") ? "column will be added by migration" : "already exists"})`,
+            );
           } else {
             console.error(`✗ Error executing statement ${i + 1}:`, error);
             console.error(`Statement was: ${statement.substring(0, 100)}...`);
@@ -228,283 +263,324 @@ export async function runMigrations() {
     }
 
     // Re-enable foreign keys
-    await execute('PRAGMA foreign_keys = ON');
+    await execute("PRAGMA foreign_keys = ON");
 
     // Run additional migrations AFTER schema is created
-    console.log('Running additional migrations...');
+    console.log("Running additional migrations...");
 
     try {
       await migrateStockAdjustmentsReason();
     } catch (error) {
-      console.error('⚠ stock_adjustments migration skipped:', error);
+      console.error("⚠ stock_adjustments migration skipped:", error);
     }
 
     try {
       await migrateInventoryBatchesNullable();
     } catch (error) {
-      console.error('⚠ inventory_batches migration skipped:', error);
+      console.error("⚠ inventory_batches migration skipped:", error);
     }
 
     try {
       await migrateItemVariants();
     } catch (error) {
-      console.error('⚠ item_variants migration skipped:', error);
+      console.error("⚠ item_variants migration skipped:", error);
     }
 
     try {
       await migrateDomains();
     } catch (error) {
-      console.error('⚠ domains migration skipped:', error);
+      console.error("⚠ domains migration skipped:", error);
     }
 
     try {
       await migratePasswordResetTokens();
     } catch (error) {
-      console.error('⚠ password_reset_tokens migration skipped:', error);
+      console.error("⚠ password_reset_tokens migration skipped:", error);
     }
 
     try {
       await migrateBarcodeExpiry();
     } catch (error) {
-      console.error('⚠ barcode_expiry migration skipped:', error);
+      console.error("⚠ barcode_expiry migration skipped:", error);
     }
 
     try {
       await migrateBundlePricing();
     } catch (error) {
-      console.error('⚠ bundle_pricing migration skipped:', error);
+      console.error("⚠ bundle_pricing migration skipped:", error);
     }
 
     try {
       await migrateAisle();
     } catch (error) {
-      console.error('⚠ aisle migration skipped:', error);
+      console.error("⚠ aisle migration skipped:", error);
+    }
+
+    try {
+      await migrateCreditPaymentApproval();
+    } catch (error) {
+      console.error("⚠ credit payment approval migration skipped:", error);
     }
 
     try {
       await migrateAislesTable();
     } catch (error) {
-      console.error('⚠ aisles table migration skipped:', error);
+      console.error("⚠ aisles table migration skipped:", error);
     }
 
     try {
-      const { migrateStockApprovals } = await import('./migrate-stock-approvals');
+      const { migrateStockApprovals } =
+        await import("./migrate-stock-approvals");
       await migrateStockApprovals();
     } catch (error) {
-      console.error('⚠ stock_approval_requests migration skipped:', error);
+      console.error("⚠ stock_approval_requests migration skipped:", error);
     }
 
     try {
-      const { migrateExpensesOneTime } = await import('./migrate-expenses-one-time');
+      const { migrateExpensesOneTime } =
+        await import("./migrate-expenses-one-time");
       await migrateExpensesOneTime();
     } catch (error) {
-      console.error('⚠ expenses one-time migration skipped:', error);
+      console.error("⚠ expenses one-time migration skipped:", error);
     }
 
     try {
-      const { migrateSupplierBills } = await import('./migrate-supplier-bills');
+      const { migrateSupplierBills } = await import("./migrate-supplier-bills");
       await migrateSupplierBills();
     } catch (error) {
-      console.error('⚠ supplier_bills migration skipped:', error);
+      console.error("⚠ supplier_bills migration skipped:", error);
     }
 
     try {
-      const { migrateSupplierBillsPhone } = await import('./migrate-supplier-bills-phone');
+      const { migrateSupplierBillsPhone } =
+        await import("./migrate-supplier-bills-phone");
       await migrateSupplierBillsPhone();
     } catch (error) {
-      console.error('⚠ supplier_bills phone migration skipped:', error);
+      console.error("⚠ supplier_bills phone migration skipped:", error);
     }
 
     try {
-      const { migrateSupplierBillsPaymentMethod } = await import('./migrate-supplier-bills-payment-method');
+      const { migrateSupplierBillsPaymentMethod } =
+        await import("./migrate-supplier-bills-payment-method");
       await migrateSupplierBillsPaymentMethod();
     } catch (error) {
-      console.error('⚠ supplier_bills preferred_payment_method migration skipped:', error);
+      console.error(
+        "⚠ supplier_bills preferred_payment_method migration skipped:",
+        error,
+      );
     }
 
     try {
-      const { migrateShiftDenominations } = await import('./migrate-shift-denominations');
+      const { migrateShiftDenominations } =
+        await import("./migrate-shift-denominations");
       await migrateShiftDenominations();
     } catch (error) {
-      console.error('⚠ shift_denominations migration skipped:', error);
+      console.error("⚠ shift_denominations migration skipped:", error);
     }
 
     try {
-      const { migrateDenom40 } = await import('./migrate-denom-40');
+      const { migrateDenom40 } = await import("./migrate-denom-40");
       await migrateDenom40();
     } catch (error) {
-      console.error('⚠ denom_40 migration skipped:', error);
+      console.error("⚠ denom_40 migration skipped:", error);
     }
 
     try {
-      const { migrateBalanceApprovals } = await import('./migrate-balance-approvals');
+      const { migrateBalanceApprovals } =
+        await import("./migrate-balance-approvals");
       await migrateBalanceApprovals();
     } catch (error) {
-      console.error('⚠ balance_approval_requests migration skipped:', error);
+      console.error("⚠ balance_approval_requests migration skipped:", error);
     }
 
     try {
-      const { migrateSalePayments } = await import('./migrate-sale-payments');
+      const { migrateSalePayments } = await import("./migrate-sale-payments");
       await migrateSalePayments();
     } catch (error) {
-      console.error('⚠ sale_payments migration skipped:', error);
+      console.error("⚠ sale_payments migration skipped:", error);
     }
 
     try {
-      const { migrateExpensesCreatedBy } = await import('./migrate-expenses-created-by');
+      const { migrateExpensesCreatedBy } =
+        await import("./migrate-expenses-created-by");
       await migrateExpensesCreatedBy();
     } catch (error) {
-      console.error('⚠ expenses created_by migration skipped:', error);
+      console.error("⚠ expenses created_by migration skipped:", error);
     }
 
     try {
-      const { migrateExpensesIncludeInDrawer } = await import('./migrate-expenses-include-in-drawer');
+      const { migrateExpensesIncludeInDrawer } =
+        await import("./migrate-expenses-include-in-drawer");
       await migrateExpensesIncludeInDrawer();
     } catch (error) {
-      console.error('⚠ expenses include_in_drawer migration skipped:', error);
+      console.error("⚠ expenses include_in_drawer migration skipped:", error);
     }
 
     try {
-      const { migrateSupplierProducts } = await import('./migrate-supplier-products');
+      const { migrateSupplierProducts } =
+        await import("./migrate-supplier-products");
       await migrateSupplierProducts();
     } catch (error) {
-      console.error('⚠ supplier_products migration skipped:', error);
+      console.error("⚠ supplier_products migration skipped:", error);
     }
 
     try {
-      const { migrateBuyingPrices } = await import('./migrate-buying-prices');
+      const { migrateBuyingPrices } = await import("./migrate-buying-prices");
       await migrateBuyingPrices();
     } catch (error) {
-      console.error('⚠ buying_prices migration skipped:', error);
+      console.error("⚠ buying_prices migration skipped:", error);
     }
 
     try {
-      const { migrateSuppliersPayment } = await import('./migrate-suppliers-payment');
+      const { migrateSuppliersPayment } =
+        await import("./migrate-suppliers-payment");
       await migrateSuppliersPayment();
     } catch (error) {
-      console.error('⚠ suppliers payment migration skipped:', error);
+      console.error("⚠ suppliers payment migration skipped:", error);
     }
 
     try {
-      const { migrateSupplierType } = await import('./migrate-supplier-type');
+      const { migrateSupplierType } = await import("./migrate-supplier-type");
       await migrateSupplierType();
     } catch (error) {
-      console.error('⚠ supplier_type migration skipped:', error);
+      console.error("⚠ supplier_type migration skipped:", error);
     }
 
     try {
-      const { migrateItemTypeCheckRemoval } = await import('./migrate-item-type-check-removal');
+      const { migrateItemTypeCheckRemoval } =
+        await import("./migrate-item-type-check-removal");
       await migrateItemTypeCheckRemoval();
     } catch (error) {
-      console.error('⚠ item_type CHECK removal migration skipped:', error);
+      console.error("⚠ item_type CHECK removal migration skipped:", error);
     }
 
     try {
-      const { migratePackagingUnits } = await import('./migrate-packaging-units');
+      const { migratePackagingUnits } =
+        await import("./migrate-packaging-units");
       await migratePackagingUnits();
     } catch (error) {
-      console.error('⚠ packaging_units migration skipped:', error);
+      console.error("⚠ packaging_units migration skipped:", error);
     }
 
     try {
-      const { migrateOutOfStockRequests } = await import('./migrate-out-of-stock-requests');
+      const { migrateOutOfStockRequests } =
+        await import("./migrate-out-of-stock-requests");
       await migrateOutOfStockRequests();
     } catch (error) {
-      console.error('⚠ out_of_stock_requests migration skipped:', error);
+      console.error("⚠ out_of_stock_requests migration skipped:", error);
     }
 
     try {
-      const { migrateBatchTracking } = await import('./migrate-batch-tracking');
+      const { migrateBatchTracking } = await import("./migrate-batch-tracking");
       await migrateBatchTracking();
     } catch (error) {
-      console.error('⚠ batch_tracking migration skipped:', error);
+      console.error("⚠ batch_tracking migration skipped:", error);
     }
 
     try {
-      const { migrateActivityLog } = await import('./migrate-activity-log');
+      const { migrateActivityLog } = await import("./migrate-activity-log");
       await migrateActivityLog();
     } catch (error) {
-      console.error('⚠ activity_log migration skipped:', error);
+      console.error("⚠ activity_log migration skipped:", error);
     }
 
     try {
-      const { migrateCreditAccountsPhonesJson } = await import('./migrate-credit-accounts-phones-json');
+      const { migrateCreditAccountsPhonesJson } =
+        await import("./migrate-credit-accounts-phones-json");
       await migrateCreditAccountsPhonesJson();
     } catch (error) {
-      console.error('⚠ credit_accounts phones JSON migration skipped:', error);
+      console.error("⚠ credit_accounts phones JSON migration skipped:", error);
     }
 
     try {
-      const { migratePublicCreditPesapalPending } = await import('./migrate-public-credit-pesapal-pending');
+      const { migratePublicCreditPesapalPending } =
+        await import("./migrate-public-credit-pesapal-pending");
       await migratePublicCreditPesapalPending();
     } catch (error) {
-      console.error('⚠ public_credit_pesapal_pending migration skipped:', error);
+      console.error(
+        "⚠ public_credit_pesapal_pending migration skipped:",
+        error,
+      );
     }
 
     try {
-      const { migratePublicCreditPesapalPendingKind } = await import('./migrate-public-credit-pesapal-pending-kind');
+      const { migratePublicCreditPesapalPendingKind } =
+        await import("./migrate-public-credit-pesapal-pending-kind");
       await migratePublicCreditPesapalPendingKind();
     } catch (error) {
-      console.error('⚠ public_credit_pesapal_pending kind migration skipped:', error);
+      console.error(
+        "⚠ public_credit_pesapal_pending kind migration skipped:",
+        error,
+      );
     }
 
     try {
-      const { migrateCreditPublicPaymentClaim } = await import('./migrate-credit-public-payment-claim');
+      const { migrateCreditPublicPaymentClaim } =
+        await import("./migrate-credit-public-payment-claim");
       await migrateCreditPublicPaymentClaim();
     } catch (error) {
-      console.error('⚠ credit public payment claim migration skipped:', error);
+      console.error("⚠ credit public payment claim migration skipped:", error);
     }
 
     try {
-      const { migrateCreditDebtLineItemsSnapshot } = await import('./migrate-credit-debt-line-items-snapshot');
+      const { migrateCreditDebtLineItemsSnapshot } =
+        await import("./migrate-credit-debt-line-items-snapshot");
       await migrateCreditDebtLineItemsSnapshot();
     } catch (error) {
-      console.error('⚠ credit debt line items snapshot migration skipped:', error);
+      console.error(
+        "⚠ credit debt line items snapshot migration skipped:",
+        error,
+      );
     }
 
     try {
-      const { migrateCustomerWallet } = await import('./migrate-customer-wallet');
+      const { migrateCustomerWallet } =
+        await import("./migrate-customer-wallet");
       await migrateCustomerWallet();
     } catch (error) {
-      console.error('⚠ customer wallet migration skipped:', error);
+      console.error("⚠ customer wallet migration skipped:", error);
     }
 
     try {
-      const { migrateWalletTransactionsPublicClaim } = await import('./migrate-wallet-transactions-public-claim');
+      const { migrateWalletTransactionsPublicClaim } =
+        await import("./migrate-wallet-transactions-public-claim");
       await migrateWalletTransactionsPublicClaim();
     } catch (error) {
-      console.error('⚠ wallet_transactions public claim migration skipped:', error);
+      console.error(
+        "⚠ wallet_transactions public claim migration skipped:",
+        error,
+      );
     }
 
     try {
-      const { migrateLoyalty } = await import('./migrate-loyalty');
+      const { migrateLoyalty } = await import("./migrate-loyalty");
       await migrateLoyalty();
     } catch (error) {
-      console.error('⚠ loyalty migration skipped:', error);
+      console.error("⚠ loyalty migration skipped:", error);
     }
 
     try {
-      const { migrateLoyaltyDefaultEnable } = await import('./migrate-loyalty-default-enable');
+      const { migrateLoyaltyDefaultEnable } =
+        await import("./migrate-loyalty-default-enable");
       await migrateLoyaltyDefaultEnable();
     } catch (error) {
-      console.error('⚠ loyalty default rate migration skipped:', error);
+      console.error("⚠ loyalty default rate migration skipped:", error);
     }
 
     try {
-      const { migrateItemsFts } = await import('./migrate-items-fts');
+      const { migrateItemsFts } = await import("./migrate-items-fts");
       await migrateItemsFts();
     } catch (error) {
-      console.error('⚠ items_fts migration skipped:', error);
+      console.error("⚠ items_fts migration skipped:", error);
     }
 
-    console.log('✅ Migration completed successfully!');
+    console.log("✅ Migration completed successfully!");
     return true;
   } catch (error) {
-    console.error('❌ Migration failed:', error);
+    console.error("❌ Migration failed:", error);
     throw error;
   }
 }
 
 // To run migrations, use the API route: /api/db/migrate
 // Or import and call runMigrations() from a script
-

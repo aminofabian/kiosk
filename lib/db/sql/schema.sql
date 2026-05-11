@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS businesses (
   currency TEXT NOT NULL DEFAULT 'KES',
   timezone TEXT NOT NULL DEFAULT 'Africa/Nairobi',
   settings TEXT, -- JSON stored as TEXT
+  credit_settings TEXT DEFAULT '{}', -- JSON: { allow_new_credit_accounts: bool }
   active INTEGER NOT NULL DEFAULT 1, -- 1 = active, 0 = suspended
   loyalty_points_per_kes REAL NOT NULL DEFAULT 0.01, -- 0 = off in settings; default 0.01 ≈ 1 pt per 100 KES
   created_at INTEGER NOT NULL DEFAULT (unixepoch())
@@ -58,6 +59,7 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'cashier')),
   pin TEXT, -- 4-digit PIN for quick login
   active INTEGER NOT NULL DEFAULT 1, -- 1 = true, 0 = false
+  can_give_credit INTEGER NOT NULL DEFAULT 0, -- 1 = allowed to give credit on POS
   created_by TEXT, -- user who created this user (null for owners/self-registered)
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
@@ -372,6 +374,7 @@ CREATE TABLE IF NOT EXISTS credit_accounts (
   wallet_balance REAL NOT NULL DEFAULT 0, -- prepaid store credit (overpayment / top-ups)
   loyalty_points_balance INTEGER NOT NULL DEFAULT 0,
   last_transaction_at INTEGER,
+  oldest_unpaid_debt_at INTEGER, -- timestamp of the oldest debt still unpaid
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
 );
@@ -443,6 +446,9 @@ CREATE TABLE IF NOT EXISTS credit_transactions (
   claim_reviewed_at INTEGER,
   claim_reviewed_by TEXT,
   debt_line_items_json TEXT, -- snapshot of sale lines when debt recorded (survives sale delete / null sale_id)
+  payment_approval_status TEXT CHECK (payment_approval_status IN ('pending', 'rejected', 'approved')), -- NULL = approved/applied
+  payment_approved_by TEXT, -- user who approved/rejected the payment
+  payment_approved_at INTEGER, -- timestamp when approved/rejected
   FOREIGN KEY (credit_account_id) REFERENCES credit_accounts(id) ON DELETE CASCADE,
   FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE SET NULL,
   FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE RESTRICT,

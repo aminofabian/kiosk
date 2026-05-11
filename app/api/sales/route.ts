@@ -1,19 +1,19 @@
-import { NextRequest } from 'next/server';
-import { execute, queryOne, query } from '@/lib/db';
-import { generateUUID } from '@/lib/utils/uuid';
-import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
-import { getBatchesForSale, calculateProfit } from '@/lib/utils/fifo';
-import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
-import { toProperCustomerName } from '@/lib/utils/customer-name';
+import { NextRequest } from "next/server";
+import { execute, queryOne, query } from "@/lib/db";
+import { generateUUID } from "@/lib/utils/uuid";
+import { jsonResponse, optionsResponse } from "@/lib/utils/api-response";
+import { getBatchesForSale, calculateProfit } from "@/lib/utils/fifo";
+import { requirePermission, isAuthResponse } from "@/lib/auth/api-auth";
+import { toProperCustomerName } from "@/lib/utils/customer-name";
 import {
   primaryCreditPhone,
   serializeCreditPhones,
   sqlCreditAccountMatchesPhoneDigits,
-} from '@/lib/utils/credit-phones';
-import type { Sale } from '@/lib/db/types';
-import { awardLoyaltyPointsForSale } from '@/lib/db/loyalty';
-import { buildCreditDebtLineItemsSnapshotJson } from '@/lib/db/credit-debt-line-snapshot';
-import { migrateCreditDebtLineItemsSnapshot } from '@/lib/db/migrate-credit-debt-line-items-snapshot';
+} from "@/lib/utils/credit-phones";
+import type { Sale } from "@/lib/db/types";
+import { awardLoyaltyPointsForSale } from "@/lib/db/loyalty";
+import { buildCreditDebtLineItemsSnapshotJson } from "@/lib/db/credit-debt-line-snapshot";
+import { migrateCreditDebtLineItemsSnapshot } from "@/lib/db/migrate-credit-debt-line-items-snapshot";
 
 const EPS = 0.01;
 
@@ -27,14 +27,14 @@ export async function OPTIONS() {
 
 export async function GET() {
   try {
-    const auth = await requirePermission('sell');
+    const auth = await requirePermission("sell");
     if (isAuthResponse(auth)) return auth;
 
     const sales = await query<Sale>(
-      `SELECT * FROM sales 
-       WHERE business_id = ? 
+      `SELECT * FROM sales
+       WHERE business_id = ?
        ORDER BY sale_date DESC, created_at DESC`,
-      [auth.businessId]
+      [auth.businessId],
     );
 
     return jsonResponse({
@@ -42,29 +42,31 @@ export async function GET() {
       data: sales,
     });
   } catch (error) {
-    console.error('Error fetching sales:', error);
+    console.error("Error fetching sales:", error);
     return jsonResponse(
       {
         success: false,
-        message: 'Failed to fetch sales',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        message: "Failed to fetch sales",
+        error: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 }
 
 interface SplitPaymentInput {
-  method: 'cash' | 'mpesa' | 'credit';
+  method: "cash" | "mpesa" | "credit";
   amount: number;
   customerName?: string;
   customerPhone?: string;
 }
 
 const extractPhoneDigits = (phone: string) => {
-  const coreDigits = phone.replace(/\D/g, '');
-  if (coreDigits.startsWith('254') && coreDigits.length >= 12) return coreDigits.slice(-9);
-  if (coreDigits.startsWith('0') && coreDigits.length >= 10) return coreDigits.slice(1);
+  const coreDigits = phone.replace(/\D/g, "");
+  if (coreDigits.startsWith("254") && coreDigits.length >= 12)
+    return coreDigits.slice(-9);
+  if (coreDigits.startsWith("0") && coreDigits.length >= 10)
+    return coreDigits.slice(1);
   if (coreDigits.length >= 9) return coreDigits.slice(-9);
   return coreDigits;
 };
@@ -74,8 +76,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const fromEdit = body.fromEdit === true;
     const auth = fromEdit
-      ? await requirePermission('view_all_sales')
-      : await requirePermission('sell');
+      ? await requirePermission("view_all_sales")
+      : await requirePermission("sell");
     if (isAuthResponse(auth)) return auth;
 
     const {
@@ -90,41 +92,57 @@ export async function POST(request: NextRequest) {
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return jsonResponse(
-        { success: false, message: 'Items are required' },
-        400
+        { success: false, message: "Items are required" },
+        400,
       );
     }
 
     if (!paymentMethod) {
       return jsonResponse(
-        { success: false, message: 'Payment method is required' },
-        400
+        { success: false, message: "Payment method is required" },
+        400,
       );
     }
 
     // Validate split payments if split method is selected (not supported for fromEdit)
-    if (paymentMethod === 'split' && !fromEdit) {
-      if (!splitPayments || !Array.isArray(splitPayments) || splitPayments.length === 0) {
+    if (paymentMethod === "split" && !fromEdit) {
+      if (
+        !splitPayments ||
+        !Array.isArray(splitPayments) ||
+        splitPayments.length === 0
+      ) {
         return jsonResponse(
-          { success: false, message: 'Split payments are required for split payment method' },
-          400
+          {
+            success: false,
+            message: "Split payments are required for split payment method",
+          },
+          400,
         );
       }
 
       // Check that each credit payment has a phone number
       for (const payment of splitPayments as SplitPaymentInput[]) {
-        if (payment.method === 'credit' && (!payment.customerPhone || payment.customerPhone.trim().length === 0)) {
+        if (
+          payment.method === "credit" &&
+          (!payment.customerPhone || payment.customerPhone.trim().length === 0)
+        ) {
           return jsonResponse(
-            { success: false, message: 'Customer phone is required for credit payments' },
-            400
+            {
+              success: false,
+              message: "Customer phone is required for credit payments",
+            },
+            400,
           );
         }
       }
     }
-    if (paymentMethod === 'split' && fromEdit) {
+    if (paymentMethod === "split" && fromEdit) {
       return jsonResponse(
-        { success: false, message: 'Split payment is not supported when editing a transaction' },
-        400
+        {
+          success: false,
+          message: "Split payment is not supported when editing a transaction",
+        },
+        400,
       );
     }
 
@@ -135,19 +153,21 @@ export async function POST(request: NextRequest) {
       items.reduce(
         (sum: number, item: { quantity: number; price: number }) =>
           sum + item.quantity * item.price,
-        0
-      )
+        0,
+      ),
     );
 
     let cashReceivedNum = 0;
-    if (typeof cashReceived === 'number' && Number.isFinite(cashReceived)) {
+    if (typeof cashReceived === "number" && Number.isFinite(cashReceived)) {
       cashReceivedNum = roundMoney(cashReceived);
-    } else if (typeof cashReceived === 'string' && cashReceived.trim() !== '') {
+    } else if (typeof cashReceived === "string" && cashReceived.trim() !== "") {
       cashReceivedNum = roundMoney(parseFloat(cashReceived));
     }
 
     const walletCreditAccountIdRaw =
-      typeof body.walletCreditAccountId === 'string' ? body.walletCreditAccountId.trim() : '';
+      typeof body.walletCreditAccountId === "string"
+        ? body.walletCreditAccountId.trim()
+        : "";
 
     let walletAmountApplied = 0;
     let walletSourceAccountId: string | null = null;
@@ -158,59 +178,68 @@ export async function POST(request: NextRequest) {
         walletAmountApplied = roundMoney(rawWallet);
       }
       if (walletAmountApplied > EPS) {
-        if (paymentMethod === 'credit') {
+        if (paymentMethod === "credit") {
           if (!creditAccountId) {
             return jsonResponse(
               {
                 success: false,
-                message: 'To pay from wallet on a credit sale, select an existing customer account first',
+                message:
+                  "To pay from wallet on a credit sale, select an existing customer account first",
               },
-              400
+              400,
             );
           }
           walletSourceAccountId = creditAccountId;
         } else {
           if (!walletCreditAccountIdRaw) {
             return jsonResponse(
-              { success: false, message: 'Select a customer to apply wallet balance' },
-              400
+              {
+                success: false,
+                message: "Select a customer to apply wallet balance",
+              },
+              400,
             );
           }
           walletSourceAccountId = walletCreditAccountIdRaw;
         }
         const wRow = await queryOne<{ wallet_balance: number }>(
           `SELECT COALESCE(wallet_balance, 0) AS wallet_balance FROM credit_accounts WHERE id = ? AND business_id = ?`,
-          [walletSourceAccountId, auth.businessId]
+          [walletSourceAccountId, auth.businessId],
         );
         if (!wRow) {
           return jsonResponse(
-            { success: false, message: 'Wallet customer account not found' },
-            400
+            { success: false, message: "Wallet customer account not found" },
+            400,
           );
         }
         if (walletAmountApplied - wRow.wallet_balance > EPS) {
           return jsonResponse(
-            { success: false, message: 'Insufficient wallet balance' },
-            400
+            { success: false, message: "Insufficient wallet balance" },
+            400,
           );
         }
         if (walletAmountApplied - totalAmount > EPS) {
           return jsonResponse(
-            { success: false, message: 'Wallet amount cannot exceed order total' },
-            400
+            {
+              success: false,
+              message: "Wallet amount cannot exceed order total",
+            },
+            400,
           );
         }
       }
     }
 
-    const amountDue = roundMoney(Math.max(0, totalAmount - walletAmountApplied));
+    const amountDue = roundMoney(
+      Math.max(0, totalAmount - walletAmountApplied),
+    );
 
     /** Credit account to earn loyalty for this sale (linked customer on tab, split credit, or wallet customer). */
     let loyaltyEarnAccountId: string | null = null;
 
     if (
       !fromEdit &&
-      paymentMethod === 'credit' &&
+      paymentMethod === "credit" &&
       amountDue < EPS &&
       !creditAccountId
     ) {
@@ -218,17 +247,17 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           message:
-            'When the wallet covers the full total on a credit sale, select the existing customer account first',
+            "When the wallet covers the full total on a credit sale, select the existing customer account first",
         },
-        400
+        400,
       );
     }
 
     // Validate split payments total matches amount due (after wallet)
-    if (paymentMethod === 'split' && splitPayments && !fromEdit) {
+    if (paymentMethod === "split" && splitPayments && !fromEdit) {
       const splitTotal = (splitPayments as SplitPaymentInput[]).reduce(
         (sum, p) => sum + p.amount,
-        0
+        0,
       );
       if (Math.abs(splitTotal - amountDue) > 0.01) {
         return jsonResponse(
@@ -236,26 +265,26 @@ export async function POST(request: NextRequest) {
             success: false,
             message:
               amountDue < totalAmount - EPS
-                ? 'Split payment total must equal amount due after wallet (remaining to pay)'
-                : 'Split payment total must equal order total',
+                ? "Split payment total must equal amount due after wallet (remaining to pay)"
+                : "Split payment total must equal order total",
           },
-          400
+          400,
         );
       }
     }
 
-    if (!fromEdit && paymentMethod === 'cash') {
+    if (!fromEdit && paymentMethod === "cash") {
       if (cashReceivedNum + EPS < amountDue) {
         return jsonResponse(
-          { success: false, message: 'Cash received is less than amount due' },
-          400
+          { success: false, message: "Cash received is less than amount due" },
+          400,
         );
       }
     }
 
     let excessToWallet = 0;
     let overpayAccountId: string | null = null;
-    if (!fromEdit && paymentMethod === 'cash' && walletCreditAccountIdRaw) {
+    if (!fromEdit && paymentMethod === "cash" && walletCreditAccountIdRaw) {
       overpayAccountId = walletCreditAccountIdRaw;
       if (cashReceivedNum > amountDue + EPS) {
         excessToWallet = roundMoney(cashReceivedNum - amountDue);
@@ -264,13 +293,16 @@ export async function POST(request: NextRequest) {
     if (!fromEdit && excessToWallet > EPS && overpayAccountId) {
       if (overpayAccountId !== walletSourceAccountId) {
         const op = await queryOne<{ id: string }>(
-          'SELECT id FROM credit_accounts WHERE id = ? AND business_id = ?',
-          [overpayAccountId, auth.businessId]
+          "SELECT id FROM credit_accounts WHERE id = ? AND business_id = ?",
+          [overpayAccountId, auth.businessId],
         );
         if (!op) {
           return jsonResponse(
-            { success: false, message: 'Selected customer for wallet (change) was not found' },
-            400
+            {
+              success: false,
+              message: "Selected customer for wallet (change) was not found",
+            },
+            400,
           );
         }
       }
@@ -280,84 +312,99 @@ export async function POST(request: NextRequest) {
     let shiftId: string | null = null;
     if (!fromEdit) {
       const shift = await queryOne<{ id: string }>(
-        `SELECT id FROM shifts 
+        `SELECT id FROM shifts
          WHERE business_id = ? AND user_id = ? AND status = 'open'
          ORDER BY started_at DESC
          LIMIT 1`,
-        [auth.businessId, auth.userId]
+        [auth.businessId, auth.userId],
       );
       shiftId = shift?.id || null;
 
       // Require an open shift for any cash payment so every shilling is tied to a drawer
       const cashAmountForValidation =
-        paymentMethod === 'cash'
+        paymentMethod === "cash"
           ? amountDue
-          : paymentMethod === 'split' && splitPayments
-            ? (splitPayments as SplitPaymentInput[]).find((p) => p.method === 'cash')?.amount ?? 0
+          : paymentMethod === "split" && splitPayments
+            ? ((splitPayments as SplitPaymentInput[]).find(
+                (p) => p.method === "cash",
+              )?.amount ?? 0)
             : 0;
       if (cashAmountForValidation > 0 && !shiftId) {
         return jsonResponse(
           {
             success: false,
             message:
-              'You must have an open shift to record cash payments. Please open a shift first.',
+              "You must have an open shift to record cash payments. Please open a shift first.",
           },
-          400
+          400,
         );
       }
     }
 
     // For credit payment: require either creditAccountId (existing creditor) or customerName (new)
-    if (paymentMethod === 'credit') {
+    if (paymentMethod === "credit") {
       if (creditAccountId) {
-        const existingAccount = await queryOne<{ id: string; customer_name: string; customer_phone: string | null }>(
-          'SELECT id, customer_name, customer_phone FROM credit_accounts WHERE id = ? AND business_id = ?',
-          [creditAccountId, auth.businessId]
+        const existingAccount = await queryOne<{
+          id: string;
+          customer_name: string;
+          customer_phone: string | null;
+        }>(
+          "SELECT id, customer_name, customer_phone FROM credit_accounts WHERE id = ? AND business_id = ?",
+          [creditAccountId, auth.businessId],
         );
         if (!existingAccount) {
           return jsonResponse(
-            { success: false, message: 'Selected credit account not found' },
-            400
+            { success: false, message: "Selected credit account not found" },
+            400,
           );
         }
       } else {
         if (!customerPhone || customerPhone.trim().length === 0) {
           return jsonResponse(
-            { success: false, message: 'Phone number is required for credit payments' },
-            400
+            {
+              success: false,
+              message: "Phone number is required for credit payments",
+            },
+            400,
           );
         }
         if (!customerName || customerName.trim().length === 0) {
           return jsonResponse(
-            { success: false, message: 'Customer name is required for new credit account' },
-            400
+            {
+              success: false,
+              message: "Customer name is required for new credit account",
+            },
+            400,
           );
         }
         // Prevent duplicate: an account with this phone already exists
-        const coreDigits = customerPhone.replace(/\D/g, '');
+        const coreDigits = customerPhone.replace(/\D/g, "");
         const digits =
-          coreDigits.startsWith('254') && coreDigits.length >= 12
+          coreDigits.startsWith("254") && coreDigits.length >= 12
             ? coreDigits.slice(-9)
-            : coreDigits.startsWith('0') && coreDigits.length >= 10
+            : coreDigits.startsWith("0") && coreDigits.length >= 10
               ? coreDigits.slice(1)
               : coreDigits.length >= 9
                 ? coreDigits.slice(-9)
                 : coreDigits;
         if (digits.length >= 6) {
-          const ph = sqlCreditAccountMatchesPhoneDigits('customer_phone', digits);
+          const ph = sqlCreditAccountMatchesPhoneDigits(
+            "customer_phone",
+            digits,
+          );
           const existingByPhone = await queryOne<{ id: string }>(
-            `SELECT id FROM credit_accounts 
+            `SELECT id FROM credit_accounts
              WHERE business_id = ? AND ${ph.sql}`,
-            [auth.businessId, ...ph.params]
+            [auth.businessId, ...ph.params],
           );
           if (existingByPhone) {
             return jsonResponse(
               {
                 success: false,
                 message:
-                  'A customer with this phone number already exists. Please select them from the list.',
+                  "A customer with this phone number already exists. Please select them from the list.",
               },
-              400
+              400,
             );
           }
         }
@@ -367,20 +414,29 @@ export async function POST(request: NextRequest) {
     // For split payments, we'll store customer info from credit portion if any
     let saleCustomerName = null;
     let saleCustomerPhone = null;
-    if (paymentMethod === 'credit') {
+    if (paymentMethod === "credit") {
       if (creditAccountId) {
-        const accountForSale = await queryOne<{ customer_name: string; customer_phone: string | null }>(
-          'SELECT customer_name, customer_phone FROM credit_accounts WHERE id = ? AND business_id = ?',
-          [creditAccountId, auth.businessId]
+        const accountForSale = await queryOne<{
+          customer_name: string;
+          customer_phone: string | null;
+        }>(
+          "SELECT customer_name, customer_phone FROM credit_accounts WHERE id = ? AND business_id = ?",
+          [creditAccountId, auth.businessId],
         );
         saleCustomerName = accountForSale?.customer_name ?? null;
-        saleCustomerPhone = primaryCreditPhone(accountForSale?.customer_phone ?? null);
+        saleCustomerPhone = primaryCreditPhone(
+          accountForSale?.customer_phone ?? null,
+        );
       } else {
-        saleCustomerName = customerName ? toProperCustomerName(customerName) : null;
+        saleCustomerName = customerName
+          ? toProperCustomerName(customerName)
+          : null;
         saleCustomerPhone = customerPhone || null;
       }
-    } else if (paymentMethod === 'split' && splitPayments) {
-      const creditPayment = (splitPayments as SplitPaymentInput[]).find(p => p.method === 'credit');
+    } else if (paymentMethod === "split" && splitPayments) {
+      const creditPayment = (splitPayments as SplitPaymentInput[]).find(
+        (p) => p.method === "credit",
+      );
       if (creditPayment) {
         saleCustomerName = creditPayment.customerName
           ? toProperCustomerName(creditPayment.customerName)
@@ -391,7 +447,7 @@ export async function POST(request: NextRequest) {
 
     await execute(
       `INSERT INTO sales (
-        id, business_id, user_id, shift_id, total_amount, payment_method, 
+        id, business_id, user_id, shift_id, total_amount, payment_method,
         status, customer_name, customer_phone, sale_date, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
@@ -401,35 +457,37 @@ export async function POST(request: NextRequest) {
         shiftId,
         totalAmount,
         paymentMethod,
-        'completed',
+        "completed",
         saleCustomerName,
         saleCustomerPhone,
         now,
         now,
-      ]
+      ],
     );
 
     // Calculate cash amount for shift tracking
     let cashAmountForShift = 0;
-    if (paymentMethod === 'cash') {
+    if (paymentMethod === "cash") {
       cashAmountForShift = totalAmount;
-    } else if (paymentMethod === 'split' && splitPayments) {
-      const cashPayment = (splitPayments as SplitPaymentInput[]).find(p => p.method === 'cash');
+    } else if (paymentMethod === "split" && splitPayments) {
+      const cashPayment = (splitPayments as SplitPaymentInput[]).find(
+        (p) => p.method === "cash",
+      );
       cashAmountForShift = cashPayment?.amount || 0;
     }
 
     // Update shift expected_closing_cash if shift exists and there's cash payment
     if (shiftId && cashAmountForShift > 0) {
       await execute(
-        `UPDATE shifts 
-         SET expected_closing_cash = expected_closing_cash + ? 
+        `UPDATE shifts
+         SET expected_closing_cash = expected_closing_cash + ?
          WHERE id = ?`,
-        [cashAmountForShift, shiftId]
+        [cashAmountForShift, shiftId],
       );
     }
 
     // Store split payment details if split payment
-    if (paymentMethod === 'split' && splitPayments) {
+    if (paymentMethod === "split" && splitPayments) {
       for (const payment of splitPayments as SplitPaymentInput[]) {
         const paymentId = generateUUID();
         await execute(
@@ -441,10 +499,12 @@ export async function POST(request: NextRequest) {
             saleId,
             payment.method,
             payment.amount,
-            payment.customerName ? toProperCustomerName(payment.customerName) : null,
+            payment.customerName
+              ? toProperCustomerName(payment.customerName)
+              : null,
             payment.customerPhone || null,
             now,
-          ]
+          ],
         );
       }
     }
@@ -455,20 +515,21 @@ export async function POST(request: NextRequest) {
         `INSERT INTO sale_payments (
           id, sale_id, payment_method, amount, customer_name, customer_phone, created_at
         ) VALUES (?, ?, 'wallet', ?, NULL, NULL, ?)`,
-        [walletPayId, saleId, walletAmountApplied, now]
+        [walletPayId, saleId, walletAmountApplied, now],
       );
     }
 
     // Process each item (FIFO or cashier-selected batch)
     for (const item of items) {
-      const inventoryBatchId = (item as { inventoryBatchId?: string }).inventoryBatchId;
+      const inventoryBatchId = (item as { inventoryBatchId?: string })
+        .inventoryBatchId;
 
       // Fetch item's current type for snapshot
       const itemData = await queryOne<{ item_type: string }>(
-        'SELECT item_type FROM items WHERE id = ?',
-        [item.itemId]
+        "SELECT item_type FROM items WHERE id = ?",
+        [item.itemId],
       );
-      const itemTypeSnapshot = itemData?.item_type || 'retail';
+      const itemTypeSnapshot = itemData?.item_type || "retail";
 
       let batches: { batchId: string; quantity: number; buyPrice: number }[];
       if (inventoryBatchId) {
@@ -482,15 +543,20 @@ export async function POST(request: NextRequest) {
           `SELECT id, quantity_remaining, buy_price_per_unit, item_id
            FROM inventory_batches
            WHERE id = ? AND business_id = ? AND item_id = ? AND status = 'active'`,
-          [inventoryBatchId, auth.businessId, item.itemId]
+          [inventoryBatchId, auth.businessId, item.itemId],
         );
         if (selectedBatch && selectedBatch.quantity_remaining > 0) {
-          const take = Math.min(item.quantity, selectedBatch.quantity_remaining);
-          batches = [{
-            batchId: selectedBatch.id,
-            quantity: take,
-            buyPrice: selectedBatch.buy_price_per_unit,
-          }];
+          const take = Math.min(
+            item.quantity,
+            selectedBatch.quantity_remaining,
+          );
+          batches = [
+            {
+              batchId: selectedBatch.id,
+              quantity: take,
+              buyPrice: selectedBatch.buy_price_per_unit,
+            },
+          ];
         } else {
           batches = [];
         }
@@ -507,7 +573,7 @@ export async function POST(request: NextRequest) {
           const profit = calculateProfit(
             item.price,
             batch.buyPrice,
-            batch.quantity
+            batch.quantity,
           );
 
           // Create sale_item record with item_type_snapshot
@@ -527,16 +593,16 @@ export async function POST(request: NextRequest) {
               profit,
               itemTypeSnapshot,
               now,
-            ]
+            ],
           );
 
           // Update batch quantity_remaining and set status=depleted when empty
           await execute(
-            `UPDATE inventory_batches 
+            `UPDATE inventory_batches
              SET quantity_remaining = quantity_remaining - ?,
                  status = CASE WHEN (quantity_remaining - ?) <= 0 THEN 'depleted' ELSE status END
              WHERE id = ?`,
-            [batch.quantity, batch.quantity, batch.batchId]
+            [batch.quantity, batch.quantity, batch.batchId],
           );
 
           remainingQuantity -= batch.quantity;
@@ -548,32 +614,37 @@ export async function POST(request: NextRequest) {
       if (remainingQuantity > 0) {
         // Get most recent buy price from any batch (even if depleted)
         const recentBatch = await queryOne<{ buy_price_per_unit: number }>(
-          `SELECT buy_price_per_unit 
-           FROM inventory_batches 
-           WHERE item_id = ? 
-           ORDER BY received_at DESC 
+          `SELECT buy_price_per_unit
+           FROM inventory_batches
+           WHERE item_id = ?
+           ORDER BY received_at DESC
            LIMIT 1`,
-          [item.itemId]
+          [item.itemId],
         );
 
         // If no batch, try to get from most recent purchase breakdown
         let buyPrice = recentBatch?.buy_price_per_unit || 0;
         if (!buyPrice) {
-          const recentBreakdown = await queryOne<{ buy_price_per_unit: number }>(
-            `SELECT pb.buy_price_per_unit 
+          const recentBreakdown = await queryOne<{
+            buy_price_per_unit: number;
+          }>(
+            `SELECT pb.buy_price_per_unit
              FROM purchase_breakdowns pb
              JOIN purchase_items pi ON pb.purchase_item_id = pi.id
              JOIN purchases p ON pi.purchase_id = p.id
              WHERE pb.item_id = ? AND p.business_id = ?
-             ORDER BY pb.confirmed_at DESC 
+             ORDER BY pb.confirmed_at DESC
              LIMIT 1`,
-            [item.itemId, auth.businessId]
+            [item.itemId, auth.businessId],
           );
           buyPrice = recentBreakdown?.buy_price_per_unit || 0;
         }
 
         const saleItemId = generateUUID();
-        const profit = buyPrice > 0 ? calculateProfit(item.price, buyPrice, remainingQuantity) : 0;
+        const profit =
+          buyPrice > 0
+            ? calculateProfit(item.price, buyPrice, remainingQuantity)
+            : 0;
 
         await execute(
           `INSERT INTO sale_items (
@@ -590,31 +661,32 @@ export async function POST(request: NextRequest) {
             profit,
             itemTypeSnapshot,
             now,
-          ]
+          ],
         );
       }
 
       // Update item stock (always decrement, even if no batches)
       await execute(
-        `UPDATE items 
-         SET current_stock = current_stock - ? 
+        `UPDATE items
+         SET current_stock = current_stock - ?
          WHERE id = ? AND business_id = ?`,
-        [item.quantity, item.itemId, auth.businessId]
+        [item.quantity, item.itemId, auth.businessId],
       );
     }
 
     let debtLineItemsSnapshotJson: string | null = null;
     if (!fromEdit) {
       const willRecordCreditDebt =
-        (paymentMethod === 'credit' && amountDue > EPS) ||
-        (paymentMethod === 'split' &&
+        (paymentMethod === "credit" && amountDue > EPS) ||
+        (paymentMethod === "split" &&
           splitPayments &&
           (splitPayments as SplitPaymentInput[]).some(
-            (p) => p.method === 'credit' && Number(p.amount) > EPS
+            (p) => p.method === "credit" && Number(p.amount) > EPS,
           ));
       if (willRecordCreditDebt) {
         await migrateCreditDebtLineItemsSnapshot();
-        debtLineItemsSnapshotJson = await buildCreditDebtLineItemsSnapshotJson(saleId);
+        debtLineItemsSnapshotJson =
+          await buildCreditDebtLineItemsSnapshotJson(saleId);
       }
     }
 
@@ -623,22 +695,39 @@ export async function POST(request: NextRequest) {
       creditCustomerName: string,
       creditCustomerPhone: string | null,
       creditAmount: number,
-      debtLineItemsJson: string | null
+      debtLineItemsJson: string | null,
     ): Promise<string> => {
+      // ── Permission check: can_give_credit ────────────────────────
+      // Only users with can_give_credit = 1 (or owner/admin) can create or add to credit accounts
+      const creditUser = await queryOne<{ can_give_credit: number }>(
+        `SELECT can_give_credit FROM users WHERE id = ? AND business_id = ?`,
+        [auth.userId, auth.businessId],
+      );
+      if (!creditUser || !creditUser.can_give_credit) {
+        throw new Error(
+          "You are not authorized to take credit. Only approved staff can give credit. Contact an admin.",
+        );
+      }
+
       // Match by normalized phone first; fallback to name-only records if no phone provided
       const trimmedName = creditCustomerName.trim();
       const nameForStorage = toProperCustomerName(creditCustomerName);
-      const phoneDigits = creditCustomerPhone ? extractPhoneDigits(creditCustomerPhone) : '';
+      const phoneDigits = creditCustomerPhone
+        ? extractPhoneDigits(creditCustomerPhone)
+        : "";
       let creditAccount: { id: string; total_credit: number } | null = null;
 
       if (phoneDigits.length >= 6) {
-        const ph = sqlCreditAccountMatchesPhoneDigits('customer_phone', phoneDigits);
+        const ph = sqlCreditAccountMatchesPhoneDigits(
+          "customer_phone",
+          phoneDigits,
+        );
         creditAccount = await queryOne<{ id: string; total_credit: number }>(
           `SELECT id, total_credit FROM credit_accounts
            WHERE business_id = ?
            AND ${ph.sql}
            LIMIT 1`,
-          [auth.businessId, ...ph.params]
+          [auth.businessId, ...ph.params],
         );
       } else if (trimmedName.length > 0) {
         creditAccount = await queryOne<{ id: string; total_credit: number }>(
@@ -647,7 +736,7 @@ export async function POST(request: NextRequest) {
            AND customer_phone IS NULL
            AND LOWER(TRIM(customer_name)) = LOWER(?)
            LIMIT 1`,
-          [auth.businessId, trimmedName]
+          [auth.businessId, trimmedName],
         );
       }
 
@@ -657,29 +746,54 @@ export async function POST(request: NextRequest) {
         // Update existing account
         creditAccountId = creditAccount.id;
         await execute(
-          `UPDATE credit_accounts 
-           SET total_credit = total_credit + ?, 
-               last_transaction_at = ? 
+          `UPDATE credit_accounts
+           SET total_credit = total_credit + ?,
+               last_transaction_at = ?,
+               oldest_unpaid_debt_at = COALESCE(oldest_unpaid_debt_at, ?)
            WHERE id = ?`,
-          [creditAmount, now, creditAccountId]
+          [creditAmount, now, now, creditAccountId],
         );
       } else {
+        // Check if new credit accounts are allowed
+        const biz = await queryOne<{ credit_settings: string | null }>(
+          `SELECT credit_settings FROM businesses WHERE id = ?`,
+          [auth.businessId],
+        );
+        let allowNew = true;
+        if (biz?.credit_settings) {
+          try {
+            const parsed = JSON.parse(biz.credit_settings);
+            if (parsed.allow_new_credit_accounts === false) {
+              allowNew = false;
+            }
+          } catch {
+            /* ignore */
+          }
+        }
+        if (!allowNew) {
+          throw new Error(
+            "New credit accounts are currently disabled by admin. Only existing customers can take credit.",
+          );
+        }
         // Create new account
         creditAccountId = generateUUID();
         await execute(
           `INSERT INTO credit_accounts (
-            id, business_id, customer_name, customer_phone, 
-            total_credit, last_transaction_at, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            id, business_id, customer_name, customer_phone,
+            total_credit, last_transaction_at, oldest_unpaid_debt_at, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             creditAccountId,
             auth.businessId,
             nameForStorage,
-            creditCustomerPhone ? serializeCreditPhones([creditCustomerPhone]) : null,
+            creditCustomerPhone
+              ? serializeCreditPhones([creditCustomerPhone])
+              : null,
             creditAmount,
             now,
             now,
-          ]
+            now,
+          ],
         );
       }
 
@@ -687,19 +801,19 @@ export async function POST(request: NextRequest) {
       const creditTransactionId = generateUUID();
       await execute(
         `INSERT INTO credit_transactions (
-          id, credit_account_id, sale_id, type, amount, 
+          id, credit_account_id, sale_id, type, amount,
           recorded_by, created_at, debt_line_items_json
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           creditTransactionId,
           creditAccountId,
           saleId,
-          'debt',
+          "debt",
           creditAmount,
           auth.userId,
           now,
           debtLineItemsJson,
-        ]
+        ],
       );
 
       return creditAccountId;
@@ -709,72 +823,95 @@ export async function POST(request: NextRequest) {
     const addDebtToExistingAccount = async (
       accountId: string,
       amount: number,
-      debtLineItemsJson: string | null
+      debtLineItemsJson: string | null,
     ) => {
       await execute(
-        `UPDATE credit_accounts 
-         SET total_credit = total_credit + ?, last_transaction_at = ? 
+        `UPDATE credit_accounts
+         SET total_credit = total_credit + ?, last_transaction_at = ?, oldest_unpaid_debt_at = COALESCE(oldest_unpaid_debt_at, ?)
          WHERE id = ?`,
-        [amount, now, accountId]
+        [amount, now, now, accountId],
       );
       const creditTransactionId = generateUUID();
       await execute(
         `INSERT INTO credit_transactions (
-          id, credit_account_id, sale_id, type, amount, 
+          id, credit_account_id, sale_id, type, amount,
           recorded_by, created_at, debt_line_items_json
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [creditTransactionId, accountId, saleId, 'debt', amount, auth.userId, now, debtLineItemsJson]
+        [
+          creditTransactionId,
+          accountId,
+          saleId,
+          "debt",
+          amount,
+          auth.userId,
+          now,
+          debtLineItemsJson,
+        ],
       );
     };
 
     // Handle credit for regular credit payment (amount owed after wallet applied)
-    if (paymentMethod === 'credit') {
+    if (paymentMethod === "credit") {
       if (creditAccountId) {
         loyaltyEarnAccountId = creditAccountId;
         if (amountDue > EPS) {
-          await addDebtToExistingAccount(creditAccountId, amountDue, debtLineItemsSnapshotJson);
+          await addDebtToExistingAccount(
+            creditAccountId,
+            amountDue,
+            debtLineItemsSnapshotJson,
+          );
         }
       } else if (customerName && amountDue > EPS) {
         loyaltyEarnAccountId = await handleCreditPayment(
           customerName,
           customerPhone || null,
           amountDue,
-          debtLineItemsSnapshotJson
+          debtLineItemsSnapshotJson,
         );
       }
     }
 
     // Handle credit for split payment with credit portion
-    if (paymentMethod === 'split' && splitPayments) {
-      const creditPayment = (splitPayments as SplitPaymentInput[]).find(p => p.method === 'credit');
-      if (creditPayment && creditPayment.customerPhone && creditPayment.amount > 0) {
+    if (paymentMethod === "split" && splitPayments) {
+      const creditPayment = (splitPayments as SplitPaymentInput[]).find(
+        (p) => p.method === "credit",
+      );
+      if (
+        creditPayment &&
+        creditPayment.customerPhone &&
+        creditPayment.amount > 0
+      ) {
         const splitCreditPhone = creditPayment.customerPhone.trim();
-        const splitCreditName = (creditPayment.customerName || '').trim();
+        const splitCreditName = (creditPayment.customerName || "").trim();
         const digits = extractPhoneDigits(splitCreditPhone);
         if (digits.length < 6) {
           return jsonResponse(
-            { success: false, message: 'Enter a valid customer phone for split credit payment' },
-            400
+            {
+              success: false,
+              message: "Enter a valid customer phone for split credit payment",
+            },
+            400,
           );
         }
 
         // For split-credit: use phone to find existing customer; create only when missing.
-        const ph = sqlCreditAccountMatchesPhoneDigits('customer_phone', digits);
+        const ph = sqlCreditAccountMatchesPhoneDigits("customer_phone", digits);
         const existingByPhone = await queryOne<{ customer_name: string }>(
           `SELECT customer_name FROM credit_accounts
            WHERE business_id = ?
            AND ${ph.sql}
            LIMIT 1`,
-          [auth.businessId, ...ph.params]
+          [auth.businessId, ...ph.params],
         );
 
         if (!existingByPhone && splitCreditName.length === 0) {
           return jsonResponse(
             {
               success: false,
-              message: 'Customer name is required to create a new split credit account',
+              message:
+                "Customer name is required to create a new split credit account",
             },
-            400
+            400,
           );
         }
 
@@ -782,7 +919,7 @@ export async function POST(request: NextRequest) {
           existingByPhone?.customer_name || splitCreditName,
           splitCreditPhone,
           creditPayment.amount,
-          debtLineItemsSnapshotJson
+          debtLineItemsSnapshotJson,
         );
       }
     }
@@ -792,21 +929,33 @@ export async function POST(request: NextRequest) {
         `UPDATE credit_accounts
          SET wallet_balance = wallet_balance - ?
          WHERE id = ? AND business_id = ? AND wallet_balance + 0.00001 >= ?`,
-        [walletAmountApplied, walletSourceAccountId, auth.businessId, walletAmountApplied]
+        [
+          walletAmountApplied,
+          walletSourceAccountId,
+          auth.businessId,
+          walletAmountApplied,
+        ],
       );
       const walletDebitId = generateUUID();
       await execute(
         `INSERT INTO wallet_transactions (
           id, credit_account_id, sale_id, type, amount, notes, recorded_by, created_at
         ) VALUES (?, ?, ?, 'debit', ?, NULL, ?, ?)`,
-        [walletDebitId, walletSourceAccountId, saleId, walletAmountApplied, auth.userId, now]
+        [
+          walletDebitId,
+          walletSourceAccountId,
+          saleId,
+          walletAmountApplied,
+          auth.userId,
+          now,
+        ],
       );
     }
 
     if (!fromEdit && excessToWallet > EPS && overpayAccountId) {
       await execute(
         `UPDATE credit_accounts SET wallet_balance = wallet_balance + ? WHERE id = ? AND business_id = ?`,
-        [excessToWallet, overpayAccountId, auth.businessId]
+        [excessToWallet, overpayAccountId, auth.businessId],
       );
       const walletCreditId = generateUUID();
       await execute(
@@ -818,10 +967,10 @@ export async function POST(request: NextRequest) {
           overpayAccountId,
           saleId,
           excessToWallet,
-          'Cash overpayment (change to wallet)',
+          "Cash overpayment (change to wallet)",
           auth.userId,
           now,
-        ]
+        ],
       );
     }
 
@@ -843,7 +992,7 @@ export async function POST(request: NextRequest) {
 
     return jsonResponse({
       success: true,
-      message: 'Sale completed successfully',
+      message: "Sale completed successfully",
       data: {
         saleId,
         totalAmount,
@@ -852,21 +1001,22 @@ export async function POST(request: NextRequest) {
         excessCreditedToWallet: excessToWallet,
         loyaltyPointsAwarded,
         change:
-          paymentMethod === 'cash' && (cashReceivedNum > 0 || amountDue < EPS)
-            ? roundMoney(Math.max(0, cashReceivedNum - amountDue - excessToWallet))
+          paymentMethod === "cash" && (cashReceivedNum > 0 || amountDue < EPS)
+            ? roundMoney(
+                Math.max(0, cashReceivedNum - amountDue - excessToWallet),
+              )
             : 0,
       },
     });
   } catch (error) {
-    console.error('Sale creation error:', error);
+    console.error("Sale creation error:", error);
     return jsonResponse(
       {
         success: false,
-        message: 'Failed to create sale',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        message:
+          error instanceof Error ? error.message : "Failed to create sale",
       },
-      500
+      500,
     );
   }
 }
-

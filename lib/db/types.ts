@@ -10,7 +10,7 @@ import type {
   ShiftStatus,
   CreditTransactionType,
   CreditPaymentMethod,
-} from '@/lib/constants';
+} from "@/lib/constants";
 
 // ============================================
 // Database Table Types
@@ -192,7 +192,7 @@ export interface PurchaseBreakdown {
   confirmed_at: number;
 }
 
-export type BatchStatus = 'active' | 'depleted' | 'deactivated';
+export type BatchStatus = "active" | "depleted" | "deactivated";
 
 export interface InventoryBatch {
   id: string;
@@ -273,6 +273,10 @@ export interface CreditAccount {
   last_credit_by_name?: string | null;
   last_credit_by_role?: string | null;
   last_credit_by_user_id?: string | null;
+  /** Timestamp of the oldest debt that hasn't been fully paid yet */
+  oldest_unpaid_debt_at?: number | null;
+  /** 1 if a cashier-submitted payment is awaiting admin approval */
+  has_pending_payment?: number;
 }
 
 export interface CreditTransaction {
@@ -286,14 +290,20 @@ export interface CreditTransaction {
   recorded_by: string;
   created_at: number;
   /** Customer self-reported payment from public link; pending until admin approves */
-  public_claim_status?: 'pending' | 'rejected' | null;
+  public_claim_status?: "pending" | "rejected" | null;
   claim_reviewed_at?: number | null;
   claim_reviewed_by?: string | null;
   /** JSON array of line items copied at debt time; used when sale/items rows are gone */
   debt_line_items_json?: string | null;
+  /** Payment approval: NULL = applied/approved, 'pending' = awaiting admin approval, 'rejected' = declined */
+  payment_approval_status?: "pending" | "rejected" | "approved" | null;
+  /** Admin who approved/rejected the payment */
+  payment_approved_by?: string | null;
+  /** Timestamp when the payment was approved/rejected */
+  payment_approved_at?: number | null;
 }
 
-export type LoyaltyTransactionType = 'earn' | 'redeem' | 'adjust';
+export type LoyaltyTransactionType = "earn" | "redeem" | "adjust";
 
 export interface LoyaltyTransaction {
   id: string;
@@ -310,16 +320,16 @@ export interface WalletTransaction {
   id: string;
   credit_account_id: string;
   sale_id: string | null;
-  type: 'credit' | 'debit';
+  type: "credit" | "debit";
   amount: number;
   notes: string | null;
   recorded_by: string;
   created_at: number;
   /** Customer-reported top-up from public link; pending until admin approves */
-  public_claim_status?: 'pending' | 'rejected' | null;
+  public_claim_status?: "pending" | "rejected" | null;
   claim_reviewed_at?: number | null;
   claim_reviewed_by?: string | null;
-  payment_method?: 'cash' | 'mpesa' | null;
+  payment_method?: "cash" | "mpesa" | null;
   /** M-Pesa confirmation code or receipt reference from customer */
   customer_reference?: string | null;
 }
@@ -337,13 +347,13 @@ export interface StockAdjustment {
   created_at: number;
 }
 
-export type StockApprovalStatus = 'pending' | 'approved' | 'rejected';
+export type StockApprovalStatus = "pending" | "approved" | "rejected";
 
 export interface StockApprovalRequest {
   id: string;
   business_id: string;
   item_id: string;
-  adjustment_type: 'increase' | 'decrease';
+  adjustment_type: "increase" | "decrease";
   quantity: number;
   reason: AdjustmentReason;
   notes: string | null;
@@ -355,8 +365,8 @@ export interface StockApprovalRequest {
   created_at: number;
 }
 
-export type BalanceApprovalStatus = 'pending' | 'approved' | 'rejected';
-export type BalanceType = 'opening' | 'closing';
+export type BalanceApprovalStatus = "pending" | "approved" | "rejected";
+export type BalanceType = "opening" | "closing";
 
 export interface BalanceApprovalRequest {
   id: string;
@@ -387,7 +397,7 @@ export interface BalanceApprovalRequest {
   cash_expenses: number;
 }
 
-export type SupplierBillStatus = 'pending' | 'paid' | 'overdue' | 'cancelled';
+export type SupplierBillStatus = "pending" | "paid" | "overdue" | "cancelled";
 
 export interface SupplierBill {
   id: string;
@@ -410,8 +420,13 @@ export interface SupplierBill {
   created_at: number;
 }
 
-export type ExpenseCategory = 'fixed' | 'variable';
-export type ExpenseFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly' | 'one-time';
+export type ExpenseCategory = "fixed" | "variable";
+export type ExpenseFrequency =
+  | "daily"
+  | "weekly"
+  | "monthly"
+  | "yearly"
+  | "one-time";
 
 export interface Expense {
   id: string;
@@ -442,21 +457,24 @@ export interface PasswordResetToken {
 // ============================================
 
 // For inserting new records (omit auto-generated fields)
-export type InsertBusiness = Omit<Business, 'created_at'>;
-export type InsertDomain = Omit<Domain, 'created_at'>;
-export type InsertUser = Omit<User, 'created_at'>;
-export type InsertCategory = Omit<Category, 'created_at'>;
-export type InsertItem = Omit<Item, 'created_at'>;
-export type InsertSellingPrice = Omit<SellingPrice, 'created_at'>;
-export type InsertPurchase = Omit<Purchase, 'created_at'>;
-export type InsertPurchaseItem = Omit<PurchaseItem, 'created_at'>;
-export type InsertPurchaseBreakdown = Omit<PurchaseBreakdown, 'confirmed_at'>;
-export type InsertInventoryBatch = Omit<InventoryBatch, 'created_at' | 'received_at'>;
-export type InsertSale = Omit<Sale, 'created_at' | 'sale_date'>;
-export type InsertSaleItem = Omit<SaleItem, 'created_at'>;
-export type InsertShift = Omit<Shift, 'started_at'>;
-export type InsertCreditAccount = Omit<CreditAccount, 'created_at'>;
-export type InsertCreditTransaction = Omit<CreditTransaction, 'created_at'>;
-export type InsertStockAdjustment = Omit<StockAdjustment, 'created_at'>;
-export type InsertExpense = Omit<Expense, 'created_at'>;
-export type InsertPasswordResetToken = Omit<PasswordResetToken, 'created_at'>;
+export type InsertBusiness = Omit<Business, "created_at">;
+export type InsertDomain = Omit<Domain, "created_at">;
+export type InsertUser = Omit<User, "created_at">;
+export type InsertCategory = Omit<Category, "created_at">;
+export type InsertItem = Omit<Item, "created_at">;
+export type InsertSellingPrice = Omit<SellingPrice, "created_at">;
+export type InsertPurchase = Omit<Purchase, "created_at">;
+export type InsertPurchaseItem = Omit<PurchaseItem, "created_at">;
+export type InsertPurchaseBreakdown = Omit<PurchaseBreakdown, "confirmed_at">;
+export type InsertInventoryBatch = Omit<
+  InventoryBatch,
+  "created_at" | "received_at"
+>;
+export type InsertSale = Omit<Sale, "created_at" | "sale_date">;
+export type InsertSaleItem = Omit<SaleItem, "created_at">;
+export type InsertShift = Omit<Shift, "started_at">;
+export type InsertCreditAccount = Omit<CreditAccount, "created_at">;
+export type InsertCreditTransaction = Omit<CreditTransaction, "created_at">;
+export type InsertStockAdjustment = Omit<StockAdjustment, "created_at">;
+export type InsertExpense = Omit<Expense, "created_at">;
+export type InsertPasswordResetToken = Omit<PasswordResetToken, "created_at">;

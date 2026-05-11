@@ -1,16 +1,23 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Wallet, CheckCircle2 } from 'lucide-react';
-import type { CreditAccount } from '@/lib/db/types';
-import type { CreditPaymentMethod } from '@/lib/constants';
-import { apiPost } from '@/lib/utils/api-client';
-import { cn } from '@/lib/utils';
+import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2, Wallet, CheckCircle2 } from "lucide-react";
+import type { CreditAccount } from "@/lib/db/types";
+import type { CreditPaymentMethod } from "@/lib/constants";
+import { apiPost } from "@/lib/utils/api-client";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface PaymentFormProps {
   account: CreditAccount;
@@ -31,15 +38,16 @@ export function PaymentForm({
   paymentDrawerDense,
 }: PaymentFormProps) {
   const [amount, setAmount] = useState<string>(account.total_credit.toString());
-  const [paymentMethod, setPaymentMethod] = useState<CreditPaymentMethod>('cash');
-  const [notes, setNotes] = useState<string>('');
+  const [paymentMethod, setPaymentMethod] =
+    useState<CreditPaymentMethod>("cash");
+  const [notes, setNotes] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setAmount(account.total_credit.toString());
-    setPaymentMethod('cash');
-    setNotes('');
+    setPaymentMethod("cash");
+    setNotes("");
     setError(null);
   }, [account.id]);
 
@@ -51,14 +59,14 @@ export function PaymentForm({
   const remainingAfter = Math.max(0, owed - appliedToTab);
 
   const formatPrice = (price: number) =>
-    `KES ${price.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+    `KES ${price.toLocaleString("en-KE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     if (paymentAmount <= 0) {
-      setError('Payment amount must be greater than 0');
+      setError("Payment amount must be greater than 0");
       return;
     }
 
@@ -71,15 +79,21 @@ export function PaymentForm({
         notes: notes || null,
       });
 
-      if (result.success && onSuccess) {
-        onSuccess();
+      if (result.success) {
+        const data = result.data as Record<string, unknown> | undefined;
+        if (data?.status === "pending_approval") {
+          toast.success("Payment submitted — awaiting admin approval", {
+            description: "The admin will review and approve this payment before it reflects on the balance.",
+          });
+        }
+        if (onSuccess) { onSuccess(); }
       } else {
-        setError(result.message || 'Failed to record payment');
+        setError(result.message || "Failed to record payment");
         setIsSubmitting(false);
       }
     } catch (err) {
-      console.error('Payment error:', err);
-      setError('An error occurred. Please try again.');
+      console.error("Payment error:", err);
+      setError("An error occurred. Please try again.");
       setIsSubmitting(false);
     }
   };
@@ -105,10 +119,10 @@ export function PaymentForm({
         <span className="text-slate-400 dark:text-slate-500">·</span>
         <span
           className={cn(
-            'tabular-nums font-semibold',
+            "tabular-nums font-semibold",
             remainingAfter <= 0
-              ? 'text-emerald-600 dark:text-emerald-400'
-              : 'text-amber-600 dark:text-amber-400'
+              ? "text-emerald-600 dark:text-emerald-400"
+              : "text-amber-600 dark:text-amber-400",
           )}
         >
           Tab left {formatPrice(remainingAfter)}
@@ -129,7 +143,9 @@ export function PaymentForm({
           <Card className="border-slate-200 dark:border-slate-800 overflow-hidden rounded-lg mb-2">
             <CardContent className="p-0">
               <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/50">
-                <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Outstanding</span>
+                <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                  Outstanding
+                </span>
                 <span className="text-lg font-bold text-amber-600 dark:text-amber-400 tabular-nums">
                   {formatPrice(account.total_credit)}
                 </span>
@@ -163,7 +179,9 @@ export function PaymentForm({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setAmount((account.total_credit * 0.5).toString())}
+                    onClick={() =>
+                      setAmount((account.total_credit * 0.5).toString())
+                    }
                     className="h-9 shrink-0 px-2 text-[10px] font-semibold border-slate-200 dark:border-slate-600"
                   >
                     ½
@@ -188,7 +206,9 @@ export function PaymentForm({
                 </Label>
                 <Select
                   value={paymentMethod}
-                  onValueChange={(value) => setPaymentMethod(value as CreditPaymentMethod)}
+                  onValueChange={(value) =>
+                    setPaymentMethod(value as CreditPaymentMethod)
+                  }
                 >
                   <SelectTrigger
                     id="method"
@@ -227,7 +247,7 @@ export function PaymentForm({
                   Recording…
                 </>
               ) : (
-                'Record payment'
+                "Record payment"
               )}
             </Button>
           </form>
@@ -237,7 +257,7 @@ export function PaymentForm({
   }
 
   return (
-    <div className={drawerFooter ? 'space-y-3' : 'space-y-6'}>
+    <div className={drawerFooter ? "space-y-3" : "space-y-6"}>
       {!compact && (
         <Card className="border-slate-200 dark:border-slate-800 overflow-hidden rounded-lg">
           <CardContent className="p-0">
@@ -256,20 +276,21 @@ export function PaymentForm({
       {/* Record payment form — solid colors for IE/old browser support */}
       <Card
         className={cn(
-          'border-slate-200 dark:border-slate-700 overflow-hidden rounded-lg bg-white dark:bg-slate-900',
-          drawerFooter && 'shadow-none border-slate-200/90 dark:border-slate-700/90'
+          "border-slate-200 dark:border-slate-700 overflow-hidden rounded-lg bg-white dark:bg-slate-900",
+          drawerFooter &&
+            "shadow-none border-slate-200/90 dark:border-slate-700/90",
         )}
       >
         <div
           className={cn(
-            'flex items-center bg-emerald-50 dark:bg-emerald-900 border-b border-slate-200 dark:border-slate-700',
-            drawerFooter ? 'px-4 py-3' : 'px-5 py-4'
+            "flex items-center bg-emerald-50 dark:bg-emerald-900 border-b border-slate-200 dark:border-slate-700",
+            drawerFooter ? "px-4 py-3" : "px-5 py-4",
           )}
         >
           <div
             className={cn(
-              'flex items-center justify-center rounded-lg bg-emerald-200 dark:bg-emerald-800',
-              drawerFooter ? 'h-8 w-8' : 'h-9 w-9'
+              "flex items-center justify-center rounded-lg bg-emerald-200 dark:bg-emerald-800",
+              drawerFooter ? "h-8 w-8" : "h-9 w-9",
             )}
           >
             <Wallet className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
@@ -278,10 +299,16 @@ export function PaymentForm({
             Record payment
           </h3>
         </div>
-        <CardContent className={drawerFooter ? 'p-4 pt-3' : 'p-5'}>
-          <form onSubmit={handleSubmit} className={drawerFooter ? 'space-y-3.5' : 'space-y-5'}>
+        <CardContent className={drawerFooter ? "p-4 pt-3" : "p-5"}>
+          <form
+            onSubmit={handleSubmit}
+            className={drawerFooter ? "space-y-3.5" : "space-y-5"}
+          >
             <div className="space-y-2">
-              <Label htmlFor="amount" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              <Label
+                htmlFor="amount"
+                className="text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
                 Amount (KES) *
               </Label>
               <Input
@@ -294,19 +321,22 @@ export function PaymentForm({
                 placeholder={account.total_credit.toString()}
                 required
                 className={cn(
-                  'text-base font-semibold border-slate-200 dark:border-slate-700',
-                  drawerFooter ? 'h-11' : 'h-12'
+                  "text-base font-semibold border-slate-200 dark:border-slate-700",
+                  drawerFooter ? "h-11" : "h-12",
                 )}
               />
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                You can pay more than the balance; the extra is credited to this customer&apos;s store wallet.
+                You can pay more than the balance; the extra is credited to this
+                customer&apos;s store wallet.
               </p>
               <div className="flex gap-2 pt-1">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setAmount((account.total_credit * 0.5).toString())}
+                  onClick={() =>
+                    setAmount((account.total_credit * 0.5).toString())
+                  }
                   className="text-xs rounded-lg border-slate-200 dark:border-slate-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 hover:border-emerald-200"
                 >
                   50%
@@ -324,17 +354,22 @@ export function PaymentForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="method" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              <Label
+                htmlFor="method"
+                className="text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
                 Payment method
               </Label>
               <Select
                 value={paymentMethod}
-                onValueChange={(value) => setPaymentMethod(value as CreditPaymentMethod)}
+                onValueChange={(value) =>
+                  setPaymentMethod(value as CreditPaymentMethod)
+                }
               >
                 <SelectTrigger
                   className={cn(
-                    'rounded-lg border-slate-200 dark:border-slate-700',
-                    drawerFooter ? 'h-10' : 'h-12'
+                    "rounded-lg border-slate-200 dark:border-slate-700",
+                    drawerFooter ? "h-10" : "h-12",
                   )}
                 >
                   <SelectValue />
@@ -347,7 +382,10 @@ export function PaymentForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="notes" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              <Label
+                htmlFor="notes"
+                className="text-sm font-medium text-slate-700 dark:text-slate-300"
+              >
                 Notes (optional)
               </Label>
               <Input
@@ -362,31 +400,43 @@ export function PaymentForm({
             {paymentAmount > 0 && (
               <div
                 className={cn(
-                  'rounded-lg border-2',
-                  drawerFooter ? 'p-3 space-y-2' : 'p-4 space-y-2.5',
+                  "rounded-lg border-2",
+                  drawerFooter ? "p-3 space-y-2" : "p-4 space-y-2.5",
                   isFullPayment
-                    ? 'bg-emerald-50 dark:bg-emerald-900 border-emerald-200 dark:border-emerald-800'
-                    : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                    ? "bg-emerald-50 dark:bg-emerald-900 border-emerald-200 dark:border-emerald-800"
+                    : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700",
                 )}
               >
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600 dark:text-slate-400">Current tab balance</span>
+                  <span className="text-slate-600 dark:text-slate-400">
+                    Current tab balance
+                  </span>
                   <span className="font-medium">{formatPrice(owed)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-slate-600 dark:text-slate-400">This payment</span>
-                  <span className="font-medium">{formatPrice(paymentAmount)}</span>
+                  <span className="text-slate-600 dark:text-slate-400">
+                    This payment
+                  </span>
+                  <span className="font-medium">
+                    {formatPrice(paymentAmount)}
+                  </span>
                 </div>
                 {appliedToTab > 0.009 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-slate-600 dark:text-slate-400">Applied to tab</span>
-                    <span className="font-medium tabular-nums">{formatPrice(appliedToTab)}</span>
+                    <span className="text-slate-600 dark:text-slate-400">
+                      Applied to tab
+                    </span>
+                    <span className="font-medium tabular-nums">
+                      {formatPrice(appliedToTab)}
+                    </span>
                   </div>
                 )}
                 {toWallet > 0.009 && (
                   <div className="flex justify-between text-sm text-violet-700 dark:text-violet-300">
                     <span>Credited to wallet</span>
-                    <span className="font-semibold tabular-nums">+{formatPrice(toWallet)}</span>
+                    <span className="font-semibold tabular-nums">
+                      +{formatPrice(toWallet)}
+                    </span>
                   </div>
                 )}
                 <div className="h-px bg-slate-200 dark:bg-slate-700" />
@@ -396,10 +446,10 @@ export function PaymentForm({
                   </span>
                   <span
                     className={cn(
-                      'text-lg font-bold',
+                      "text-lg font-bold",
                       remainingAfter <= 0
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-amber-600 dark:text-amber-400'
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-amber-600 dark:text-amber-400",
                     )}
                   >
                     {formatPrice(remainingAfter)}
@@ -407,7 +457,8 @@ export function PaymentForm({
                 </div>
                 {owed < 0.01 && paymentAmount > 0 && (
                   <p className="text-sm text-violet-700 dark:text-violet-300 pt-1">
-                    No tab balance — the full amount will be added to their store wallet.
+                    No tab balance — the full amount will be added to their
+                    store wallet.
                   </p>
                 )}
                 {isFullPayment && (
@@ -430,8 +481,8 @@ export function PaymentForm({
               size="lg"
               disabled={isSubmitting || paymentAmount <= 0}
               className={cn(
-                'w-full rounded-lg font-semibold bg-emerald-600 hover:bg-emerald-700 text-white',
-                drawerFooter ? 'h-11 shrink-0' : 'h-12'
+                "w-full rounded-lg font-semibold bg-emerald-600 hover:bg-emerald-700 text-white",
+                drawerFooter ? "h-11 shrink-0" : "h-12",
               )}
             >
               {isSubmitting ? (
@@ -440,7 +491,7 @@ export function PaymentForm({
                   Recording…
                 </>
               ) : (
-                'Record payment'
+                "Record payment"
               )}
             </Button>
           </form>
