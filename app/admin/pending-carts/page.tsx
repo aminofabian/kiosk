@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronRight,
   Cloud,
+  Check,
   Loader2,
   RefreshCw,
   ShoppingCart,
@@ -42,6 +43,8 @@ export default function PendingCartsPage() {
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [discardingId, setDiscardingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDiscarding, setBulkDiscarding] = useState(false);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -50,6 +53,16 @@ export default function PendingCartsPage() {
     try {
       const data = await fetchPendingSales({ includeDiscarded: true });
       setSales(data);
+      setSelectedIds((prev) => {
+        const openIds = new Set(
+          data.filter((s) => s.status === "pending").map((s) => s.id),
+        );
+        const next = new Set<string>();
+        for (const id of prev) {
+          if (openIds.has(id)) next.add(id);
+        }
+        return next;
+      });
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Failed to load pending carts";
@@ -76,6 +89,7 @@ export default function PendingCartsPage() {
     ).length;
     const cashierIds = new Set(sales.map((s) => s.user_id));
     return {
+      open,
       count: open.length,
       discardedCount: discarded.length,
       totalValue,
@@ -83,6 +97,53 @@ export default function PendingCartsPage() {
       cashierCount: cashierIds.size,
     };
   }, [sales]);
+
+  const selectedOpenCount = useMemo(
+    () => summary.open.filter((s) => selectedIds.has(s.id)).length,
+    [summary.open, selectedIds],
+  );
+
+  const allOpenSelected =
+    summary.open.length > 0 && selectedOpenCount === summary.open.length;
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllOpen = () => {
+    if (allOpenSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(summary.open.map((s) => s.id)));
+    }
+  };
+
+  const markDiscardedLocally = (ids: string[]) => {
+    const idSet = new Set(ids);
+    const now = Math.floor(Date.now() / 1000);
+    setSales((prev) =>
+      prev.map((s) =>
+        idSet.has(s.id)
+          ? {
+              ...s,
+              status: "discarded" as const,
+              discarded_by_name: user?.name ?? null,
+              updated_at: now,
+            }
+          : s,
+      ),
+    );
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) next.delete(id);
+      return next;
+    });
+  };
 
   const handleDiscard = async (sale: PendingSale) => {
     if (
@@ -98,18 +159,7 @@ export default function PendingCartsPage() {
     setDiscardingId(sale.id);
     try {
       await abandonPendingSale(sale.id);
-      setSales((prev) =>
-        prev.map((s) =>
-          s.id === sale.id
-            ? {
-                ...s,
-                status: "discarded" as const,
-                discarded_by_name: user?.name ?? null,
-                updated_at: Math.floor(Date.now() / 1000),
-              }
-            : s,
-        ),
-      );
+      markDiscardedLocally([sale.id]);
       toast.success("Cart marked as discarded");
     } catch (err) {
       toast.error(
@@ -117,6 +167,49 @@ export default function PendingCartsPage() {
       );
     } finally {
       setDiscardingId(null);
+    }
+  };
+
+  const handleBulkDiscard = async () => {
+    const toDiscard = summary.open.filter((s) => selectedIds.has(s.id));
+    if (toDiscard.length === 0) return;
+
+    const totalValue = toDiscard.reduce((sum, s) => sum + s.total_amount, 0);
+    if (
+      !window.confirm(
+        `Discard ${toDiscard.length} open cart${toDiscard.length !== 1 ? "s" : ""}?\n\nTotal value: ${formatPrice(totalValue)}`,
+      )
+    ) {
+      return;
+    }
+
+    setBulkDiscarding(true);
+    try {
+      const results = await Promise.allSettled(
+        toDiscard.map((s) => abandonPendingSale(s.id)),
+      );
+      const succeeded = toDiscard.filter(
+        (_, i) => results[i].status === "fulfilled",
+      );
+      const failed = results.length - succeeded.length;
+
+      if (succeeded.length > 0) {
+        markDiscardedLocally(succeeded.map((s) => s.id));
+      }
+
+      if (failed === 0) {
+        toast.success(
+          `Discarded ${succeeded.length} cart${succeeded.length !== 1 ? "s" : ""}`,
+        );
+      } else if (succeeded.length > 0) {
+        toast.warning(
+          `Discarded ${succeeded.length}; ${failed} failed. Refresh and retry.`,
+        );
+      } else {
+        toast.error("Failed to discard selected carts");
+      }
+    } finally {
+      setBulkDiscarding(false);
     }
   };
 
@@ -213,6 +306,64 @@ export default function PendingCartsPage() {
         )}
 
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+          {!loading && !error && summary.count > 0 && (
+            <div className="flex flex-wrap items-center gap-2 px-4 py-3 sm:px-5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/50">
+              <button
+                type="button"
+                onClick={toggleSelectAllOpen}
+                className="inline-flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:text-[#1c6a1e] dark:hover:text-[#3cb043]"
+              >
+                <span
+                  className={`flex h-5 w-5 items-center justify-center rounded border-2 transition-colors ${
+                    allOpenSelected
+                      ? "border-[#1c6a1e] bg-[#1c6a1e]/10"
+                      : selectedOpenCount > 0
+                        ? "border-[#1c6a1e]/60"
+                        : "border-slate-300 dark:border-slate-600"
+                  }`}
+                >
+                  {allOpenSelected ? (
+                    <Check className="h-3 w-3 text-[#1c6a1e]" />
+                  ) : selectedOpenCount > 0 ? (
+                    <span className="h-2 w-2 rounded-sm bg-[#1c6a1e]" />
+                  ) : null}
+                </span>
+                {allOpenSelected ? "Deselect all" : "Select all open"}
+              </button>
+              {selectedOpenCount > 0 && (
+                <>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    {selectedOpenCount} selected
+                  </span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    className="h-8 text-xs"
+                    disabled={bulkDiscarding}
+                    onClick={() => void handleBulkDiscard()}
+                  >
+                    {bulkDiscarding ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    )}
+                    Bulk discard
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 text-xs text-slate-500"
+                    disabled={bulkDiscarding}
+                    onClick={() => setSelectedIds(new Set())}
+                  >
+                    Clear
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-16 text-slate-500">
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -253,9 +404,36 @@ export default function PendingCartsPage() {
                 return (
                   <div
                     key={sale.id}
-                    className={`bg-white dark:bg-slate-900 ${isDiscarded ? "opacity-75" : ""}`}
+                    className={`bg-white dark:bg-slate-900 ${isDiscarded ? "opacity-75" : ""} ${
+                      selectedIds.has(sale.id)
+                        ? "bg-amber-50/50 dark:bg-amber-950/10"
+                        : ""
+                    }`}
                   >
                     <div className="flex items-start gap-3 px-4 py-3 sm:px-5">
+                      {!isDiscarded ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleSelect(sale.id)}
+                          disabled={bulkDiscarding}
+                          className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors hover:border-[#1c6a1e] disabled:opacity-50 ${
+                            selectedIds.has(sale.id)
+                              ? "border-[#1c6a1e] bg-[#1c6a1e]/10"
+                              : "border-slate-300 dark:border-slate-600"
+                          }`}
+                          aria-label={
+                            selectedIds.has(sale.id)
+                              ? "Deselect cart"
+                              : "Select cart"
+                          }
+                        >
+                          {selectedIds.has(sale.id) ? (
+                            <Check className="h-3 w-3 text-[#1c6a1e]" />
+                          ) : null}
+                        </button>
+                      ) : (
+                        <div className="mt-1 w-5 shrink-0" />
+                      )}
                       <button
                         type="button"
                         onClick={() => setExpandedId(expanded ? null : sale.id)}
@@ -357,7 +535,7 @@ export default function PendingCartsPage() {
                               size="sm"
                               variant="ghost"
                               className="h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
-                              disabled={busy}
+                              disabled={busy || bulkDiscarding}
                               onClick={() => void handleDiscard(sale)}
                             >
                               {busy ? (
