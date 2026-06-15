@@ -1,13 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import {
   salePaymentAmountSql,
+  salePaidAmountSql,
   salesByPaymentMethodQuery,
 } from '@/lib/utils/sales-payment-allocation';
 
 describe('sales-payment-allocation', () => {
-  it('allocates remainder to the primary payment method', () => {
-    expect(salePaymentAmountSql('cash')).toContain("s.payment_method = 'cash'");
-    expect(salePaymentAmountSql('wallet')).toContain("payment_method = 'wallet'");
+  it('combines cash, mpesa, and wallet for paid amount', () => {
+    const paid = salePaidAmountSql();
+    expect(paid).toContain("'cash'");
+    expect(paid).toContain("'mpesa'");
+    expect(paid).toContain("'wallet'");
   });
 
   it('builds sale-level payment query without item type', () => {

@@ -2,6 +2,12 @@ import { NextRequest } from 'next/server';
 import { query, queryOne } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import {
+  salePaidAmountSql,
+  saleCreditAmountSql,
+  saleLinePaidShareSql,
+  saleLineCreditShareSql,
+} from '@/lib/utils/sales-payment-allocation';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -91,53 +97,52 @@ export async function GET(request: NextRequest) {
       unique_items_sold: 0,
     };
 
-    // Revenue breakdown: paid (cash/mpesa) vs credit - both from sale_items so Paid + Credit = Total
-    const revenueBreakdown = await queryOne<{
-      paid_revenue: number;
-      credit_revenue: number;
-    }>(
-      `WITH sales_in_range AS (
-        SELECT id, payment_method, total_amount
-        FROM sales
-        WHERE business_id = ? AND status = 'completed'
-          AND sale_date >= ? AND sale_date <= ?
-      )
-      SELECT 
-        COALESCE(SUM(
-          si.quantity_sold * si.sell_price_per_unit * 
-          CASE 
-            WHEN s.payment_method IN ('cash', 'mpesa') THEN 1.0
-            WHEN s.payment_method = 'credit' THEN 0.0
-            WHEN s.payment_method = 'split' THEN 
-              COALESCE((
-                SELECT SUM(sp.amount) FROM sale_payments sp 
-                WHERE sp.sale_id = s.id AND sp.payment_method IN ('cash', 'mpesa')
-              ), 0) / NULLIF(s.total_amount, 0)
-            ELSE 0.0
-          END
-        ), 0) as paid_revenue,
-        COALESCE(SUM(
-          si.quantity_sold * si.sell_price_per_unit * 
-          CASE 
-            WHEN s.payment_method IN ('cash', 'mpesa') THEN 0.0
-            WHEN s.payment_method = 'credit' THEN 1.0
-            WHEN s.payment_method = 'split' THEN 
-              COALESCE((
-                SELECT SUM(sp.amount) FROM sale_payments sp 
-                WHERE sp.sale_id = s.id AND sp.payment_method = 'credit'
-              ), 0) / NULLIF(s.total_amount, 0)
-            ELSE 0.0
-          END
-        ), 0) as credit_revenue
-       FROM sale_items si
-       JOIN sales_in_range s ON si.sale_id = s.id
-       WHERE 1=1
-         ${itemTypeFilter}`,
-      [auth.businessId, startTimestamp, endTimestamp, ...itemTypeParams]
-    );
+    // Revenue + paid/credit breakdown from sale totals (matches transactions & sales overview).
+    let totalSales: number;
+    let paidRevenue: number;
+    let creditRevenue: number;
 
-    const paidRevenue = revenueBreakdown?.paid_revenue ?? 0;
-    const creditRevenue = revenueBreakdown?.credit_revenue ?? 0;
+    if (!itemType) {
+      const amounts = await queryOne<{
+        total_sales: number;
+        paid_revenue: number;
+        credit_revenue: number;
+      }>(
+        `SELECT 
+          COALESCE(SUM(s.total_amount), 0) as total_sales,
+          COALESCE(SUM(${salePaidAmountSql()}), 0) as paid_revenue,
+          COALESCE(SUM(${saleCreditAmountSql()}), 0) as credit_revenue
+         FROM sales s
+         WHERE s.business_id = ? AND s.status = 'completed'
+           AND s.sale_date >= ? AND s.sale_date <= ?`,
+        [auth.businessId, startTimestamp, endTimestamp]
+      );
+      totalSales = amounts?.total_sales ?? 0;
+      paidRevenue = amounts?.paid_revenue ?? 0;
+      creditRevenue = amounts?.credit_revenue ?? 0;
+    } else {
+      totalSales = summaryData.total_sales;
+      const revenueBreakdown = await queryOne<{
+        paid_revenue: number;
+        credit_revenue: number;
+      }>(
+        `SELECT 
+          COALESCE(SUM(
+            si.quantity_sold * si.sell_price_per_unit * (${saleLinePaidShareSql()})
+          ), 0) as paid_revenue,
+          COALESCE(SUM(
+            si.quantity_sold * si.sell_price_per_unit * (${saleLineCreditShareSql()})
+          ), 0) as credit_revenue
+         FROM sale_items si
+         JOIN sales s ON si.sale_id = s.id
+         WHERE s.business_id = ? AND s.status = 'completed'
+           AND s.sale_date >= ? AND s.sale_date <= ?
+           ${itemTypeFilter}`,
+        [auth.businessId, startTimestamp, endTimestamp, ...itemTypeParams]
+      );
+      paidRevenue = revenueBreakdown?.paid_revenue ?? 0;
+      creditRevenue = revenueBreakdown?.credit_revenue ?? 0;
+    }
 
     // Total outstanding credit (current balance customers owe) - separate metric, not part of revenue
     const totalOutstandingCredit = !itemType
@@ -456,14 +461,14 @@ export async function GET(request: NextRequest) {
 
     // Gross margin = gross profit / sales (before any stock loss deduction)
     const grossMargin =
-      summaryData.total_sales > 0
-        ? summaryData.total_profit / summaryData.total_sales
+      totalSales > 0
+        ? summaryData.total_profit / totalSales
         : 0;
 
     // Adjusted margin = (gross profit - stock losses) / sales
     const profitMargin =
-      summaryData.total_sales > 0
-        ? adjustedProfit / summaryData.total_sales
+      totalSales > 0
+        ? adjustedProfit / totalSales
         : 0;
 
     const totalCustomers = uniqueCustomers?.count || 0;
@@ -472,7 +477,7 @@ export async function GET(request: NextRequest) {
     const repeatCustomersCount = repeatCustomers?.count || 0;
     const newCustomersCount = newCustomers?.count || 0;
     const averageSalePerCustomer = totalCustomers > 0 
-      ? summaryData.total_sales / totalCustomers 
+      ? totalSales / totalCustomers 
       : 0;
 
     return jsonResponse({
@@ -481,7 +486,7 @@ export async function GET(request: NextRequest) {
         totalProfit: adjustedProfit,
         grossProfit: summaryData.total_profit,
         grossMargin,
-        totalSales: summaryData.total_sales,
+        totalSales,
         paidRevenue,
         creditRevenue,
         totalOutstandingCredit,

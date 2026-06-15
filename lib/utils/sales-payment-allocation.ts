@@ -38,6 +38,23 @@ export function salePaymentAmountSql(method: 'cash' | 'mpesa' | 'credit' | 'wall
   END + ${primaryBump}`;
 }
 
+/** Cash + M-Pesa + wallet collected on a sale (not credit). */
+export function salePaidAmountSql(): string {
+  return `(${salePaymentAmountSql('cash')} + ${salePaymentAmountSql('mpesa')} + ${salePaymentAmountSql('wallet')})`;
+}
+
+export function saleCreditAmountSql(): string {
+  return salePaymentAmountSql('credit');
+}
+
+export function saleLinePaidShareSql(): string {
+  return `(${salePaidAmountSql()}) / NULLIF(s.total_amount, 0)`;
+}
+
+export function saleLineCreditShareSql(): string {
+  return `(${saleCreditAmountSql()}) / NULLIF(s.total_amount, 0)`;
+}
+
 /** Line-item share for department-filtered views. */
 export function saleLinePaymentShareSql(method: 'cash' | 'mpesa' | 'credit' | 'wallet'): string {
   const amount = salePaymentAmountSql(method);
