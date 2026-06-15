@@ -26,19 +26,43 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const months = parseInt(searchParams.get('months') || '12');
     const itemType = searchParams.get('itemType');
-    // Get timezone offset in minutes from client (e.g., -180 for UTC+3)
+    // Timezone offset in minutes from client (e.g., -180 for UTC+3)
     const tzOffset = parseInt(searchParams.get('tz') || '0');
-    // Convert to seconds for SQL calculation
     const tzOffsetSeconds = tzOffset * 60;
-    
-    // Calculate date range (last N months)
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setMonth(startDate.getMonth() - months);
-    startDate.setDate(1); // Start from first day of that month
-    
-    const startTimestamp = Math.floor(startDate.getTime() / 1000);
-    const endTimestamp = Math.floor(endDate.getTime() / 1000);
+
+    // Prefer client-provided bounds (user's local timezone)
+    const startRaw = searchParams.get('start');
+    const endRaw = searchParams.get('end');
+    const clientStart = startRaw ? parseInt(startRaw, 10) : null;
+    const clientEnd = endRaw ? parseInt(endRaw, 10) : null;
+
+    let startTimestamp: number;
+    let endTimestamp: number;
+    let rangeStartLabel: string;
+    let rangeEndLabel: string;
+
+    if (
+      clientStart !== null &&
+      clientEnd !== null &&
+      Number.isInteger(clientStart) &&
+      Number.isInteger(clientEnd) &&
+      clientStart >= 0 &&
+      clientEnd >= clientStart
+    ) {
+      startTimestamp = clientStart;
+      endTimestamp = clientEnd;
+      rangeStartLabel = searchParams.get('startDate') || '';
+      rangeEndLabel = searchParams.get('endDate') || '';
+    } else {
+      const endDate = new Date();
+      const startDate = new Date();
+      startDate.setMonth(startDate.getMonth() - months);
+      startDate.setDate(1);
+      startTimestamp = Math.floor(startDate.getTime() / 1000);
+      endTimestamp = Math.floor(endDate.getTime() / 1000);
+      rangeStartLabel = startDate.toISOString().split('T')[0];
+      rangeEndLabel = endDate.toISOString().split('T')[0];
+    }
 
     // Build itemType filter
     const itemTypeFilter = itemType ? ` AND COALESCE(si.item_type_snapshot, 'retail') = ?` : '';
@@ -255,8 +279,8 @@ export async function GET(request: NextRequest) {
           neutralDays: totalDaysWithActivity - profitableDays - lossDays,
         },
         dateRange: {
-          start: startDate.toISOString().split('T')[0],
-          end: endDate.toISOString().split('T')[0],
+          start: rangeStartLabel,
+          end: rangeEndLabel,
         },
       },
     });

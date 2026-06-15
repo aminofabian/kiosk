@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { Loader2, TrendingUp, TrendingDown, Minus, Calendar } from 'lucide-react';
+import { getProfitCalendarRange } from '@/lib/utils/local-date-range';
 
 interface DailyProfit {
   date: string;
@@ -68,8 +69,17 @@ export function ProfitCalendar({ compact = false, itemType }: ProfitCalendarProp
       setLoading(true);
       const months = compact ? 6 : 12;
       const tzOffset = new Date().getTimezoneOffset();
-      const itemTypeParam = itemType ? `&itemType=${itemType}` : '';
-      const res = await fetch(`/api/profit/daily?months=${months}&tz=${tzOffset}${itemTypeParam}`);
+      const { start, end, startDate, endDate } = getProfitCalendarRange(months);
+      const params = new URLSearchParams({
+        months: String(months),
+        tz: String(tzOffset),
+        start: String(start),
+        end: String(end),
+        startDate,
+        endDate,
+      });
+      if (itemType) params.set('itemType', itemType);
+      const res = await fetch(`/api/profit/daily?${params.toString()}`);
       const result = await res.json();
       if (result.success) setData(result.data);
     } catch (err) {

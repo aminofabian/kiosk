@@ -76,12 +76,14 @@ const PAYMENT_METHOD_ICONS: Record<string, typeof Wallet> = {
   cash: Wallet,
   mpesa: Smartphone,
   credit: CreditCard,
+  wallet: Wallet,
 };
 
 const PAYMENT_METHOD_LABELS: Record<string, string> = {
   cash: 'Cash',
   mpesa: 'M-Pesa',
   credit: 'Credit',
+  wallet: 'Wallet',
 };
 
 const formatPrice = (price: number) =>

@@ -29,6 +29,10 @@ import {
 import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { ProfitCalendar } from '@/components/admin/ProfitCalendar';
 import { LatestSalesCard } from '@/components/admin/LatestSalesCard';
+import {
+  getLocalTodayDateString,
+  localDateStringsToTimestamps,
+} from '@/lib/utils/local-date-range';
 import { apiPut, apiGet } from '@/lib/utils/api-client';
 import { toast } from 'sonner';
 import { Edit2, Check, X } from 'lucide-react';
@@ -88,9 +92,7 @@ export default function ProfitByTypePage() {
   const [error, setError] = useState<string | null>(null);
   const [datePreset, setDatePreset] = useState<DatePreset>('today');
   const [dateRange, setDateRange] = useState(() => {
-    const now = new Date();
-    const y = now.getFullYear(), m = String(now.getMonth() + 1).padStart(2, '0'), d = String(now.getDate()).padStart(2, '0');
-    const today = `${y}-${m}-${d}`;
+    const today = getLocalTodayDateString();
     return { start: today, end: today };
   });
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -114,7 +116,8 @@ export default function ProfitByTypePage() {
     const start = new Date(todayStart);
     if (preset === 'week') start.setDate(start.getDate() - 6);
     else if (preset === 'month') start.setDate(1);
-    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     setDateRange({ start: fmt(start), end: fmt(todayStart) });
   }
 
@@ -122,10 +125,7 @@ export default function ProfitByTypePage() {
     if (!type) return;
     try {
       setLoading(true); setError(null);
-      const [sY, sM, sD] = dateRange.start.split('-').map(Number);
-      const [eY, eM, eD] = dateRange.end.split('-').map(Number);
-      const startTs = Math.floor(new Date(sY, sM - 1, sD, 0, 0, 0).getTime() / 1000);
-      const endTs = Math.floor(new Date(eY, eM - 1, eD, 23, 59, 59).getTime() / 1000);
+      const { start: startTs, end: endTs } = localDateStringsToTimestamps(dateRange.start, dateRange.end);
       const res = await fetch(`/api/profit?start=${startTs}&end=${endTs}&itemType=${encodeURIComponent(type)}`);
       const result = await res.json();
       if (result.success) setProfitData(result.data);
@@ -295,10 +295,7 @@ export default function ProfitByTypePage() {
           <div className="grid lg:grid-cols-3 gap-4">
             {/* Latest Sales */}
             {(() => {
-              const [sY, sM, sD] = dateRange.start.split('-').map(Number);
-              const [eY, eM, eD] = dateRange.end.split('-').map(Number);
-              const startTs = Math.floor(new Date(sY, sM - 1, sD, 0, 0, 0).getTime() / 1000);
-              const endTs = Math.floor(new Date(eY, eM - 1, eD, 23, 59, 59).getTime() / 1000);
+              const { start: startTs, end: endTs } = localDateStringsToTimestamps(dateRange.start, dateRange.end);
               return (
                 <LatestSalesCard startTs={startTs} endTs={endTs} itemType={type} accentColor="green" />
               );

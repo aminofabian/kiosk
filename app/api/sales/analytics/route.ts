@@ -3,6 +3,7 @@ import { query } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 import { getSalesPeriodRange } from '@/lib/utils/sales-period';
+import { salesByPaymentMethodQuery } from '@/lib/utils/sales-payment-allocation';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -76,9 +77,6 @@ export async function GET(request: NextRequest) {
     const dateFilter = endDate != null
       ? 's.sale_date >= ? AND s.sale_date < ?'
       : 's.sale_date >= ?';
-    const dateFilterSales = endDate != null
-      ? 'sale_date >= ? AND sale_date < ?'
-      : 'sale_date >= ?';
     const dateFilterCreated = endDate != null
       ? 'ct.created_at >= ? AND ct.created_at < ?'
       : 'ct.created_at >= ?';
@@ -199,49 +197,17 @@ export async function GET(request: NextRequest) {
       outOfStockCount,
     };
 
-    // Get sales by payment method (filtered by itemType when provided)
-    // For non-itemType: break split payments into cash and mpesa (and credit) - no separate "split" row
+    // Payment breakdown uses the same line-item revenue as total revenue, allocated by payment method.
+    const paymentQuery = salesByPaymentMethodQuery(dateFilter, itemType);
+    const paymentParams = itemType
+      ? [auth.businessId, ...dateParams, itemType, auth.businessId, ...dateParams, itemType, auth.businessId, ...dateParams, itemType, auth.businessId, ...dateParams, itemType]
+      : [auth.businessId, ...dateParams, auth.businessId, ...dateParams, auth.businessId, ...dateParams, auth.businessId, ...dateParams];
+
     const salesByPaymentMethod = await query<{
       payment_method: string;
       count: number;
       total: number;
-    }>(
-      itemType
-        ? `SELECT 
-            s.payment_method,
-            COUNT(DISTINCT s.id) as count,
-            COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total
-          FROM sales s
-          JOIN sale_items si ON s.id = si.sale_id
-          WHERE s.business_id = ? AND s.status = 'completed' AND ${dateFilter}
-            AND COALESCE(si.item_type_snapshot, 'retail') = ?
-          GROUP BY s.payment_method
-          ORDER BY total DESC`
-        : `SELECT 
-            method as payment_method,
-            SUM(cnt) as count,
-            SUM(tot) as total
-          FROM (
-            SELECT 'cash' as method, COUNT(*) as cnt, COALESCE(SUM(total_amount), 0) as tot
-            FROM sales WHERE business_id = ? AND status = 'completed' AND ${dateFilterSales} AND payment_method = 'cash'
-            UNION ALL
-            SELECT 'mpesa', COUNT(*), COALESCE(SUM(total_amount), 0)
-            FROM sales WHERE business_id = ? AND status = 'completed' AND ${dateFilterSales} AND payment_method = 'mpesa'
-            UNION ALL
-            SELECT 'credit', COUNT(*), COALESCE(SUM(total_amount), 0)
-            FROM sales WHERE business_id = ? AND status = 'completed' AND ${dateFilterSales} AND payment_method = 'credit'
-            UNION ALL
-            SELECT sp.payment_method, COUNT(DISTINCT s.id), COALESCE(SUM(sp.amount), 0)
-            FROM sales s
-            JOIN sale_payments sp ON s.id = sp.sale_id
-            WHERE s.business_id = ? AND s.status = 'completed' AND ${dateFilter} AND s.payment_method = 'split'
-            GROUP BY sp.payment_method
-          ) sub
-          GROUP BY method
-          HAVING total > 0
-          ORDER BY total DESC`,
-      itemType ? [auth.businessId, ...dateParams, itemType] : [auth.businessId, ...dateParams, auth.businessId, ...dateParams, auth.businessId, ...dateParams, auth.businessId, ...dateParams]
-    );
+    }>(paymentQuery, paymentParams);
 
     // Get top sellers
     const topSellers = itemSales

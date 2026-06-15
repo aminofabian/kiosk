@@ -39,6 +39,13 @@ import Link from 'next/link';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { ProfitCalendar } from '@/components/admin/ProfitCalendar';
 import { LatestSalesCard } from '@/components/admin/LatestSalesCard';
+import {
+  getLocalPeriodDayCount,
+  getLocalTodayDateString,
+  getProfitPresetDateRange,
+  localDateStringsToTimestamps,
+  type ProfitDatePreset,
+} from '@/lib/utils/local-date-range';
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -90,7 +97,7 @@ interface BatchProfit {
   profitMargin: number;
 }
 
-type DatePreset = 'today' | 'yesterday' | 'last3days' | 'last7days' | 'month' | 'custom';
+type DatePreset = ProfitDatePreset;
 
 const DATE_PRESET_ORDER: DatePreset[] = ['today', 'yesterday', 'last3days', 'last7days', 'month', 'custom'];
 
@@ -127,9 +134,7 @@ export default function ProfitHubPage() {
   const [error, setError] = useState<string | null>(null);
   const [datePreset, setDatePreset] = useState<DatePreset>('today');
   const [dateRange, setDateRange] = useState(() => {
-    const now = new Date();
-    const y = now.getFullYear(), m = String(now.getMonth() + 1).padStart(2, '0'), d = String(now.getDate()).padStart(2, '0');
-    const today = `${y}-${m}-${d}`;
+    const today = getLocalTodayDateString();
     return { start: today, end: today };
   });
   const [itemSearch, setItemSearch] = useState('');
@@ -205,24 +210,8 @@ export default function ProfitHubPage() {
   }
 
   function updateDateRange(preset: DatePreset) {
-    if (preset === 'custom') return;
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-    if (preset === 'yesterday') {
-      const y = new Date(todayStart);
-      y.setDate(y.getDate() - 1);
-      const s = fmt(y);
-      setDateRange({ start: s, end: s });
-      return;
-    }
-
-    const start = new Date(todayStart);
-    if (preset === 'last3days') start.setDate(start.getDate() - 2);
-    else if (preset === 'last7days') start.setDate(start.getDate() - 6);
-    else if (preset === 'month') start.setDate(1);
-    setDateRange({ start: fmt(start), end: fmt(todayStart) });
+    const range = getProfitPresetDateRange(preset);
+    if (range) setDateRange(range);
   }
 
   async function fetchExpenseData() {
@@ -236,11 +225,7 @@ export default function ProfitHubPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true); setError(null);
-      const [sY, sM, sD] = dateRange.start.split('-').map(Number);
-      const [eY, eM, eD] = dateRange.end.split('-').map(Number);
-      const startTs = Math.floor(new Date(sY, sM - 1, sD, 0, 0, 0, 0).getTime() / 1000);
-      const endOfDayMs = new Date(eY, eM - 1, eD, 23, 59, 59, 999).getTime();
-      const endTs = Math.floor(endOfDayMs / 1000);
+      const { start: startTs, end: endTs } = localDateStringsToTimestamps(dateRange.start, dateRange.end);
 
       const allRes = await fetch(`/api/profit?start=${startTs}&end=${endTs}`).then((r) => r.json());
       if (allRes.success) setAllData(allRes.data);
@@ -272,10 +257,7 @@ export default function ProfitHubPage() {
     if (!batchView) return;
     setBatchLoading(true);
     try {
-      const [sY, sM, sD] = dateRange.start.split('-').map(Number);
-      const [eY, eM, eD] = dateRange.end.split('-').map(Number);
-      const startTs = Math.floor(new Date(sY, sM - 1, sD, 0, 0, 0, 0).getTime() / 1000);
-      const endTs = Math.floor(new Date(eY, eM - 1, eD, 23, 59, 59, 999).getTime() / 1000);
+      const { start: startTs, end: endTs } = localDateStringsToTimestamps(dateRange.start, dateRange.end);
       const params = new URLSearchParams({ start: String(startTs), end: String(endTs) });
       if (itemSearch) params.set('itemSearch', itemSearch);
       if (batchFilter) params.set('batchFilter', batchFilter);
@@ -295,11 +277,7 @@ export default function ProfitHubPage() {
     return () => clearTimeout(t);
   }, [batchView, fetchBatchData]);
 
-  const getPeriodDays = () => {
-    const [sY, sM, sD] = dateRange.start.split('-').map(Number);
-    const [eY, eM, eD] = dateRange.end.split('-').map(Number);
-    return Math.round(Math.abs(new Date(eY, eM - 1, eD).getTime() - new Date(sY, sM - 1, sD).getTime()) / 86400000) + 1;
-  };
+  const getPeriodDays = () => getLocalPeriodDayCount(dateRange.start, dateRange.end);
   const getTotalExpenses = () => expenseData ? expenseData.dailyOperatingCost * getPeriodDays() : 0;
 
   const grossProfit = allData?.grossProfit ?? 0;
@@ -473,10 +451,7 @@ export default function ProfitHubPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             <div className="lg:col-span-1">
               {(() => {
-                const [sY, sM, sD] = dateRange.start.split('-').map(Number);
-                const [eY, eM, eD] = dateRange.end.split('-').map(Number);
-                const startTs = Math.floor(new Date(sY, sM - 1, sD, 0, 0, 0, 0).getTime() / 1000);
-                const endTs = Math.floor(new Date(eY, eM - 1, eD, 23, 59, 59, 999).getTime() / 1000);
+                const { start: startTs, end: endTs } = localDateStringsToTimestamps(dateRange.start, dateRange.end);
                 return (
                   <LatestSalesCard startTs={startTs} endTs={endTs} accentColor="teal" compact />
                 );
