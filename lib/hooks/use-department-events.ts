@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback } from "react";
 import { toast } from "sonner";
+import { playDepartmentOrderPop } from "@/lib/utils/department-order-sound";
 
 export interface DeptEvent {
   type: string;
@@ -40,6 +41,7 @@ export function useDepartmentEvents(options: UseDepartmentEventsOptions) {
 
       if (event.type === "order:forwarded") {
         if (role === "cashier" || role === "admin" || role === "owner") {
+          playDepartmentOrderPop();
           const amount =
             typeof event.data.totalAmount === "number"
               ? event.data.totalAmount
