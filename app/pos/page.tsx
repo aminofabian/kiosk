@@ -2256,7 +2256,7 @@ export default function POSPage() {
         <PosMobileMoreSheet
           open={moreSheetOpen}
           onOpenChange={setMoreSheetOpen}
-          businessName={user?.businessName}
+          businessName={user?.businessName ?? undefined}
           canAccessAdmin={canAccessAdmin}
           canProcessReturn={canProcessReturn}
           isOwnerOrAdmin={isOwnerOrAdmin}
@@ -2278,7 +2278,7 @@ export default function POSPage() {
           header={
             <>
             <PosDesktopHeader
-              businessName={user?.businessName}
+              businessName={user?.businessName ?? undefined}
               searchQuery={searchQuery}
               onSearchChange={handleSearchChange}
               onSearchSubmit={handleSearchSubmit}

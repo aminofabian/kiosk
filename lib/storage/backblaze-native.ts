@@ -100,7 +100,7 @@ export async function b2UploadFile(
       'Content-Type': contentType,
       'Content-Length': String(body.length),
     },
-    body,
+    body: new Uint8Array(body),
   });
 
   if (!res.ok) {

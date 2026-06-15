@@ -47,7 +47,7 @@ export async function GET(
     const bucketId = await b2GetBucketId(auth, bucketName);
     const { body, contentType } = await b2DownloadFile(auth, bucketId, bucketName, key);
 
-    return new Response(body, {
+    return new Response(new Uint8Array(body), {
       status: 200,
       headers: {
         'Content-Type': contentType,

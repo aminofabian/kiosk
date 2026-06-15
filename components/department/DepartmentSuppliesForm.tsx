@@ -105,14 +105,13 @@ export function DepartmentSuppliesForm({
       toast.error('Supplier name is required');
       return;
     }
-    const result = await apiPost<{ id: string }>('/api/suppliers', {
+    const result = await apiPost<{ supplierId: string }>('/api/suppliers', {
       name: newSupplierName.trim(),
       contactPhone: newSupplierPhone.trim() || null,
     });
     if (result.success && result.data) {
       toast.success('Supplier added');
-      const created = result.data as { supplierId: string };
-      setSupplierId(created.supplierId);
+      setSupplierId(result.data.supplierId);
       setShowNewSupplier(false);
       setNewSupplierName('');
       setNewSupplierPhone('');

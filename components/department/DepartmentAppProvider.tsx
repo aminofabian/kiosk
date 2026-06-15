@@ -120,7 +120,7 @@ export function DepartmentAppProvider({ children }: { children: ReactNode }) {
       cartItemCount,
       moreSheetOpen,
       setMoreSheetOpen,
-      businessName: user?.businessName,
+      businessName: user?.businessName ?? undefined,
       userName: user?.name,
       userId: user?.id,
     }),

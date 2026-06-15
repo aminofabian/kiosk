@@ -46,9 +46,11 @@ export async function trySessionFromExternalApiKey(): Promise<Session | null> {
   if (!row) return null;
 
   const user = await queryOne<
-    Pick<DbUser, 'id' | 'email' | 'name' | 'role' | 'business_id'> & { business_name: string }
+    Pick<DbUser, 'id' | 'email' | 'name' | 'role' | 'business_id' | 'department'> & {
+      business_name: string;
+    }
   >(
-    `SELECT u.id, u.email, u.name, u.role, u.business_id, b.name as business_name
+    `SELECT u.id, u.email, u.name, u.role, u.business_id, u.department, b.name as business_name
      FROM users u
      JOIN businesses b ON b.id = u.business_id
      WHERE u.id = ? AND u.active = 1 AND b.active = 1`,
@@ -70,6 +72,7 @@ export async function trySessionFromExternalApiKey(): Promise<Session | null> {
       businessId: user.business_id,
       businessName: user.business_name,
       isSuperAdmin: false,
+      department: user.department ?? null,
     },
   };
 }

@@ -12,6 +12,7 @@ import {
 import type { Sale } from "@/lib/db/types";
 import { awardLoyaltyPointsForSale } from "@/lib/db/loyalty";
 import { buildCreditDebtLineItemsSnapshotJson } from "@/lib/db/credit-debt-line-snapshot";
+import { migrateCreditDebtLineItemsSnapshot } from "@/lib/db/migrate-credit-debt-line-items-snapshot";
 import { migratePendingSales } from "@/lib/db/migrate-pending-sales";
 import { validateSaleLines } from "@/lib/validation/sale-lines";
 import { verifyManagerPin } from "@/lib/auth/verify-manager-pin";
