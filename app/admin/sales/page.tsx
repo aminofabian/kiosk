@@ -21,6 +21,7 @@ import {
   Banknote,
 } from 'lucide-react';
 import { apiFetch } from '@/lib/utils/api-client';
+import { getSalesPeriodRange } from '@/lib/utils/sales-period';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
 import Link from 'next/link';
@@ -121,8 +122,12 @@ export default function SalesHubPage() {
     try {
       setLoading(true);
       setError(null);
+      const { start, end } = getSalesPeriodRange(period);
+      const rangeParams = new URLSearchParams({ period, start: String(start) });
+      if (end !== null) rangeParams.set('end', String(end));
+
       const [analyticsRes, drawersRes] = await Promise.all([
-        apiFetch<SalesOverviewData>(`/api/sales/analytics?period=${period}`, { cache: 'no-store' }),
+        apiFetch<SalesOverviewData>(`/api/sales/analytics?${rangeParams.toString()}`, { cache: 'no-store' }),
         apiFetch<{ drawers: DrawerInfo[] }>('/api/shifts/drawers', { cache: 'no-store' }),
       ]);
       if (analyticsRes.success && analyticsRes.data) {

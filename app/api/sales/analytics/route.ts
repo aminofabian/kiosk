@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { query } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import { getSalesPeriodRange } from '@/lib/utils/sales-period';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -49,48 +50,27 @@ export async function GET(request: NextRequest) {
     const parentId = searchParams.get('parentId');
     const itemType = searchParams.get('itemType');
 
-    // Calculate date range
-    const now = Math.floor(Date.now() / 1000);
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    const todayStartTs = Math.floor(todayStart.getTime() / 1000);
-    const yesterdayStart = new Date(todayStart);
-    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-    const yesterdayStartTs = Math.floor(yesterdayStart.getTime() / 1000);
+    // Prefer client-provided bounds (user's local timezone); fall back to server-local period math.
+    const startRaw = searchParams.get('start');
+    const endRaw = searchParams.get('end');
+    const clientStart = startRaw ? parseInt(startRaw, 10) : null;
+    const clientEnd = endRaw ? parseInt(endRaw, 10) : null;
 
     let startDate = 0;
     let endDate: number | null = null;
 
-    switch (period) {
-      case 'today':
-        startDate = todayStartTs;
-        break;
-      case 'yesterday':
-        startDate = yesterdayStartTs;
-        endDate = todayStartTs;
-        break;
-      case '3days':
-        startDate = now - (3 * 24 * 60 * 60);
-        break;
-      case '4days':
-        startDate = now - (4 * 24 * 60 * 60);
-        break;
-      case '5days':
-        startDate = now - (5 * 24 * 60 * 60);
-        break;
-      case '6days':
-        startDate = now - (6 * 24 * 60 * 60);
-        break;
-      case 'week':
-        startDate = now - (7 * 24 * 60 * 60);
-        break;
-      case 'month':
-        startDate = now - (30 * 24 * 60 * 60);
-        break;
-      case 'all':
-      default:
-        startDate = 0;
-        break;
+    if (
+      clientStart !== null &&
+      Number.isInteger(clientStart) &&
+      clientStart >= 0 &&
+      (clientEnd === null || (Number.isInteger(clientEnd) && clientEnd > clientStart))
+    ) {
+      startDate = clientStart;
+      endDate = clientEnd;
+    } else {
+      const range = getSalesPeriodRange(period);
+      startDate = range.start;
+      endDate = range.end;
     }
 
     const dateFilter = endDate != null
