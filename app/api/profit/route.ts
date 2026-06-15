@@ -7,6 +7,7 @@ import {
   saleCreditAmountSql,
   saleLinePaidShareSql,
   saleLineCreditShareSql,
+  saleLineAllocatedRevenueSql,
 } from '@/lib/utils/sales-payment-allocation';
 
 export async function OPTIONS() {
@@ -70,10 +71,8 @@ export async function GET(request: NextRequest) {
       unique_items_sold: number;
     }>(
       `SELECT 
-        COALESCE(SUM(
-          si.quantity_sold * (si.sell_price_per_unit - ${buyPriceFallbackSummary})
-        ), 0) as total_profit,
-        COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_sales,
+        COALESCE(SUM(si.quantity_sold * (si.sell_price_per_unit - ${buyPriceFallbackSummary})), 0) as total_profit,
+        COALESCE(SUM(${saleLineAllocatedRevenueSql()}), 0) as total_sales,
         COALESCE(SUM(si.quantity_sold * ${buyPriceFallbackSummary}), 0) as total_cost,
         COALESCE(SUM(si.quantity_sold), 0) as total_quantity_sold,
         COUNT(DISTINCT s.id) as total_transactions,

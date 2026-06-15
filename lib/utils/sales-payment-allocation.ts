@@ -55,6 +55,17 @@ export function saleLineCreditShareSql(): string {
   return `(${saleCreditAmountSql()}) / NULLIF(s.total_amount, 0)`;
 }
 
+const saleLineSumSql =
+  `(SELECT COALESCE(SUM(si2.quantity_sold * si2.sell_price_per_unit), 0) FROM sale_items si2 WHERE si2.sale_id = s.id)`;
+
+/**
+ * Line revenue scaled to the sale's total_amount so department totals match transaction revenue.
+ * Per line: (line value / all lines on sale) × total_amount
+ */
+export function saleLineAllocatedRevenueSql(): string {
+  return `si.quantity_sold * si.sell_price_per_unit * s.total_amount / NULLIF(${saleLineSumSql}, 0)`;
+}
+
 /** Line-item share for department-filtered views. */
 export function saleLinePaymentShareSql(method: 'cash' | 'mpesa' | 'credit' | 'wallet'): string {
   const amount = salePaymentAmountSql(method);

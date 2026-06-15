@@ -3,7 +3,7 @@ import { query } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 import { getSalesPeriodRange } from '@/lib/utils/sales-period';
-import { salesByPaymentMethodQuery } from '@/lib/utils/sales-payment-allocation';
+import { salesByPaymentMethodQuery, saleLineAllocatedRevenueSql } from '@/lib/utils/sales-payment-allocation';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
         ? `SELECT 
             COUNT(DISTINCT s.id) as total_transactions,
             COALESCE(SUM(si.quantity_sold), 0) as total_items_sold,
-            COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
+            COALESCE(SUM(${saleLineAllocatedRevenueSql()}), 0) as total_revenue,
             COALESCE(SUM(si.quantity_sold * si.buy_price_per_unit), 0) as total_cost,
             COALESCE(SUM(si.profit), 0) as total_profit
           FROM sales s
@@ -285,7 +285,7 @@ export async function GET(request: NextRequest) {
         COALESCE(si.item_type_snapshot, 'retail') as item_type,
         COUNT(DISTINCT s.id) as transaction_count,
         COALESCE(SUM(si.quantity_sold), 0) as items_sold,
-        COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as revenue,
+        COALESCE(SUM(${saleLineAllocatedRevenueSql()}), 0) as revenue,
         COALESCE(SUM(si.quantity_sold * si.buy_price_per_unit), 0) as cost,
         COALESCE(SUM(si.profit), 0) as profit
       FROM sale_items si
