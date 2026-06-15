@@ -41,12 +41,14 @@ interface StatusStyle {
 const STATUS_STYLES: Record<string, StatusStyle> = {
   pending: {
     label: "Pending",
-    classes: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
+    classes:
+      "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
     dot: "bg-amber-500",
   },
   completed: {
     label: "Paid",
-    classes: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
+    classes:
+      "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-200",
     dot: "bg-green-500",
   },
   discarded: {
@@ -65,7 +67,7 @@ function shortId(id: string): string {
 }
 
 export default function DepartmentRequestsPage() {
-  const { userId } = useDepartmentApp();
+  const { userId, requestsRefreshKey } = useDepartmentApp();
 
   const [sales, setSales] = useState<PendingSale[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +100,7 @@ export default function DepartmentRequestsPage() {
         setRefreshing(false);
       }
     },
-    [userId],
+    [userId, requestsRefreshKey],
   );
 
   useEffect(() => {
@@ -153,10 +155,26 @@ export default function DepartmentRequestsPage() {
         {!loading && sales.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
-              { label: "Total", value: summary.total, color: "text-slate-900 dark:text-white" },
-              { label: "Pending", value: summary.pendingCount, color: "text-amber-600" },
-              { label: "Paid", value: summary.paidCount, color: "text-green-600" },
-              { label: "Cancelled", value: summary.cancelledCount, color: "text-red-500" },
+              {
+                label: "Total",
+                value: summary.total,
+                color: "text-slate-900 dark:text-white",
+              },
+              {
+                label: "Pending",
+                value: summary.pendingCount,
+                color: "text-amber-600",
+              },
+              {
+                label: "Paid",
+                value: summary.paidCount,
+                color: "text-green-600",
+              },
+              {
+                label: "Cancelled",
+                value: summary.cancelledCount,
+                color: "text-red-500",
+              },
             ].map((stat) => (
               <div
                 key={stat.label}
@@ -165,7 +183,9 @@ export default function DepartmentRequestsPage() {
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                   {stat.label}
                 </p>
-                <p className={`text-2xl font-bold mt-0.5 ${stat.color}`}>{stat.value}</p>
+                <p className={`text-2xl font-bold mt-0.5 ${stat.color}`}>
+                  {stat.value}
+                </p>
               </div>
             ))}
           </div>
@@ -210,7 +230,9 @@ export default function DepartmentRequestsPage() {
             <div className="py-16 px-6 text-center">
               <Inbox className="w-12 h-12 mx-auto text-slate-200 dark:text-slate-600 mb-3" />
               <p className="font-semibold text-slate-600 dark:text-slate-300">
-                {filterStatus === "all" ? "No orders yet" : `No ${filterStatus} orders`}
+                {filterStatus === "all"
+                  ? "No orders yet"
+                  : `No ${filterStatus} orders`}
               </p>
               <p className="text-sm text-slate-400 mt-1">
                 Orders you create and forward will appear here.
@@ -262,7 +284,8 @@ export default function DepartmentRequestsPage() {
                             {formatPrice(sale.total_amount)}
                           </span>
                           <span className="text-xs text-slate-400">
-                            {sale.items.length} item{sale.items.length !== 1 ? "s" : ""}
+                            {sale.items.length} item
+                            {sale.items.length !== 1 ? "s" : ""}
                           </span>
                           {stale && (
                             <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded-full">
@@ -310,8 +333,12 @@ export default function DepartmentRequestsPage() {
                           <thead>
                             <tr className="text-left text-xs text-slate-400 border-b border-slate-100 dark:border-slate-800">
                               <th className="pb-2 font-semibold">Item</th>
-                              <th className="pb-2 font-semibold text-right">Qty</th>
-                              <th className="pb-2 font-semibold text-right">Subtotal</th>
+                              <th className="pb-2 font-semibold text-right">
+                                Qty
+                              </th>
+                              <th className="pb-2 font-semibold text-right">
+                                Subtotal
+                              </th>
                             </tr>
                           </thead>
                           <tbody>
@@ -328,7 +355,8 @@ export default function DepartmentRequestsPage() {
                                 </td>
                                 <td className="py-2 text-right font-semibold text-slate-800 dark:text-slate-100">
                                   {formatPrice(
-                                    item.quantity_sold * item.sell_price_per_unit,
+                                    item.quantity_sold *
+                                      item.sell_price_per_unit,
                                   )}
                                 </td>
                               </tr>

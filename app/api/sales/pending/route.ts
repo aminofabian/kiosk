@@ -247,6 +247,16 @@ export async function GET(request: NextRequest) {
     if (includeCompleted) statuses.push("completed");
     const placeholders = statuses.map(() => "?").join(",");
 
+    // Scoping rules:
+    // - Admin/owner: see ALL sales (canViewAll = true)
+    // - Cashier: see ALL pending/discarded sales (need to process forwarded orders)
+    // - Department staff: see only their own + originated sales
+    const isCashier = auth.role === "cashier";
+    const deptStaffFilter =
+      !canViewAll && !isCashier
+        ? "AND (s.user_id = ? OR s.originated_by_user_id = ?)"
+        : "";
+
     const sales = await query<PendingSaleRow>(
       `SELECT s.id, s.user_id, u.name AS user_name, s.status, s.total_amount,
               s.customer_name, s.customer_phone, s.created_at, s.updated_at,
@@ -257,9 +267,9 @@ export async function GET(request: NextRequest) {
        LEFT JOIN users ou ON ou.id = s.originated_by_user_id
        LEFT JOIN users du ON du.id = s.voided_by
        WHERE s.business_id = ? AND s.status IN (${placeholders})
-       ${!canViewAll ? "AND (s.user_id = ? OR s.originated_by_user_id = ?)" : ""}
+       ${deptStaffFilter}
        ORDER BY s.updated_at DESC`,
-      !canViewAll
+      !canViewAll && !isCashier
         ? [auth.businessId, ...statuses, auth.userId, auth.userId]
         : [auth.businessId, ...statuses],
     );

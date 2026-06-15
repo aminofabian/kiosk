@@ -62,11 +62,11 @@ export function PosTransactionDrawers({
     <>
       <Drawer open={checkoutDrawerOpen} onOpenChange={onCheckoutDrawerOpenChange} direction="right">
         <DrawerContent
-          className={`!w-full sm:!w-[500px] !max-w-none h-full max-h-screen bg-slate-50 dark:bg-slate-950 print:hidden ${
+          className={`!w-full sm:!w-[500px] !max-w-none !h-full max-h-[100dvh] flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 print:hidden ${
             cartIsColumn ? 'md:!w-[min(400px,34vw)] md:min-w-[320px] md:max-w-[440px]' : ''
           }`}
         >
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3">
+          <DrawerHeader className="shrink-0 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <button
@@ -92,7 +92,7 @@ export function PosTransactionDrawers({
               </DrawerClose>
             </div>
           </DrawerHeader>
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
             <CheckoutForm
               onBackToCart={handleBackToCart}
               onContinueShopping={() => onCheckoutDrawerOpenChange(false)}

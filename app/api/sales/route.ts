@@ -22,6 +22,7 @@ import {
   InsufficientItemStockError,
 } from "@/lib/db/sale-stock";
 import { logActivity } from "@/lib/db/activity-log";
+import { eventBus } from "@/lib/sse/event-bus";
 
 const EPS = 0.01;
 
@@ -116,6 +117,7 @@ export async function POST(request: NextRequest) {
     }
 
     // If completing a pending sale, load its items from the database.
+    let originatedByUserId: string | null = null;
     if (pendingSaleId) {
       const pendingSale = await queryOne<{
         id: string;
@@ -123,8 +125,9 @@ export async function POST(request: NextRequest) {
         status: string;
         customer_name: string | null;
         customer_phone: string | null;
+        originated_by_user_id: string | null;
       }>(
-        `SELECT id, user_id, status, customer_name, customer_phone
+        `SELECT id, user_id, status, customer_name, customer_phone, originated_by_user_id
          FROM sales
          WHERE id = ? AND business_id = ?`,
         [pendingSaleId, auth.businessId],
@@ -168,6 +171,8 @@ export async function POST(request: NextRequest) {
           );
         }
       }
+
+      originatedByUserId = pendingSale.originated_by_user_id;
 
       const pendingItems = await query<{
         item_id: string;
@@ -1083,6 +1088,31 @@ export async function POST(request: NextRequest) {
       },
       performedBy: auth.userId,
     });
+
+    // Emit SSE event if this was a department-staff-originated sale
+    if (pendingSaleId && originatedByUserId) {
+      try {
+        eventBus.publish(`staff:${originatedByUserId}`, {
+          type: "order:completed",
+          data: {
+            saleId,
+            pendingSaleId,
+            totalAmount,
+            itemCount: items.length,
+            cashierName: auth.name,
+            cashierId: auth.userId,
+          },
+          timestamp: Date.now(),
+        });
+        eventBus.publish(`business:${auth.businessId}`, {
+          type: "queue:update",
+          data: {},
+          timestamp: Date.now(),
+        });
+      } catch {
+        /* non-critical */
+      }
+    }
 
     return jsonResponse({
       success: true,

@@ -79,10 +79,14 @@ export function CartView({ onContinueShopping, onCheckout, layout = 'drawer' }: 
   const isColumn = layout === 'column';
 
   return (
-    <div className={`flex flex-col h-full min-h-0 ${isColumn ? '' : ''}`}>
+    <div
+      className={`flex flex-col min-h-0 overflow-hidden ${
+        isColumn ? 'flex-1' : 'h-full'
+      }`}
+    >
       <PosPendingSalesPanel onResume={onContinueShopping} compact={isColumn} />
       {/* Cart Tabs */}
-      <div className="border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+      <div className="shrink-0 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
         <div className={`flex items-center overflow-x-auto ${isColumn ? 'gap-1 px-2 py-1.5' : 'gap-1.5 px-3 py-2'}`}>
           {carts.map((cart) => (
             <div key={cart.id} className="flex items-center gap-0.5 min-w-fit">
@@ -188,7 +192,7 @@ export function CartView({ onContinueShopping, onCheckout, layout = 'drawer' }: 
         </div>
       ) : (
         <>
-          <div className={`flex-1 overflow-auto ${isColumn ? 'px-1.5 py-1' : 'p-3'}`}>
+          <div className={`flex-1 min-h-0 overflow-y-auto ${isColumn ? 'px-1.5 py-1' : 'p-3'}`}>
             {isColumn ? (
               <div className="divide-y divide-slate-100 dark:divide-slate-800">
                 {cartItems.map((item) => (

@@ -8,6 +8,7 @@ import { generateUUID } from "@/lib/utils/uuid";
 import { jsonResponse } from "@/lib/utils/api-response";
 import { requireAuth, isAuthResponse } from "@/lib/auth/api-auth";
 import { logActivity } from "@/lib/db/activity-log";
+import { eventBus } from "@/lib/sse/event-bus";
 
 interface ForwardItemInput {
   itemId: string;
@@ -150,6 +151,24 @@ export async function POST(request: NextRequest) {
       },
       performedBy: auth.userId,
     }).catch(() => {});
+
+    // Emit SSE events
+    try {
+      eventBus.publishMany([`business:${auth.businessId}`, "queue:update"], {
+        type: "order:forwarded",
+        data: {
+          pendingSaleId,
+          totalAmount,
+          itemCount: items.length,
+          staffName: auth.name,
+          staffId: auth.userId,
+          customerName: body.customerName || null,
+        },
+        timestamp: Date.now(),
+      });
+    } catch {
+      /* non-critical */
+    }
 
     return jsonResponse({
       success: true,

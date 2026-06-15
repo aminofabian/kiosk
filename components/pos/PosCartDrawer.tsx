@@ -33,8 +33,8 @@ export function PosCartDrawer({
 }: PosCartDrawerProps) {
   return (
     <Drawer open={open} onOpenChange={onOpenChange} direction="right">
-      <DrawerContent className="!w-full sm:!w-[500px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900 print:hidden md:hidden">
-        <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#1c6a1e]/10 to-blue-50 dark:from-[#1c6a1e]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
+      <DrawerContent className="!w-full sm:!w-[500px] !max-w-none !h-full max-h-[100dvh] flex flex-col overflow-hidden bg-white dark:bg-slate-900 print:hidden md:hidden">
+        <DrawerHeader className="shrink-0 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#1c6a1e]/10 to-blue-50 dark:from-[#1c6a1e]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
           <div className="flex items-center justify-between pr-8">
             <div className="flex items-center gap-3">
               <div className="relative w-10 h-10 rounded-none bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-sm flex-shrink-0">
@@ -67,7 +67,7 @@ export function PosCartDrawer({
             </DrawerClose>
           </div>
         </DrawerHeader>
-        <div className="overflow-y-auto flex-1 min-h-0 bg-gradient-to-b from-white via-slate-50/30 to-white dark:from-slate-900 dark:via-slate-900/50 dark:to-slate-900">
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden bg-gradient-to-b from-white via-slate-50/30 to-white dark:from-slate-900 dark:via-slate-900/50 dark:to-slate-900">
           <CartView
             layout="drawer"
             onContinueShopping={() => onOpenChange(false)}
