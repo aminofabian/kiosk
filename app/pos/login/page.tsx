@@ -54,7 +54,8 @@ function POSLoginContent() {
         // PIN login should only be shown to cashiers
         const storedRole = getUserRole();
         if (storedRole && storedRole !== 'cashier') {
-          window.location.href = '/login';
+          window.location.href =
+            storedRole === 'department_staff' ? '/department' : '/login';
           return;
         }
 

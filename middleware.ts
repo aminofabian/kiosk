@@ -19,6 +19,9 @@ export default withAuth(
     // ── Global: department_staff are restricted to /department only ──
     const role = token?.role;
     if (role === "department_staff") {
+      if (token && pathname === "/login") {
+        return NextResponse.redirect(new URL("/department", req.url));
+      }
       // Allow access to /department and /api (for data fetching)
       if (
         pathname === "/department" ||
