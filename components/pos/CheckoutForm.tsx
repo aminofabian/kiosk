@@ -23,6 +23,7 @@ import { PaymentMethodSelector } from "./PaymentMethodSelector";
 import { CreditForm } from "./CreditForm";
 import { SplitPaymentForm, type SplitPayment } from "./SplitPaymentForm";
 import { WalletApplySection } from "./WalletApplySection";
+import { ManagerPinDialog } from "./ManagerPinDialog";
 import type { PaymentMethod } from "@/lib/constants";
 import type { CreditAccount } from "@/lib/db/types";
 import { apiPost, apiGet } from "@/lib/utils/api-client";
@@ -65,7 +66,8 @@ export function CheckoutForm({
   onSaleComplete,
 }: CheckoutFormProps = {}) {
   const router = useRouter();
-  const { clearCart } = useCartStore();
+  const { clearCart, syncPendingSale, getActiveCartPendingSaleId } = useCartStore();
+  const activeCartId = useCartStore((s) => s.activeCartId || s.carts[0]?.id);
   const items = useCartItems();
   const total = useCartTotal();
   const isOnline = useOnlineStatus();
@@ -91,6 +93,10 @@ export function CheckoutForm({
   const [isMpesaInitiating, setIsMpesaInitiating] = useState(false);
   const [allowNewCreditAccounts, setAllowNewCreditAccounts] =
     useState<boolean>(true);
+  const [canGiveCredit, setCanGiveCredit] = useState<boolean | null>(null);
+  const [managerPin, setManagerPin] = useState<string | null>(null);
+  const [pinDialogOpen, setPinDialogOpen] = useState(false);
+  const [pendingSaleAfterPin, setPendingSaleAfterPin] = useState(false);
 
   const [walletCreditAccountId, setWalletCreditAccountId] = useState<
     string | null
@@ -109,6 +115,26 @@ export function CheckoutForm({
 
   const MAX_POLL_COUNT = 60;
   const POLL_INTERVAL = 3000;
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadUserFlags() {
+      try {
+        const result = await apiGet<{
+          canGiveCredit: boolean;
+        }>("/api/users/me");
+        if (!cancelled && result.success && result.data) {
+          setCanGiveCredit(result.data.canGiveCredit);
+        }
+      } catch {
+        if (!cancelled) setCanGiveCredit(false);
+      }
+    }
+    void loadUserFlags();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const EPS = 0.01;
   const amountDue = Math.max(
@@ -460,7 +486,8 @@ export function CheckoutForm({
     }
   };
 
-  const completeSale = async () => {
+  const completeSale = async (overridePin?: string) => {
+    const effectivePin = overridePin ?? managerPin;
     setIsProcessing(true);
     try {
       if (!isOnline) {
@@ -512,6 +539,17 @@ export function CheckoutForm({
         return;
       }
 
+      const pendingSaleId = getActiveCartPendingSaleId();
+      if (activeCartId) {
+        await syncPendingSale(activeCartId);
+        const cart = useCartStore.getState().carts.find((c) => c.id === activeCartId);
+        if (cart?.syncStatus === "error") {
+          setError("Could not save cart to server. Check your connection and try again.");
+          setIsProcessing(false);
+          return;
+        }
+      }
+
       const requestBody: Record<string, unknown> = {
         items: items.map((item) => ({
           itemId: item.itemId,
@@ -546,20 +584,36 @@ export function CheckoutForm({
       if (walletAmountApplied > EPS) {
         requestBody.walletAmountApplied = walletAmountApplied;
       }
+      if (effectivePin) {
+        requestBody.managerPin = effectivePin;
+      }
+      const resolvedPendingSaleId =
+        useCartStore.getState().getActiveCartPendingSaleId() ?? pendingSaleId;
+      if (resolvedPendingSaleId) {
+        requestBody.pendingSaleId = resolvedPendingSaleId;
+      }
+      if (paymentMethod === "mpesa" && mpesaStatus !== "success") {
+        requestBody.mpesaManualOverride = true;
+      }
 
       const result = await apiPost<{ saleId: string }>(
         "/api/sales",
         requestBody,
       );
       if (result.success && result.data) {
-        clearCart();
+        clearCart({ skipAbandon: true });
         if (onSaleComplete) {
           onSaleComplete(result.data.saleId);
         } else {
           router.push(`/pos/receipt/${result.data.saleId}?print=true`);
         }
       } else {
-        setError(result.message || "Failed to complete sale");
+        const msg = result.message || "Failed to complete sale";
+        setError(msg);
+        if (/manager approval|manager pin/i.test(msg)) {
+          setPendingSaleAfterPin(true);
+          setPinDialogOpen(true);
+        }
         setIsProcessing(false);
       }
     } catch (err) {
@@ -598,6 +652,11 @@ export function CheckoutForm({
       return;
     }
     if (paymentMethod === "mpesa") {
+      if (mpesaStatus !== "success" && !managerPin) {
+        setPendingSaleAfterPin(true);
+        setPinDialogOpen(true);
+        return;
+      }
       setIsProcessing(true);
       setError(null);
       await completeSale();
@@ -887,7 +946,14 @@ export function CheckoutForm({
               selectedMethod={paymentMethod}
               onSelectMethod={setPaymentMethod}
               disabledWhenOffline={!isOnline}
+              creditDisabled={canGiveCredit === false}
+              creditDisabledReason="Credit is not enabled for your account. Contact an admin."
             />
+            {canGiveCredit === false && paymentMethod === "credit" && (
+              <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                You cannot give credit on this account.
+              </p>
+            )}
             {(paymentMethod === "credit" && creditAccountId) ||
             walletCreditAccountId ? (
               <div className="mt-2.5 pt-2.5 border-t border-slate-200 dark:border-slate-700 space-y-1">
@@ -1421,6 +1487,29 @@ export function CheckoutForm({
           &larr; Back to cart
         </button>
       </div>
+
+      <ManagerPinDialog
+        open={pinDialogOpen}
+        onOpenChange={setPinDialogOpen}
+        title={
+          paymentMethod === "mpesa"
+            ? "Approve manual M-Pesa payment"
+            : "Manager approval required"
+        }
+        description={
+          paymentMethod === "mpesa"
+            ? "An owner or admin PIN is required to mark this sale as paid without M-Pesa verification."
+            : "Enter an owner or admin PIN to approve this sale (below-cost price or oversell)."
+        }
+        onVerified={(pin) => {
+          setManagerPin(pin);
+          setPinDialogOpen(false);
+          if (pendingSaleAfterPin) {
+            setPendingSaleAfterPin(false);
+            void completeSale(pin);
+          }
+        }}
+      />
     </form>
   );
 }

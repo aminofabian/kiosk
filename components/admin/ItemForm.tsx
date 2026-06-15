@@ -13,6 +13,8 @@ import type { Category, Item } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { apiGet, apiPost, apiPut } from '@/lib/utils/api-client';
+import { ItemImageUpload, uploadPendingItemImage } from '@/components/admin/ItemImageUpload';
+import { toast } from 'sonner';
 import { getShopType, shouldShowCategory, type ShopType } from '@/lib/utils/shop-type';
 import { useBarcodeScanner } from '@/lib/hooks/use-barcode-scanner';
 
@@ -677,6 +679,7 @@ interface ItemFormProps {
     packaging_unit_qty?: number | null;
     item_type?: string;
     aisle_number?: string | null;
+    image_url?: string | null;
   };
   parentItemId?: string; // If set, we're creating a variant for this parent
   /** When creating a variant, parent row fields to pre-fill (category + product type). */
@@ -765,6 +768,8 @@ export function ItemForm({
   const [itemType, setItemType] = useState<string>(
     initialData?.item_type ?? defaultNewItemType
   );
+  const [imageUrl, setImageUrl] = useState<string | null>(initialData?.image_url ?? null);
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   /** Synchronous guard — state updates are async, so a second submit can fire before `isSubmitting` paints. */
@@ -1019,6 +1024,8 @@ export function ItemForm({
     setBundleName(initialData.bundle_name || '');
     setPackagingUnitName(initialData.packaging_unit_name || '');
     setPackagingUnitQty(initialData.packaging_unit_qty?.toString() || '');
+    setImageUrl(initialData.image_url ?? null);
+    setPendingImageFile(null);
     setFormStep(1);
   }, [initialData, itemId, parentItemId]);
 
@@ -1240,9 +1247,20 @@ export function ItemForm({
         : await apiPost<Item>(url, requestBody);
 
       if (result.success) {
-        // If editing and stock changed, update stock via adjustment API
-        // Use result.data.current_stock (actual DB value) not initialData - avoids stale/ inconsistent updates
         let finalItem: Item | undefined = result.data;
+
+        if (!itemId && result.data?.id && pendingImageFile) {
+          try {
+            const uploadedUrl = await uploadPendingItemImage(result.data.id, pendingImageFile);
+            finalItem = { ...result.data, image_url: uploadedUrl };
+            setPendingImageFile(null);
+          } catch (uploadErr) {
+            console.error('Pending image upload failed:', uploadErr);
+            toast.warning('Item saved, but the photo could not be uploaded. Edit the item to try again.');
+          }
+        }
+
+        // If editing and stock changed, update stock via adjustment API
         if (itemId && result.data && mode !== 'parent') {
           const currentStockInDb = result.data.current_stock ?? 0;
           const newStock = stock;
@@ -1353,6 +1371,17 @@ export function ItemForm({
               );
             })}
           </div>
+        )}
+
+        {(isEditingExistingItem || formStep === totalSteps) && (
+          <ItemImageUpload
+            itemId={itemId}
+            itemName={mode === 'variant' ? variantName || name : name}
+            imageUrl={imageUrl}
+            onImageUrlChange={setImageUrl}
+            pendingFile={pendingImageFile}
+            onPendingFileChange={setPendingImageFile}
+          />
         )}
 
         {/* Step 1: Product type */}

@@ -1,0 +1,44 @@
+'use client';
+
+import { ReactNode, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { DepartmentAppProvider } from '@/components/department/DepartmentAppProvider';
+import { DepartmentBottomNav } from '@/components/department/DepartmentBottomNav';
+
+export default function DepartmentLayout({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const { user, isLoading } = useCurrentUser();
+
+  useEffect(() => {
+    if (!isLoading && user?.role !== 'department_staff') {
+      router.replace('/admin');
+    }
+  }, [user, isLoading, router]);
+
+  if (isLoading || !user || user.role !== 'department_staff') {
+    return (
+      <div className="flex h-[100dvh] items-center justify-center bg-[#f6f8f6] dark:bg-[#0f1a0d]">
+        <div className="w-8 h-8 border-4 border-[#1c6a1e]/20 border-t-[#1c6a1e] rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <DepartmentAppProvider>
+      <div className="h-[100dvh] w-full overflow-hidden flex flex-col bg-[#f6f8f6] dark:bg-[#0f1a0d] antialiased">
+        <style jsx global>{`
+          .no-scrollbar::-webkit-scrollbar {
+            display: none;
+          }
+          .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+          }
+        `}</style>
+        <div className="flex-1 min-h-0 overflow-hidden">{children}</div>
+        <DepartmentBottomNav />
+      </div>
+    </DepartmentAppProvider>
+  );
+}

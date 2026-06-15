@@ -7,9 +7,21 @@ import { ItemGrid } from '@/components/pos/ItemGrid';
 import { AddToCartDialog } from '@/components/pos/AddToCartDialog';
 import { OutOfStockRequestModal } from '@/components/pos/OutOfStockRequestModal';
 import { VariantSelector } from '@/components/pos/VariantSelector';
-import { CartView } from '@/components/pos/CartView';
-import { CheckoutForm } from '@/components/pos/CheckoutForm';
-import { Receipt } from '@/components/pos/Receipt';
+import { PosClearCacheButton } from '@/components/pos/PosClearCacheButton';
+import { PosCategoryChips } from '@/components/pos/PosCategoryChips';
+import { PosTransactionDrawers } from '@/components/pos/PosTransactionDrawers';
+import { PosCartColumn } from '@/components/pos/PosCartColumn';
+import { PosDepartmentRail } from '@/components/pos/PosDepartmentRail';
+import { PosDesktopHeader } from '@/components/pos/PosDesktopHeader';
+import { PosBottomNav, type PosMobileTab } from '@/components/pos/PosBottomNav';
+import { PosMobileMoreSheet } from '@/components/pos/PosMobileMoreSheet';
+import { PosReturnsDialog } from '@/components/pos/PosReturnsDialog';
+import { PosMobileCartTab } from '@/components/pos/PosMobileCartTab';
+import { PosMobileSearchBar } from '@/components/pos/PosMobileSearchBar';
+import {
+  PosCashierOperationsProvider,
+  PosShiftStatusBar,
+} from '@/components/pos/PosCashierOperations';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -39,7 +51,6 @@ import {
   LogOut,
   Loader2,
   Tag,
-  XCircle,
   Sprout,
   GlassWater,
   Drumstick,
@@ -51,7 +62,6 @@ import {
   Sparkles,
   Heart,
   Home,
-  FileText,
   Store,
   Pill,
   Coffee as CoffeeIcon,
@@ -65,12 +75,16 @@ import {
   Trash2,
   PackageX,
   BarChart2,
+  RotateCcw,
+  Camera,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Item } from '@/lib/db/types';
 import type { Category } from '@/lib/db/types';
-import { getItemImage } from '@/lib/utils/item-images';
+import { resolveItemImageUrl } from '@/lib/utils/item-images';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import { canProcessRefund } from '@/lib/auth/permissions';
+import type { UserRole } from '@/lib/constants';
 import { Settings } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import { apiGet } from '@/lib/utils/api-client';
@@ -82,87 +96,16 @@ import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { storeUserRole, clearUserRole } from '@/lib/utils/user-role-storage';
 import { useDebounce } from '@/lib/hooks/use-debounce';
 import { useBarcodeScanner, isValidBarcode } from '@/lib/hooks/use-barcode-scanner';
+import { BarcodeCameraScannerDialog } from '@/components/pos/BarcodeCameraScannerDialog';
 import { getRecentSearches, addRecentSearch, clearRecentSearches, removeRecentSearch } from '@/lib/utils/recent-searches';
 import { Clock, Command } from 'lucide-react';
-
-const GROCERY_CATEGORY_IMAGE_MAP: Record<string, string> = {
-  Vegetables: '/category/vegetables.jpeg',
-  Fruits: '/category/fruits.jpeg',
-  'Grains & Cereals': '/category/grains&cereals.jpg',
-  Spices: '/category/spices.webp',
-  Beverages: '/category/beverages.jpeg',
-  Snacks: '/category/snacks.jpg',
-  'Green Grocery': '/category/green-grocery.jpeg',
-  Dairy: '/category/Dairy.jpeg',
-  Meat: '/category/meat.jpg',
-  Bakery: '/category/bakery.webp',
-  'Frozen Foods': '/category/frozen-foods.jpg',
-  'Canned Goods': '/category/canned-goods.jpeg',
-};
-
-const RETAIL_CATEGORY_IMAGE_MAP: Record<string, string> = {
-  'Food Essentials': '/retail/food%20essentials.jpeg',
-  'Beverages': '/retail/beverages.jpg',
-  'Snacks & Confectionery': '/retail/Snacks-Confectionary.jpg',
-  'Cleaning Products': '/retail/cleaning%20products.webp',
-  'Personal Care': '/retail/beverages.jpg', // Using beverages as placeholder, can be updated later
-  'Household Items': '/retail/beverages.jpg', // Using beverages as placeholder, can be updated later
-  'Paper Products': '/retail/paper%20products.jpeg',
-  'General Merchandise': '/retail/general%20merchandize.jpeg',
-};
-
-const CATEGORY_IMAGE_MAP: Record<string, string> = {
-  ...GROCERY_CATEGORY_IMAGE_MAP,
-  ...RETAIL_CATEGORY_IMAGE_MAP,
-};
-
-const CATEGORY_ICON_MAP: Record<string, React.ReactNode> = {
-  // Grocery categories - all icons use consistent size w-7 h-7
-  Vegetables: <Leaf className="w-7 h-7" />,
-  Fruits: <Apple className="w-7 h-7" />,
-  'Grains & Cereals': <Wheat className="w-7 h-7" />,
-  Spices: <Flame className="w-7 h-7" />,
-  Beverages: <Droplets className="w-7 h-7" />,
-  Snacks: <Package className="w-7 h-7" />,
-  'Green Grocery': <Sprout className="w-7 h-7" />,
-  Dairy: <GlassWater className="w-7 h-7" />,
-  Meat: <Drumstick className="w-7 h-7" />,
-  Bakery: <Croissant className="w-7 h-7" />,
-  'Frozen Foods': <Snowflake className="w-7 h-7" />,
-  'Canned Goods': <Box className="w-7 h-7" />,
-  // Retail categories - all icons use consistent size w-7 h-7
-  'Food Essentials': <Utensils className="w-7 h-7" />,
-  'Snacks & Confectionery': <Candy className="w-7 h-7" />,
-  'Cleaning Products': <Sparkles className="w-7 h-7" />,
-  'Personal Care': <Heart className="w-7 h-7" />,
-  'Household Items': <Home className="w-7 h-7" />,
-  'Paper Products': <FileText className="w-7 h-7" />,
-  'General Merchandise': <Store className="w-7 h-7" />,
-};
-
-const CATEGORY_COLOR_MAP: Record<string, string> = {
-  // Grocery categories
-  Vegetables: 'text-green-700 dark:text-green-400',
-  Fruits: 'text-red-600 dark:text-red-400',
-  'Grains & Cereals': 'text-amber-700 dark:text-amber-400',
-  Spices: 'text-orange-600 dark:text-orange-400',
-  Beverages: 'text-blue-600 dark:text-blue-400',
-  Snacks: 'text-purple-600 dark:text-purple-400',
-  'Green Grocery': 'text-emerald-700 dark:text-emerald-400',
-  Dairy: 'text-cyan-600 dark:text-cyan-400',
-  Meat: 'text-rose-700 dark:text-rose-400',
-  Bakery: 'text-yellow-700 dark:text-yellow-400',
-  'Frozen Foods': 'text-sky-600 dark:text-sky-400',
-  'Canned Goods': 'text-gray-700 dark:text-gray-400',
-  // Retail categories
-  'Food Essentials': 'text-amber-600 dark:text-amber-400',
-  'Snacks & Confectionery': 'text-pink-600 dark:text-pink-400',
-  'Cleaning Products': 'text-teal-600 dark:text-teal-400',
-  'Personal Care': 'text-indigo-600 dark:text-indigo-400',
-  'Household Items': 'text-slate-600 dark:text-slate-400',
-  'Paper Products': 'text-blue-600 dark:text-blue-400',
-  'General Merchandise': 'text-violet-600 dark:text-violet-400',
-};
+import {
+  CATEGORY_COLOR_MAP,
+  CATEGORY_ICON_MAP,
+  CATEGORY_IMAGE_MAP,
+} from '@/lib/pos/category-maps';
+import { usePosKeyboardShortcuts } from '@/lib/hooks/use-pos-keyboard-shortcuts';
+import { usePendingSales } from '@/lib/hooks/use-pending-sales';
 
 export default function POSPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
@@ -190,10 +133,33 @@ export default function POSPage() {
   const [drawerSearchQuery, setDrawerSearchQuery] = useState('');
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const [checkoutDrawerOpen, setCheckoutDrawerOpen] = useState(false);
+  const [mobileTab, setMobileTab] = useState<PosMobileTab>('sell');
+  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+  const [isWideViewport, setIsWideViewport] = useState(false);
+
+  useEffect(() => {
+    if (isWideViewport) {
+      setShowSearch(true);
+    }
+  }, [isWideViewport]);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const update = () => setIsWideViewport(mq.matches);
+    update();
+    mq.addEventListener('change', update);
+    return () => mq.removeEventListener('change', update);
+  }, []);
   const [receiptDrawerOpen, setReceiptDrawerOpen] = useState(false);
   const [outOfStockModalOpen, setOutOfStockModalOpen] = useState(false);
+  const [returnsDialogOpen, setReturnsDialogOpen] = useState(false);
   const [receiptSaleId, setReceiptSaleId] = useState<string | null>(null);
-  const [receiptData, setReceiptData] = useState<{ sale: any; items: any[]; splitPayments?: any[] } | null>(null);
+  const [receiptData, setReceiptData] = useState<{
+    sale: any;
+    items: any[];
+    splitPayments?: any[];
+    receiptSettings?: { tagline?: string; website?: string; phone?: string; tillNumber?: string };
+  } | null>(null);
   const [receiptLoading, setReceiptLoading] = useState(false);
   const [receiptError, setReceiptError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -219,7 +185,8 @@ export default function POSPage() {
   const flatSuggestionsRef = useRef<typeof searchSuggestions>([]);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const desktopSearchContainerRef = useRef<HTMLDivElement>(null);
-  const { clearCart, carts, activeCartId, switchCart } = useCartStore();
+  const { clearCart, carts, activeCartId, switchCart, createCart } = useCartStore();
+  const { orphanedCount } = usePendingSales();
   const { user } = useCurrentUser();
   
   // Auto-select first cart if none is active
@@ -235,6 +202,9 @@ export default function POSPage() {
   const cartItems = activeCart?.items || [];
   const isOwnerOrAdmin = user?.role === 'owner' || user?.role === 'admin';
   const canAccessAdmin = isOwnerOrAdmin || user?.role === 'cashier';
+  const canProcessReturn = user?.role
+    ? canProcessRefund(user.role as UserRole)
+    : false;
 
   const posStockStats = useMemo(() => {
     const popular = featuredItems.filter((i) => itemMatchesShopType(i, shopType)).length;
@@ -284,6 +254,8 @@ export default function POSPage() {
     variants?: Item[];
   } | null>(null);
   const [variantSelectorOpen, setVariantSelectorOpen] = useState(false);
+
+  const [barcodeCameraOpen, setBarcodeCameraOpen] = useState(false);
 
   // Barcode scanner state
   const [barcodeScanStatus, setBarcodeScanStatus] = useState<{
@@ -340,6 +312,14 @@ export default function POSPage() {
       }, 3000);
     }
   }, [showSearch]);
+
+  const handleCameraBarcode = useCallback(
+    (code: string) => {
+      setSearchQuery(code);
+      void handleBarcodeScan(code);
+    },
+    [handleBarcodeScan]
+  );
 
   // Initialize barcode scanner hook
   const { manualScan } = useBarcodeScanner({
@@ -438,6 +418,15 @@ export default function POSPage() {
   useEffect(() => {
     loadPosInsights();
   }, [loadPosInsights]);
+
+  const handleItemImageUpdated = useCallback((itemId: string, imageUrl: string | null) => {
+    const patch = (list: Item[]) =>
+      list.map((i) => (i.id === itemId ? { ...i, image_url: imageUrl } : i));
+    setFeaturedItems(patch);
+    setLowStockHomeItems(patch);
+    setOutStockItems(patch);
+    setLowQtyHomeItems(patch);
+  }, []);
 
   // Cache current shift for offline sales (when online)
   useEffect(() => {
@@ -610,14 +599,6 @@ export default function POSPage() {
     }
   }, []);
 
-  const handleClearCache = useCallback(() => {
-    setRefreshing(true);
-    // Clear localStorage caches (recent searches can reference deleted items)
-    clearRecentSearches();
-    // Full page reload guarantees all in-memory caches and stale data are cleared
-    window.location.reload();
-  }, []);
-
   useEffect(() => {
     if (showSearch) {
       // Focus the appropriate search input based on screen size
@@ -630,29 +611,6 @@ export default function POSPage() {
       }, 50);
     }
   }, [showSearch]);
-
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        setShowSearch(true);
-      }
-      if (e.key === 'Escape') {
-        if (showSuggestions) {
-          // First escape closes suggestions
-          setShowSuggestions(false);
-        } else if (showSearch) {
-          // Second escape closes search
-          setShowSearch(false);
-          setSearchQuery('');
-          setSearchSuggestions([]);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [showSearch, showSuggestions]);
 
   const handleSelectItem = useCallback((item: Item) => {
     setSelectedItem(item);
@@ -1121,6 +1079,63 @@ export default function POSPage() {
   const cancelClearCart = useCallback(() => {
     setShowClearCartToast(false);
   }, []);
+
+  const handleMobileTabChange = useCallback((tab: PosMobileTab) => {
+    setMobileTab(tab);
+    if (tab === 'search') {
+      setShowSearch(true);
+      setSelectedCategoryId(null);
+      window.setTimeout(() => mobileSearchInputRef.current?.focus(), 50);
+    } else {
+      setShowSearch(false);
+      setShowSuggestions(false);
+    }
+  }, []);
+
+  usePosKeyboardShortcuts({
+    onFocusSearch: () => {
+      if (!isWideViewport) {
+        handleMobileTabChange('search');
+      } else {
+        setShowSearch(true);
+      }
+    },
+    onCloseSearch: () => {
+      if (isWideViewport) {
+        if (showSuggestions) {
+          setShowSuggestions(false);
+        } else if (searchQuery) {
+          clearSearch();
+        }
+        return;
+      }
+      if (!isWideViewport && mobileTab === 'search') {
+        handleMobileTabChange('sell');
+        return;
+      }
+      if (showSuggestions) {
+        setShowSuggestions(false);
+      } else if (showSearch) {
+        setShowSearch(false);
+        setSearchQuery('');
+        setSearchSuggestions([]);
+      }
+    },
+    onOpenCheckout: () => {
+      if (cartItemCount > 0) {
+        setCartDrawerOpen(false);
+        setCheckoutDrawerOpen(true);
+        if (!isWideViewport) {
+          setMobileTab('cart');
+        }
+      }
+    },
+    onClearCart: handleClearCart,
+    onNewCart: () => createCart(),
+    searchOpen: showSearch,
+    suggestionsOpen: showSuggestions,
+    cartHasItems: cartItemCount > 0,
+  });
 
   const getCategoryImage = (categoryName: string) => {
     if (!categoryName) return null;
@@ -1839,9 +1854,11 @@ export default function POSPage() {
   };
 
   return (
+    <PosCashierOperationsProvider>
     <>
-      {/* Mobile Kiosk Design */}
-      <div className="md:hidden print:hidden bg-[#f6f8f6] dark:bg-[#132210] text-[#101b0d] dark:text-[#f0fdf4] min-h-screen w-full overflow-hidden flex flex-col antialiased">
+      {/* Mobile app shell */}
+      <div className="md:hidden print:hidden bg-[#f6f8f6] dark:bg-[#132210] text-[#101b0d] dark:text-[#f0fdf4] h-[100dvh] w-full overflow-hidden flex flex-col antialiased">
+        <PosShiftStatusBar variant="mobile" />
         <style jsx global>{`
           .no-scrollbar::-webkit-scrollbar {
             display: none;
@@ -1852,469 +1869,230 @@ export default function POSPage() {
           }
         `}</style>
 
-        {!selectedCategoryId ? (
+        {mobileTab === 'cart' ? (
+          <PosMobileCartTab
+            cartItemCount={cartItemCount}
+            onClearCart={handleClearCart}
+            onCheckout={() => setCheckoutDrawerOpen(true)}
+          />
+        ) : mobileTab === 'search' ? (
           <>
-            <header className="sticky top-0 z-20 bg-white dark:bg-[#1a2c17] border-b border-gray-100 dark:border-gray-800/60">
-              <div className="flex items-center justify-between px-3 py-1.5">
-                {/* Left - Menu + Brand */}
-                <div className="flex items-center gap-2">
-                  <button
-                    aria-label="Menu"
-                    className="pos-icon-btn"
-                    onClick={() => setCategoryDrawerOpen(true)}
-                  >
-                    <Menu className="w-[18px] h-[18px] text-slate-600 dark:text-slate-400" />
-                  </button>
-                  <div>
-                    <h1 className="text-[15px] font-bold text-[#1c6a1e] leading-none tracking-tight">
-                      Kiosk POS
-                    </h1>
-                    <ShopTypeSelector 
-                      onShopTypeChange={handleShopTypeChange}
-                      className="scale-[0.75] origin-left -ml-1 mt-0.5"
-                    />
-                  </div>
+            <header className="shrink-0 z-20 safe-area-top bg-white/95 dark:bg-[#1a2c17]/95 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800/60">
+              <div className="flex items-center px-4 h-12">
+                <h1 className="text-[17px] font-bold text-slate-900 dark:text-white">Search</h1>
+              </div>
+            </header>
+            <PosMobileSearchBar
+              searchQuery={searchQuery}
+              onSearchChange={handleSearchChange}
+              onSearchSubmit={handleSearchSubmit}
+              onSearchKeyDown={handleSearchKeyDown}
+              onClear={clearSearch}
+              onOpenCamera={() => setBarcodeCameraOpen(true)}
+              onFocus={() => searchSuggestions.length > 0 && setShowSuggestions(true)}
+              inputRef={mobileSearchInputRef}
+              containerRef={searchContainerRef}
+              isPending={isSearchPending}
+              isScanning={barcodeScanStatus.scanning}
+              isLoadingSuggestions={loadingSuggestions}
+              suggestions={renderSuggestionsDropdown(false)}
+            />
+            <main className="flex-1 min-h-0 overflow-y-auto no-scrollbar pb-[calc(3.25rem+env(safe-area-inset-bottom,0px))] px-3">
+              {searchQuery && isSearchPending ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-2">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <div key={i} className="bg-white dark:bg-[#1c2e18] rounded-xl border border-slate-200 h-32 animate-pulse" />
+                  ))}
                 </div>
-
-                {/* Right - Actions */}
-                <div className="flex items-center gap-1">
-                  <button
-                    aria-label="Search"
-                    onClick={() => setShowSearch(true)}
-                    className="pos-icon-btn"
-                  >
-                    <Search className="w-[18px] h-[18px] text-slate-600 dark:text-slate-400" />
-                  </button>
-
-                  {isOwnerOrAdmin && (
-                    <div className="relative" ref={statsMenuRefMobile}>
-                      <button
-                        type="button"
-                        aria-label="Stock stats and filters"
-                        aria-expanded={statsMenuOpen}
-                        title="Filter home screen by stock"
-                        onClick={() => setStatsMenuOpen((o) => !o)}
-                        className={`pos-icon-btn relative ${posStockFilter !== 'all' ? 'ring-2 ring-amber-400/90 ring-offset-2 ring-offset-[#f6f8f6] dark:ring-offset-[#132210]' : ''}`}
-                      >
-                        <BarChart2 className="w-[18px] h-[18px] text-slate-600 dark:text-slate-400" />
-                        {posStockFilter !== 'all' && (
-                          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-500" aria-hidden />
-                        )}
-                      </button>
-                      {statsMenuOpen && (
-                        <div className="absolute right-0 top-full mt-1.5 z-[100] w-[13.5rem] rounded-none border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl py-1 text-left">
-                          <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                            Stock view
-                          </p>
-                          <button
-                            type="button"
-                            className={`w-full text-left px-3 py-2 text-sm ${posStockFilter === 'all' ? 'bg-slate-100 dark:bg-slate-800 text-[#1c6a1e] font-semibold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80'}`}
-                            onClick={() => {
-                              setPosStockFilter('all');
-                              setStatsMenuOpen(false);
-                            }}
-                          >
-                            Quick Sell (default)
-                            <span className="float-right tabular-nums text-slate-400 text-xs">{posStockStats.popular}</span>
-                          </button>
-                          <button
-                            type="button"
-                            className={`w-full text-left px-3 py-2 text-sm ${posStockFilter === 'out' ? 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 font-semibold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80'}`}
-                            onClick={() => {
-                              setPosStockFilter('out');
-                              setStatsMenuOpen(false);
-                            }}
-                          >
-                            Out of stock
-                            <span className="float-right tabular-nums text-red-500 text-xs">{posStockStats.out}</span>
-                          </button>
-                          <button
-                            type="button"
-                            className={`w-full text-left px-3 py-2 text-sm ${posStockFilter === 'low' ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 font-semibold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80'}`}
-                            onClick={() => {
-                              setPosStockFilter('low');
-                              setStatsMenuOpen(false);
-                            }}
-                          >
-                            Low qty · under 10
-                            <span className="float-right tabular-nums text-amber-600 text-xs">{posStockStats.low}</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <button
-                    aria-label="Refresh"
-                    onClick={handleRefresh}
-                    disabled={refreshing}
-                    className="pos-icon-btn disabled:opacity-40"
-                    title="Refresh products"
-                  >
-                    <RefreshCw className={`w-4 h-4 text-slate-500 dark:text-slate-400 ${refreshing ? 'animate-spin' : ''}`} />
-                  </button>
-
-                  <button
-                    aria-label="Clear cache"
-                    onClick={handleClearCache}
-                    disabled={refreshing}
-                    className="pos-icon-btn disabled:opacity-40 flex items-center gap-1.5 px-2.5"
-                    title="Clear cache and reload"
-                  >
-                    <Trash2 className={`w-4 h-4 text-amber-600 dark:text-amber-500 ${refreshing ? 'animate-pulse' : ''}`} />
-                    <span className="text-xs font-medium text-amber-600 dark:text-amber-500">Clear cache</span>
-                  </button>
-
-                  <button
-                    aria-label="Requested but not sold"
-                    onClick={() => setOutOfStockModalOpen(true)}
-                    className="pos-icon-btn"
-                    title="Log item customer asked for but we don't have"
-                  >
-                    <PackageX className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                  </button>
-                  
-                  {canAccessAdmin && (
-                    <Link
-                      href="/admin"
-                      className="pos-icon-btn-primary"
-                      aria-label="Admin"
-                    >
-                      <Settings className="w-4 h-4" />
-                    </Link>
-                  )}
-                  
-                  <button
-                    aria-label="Logout"
-                    onClick={() => signOut({ callbackUrl: '/pos/login' })}
-                    className="pos-icon-btn-danger"
-                    title="Logout"
-                  >
-                    <LogOut className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                  </button>
+              ) : debouncedSearchQuery ? (
+                <ItemGrid
+                  key={`search-${refreshKey}`}
+                  categoryId={null}
+                  searchQuery={debouncedSearchQuery}
+                  onSelectItem={handleSelectItem}
+                  onSelectParent={handleSelectParent}
+                  onQuickAdd={handleQuickAdd}
+                  shopType={shopType}
+                  itemTypeKeys={itemTypeKeys}
+                  categories={categories}
+                  featuredItems={featuredItems}
+                  lowStockItems={lowStockHomeItems}
+                  outStockItems={outStockItems}
+                  lowQuantityItems={lowQtyHomeItems}
+                  stockListFilter="all"
+                  canManageItemImages={isOwnerOrAdmin}
+                  onItemImageUpdated={handleItemImageUpdated}
+                />
+              ) : (
+                <div className="py-12 text-center text-sm text-slate-500">
+                  <Search className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+                  Search by name or scan a barcode
                 </div>
+              )}
+            </main>
+          </>
+        ) : !selectedCategoryId ? (
+          <>
+            <header className="shrink-0 z-20 safe-area-top bg-white/95 dark:bg-[#1a2c17]/95 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800/60">
+              <div className="flex items-center justify-between px-3 h-12">
+                <button
+                  aria-label="Browse categories"
+                  className="pos-icon-btn"
+                  onClick={() => setCategoryDrawerOpen(true)}
+                >
+                  <Menu className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                </button>
+                <h1 className="text-[17px] font-bold text-[#1c6a1e] leading-none tracking-tight truncate max-w-[52%]">
+                  {user?.businessName || 'POS'}
+                </h1>
+                <button
+                  aria-label="Scan barcode"
+                  className="pos-icon-btn"
+                  onClick={() => setBarcodeCameraOpen(true)}
+                >
+                  <Camera className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                </button>
               </div>
             </header>
 
-            {showSearch && (
-              <div className="px-3 pb-3 bg-gradient-to-b from-[#f6f8f6] to-[#f0f4f0] dark:from-[#132210] dark:to-[#0f1c0d] sticky top-[48px] z-20 border-b border-black/5 dark:border-white/5 animate-in slide-in-from-top-2 duration-200">
-                <div ref={searchContainerRef} className="relative">
-                  <form onSubmit={handleSearchSubmit}>
-                    <div className="relative group/input">
-                      {/* Animated focus ring */}
-                      <div className="absolute -inset-[1px] bg-gradient-to-r from-[#1c6a1e] to-[#2a8a30] rounded-none opacity-0 group-focus-within/input:opacity-100 transition-opacity duration-300 blur-[0.5px]" />
-                      <div className="relative">
-                        {isSearchPending || barcodeScanStatus.scanning || loadingSuggestions ? (
-                          <Loader2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#1c6a1e] animate-spin z-10" />
-                        ) : (
-                          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within/input:text-[#1c6a1e] transition-colors z-10" />
-                        )}
-                        <Input
-                          ref={mobileSearchInputRef}
-                          type="text"
-                          placeholder="Search products, scan barcode..."
-                          value={searchQuery}
-                          onChange={(e) => handleSearchChange(e.target.value)}
-                          onFocus={() => searchSuggestions.length > 0 && setShowSuggestions(true)}
-                          onKeyDown={handleSearchKeyDown}
-                          className="pl-10 pr-16 h-12 bg-white dark:bg-[#1c2e18] rounded-none border border-gray-200/80 dark:border-gray-700/60 focus:border-transparent focus:ring-0 text-[15px] font-medium placeholder:text-gray-400 shadow-sm"
-                          autoComplete="off"
-                          autoCorrect="off"
-                          spellCheck={false}
-                          data-barcode-enabled="true"
-                        />
-                        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 z-10">
-                          {searchQuery ? (
-                            <button
-                              type="button"
-                              onClick={clearSearch}
-                              className="h-7 w-7 flex items-center justify-center rounded-none bg-gray-100 dark:bg-gray-700/80 hover:bg-gray-200 dark:hover:bg-gray-600 transition-all active:scale-90"
-                            >
-                              <X className="w-3.5 h-3.5 text-gray-500" />
-                            </button>
-                          ) : (
-                            <span className="hidden md:flex items-center gap-0.5 text-[10px] text-gray-400 bg-gray-100/80 dark:bg-gray-700/60 px-1.5 py-1 rounded-none border border-gray-200/50 dark:border-gray-600/30">
-                              <Command className="w-3 h-3" />K
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </form>
+            <PosMobileSearchBar
+              searchQuery={searchQuery}
+              onSearchChange={handleSearchChange}
+              onSearchSubmit={handleSearchSubmit}
+              onSearchKeyDown={handleSearchKeyDown}
+              onClear={clearSearch}
+              onOpenCamera={() => setBarcodeCameraOpen(true)}
+              onFocus={() => searchSuggestions.length > 0 && setShowSuggestions(true)}
+              inputRef={mobileSearchInputRef}
+              containerRef={searchContainerRef}
+              isPending={isSearchPending}
+              isScanning={barcodeScanStatus.scanning}
+              isLoadingSuggestions={loadingSuggestions}
+              suggestions={renderSuggestionsDropdown(false)}
+            />
 
-                  {/* Search Suggestions Dropdown */}
-                  {renderSuggestionsDropdown(false)}
+            <main className="flex-1 overflow-y-auto no-scrollbar pb-[calc(3.25rem+env(safe-area-inset-bottom,0px))] px-3 flex flex-col min-h-0">
+              {debouncedSearchQuery ? (
+                <div className="flex-1 min-h-0 flex flex-col -mx-1">
+                  <ItemGrid
+                    key={`msearch-${refreshKey}`}
+                    categoryId={null}
+                    searchQuery={debouncedSearchQuery}
+                    onSelectItem={handleSelectItem}
+                    onSelectParent={handleSelectParent}
+                    onQuickAdd={handleQuickAdd}
+                    shopType={shopType}
+                    itemTypeKeys={itemTypeKeys}
+                    categories={categories}
+                    featuredItems={featuredItems}
+                    lowStockItems={lowStockHomeItems}
+                    outStockItems={outStockItems}
+                    lowQuantityItems={lowQtyHomeItems}
+                    stockListFilter="all"
+                    canManageItemImages={isOwnerOrAdmin}
+                    onItemImageUpdated={handleItemImageUpdated}
+                  />
                 </div>
-                
-                {/* Search status bar - only show when dropdown is not visible */}
-                {searchQuery && !showSuggestions && !loadingSuggestions && (
-                  <div className="mt-2.5 flex items-center justify-between">
-                    <span className="text-xs text-gray-500">
-                      {isSearchPending ? (
-                        <span className="flex items-center gap-1.5">
-                          <span className="inline-block w-1.5 h-1.5 bg-[#1c6a1e] rounded-none animate-pulse" />
-                          <span className="text-gray-500 font-medium">Searching...</span>
-                        </span>
-                      ) : isValidBarcode(searchQuery) ? (
-                        <span className="flex items-center gap-1.5 bg-[#1c6a1e]/[0.06] dark:bg-[#1c6a1e]/10 px-2.5 py-1 rounded-none">
-                          <QrCode className="w-3.5 h-3.5 text-[#1c6a1e]" />
-                          <span className="text-[#1c6a1e] font-medium text-[11px]">Press Enter to scan barcode</span>
-                        </span>
-                      ) : debouncedSearchQuery ? (
-                        <span className="text-gray-400">
-                          Results for <span className="font-semibold text-gray-600 dark:text-gray-300">&quot;{debouncedSearchQuery}&quot;</span>
-                        </span>
-                      ) : null}
-                    </span>
-                    <button
-                      onClick={clearSearch}
-                      className="text-xs text-[#1c6a1e] font-semibold hover:underline active:scale-95 transition-transform"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                )}
-                
-                {/* Recent searches - show when no query */}
-                {!searchQuery && recentSearches.length > 0 && (
-                  <div className="mt-3.5">
-                    <div className="flex items-center justify-between mb-2.5">
-                      <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                        <Clock className="w-3 h-3" />
-                        <span>Recent</span>
-                      </div>
-                      <button
-                        onClick={() => {
-                          clearRecentSearches();
-                          setRecentSearches([]);
-                        }}
-                        className="text-[11px] text-gray-400 hover:text-red-400 dark:hover:text-red-400 font-medium transition-colors"
-                      >
-                        Clear all
-                      </button>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {recentSearches.slice(0, 6).map((query, index) => (
-                        <button
-                          key={index}
-                          onClick={() => {
-                            setSearchQuery(query);
-                          }}
-                          className="group/recent flex items-center gap-1.5 pl-2.5 pr-2 py-1.5 bg-white dark:bg-[#1c2e18] rounded-none border border-gray-200/80 dark:border-gray-700/50 hover:border-[#1c6a1e]/40 hover:bg-[#1c6a1e]/[0.04] dark:hover:bg-[#1c6a1e]/10 text-[12px] text-gray-600 dark:text-gray-400 hover:text-[#1c6a1e] transition-all active:scale-[0.97] shadow-sm"
-                        >
-                          <Clock className="w-3 h-3 text-gray-300 dark:text-gray-600 group-hover/recent:text-[#1c6a1e]/50 flex-shrink-0" />
-                          <span className="capitalize truncate max-w-[100px]">{query}</span>
-                          <span
-                            role="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              removeRecentSearch(query);
-                              setRecentSearches(prev => prev.filter(s => s !== query));
-                            }}
-                            className="opacity-0 group-hover/recent:opacity-100 p-0.5 rounded-none hover:bg-gray-200 dark:hover:bg-gray-600 transition-all flex-shrink-0"
-                          >
-                            <X className="w-2.5 h-2.5" />
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Quick tips when empty */}
-                {!searchQuery && recentSearches.length === 0 && (
-                  <div className="mt-3.5 flex items-center gap-2.5 text-gray-400 dark:text-gray-500">
-                    <div className="w-6 h-6 rounded-none bg-[#1c6a1e]/10 flex items-center justify-center flex-shrink-0">
-                      <Sparkles className="w-3 h-3 text-[#1c6a1e]" />
-                    </div>
-                    <span className="text-xs">Type to search products or scan a barcode</span>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <main className="flex-1 overflow-y-auto no-scrollbar pb-32 px-3 sm:px-4 flex flex-col min-h-0">
-              {!searchQuery && !debouncedSearchQuery && (
+              ) : (
                 <>
-                  <div className="flex gap-1.5 py-1 overflow-x-auto no-scrollbar w-full mb-1">
-                    <button className="pos-pill pos-btn-outline flex shrink-0 items-center gap-1.5 h-8 px-2.5 text-xs shadow-sm">
-                      <DollarSign className="w-3.5 h-3.5 text-[#1c6a1e]" />
-                      <span className="whitespace-nowrap text-slate-700 dark:text-slate-300">Custom Amount</span>
-                    </button>
-                    <button 
-                      onClick={() => {
-                        setShowSearch(true);
-                        setSearchQuery('');
-                      }}
-                      className="pos-pill pos-btn-primary flex shrink-0 items-center gap-1.5 h-8 px-2.5 text-xs text-white"
-                    >
-                      <QrCode className="w-3.5 h-3.5" />
-                      <span className="whitespace-nowrap">Scan Barcode</span>
-                    </button>
-                  </div>
+              <PosCategoryChips
+                categories={filteredCategories}
+                onSelect={handleCategoryClick}
+              />
 
-                  <div className="space-y-2">
-                    <p className="text-[9px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                      Categories
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                    {filteredCategories.map((category) => (
-                      <button
-                        key={category.id}
-                        onClick={() => handleCategoryClick(category.id)}
-                        className="px-3 py-1.5 text-[10px] font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-600/60 hover:border-[#1c6a1e]/60 hover:bg-[#1c6a1e]/8 dark:hover:bg-[#1c6a1e]/12 hover:text-[#1c6a1e] active:scale-[0.98] transition-all duration-150 shadow-sm"
-                      >
-                        {category.name}
-                      </button>
-                    ))}
-                    </div>
-                  </div>
-
-                  <div className="flex-1 min-h-0 flex flex-col mt-1 -mx-1">
-                    <ItemGrid
-                      key={`mhome-${refreshKey}`}
-                      categoryId={null}
-                      onSelectItem={handleSelectItem}
-                      onSelectParent={handleSelectParent}
-                      onQuickAdd={handleQuickAdd}
-                      shopType={shopType}
-                      itemTypeKeys={itemTypeKeys}
-                      categories={categories}
-                      featuredItems={featuredItems}
-                      lowStockItems={lowStockHomeItems}
-                      outStockItems={outStockItems}
-                      lowQuantityItems={lowQtyHomeItems}
-                      stockListFilter={isOwnerOrAdmin ? posStockFilter : 'all'}
-                    />
-                  </div>
+              <div className="flex-1 min-h-0 flex flex-col mt-1 -mx-1">
+                <ItemGrid
+                  key={`mhome-${refreshKey}`}
+                  categoryId={null}
+                  onSelectItem={handleSelectItem}
+                  onSelectParent={handleSelectParent}
+                  onQuickAdd={handleQuickAdd}
+                  shopType={shopType}
+                  itemTypeKeys={itemTypeKeys}
+                  categories={categories}
+                  featuredItems={featuredItems}
+                  lowStockItems={lowStockHomeItems}
+                  outStockItems={outStockItems}
+                  lowQuantityItems={lowQtyHomeItems}
+                  stockListFilter={isOwnerOrAdmin ? posStockFilter : 'all'}
+                  showLowStockStrip={isOwnerOrAdmin}
+                  canManageItemImages={isOwnerOrAdmin}
+                  onItemImageUpdated={handleItemImageUpdated}
+                />
+              </div>
                 </>
-              )}
-
-              {searchQuery && (
-                <div className="flex-1 overflow-auto">
-                  {isSearchPending ? (
-                    <div className="px-1 py-4 space-y-3">
-                      {/* Skeleton loading grid for search results */}
-                      <div className="grid grid-cols-2 gap-2.5">
-                        {[1, 2, 3, 4, 5, 6].map(i => (
-                          <div key={i} className="bg-white dark:bg-[#1c2e18] rounded-none border-2 border-slate-300 dark:border-slate-600 overflow-hidden animate-pulse">
-                            <div className="aspect-square bg-gray-100 dark:bg-gray-800" />
-                            <div className="p-3 space-y-2.5">
-                              <div className="h-3.5 bg-gray-100 dark:bg-gray-800 rounded-none w-4/5" />
-                              <div className="h-3 bg-gray-100 dark:bg-gray-800 rounded-none w-3/5" />
-                              <div className="h-7 bg-gray-100 dark:bg-gray-800 rounded-none w-2/5" />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : debouncedSearchQuery ? (
-                    <ItemGrid
-                      key={`search-${refreshKey}`}
-                      categoryId={null}
-                      searchQuery={debouncedSearchQuery}
-                      onSelectItem={handleSelectItem}
-                      onSelectParent={handleSelectParent}
-                      onQuickAdd={handleQuickAdd}
-                      shopType={shopType}
-                      itemTypeKeys={itemTypeKeys}
-                      categories={categories}
-                      featuredItems={featuredItems}
-                      lowStockItems={lowStockHomeItems}
-                      outStockItems={outStockItems}
-                      lowQuantityItems={lowQtyHomeItems}
-                      stockListFilter="all"
-                    />
-                  ) : null}
-                </div>
               )}
             </main>
           </>
         ) : (
           <>
-            <header className="sticky top-0 z-20 bg-white/95 dark:bg-[#1a2c17]/95 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800/60">
-              <div className="flex items-center gap-2.5 px-3 py-2">
+            <header className="shrink-0 z-20 safe-area-top bg-white/95 dark:bg-[#1a2c17]/95 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800/60">
+              <div className="flex items-center gap-2 px-3 h-12">
                 <button
                   onClick={() => setSelectedCategoryId(null)}
                   className="pos-icon-btn flex-shrink-0"
+                  aria-label="Back to home"
                 >
-                  <ArrowLeft className="w-[18px] h-[18px] text-slate-600 dark:text-slate-400" />
+                  <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                 </button>
-
-                <div className="flex-1 min-w-0">
-                  <h1 className="text-[15px] font-bold text-slate-800 dark:text-white truncate leading-none">
-                    {selectedCategory?.name || 'Category'}
-                  </h1>
-                  <ShopTypeSelector 
-                    onShopTypeChange={handleShopTypeChange}
-                    className="scale-[0.75] origin-left -ml-1 mt-0.5"
-                  />
-                </div>
-
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <button
-                    aria-label="Refresh"
-                    onClick={handleRefresh}
-                    disabled={refreshing}
-                    className="pos-icon-btn disabled:opacity-40"
-                    title="Refresh products"
-                  >
-                    <RefreshCw className={`w-4 h-4 text-slate-500 dark:text-slate-400 ${refreshing ? 'animate-spin' : ''}`} />
-                  </button>
-
-                  <button
-                    aria-label="Clear cache"
-                    onClick={handleClearCache}
-                    disabled={refreshing}
-                    className="pos-icon-btn disabled:opacity-40 flex items-center gap-1.5 px-2.5"
-                    title="Clear cache and reload"
-                  >
-                    <Trash2 className={`w-4 h-4 text-amber-600 dark:text-amber-500 ${refreshing ? 'animate-pulse' : ''}`} />
-                    <span className="text-xs font-medium text-amber-600 dark:text-amber-500">Clear cache</span>
-                  </button>
-
-                  <button
-                    aria-label="Requested but not sold"
-                    onClick={() => setOutOfStockModalOpen(true)}
-                    className="pos-icon-btn"
-                    title="Log item customer asked for but we don't have"
-                  >
-                    <PackageX className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                  </button>
-                  
-                  {canAccessAdmin && (
-                    <Link href="/admin" className="pos-icon-btn-primary" aria-label="Admin">
-                      <Settings className="w-4 h-4" />
-                    </Link>
-                  )}
-                  
-                  <button
-                    aria-label="Logout"
-                    onClick={() => signOut({ callbackUrl: '/pos/login' })}
-                    className="pos-icon-btn-danger"
-                    title="Logout"
-                  >
-                    <LogOut className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                  </button>
-                </div>
+                <h1 className="flex-1 min-w-0 text-[17px] font-bold text-slate-800 dark:text-white truncate leading-none">
+                  {selectedCategory?.name || 'Category'}
+                </h1>
               </div>
             </header>
 
-            <div className="px-3 pb-2.5 pt-1 bg-[#f6f8f6] dark:bg-[#132210] sticky top-[52px] z-20 border-b border-black/5 dark:border-white/5">
-              <div className="relative">
+            <PosMobileSearchBar
+              searchQuery={searchQuery}
+              onSearchChange={handleSearchChange}
+              onSearchSubmit={handleSearchSubmit}
+              onSearchKeyDown={handleSearchKeyDown}
+              onClear={clearSearch}
+              onOpenCamera={() => setBarcodeCameraOpen(true)}
+              onFocus={() => searchSuggestions.length > 0 && setShowSuggestions(true)}
+              inputRef={mobileSearchInputRef}
+              containerRef={searchContainerRef}
+              isPending={isSearchPending}
+              isScanning={barcodeScanStatus.scanning}
+              isLoadingSuggestions={loadingSuggestions}
+              suggestions={renderSuggestionsDropdown(false)}
+            />
+
+            {!debouncedSearchQuery && (
+            <div className="px-3 pb-2 pt-1 bg-[#f6f8f6] dark:bg-[#132210] border-b border-black/5 dark:border-white/5">
+              <div className="relative max-w-3xl mx-auto">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
                   type="text"
-                  placeholder={`Search ${selectedCategory?.name.toLowerCase()}...`}
+                  placeholder={`Filter in ${selectedCategory?.name.toLowerCase()}...`}
                   value={categorySearchQuery}
                   onChange={(e) => setCategorySearchQuery(e.target.value)}
-                  className="pl-9 pr-9 h-10 bg-white dark:bg-[#1c2e18] rounded-none border-gray-200 dark:border-gray-700 focus:border-[#1c6a1e] focus:ring-2 focus:ring-[#1c6a1e]/20 text-sm"
+                  className="pl-9 pr-9 h-10 bg-white dark:bg-[#1c2e18] rounded-xl border-gray-200 dark:border-gray-700 focus:border-[#1c6a1e] focus:ring-2 focus:ring-[#1c6a1e]/20 text-sm"
                 />
               </div>
             </div>
+            )}
 
-            <main className="flex-1 overflow-y-auto no-scrollbar pb-32 px-5 sm:px-6">
-              {itemsLoading ? (
+            <main className="flex-1 overflow-y-auto no-scrollbar pb-[calc(3.25rem+env(safe-area-inset-bottom,0px))] px-5 sm:px-6">
+              {debouncedSearchQuery ? (
+                <ItemGrid
+                  key={`csearch-${refreshKey}`}
+                  categoryId={null}
+                  searchQuery={debouncedSearchQuery}
+                  onSelectItem={handleSelectItem}
+                  onSelectParent={handleSelectParent}
+                  onQuickAdd={handleQuickAdd}
+                  shopType={shopType}
+                  itemTypeKeys={itemTypeKeys}
+                  categories={categories}
+                  featuredItems={featuredItems}
+                  lowStockItems={lowStockHomeItems}
+                  outStockItems={outStockItems}
+                  lowQuantityItems={lowQtyHomeItems}
+                  stockListFilter="all"
+                  canManageItemImages={isOwnerOrAdmin}
+                  onItemImageUpdated={handleItemImageUpdated}
+                />
+              ) : itemsLoading ? (
                 <div className="flex items-center justify-center h-64">
                   <div className="w-10 h-10 border-4 border-[#1c6a1e]/20 border-t-[#1c6a1e] rounded-none animate-spin"></div>
                 </div>
@@ -2354,9 +2132,9 @@ export default function POSPage() {
                                 className="pos-grid-btn bg-gradient-to-b from-[#1c2e18] to-[#152a14] dark:from-[#132210] dark:to-[#0f1d0e] rounded-none border-2 border-[#1c6a1e] dark:border-[#2a8a30] overflow-hidden relative group"
                               >
                                 <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-2xl overflow-hidden relative">
-                                  {group.parent && getItemImage(group.parent.name) ? (
+                                  {group.parent && resolveItemImageUrl(group.parent) ? (
                                     <img
-                                      src={getItemImage(group.parent.name)!}
+                                      src={resolveItemImageUrl(group.parent)!}
                                       alt={item.name}
                                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                       loading="lazy"
@@ -2411,9 +2189,9 @@ export default function POSPage() {
                             className="pos-grid-btn bg-gradient-to-b from-[#1c2e18] to-[#152a14] dark:from-[#132210] dark:to-[#0f1d0e] rounded-none border-2 border-[#1c6a1e] dark:border-[#2a8a30] overflow-hidden relative group w-full max-w-xs"
                           >
                           <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-t-2xl overflow-hidden relative">
-                            {getItemImage(group.item.name) ? (
+                            {resolveItemImageUrl(group.item!) ? (
                               <img
-                                src={getItemImage(group.item.name)!}
+                                src={resolveItemImageUrl(group.item!)!}
                                 alt={group.item.name}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                 loading="lazy"
@@ -2467,333 +2245,84 @@ export default function POSPage() {
           </>
         )}
 
-        <div className="fixed bottom-4 left-0 right-0 px-3 flex justify-center z-30 pointer-events-none">
-          <button
-            onClick={() => setCartDrawerOpen(true)}
-            className="pointer-events-auto w-full max-w-md h-14 pos-btn-primary rounded-none flex items-center justify-between pl-3 pr-4 group relative overflow-hidden"
-          >
-            {/* Subtle shine */}
-            <div className="absolute inset-0 bg-gradient-to-r from-white/[0.08] via-transparent to-transparent" />
-            
-            <div className="relative flex items-center gap-3">
-              <div className="relative w-10 h-10 rounded-none bg-white/20 flex items-center justify-center">
-                <ShoppingCart className="w-5 h-5 text-white" />
-                {cartItemCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-white text-[#1c6a1e] text-[10px] font-bold rounded-none flex items-center justify-center shadow-sm">
-                    {cartItemCount}
-                  </span>
-                )}
-                {carts.length > 1 && (
-                  <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-amber-400 text-amber-900 text-[8px] font-bold rounded-none flex items-center justify-center">
-                    {carts.length}
-                  </span>
-                )}
-              </div>
-              <div className="flex flex-col items-start">
-                <span className="text-white font-semibold text-sm leading-none">
-                  {activeCart?.name || 'Cart'}
-                </span>
-                <span className="text-white/55 font-medium text-[11px] leading-tight mt-0.5">
-                  {cartItemCount} {cartItemCount === 1 ? 'item' : 'items'}
-                  {carts.length > 1 && ` · ${carts.length} carts`}
-                </span>
-              </div>
-            </div>
-            
-            <div className="relative flex items-center gap-2">
-              {cartItemCount > 0 && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleClearCart();
-                  }}
-                  className="w-8 h-8 rounded-none bg-white/15 hover:bg-white/25 flex items-center justify-center transition-all active:scale-95"
-                  title="Clear Cart"
-                >
-                  <Trash2 className="w-4 h-4 text-white/80" />
-                </button>
-              )}
-              <span className="text-white font-bold text-lg tracking-tight">
-                KES {cartTotal.toFixed(0)}
-              </span>
-            </div>
-          </button>
-        </div>
+        <PosBottomNav
+          activeTab={mobileTab}
+          onTabChange={handleMobileTabChange}
+          onMorePress={() => setMoreSheetOpen(true)}
+          cartItemCount={cartItemCount}
+          orphanedCount={orphanedCount}
+        />
+
+        <PosMobileMoreSheet
+          open={moreSheetOpen}
+          onOpenChange={setMoreSheetOpen}
+          businessName={user?.businessName}
+          canAccessAdmin={canAccessAdmin}
+          canProcessReturn={canProcessReturn}
+          isOwnerOrAdmin={isOwnerOrAdmin}
+          posStockFilter={posStockFilter}
+          posStockStats={posStockStats}
+          refreshing={refreshing}
+          onShopTypeChange={handleShopTypeChange}
+          onRefresh={handleRefresh}
+          onStockFilterChange={setPosStockFilter}
+          onOutOfStock={() => setOutOfStockModalOpen(true)}
+          onReturns={() => setReturnsDialogOpen(true)}
+          onLogout={() => signOut({ callbackUrl: '/pos/login' })}
+        />
       </div>
 
       {/* Desktop Original Design */}
       <div className="hidden md:block print:hidden">
         <POSLayout
           header={
-            <div className="px-4 py-2">
-              <div className="flex items-center justify-between gap-3">
-                {/* Left Section - Brand & Search */}
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  {/* Logo/Brand Section */}
-                  <div className="flex items-center gap-2.5 flex-shrink-0">
-                    <div className="w-9 h-9 rounded-none bg-gradient-to-br from-[#1c6a1e] to-[#1e8a72] shadow-md shadow-[#1c6a1e]/20 flex items-center justify-center">
-                      <ShoppingCart className="w-4.5 h-4.5 text-white" />
-                    </div>
-                    <div>
-                      <h1 className="text-sm font-bold text-[#1c6a1e] hidden sm:block tracking-tight leading-none">
-                        {user?.businessName || 'POS'}
-                      </h1>
-                      <ShopTypeSelector 
-                        onShopTypeChange={handleShopTypeChange}
-                        className="hidden sm:flex scale-[0.85] origin-left -ml-0.5 mt-0.5"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Search Section */}
-                  {showSearch ? (
-                    <div ref={desktopSearchContainerRef} className="flex-1 max-w-xl relative animate-in fade-in duration-200">
-                      <form onSubmit={handleSearchSubmit}>
-                        <div className="relative flex items-center group/dinput">
-                          {/* Gradient focus ring */}
-                          <div className="absolute -inset-[1px] bg-gradient-to-r from-[#1c6a1e] to-[#2a8a30] rounded-none opacity-0 group-focus-within/dinput:opacity-100 transition-opacity duration-300 blur-[0.5px]" />
-                          <div className="absolute left-3 z-10">
-                            {isSearchPending || barcodeScanStatus.scanning || loadingSuggestions ? (
-                              <Loader2 className="w-4 h-4 text-[#1c6a1e] animate-spin" />
-                            ) : isValidBarcode(searchQuery) ? (
-                              <QrCode className="w-4 h-4 text-[#1c6a1e]" />
-                            ) : (
-                              <Search className="w-4 h-4 text-gray-400 group-focus-within/dinput:text-[#1c6a1e] transition-colors" />
-                            )}
-                          </div>
-                          <Input
-                            ref={searchInputRef}
-                            type="text"
-                            placeholder="Search products or scan barcode..."
-                            value={searchQuery}
-                            onChange={(e) => handleSearchChange(e.target.value)}
-                            onFocus={() => searchSuggestions.length > 0 && setShowSuggestions(true)}
-                            onKeyDown={handleSearchKeyDown}
-                            className="relative pl-9 pr-20 h-9 border border-gray-200/80 dark:border-gray-700/60 focus:border-transparent focus:ring-0 rounded-none text-sm bg-white dark:bg-slate-800 transition-all"
-                            autoComplete="off"
-                            autoCorrect="off"
-                            spellCheck={false}
-                            data-barcode-enabled="true"
-                          />
-                          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 z-10">
-                            {searchQuery && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                                onClick={clearSearch}
-                              >
-                                <X className="w-3.5 h-3.5" />
-                              </Button>
-                            )}
-                            <kbd className="pointer-events-none h-5 select-none items-center gap-0.5 rounded border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-1 font-mono text-[10px] font-medium text-gray-400 hidden sm:flex">
-                              Esc
-                            </kbd>
-                          </div>
-                        </div>
-                      </form>
-
-                      {/* Desktop Search Suggestions Dropdown */}
-                      {renderSuggestionsDropdown(true)}
-
-                      {/* Barcode status hint */}
-                      {searchQuery && !showSuggestions && !loadingSuggestions && isValidBarcode(searchQuery) && (
-                        <div className="absolute top-full left-0 right-0 mt-1.5 text-xs flex items-center gap-1.5 pl-3">
-                          <span className="flex items-center gap-1.5 bg-[#1c6a1e]/[0.06] dark:bg-[#1c6a1e]/10 px-2.5 py-1 rounded-none">
-                            <QrCode className="w-3 h-3 text-[#1c6a1e]" />
-                            <span className="text-[#1c6a1e] font-medium text-[11px]">Press Enter to scan barcode</span>
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowSearch(true)}
-                      className="hidden sm:flex items-center gap-2 pos-btn-outline h-9 px-4 rounded-none group"
-                    >
-                      <Search className="w-4 h-4 text-slate-500 group-hover:text-[#1c6a1e] transition-colors" />
-                      <span className="hidden md:inline text-slate-600 dark:text-slate-400 text-sm group-hover:text-[#1c6a1e] transition-colors">Search products...</span>
-                      <kbd className="hidden lg:flex pointer-events-none h-5 items-center rounded-none border border-slate-200 dark:border-slate-600 bg-slate-100 dark:bg-slate-800 px-2 font-mono text-[10px] text-slate-500 ml-1">
-                        ⌘K
-                      </kbd>
-                    </Button>
-                  )}
-                </div>
-
-                {/* Right Section - Actions & Cart */}
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <div className="hidden sm:flex items-center gap-1">
-                    {isOwnerOrAdmin && (
-                      <div className="relative" ref={statsMenuRefDesktop}>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          aria-label="Stock stats and filters"
-                          aria-expanded={statsMenuOpen}
-                          title="Filter home screen by stock"
-                          onClick={() => setStatsMenuOpen((o) => !o)}
-                          className={`h-9 px-2.5 rounded-none gap-1.5 border-slate-200 dark:border-slate-600 ${posStockFilter !== 'all' ? 'ring-2 ring-amber-400/90 ring-offset-2 ring-offset-white dark:ring-offset-slate-900' : ''}`}
-                        >
-                          <BarChart2 className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-                          <span className="hidden lg:inline text-xs font-semibold text-slate-600 dark:text-slate-300">
-                            Stock
-                          </span>
-                          <span className="hidden xl:inline tabular-nums text-[11px] text-slate-400">
-                            {posStockStats.popular}/{posStockStats.out}/{posStockStats.low}
-                          </span>
-                        </Button>
-                        {statsMenuOpen && (
-                          <div className="absolute right-0 top-full mt-1.5 z-[100] w-56 rounded-none border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl py-1 text-left">
-                            <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                              Home screen
-                            </p>
-                            <button
-                              type="button"
-                              className={`w-full text-left px-3 py-2 text-sm ${posStockFilter === 'all' ? 'bg-slate-100 dark:bg-slate-800 text-[#1c6a1e] font-semibold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80'}`}
-                              onClick={() => {
-                                setPosStockFilter('all');
-                                setStatsMenuOpen(false);
-                              }}
-                            >
-                              Quick Sell (default)
-                              <span className="float-right tabular-nums text-slate-400 text-xs">{posStockStats.popular}</span>
-                            </button>
-                            <button
-                              type="button"
-                              className={`w-full text-left px-3 py-2 text-sm ${posStockFilter === 'out' ? 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 font-semibold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80'}`}
-                              onClick={() => {
-                                setPosStockFilter('out');
-                                setStatsMenuOpen(false);
-                              }}
-                            >
-                              Out of stock
-                              <span className="float-right tabular-nums text-red-500 text-xs">{posStockStats.out}</span>
-                            </button>
-                            <button
-                              type="button"
-                              className={`w-full text-left px-3 py-2 text-sm ${posStockFilter === 'low' ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-200 font-semibold' : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/80'}`}
-                              onClick={() => {
-                                setPosStockFilter('low');
-                                setStatsMenuOpen(false);
-                              }}
-                            >
-                              Low qty · under 10
-                              <span className="float-right tabular-nums text-amber-600 text-xs">{posStockStats.low}</span>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleRefresh}
-                      disabled={refreshing}
-                      className="pos-icon-btn-primary h-9 w-9 p-0 disabled:opacity-40"
-                      title="Refresh products"
-                    >
-                      <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleClearCache}
-                      disabled={refreshing}
-                      className="h-9 px-3 gap-1.5 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/50 disabled:opacity-40"
-                      title="Clear cache and reload"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      <span className="text-xs font-medium">Clear cache</span>
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setOutOfStockModalOpen(true)}
-                      className="pos-icon-btn h-9 w-9 p-0"
-                      title="Log item customer asked for but we don't have"
-                    >
-                      <PackageX className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                    </Button>
-                    
-                    {canAccessAdmin && (
-                      <Link href="/admin">
-                        <Button
-                          size="sm"
-                          className="pos-btn-primary h-9 px-3.5 rounded-none text-sm gap-2"
-                        >
-                          <Settings className="w-4 h-4" />
-                          <span className="hidden md:inline">Admin</span>
-                        </Button>
-                      </Link>
-                    )}
-                    
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => signOut({ callbackUrl: '/pos/login' })}
-                      className="pos-icon-btn-danger h-9 w-9 p-0"
-                      title="Logout"
-                    >
-                      <LogOut className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  <div className="h-6 w-px bg-gray-200/60 dark:bg-gray-700/60 hidden sm:block mx-0.5" />
-
-                  {/* Cart */}
-                  <div className="flex items-center gap-1.5">
-                    {cartItemCount > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleClearCart}
-                        className="hidden sm:flex pos-icon-btn-danger h-9 w-9 p-0"
-                        title="Clear Cart"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCartDrawerOpen(true)}
-                      className="relative h-10 px-3.5 pos-btn-outline rounded-none group"
-                    >
-                      <div className="relative">
-                        <ShoppingCart className="w-[18px] h-[18px] text-[#1c6a1e]" />
-                        {cartItemCount > 0 && (
-                          <Badge
-                            variant="destructive"
-                            className="absolute -top-2 -right-2.5 h-4 min-w-4 flex items-center justify-center p-0 px-1 text-[10px] font-bold shadow-sm"
-                          >
-                            {cartItemCount}
-                          </Badge>
-                        )}
-                        {carts.length > 1 && (
-                          <Badge
-                            className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 flex items-center justify-center p-0 text-[8px] font-bold bg-amber-400 text-amber-900"
-                          >
-                            {carts.length}
-                          </Badge>
-                        )}
-                      </div>
-                    </Button>
-                    {cartItemCount > 0 && (
-                      <span className="font-semibold text-[#1c6a1e] text-xs whitespace-nowrap">
-                        KES {cartTotal.toLocaleString()}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
+            <>
+            <PosDesktopHeader
+              businessName={user?.businessName}
+              searchQuery={searchQuery}
+              onSearchChange={handleSearchChange}
+              onSearchSubmit={handleSearchSubmit}
+              onSearchKeyDown={handleSearchKeyDown}
+              onSearchFocus={() => searchSuggestions.length > 0 && setShowSuggestions(true)}
+              onClearSearch={clearSearch}
+              onOpenCamera={() => setBarcodeCameraOpen(true)}
+              searchInputRef={searchInputRef}
+              searchContainerRef={desktopSearchContainerRef}
+              isSearchPending={isSearchPending}
+              isScanning={barcodeScanStatus.scanning}
+              isValidBarcode={isValidBarcode}
+              showSuggestions={showSuggestions}
+              loadingSuggestions={loadingSuggestions}
+              suggestions={renderSuggestionsDropdown(true)}
+              isOwnerOrAdmin={isOwnerOrAdmin}
+              statsMenuOpen={statsMenuOpen}
+              onStatsMenuToggle={() => setStatsMenuOpen((o) => !o)}
+              statsMenuRef={statsMenuRefDesktop}
+              posStockFilter={posStockFilter}
+              posStockStats={posStockStats}
+              onStockFilterChange={(filter) => {
+                setPosStockFilter(filter);
+                setStatsMenuOpen(false);
+              }}
+              onRefresh={handleRefresh}
+              refreshing={refreshing}
+              onOutOfStock={() => setOutOfStockModalOpen(true)}
+              canProcessReturn={canProcessReturn}
+              onReturns={() => setReturnsDialogOpen(true)}
+              canAccessAdmin={canAccessAdmin}
+              onLogout={() => signOut({ callbackUrl: '/pos/login' })}
+              cartItemCount={cartItemCount}
+              cartTotal={cartTotal}
+              cartsCount={carts.length}
+              orphanedCount={orphanedCount}
+              onClearCart={handleClearCart}
+            />
+            </>
           }
         >
-          <div className="flex flex-col h-full min-h-0">
+          <div className="flex flex-1 min-h-0 h-full overflow-hidden">
+            <PosDepartmentRail onShopTypeChange={handleShopTypeChange} />
+            <div className="flex flex-col flex-1 min-w-0 min-h-0">
             {!debouncedSearchQuery && !searchQuery && (
               <div className="flex-shrink-0 border-b border-gray-200 bg-white/50 backdrop-blur-sm">
                 <CategoryList
@@ -2808,7 +2337,7 @@ export default function POSPage() {
               {searchQuery && isSearchPending ? (
                 <div className="p-6 px-6 sm:px-10">
                   {/* Skeleton loading grid for desktop search */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 animate-pulse">
+                  <div className="grid gap-3 sm:gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,8.75rem),1fr))] animate-pulse">
                     {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
                       <div key={i} className="bg-white dark:bg-slate-800 rounded-none border-2 border-slate-300 dark:border-slate-600 overflow-hidden">
                         <div className="p-4 sm:p-5 space-y-3">
@@ -2842,10 +2371,21 @@ export default function POSPage() {
                         ? 'all'
                         : posStockFilter
                     }
+                    showLowStockStrip={isOwnerOrAdmin}
+                    canManageItemImages={isOwnerOrAdmin}
+                    onItemImageUpdated={handleItemImageUpdated}
                   />
                 </div>
               )}
             </div>
+            </div>
+            <PosCartColumn
+              carts={carts}
+              activeCart={activeCart}
+              cartItemCount={cartItemCount}
+              cartTotal={cartTotal}
+              onCheckout={() => setCheckoutDrawerOpen(true)}
+            />
           </div>
         </POSLayout>
       </div>
@@ -2934,6 +2474,12 @@ export default function POSPage() {
           </div>
         </div>
       )}
+
+      <BarcodeCameraScannerDialog
+        open={barcodeCameraOpen}
+        onOpenChange={setBarcodeCameraOpen}
+        onScan={handleCameraBarcode}
+      />
 
       {/* Barcode Scan Status Notification */}
       {(barcodeScanStatus.scanning || barcodeScanStatus.error || barcodeScanStatus.success) && (
@@ -3095,9 +2641,9 @@ export default function POSPage() {
                             >
                               {/* Image */}
                               <div className="aspect-[4/3] bg-gray-50 dark:bg-gray-800/50 overflow-hidden relative">
-                                {group.parent && getItemImage(group.parent.name) ? (
+                                {group.parent && resolveItemImageUrl(group.parent) ? (
                                   <img
-                                    src={getItemImage(group.parent.name)!}
+                                    src={resolveItemImageUrl(group.parent)!}
                                     alt={item.name}
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                     loading="lazy"
@@ -3217,9 +2763,9 @@ export default function POSPage() {
                             className="pos-grid-btn group bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-800/95 dark:to-slate-800/70 rounded-none border-2 border-slate-300 dark:border-slate-500 overflow-hidden text-left"
                           >
                             <div className="aspect-[4/3] bg-gray-50 dark:bg-gray-800/50 overflow-hidden relative">
-                              {getItemImage(item.name) ? (
+                              {resolveItemImageUrl(item) ? (
                                 <img
-                                  src={getItemImage(item.name)!}
+                                  src={resolveItemImageUrl(item)!}
                                   alt={item.name}
                                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                   loading="lazy"
@@ -3315,206 +2861,51 @@ export default function POSPage() {
         </DrawerContent>
       </Drawer>
 
-      {/* Cart Drawer */}
-      <Drawer open={cartDrawerOpen} onOpenChange={setCartDrawerOpen} direction="right">
-        <DrawerContent className="!w-full sm:!w-[500px] md:!w-[600px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900 print:hidden">
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#1c6a1e]/10 to-blue-50 dark:from-[#1c6a1e]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5">
-            <div className="flex items-center justify-between pr-8">
-              <div className="flex items-center gap-3">
-                <div className="relative w-10 h-10 rounded-none bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-sm flex-shrink-0">
-                  <ShoppingCart className="w-5 h-5 text-white" />
-                  {carts.length > 1 && (
-                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-amber-400 text-amber-900 text-xs font-bold rounded-none flex items-center justify-center shadow-md">
-                      {carts.length}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <DrawerTitle className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                    {carts.length > 1 ? 'Shopping Carts' : 'Shopping Cart'}
-                  </DrawerTitle>
-                  <DrawerDescription className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                    {carts.length > 1 
-                      ? `${carts.length} carts • ${activeCart?.name}: ${cartItemCount} items`
-                      : `${cartItemCount} ${cartItemCount === 1 ? 'item' : 'items'} • KES ${cartTotal.toFixed(0)}`
-                    }
-                  </DrawerDescription>
-                </div>
-              </div>
-              <DrawerClose asChild>
-                <button
-                  type="button"
-                  className="w-10 h-10 flex items-center justify-center rounded-none bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white active:scale-95 transition-all shadow-sm"
-                  aria-label="Close drawer"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </DrawerClose>
-            </div>
-          </DrawerHeader>
-          <div className="overflow-y-auto flex-1 bg-gradient-to-b from-white via-slate-50/30 to-white dark:from-slate-900 dark:via-slate-900/50 dark:to-slate-900">
-            <CartView 
-              onContinueShopping={() => setCartDrawerOpen(false)}
-              onCheckout={() => {
-                setCartDrawerOpen(false);
-                setCheckoutDrawerOpen(true);
-              }}
-            />
-          </div>
-        </DrawerContent>
-      </Drawer>
-
-      {/* Checkout Drawer */}
-      <Drawer open={checkoutDrawerOpen} onOpenChange={setCheckoutDrawerOpen} direction="right">
-        <DrawerContent className="!w-full sm:!w-[500px] !max-w-none h-full max-h-screen bg-slate-50 dark:bg-slate-950 print:hidden">
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCheckoutDrawerOpen(false);
-                    setCartDrawerOpen(true);
-                  }}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800 transition-colors"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                </button>
-                <DrawerTitle className="text-base font-bold text-slate-900 dark:text-white">
-                  Checkout
-                </DrawerTitle>
-                <DrawerDescription className="sr-only">Complete your purchase</DrawerDescription>
-              </div>
-              <DrawerClose asChild>
-                <button
-                  type="button"
-                  className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:text-slate-300 dark:hover:bg-slate-800 transition-colors"
-                  aria-label="Close"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </DrawerClose>
-            </div>
-          </DrawerHeader>
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <CheckoutForm 
-              onBackToCart={() => {
-                setCheckoutDrawerOpen(false);
-                setCartDrawerOpen(true);
-              }}
-              onContinueShopping={() => {
-                setCheckoutDrawerOpen(false);
-              }}
-              onSaleComplete={(saleId) => {
-                setCheckoutDrawerOpen(false);
-                setReceiptSaleId(saleId);
-                setReceiptDrawerOpen(true);
-                const url = new URL(window.location.href);
-                url.searchParams.set('print', 'true');
-                window.history.replaceState({}, '', url.toString());
-              }}
-            />
-          </div>
-        </DrawerContent>
-      </Drawer>
-
-      {/* Receipt Drawer */}
-      <Drawer open={receiptDrawerOpen} onOpenChange={setReceiptDrawerOpen} direction="right">
-        <DrawerContent className="!w-full sm:!w-[600px] md:!w-[800px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900">
-          <DrawerHeader className="border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-[#1c6a1e]/10 to-blue-50 dark:from-[#1c6a1e]/20 dark:to-blue-950/20 px-4 sm:px-6 py-4 sm:py-5 print:hidden">
-            <div className="flex items-center justify-between pr-8">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-none bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-sm flex-shrink-0">
-                  <FileText className="w-5 h-5 text-white" />
-                </div>
-                <div>
-                  <DrawerTitle className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
-                    Receipt
-                  </DrawerTitle>
-                  <DrawerDescription className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                    Sale completed successfully
-                  </DrawerDescription>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {receiptData && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDirectPrint}
-                    className="hidden sm:flex"
-                  >
-                    Print
-                  </Button>
-                )}
-                <DrawerClose asChild>
-                  <button
-                    type="button"
-                    className="w-10 h-10 flex items-center justify-center rounded-none bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white active:scale-95 transition-all shadow-sm"
-                    aria-label="Close drawer"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </DrawerClose>
-              </div>
-            </div>
-          </DrawerHeader>
-          <div className="overflow-y-auto flex-1 bg-gradient-to-b from-white via-slate-50/30 to-white dark:from-slate-900 dark:via-slate-900/50 dark:to-slate-900 px-4 sm:px-6 py-6 print:bg-white print:p-0">
-            {receiptLoading ? (
-              <div className="flex flex-col items-center justify-center h-64 gap-4">
-                <Loader2 className="w-8 h-8 animate-spin text-[#1c6a1e]" />
-                <p className="text-gray-500 dark:text-gray-400">Loading receipt...</p>
-              </div>
-            ) : receiptError || !receiptData ? (
-              <div className="flex flex-col items-center justify-center h-64 gap-4">
-                <XCircle className="w-16 h-16 text-red-300 dark:text-red-600" />
-                <p className="text-gray-500 dark:text-gray-400 text-center">
-                  {receiptError || 'Receipt not found'}
-                </p>
-                <Button
-                  onClick={() => {
-                    setReceiptDrawerOpen(false);
-                  }}
-                  size="touch"
-                  className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
-                >
-                  Close
-                </Button>
-              </div>
-            ) : (
-              <div className="print:p-0">
-                <Receipt sale={receiptData.sale} items={receiptData.items} splitPayments={receiptData.splitPayments} />
-                <div className="mt-6 flex gap-3 print:hidden">
-                  <Button
-                    variant="outline"
-                    size="touch"
-                    onClick={handleDirectPrint}
-                    className="flex-1 sm:hidden"
-                  >
-                    Print
-                  </Button>
-                  <Button
-                    size="touch"
-                    onClick={() => {
-                      setReceiptDrawerOpen(false);
-                      setCartDrawerOpen(false);
-                      setCheckoutDrawerOpen(false);
-                    }}
-                    className="flex-1 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
-                  >
-                    New Sale
-                  </Button>
-                </div>
-              </div>
-            )}
-          </div>
-        </DrawerContent>
-      </Drawer>
+      <PosTransactionDrawers
+        checkoutDrawerOpen={checkoutDrawerOpen}
+        onCheckoutDrawerOpenChange={setCheckoutDrawerOpen}
+        receiptDrawerOpen={receiptDrawerOpen}
+        onReceiptDrawerOpenChange={setReceiptDrawerOpen}
+        cartIsColumn={isWideViewport}
+        onOpenCartDrawer={() => {
+          if (isWideViewport) {
+            setCartDrawerOpen(true);
+          } else {
+            setMobileTab('cart');
+          }
+        }}
+        receiptLoading={receiptLoading}
+        receiptError={receiptError}
+        receiptData={receiptData}
+        onSaleComplete={(saleId) => {
+          setCheckoutDrawerOpen(false);
+          setReceiptSaleId(saleId);
+          setReceiptDrawerOpen(true);
+          const url = new URL(window.location.href);
+          url.searchParams.set('print', 'true');
+          window.history.replaceState({}, '', url.toString());
+        }}
+        onDirectPrint={handleDirectPrint}
+        onContinueShoppingFromReceipt={() => {
+          setReceiptDrawerOpen(false);
+          setCartDrawerOpen(false);
+          setCheckoutDrawerOpen(false);
+          if (!isWideViewport) {
+            setMobileTab('sell');
+          }
+        }}
+      />
 
       <OutOfStockRequestModal
         open={outOfStockModalOpen}
         onOpenChange={setOutOfStockModalOpen}
       />
+
+      <PosReturnsDialog
+        open={returnsDialogOpen}
+        onOpenChange={setReturnsDialogOpen}
+      />
     </>
+    </PosCashierOperationsProvider>
   );
 }

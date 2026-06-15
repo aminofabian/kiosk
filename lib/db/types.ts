@@ -55,6 +55,7 @@ export interface User {
   role: UserRole;
   pin: string | null;
   active: number; // 1 = true, 0 = false (SQLite boolean)
+  department: string | null; // department name for department_staff role (e.g. "Produce", "Bakery")
   created_by: string | null; // user who created this user (null for owners/self-registered)
   created_at: number;
 }
@@ -199,6 +200,7 @@ export interface InventoryBatch {
   business_id: string;
   item_id: string;
   source_breakdown_id: string | null;
+  supplier_bill_id: string | null;
   batch_number: string | null;
   status: BatchStatus;
   supplier_id: string | null;
@@ -236,6 +238,33 @@ export interface SaleItem {
   buy_price_per_unit: number;
   profit: number;
   item_type_snapshot: ItemType | null; // Item type at time of sale for historical accuracy
+  created_at: number;
+}
+
+export type RefundMethod = "cash" | "mpesa" | "wallet" | "credit_note";
+
+export interface SaleReturn {
+  id: string;
+  business_id: string;
+  sale_id: string;
+  processed_by: string;
+  shift_id: string | null;
+  refund_method: RefundMethod;
+  total_refund_amount: number;
+  reason: string;
+  credit_account_id: string | null;
+  mpesa_reference: string | null;
+  created_at: number;
+}
+
+export interface SaleReturnItem {
+  id: string;
+  return_id: string;
+  sale_item_id: string;
+  item_id: string;
+  inventory_batch_id: string | null;
+  quantity_returned: number;
+  refund_amount: number;
   created_at: number;
 }
 
@@ -405,6 +434,7 @@ export interface SupplierBill {
   supplier_id: string | null;
   supplier_name: string;
   supplier_phone: string | null;
+  supplier_invoice_no: string | null;
   bill_description: string;
   amount: number;
   due_date: number;

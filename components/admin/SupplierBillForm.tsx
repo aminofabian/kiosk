@@ -1060,6 +1060,11 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
       return;
     }
 
+    if (!supplierId) {
+      setError('Select a supplier from the master list before creating a bill');
+      return;
+    }
+
     const validItems = lineItems.filter(
       (item) => item.description.trim() && item.quantity
     );
@@ -1071,9 +1076,15 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
 
     for (const item of validItems) {
       const quantity = parseFloat(item.quantity || '0');
+      const unitPrice = parseFloat(item.amount || '0');
 
       if (isNaN(quantity) || quantity <= 0) {
         setError(`Please enter a valid quantity for "${item.description.trim()}"`);
+        return;
+      }
+
+      if (item.itemId && (isNaN(unitPrice) || unitPrice <= 0)) {
+        setError(`Enter a cost greater than 0 for "${item.description.trim()}"`);
         return;
       }
     }

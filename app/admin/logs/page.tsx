@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { AdminLayout } from '@/components/layouts/admin-layout';
-import { Button } from '@/components/ui/button';
-import { apiGet } from '@/lib/utils/api-client';
+import { useState, useEffect, useCallback } from "react";
+import { AdminLayout } from "@/components/layouts/admin-layout";
+import { Button } from "@/components/ui/button";
+import { apiGet } from "@/lib/utils/api-client";
 import {
   ScrollText,
   Loader2,
@@ -11,40 +11,49 @@ import {
   Filter,
   ChevronLeft,
   ChevronRight,
-} from 'lucide-react';
+} from "lucide-react";
 
 const ENTITY_TYPES = [
-  { value: '', label: 'All types' },
-  { value: 'stock', label: 'Stock' },
-  { value: 'supplier', label: 'Supplier' },
-  { value: 'item', label: 'Item' },
-  { value: 'purchase', label: 'Purchase' },
-  { value: 'supplier_bill', label: 'Supplier Bill' },
-  { value: 'category', label: 'Category' },
-  { value: 'expense', label: 'Expense' },
-  { value: 'credit', label: 'Credit' },
-  { value: 'shift', label: 'Shift' },
-  { value: 'sale', label: 'Sale' },
+  { value: "", label: "All types" },
+  { value: "stock", label: "Stock" },
+  { value: "supplier", label: "Supplier" },
+  { value: "item", label: "Item" },
+  { value: "purchase", label: "Purchase" },
+  { value: "supplier_bill", label: "Supplier Bill" },
+  { value: "category", label: "Category" },
+  { value: "expense", label: "Expense" },
+  { value: "credit", label: "Credit" },
+  { value: "shift", label: "Shift" },
+  { value: "sale", label: "Sale" },
+  { value: "sale_return", label: "Sale Return" },
+  { value: "damage", label: "Damage" },
+  { value: "theft", label: "Theft/Loss" },
+  { value: "expired_writeoff", label: "Expired Write-off" },
+  { value: "internal_consumption", label: "Internal Consumption" },
+  { value: "supplier_return", label: "Supplier Return" },
+  { value: "department_request", label: "Department Request" },
 ] as const;
 
-type DatePreset = 'today' | 'yesterday' | 'past3' | 'week' | 'month' | 'all';
+type DatePreset = "today" | "yesterday" | "past3" | "week" | "month" | "all";
 
-function getDateRangeForPreset(preset: DatePreset): { from: number; to: number } | null {
+function getDateRangeForPreset(
+  preset: DatePreset,
+): { from: number; to: number } | null {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const todayEnd = new Date(todayStart);
   todayEnd.setHours(23, 59, 59, 999);
 
-  if (preset === 'all') return null;
+  if (preset === "all") return null;
 
-  if (preset === 'today') {
+  if (preset === "today") {
     return {
       from: Math.floor(todayStart.getTime() / 1000),
       to: Math.floor(todayEnd.getTime() / 1000),
     };
   }
 
-  if (preset === 'yesterday') {
+  if (preset === "yesterday") {
     const yesterdayStart = new Date(todayStart);
     yesterdayStart.setDate(yesterdayStart.getDate() - 1);
     const yesterdayEnd = new Date(yesterdayStart);
@@ -55,7 +64,7 @@ function getDateRangeForPreset(preset: DatePreset): { from: number; to: number }
     };
   }
 
-  if (preset === 'past3') {
+  if (preset === "past3") {
     const start = new Date(todayStart);
     start.setDate(start.getDate() - 2);
     return {
@@ -64,7 +73,7 @@ function getDateRangeForPreset(preset: DatePreset): { from: number; to: number }
     };
   }
 
-  if (preset === 'week') {
+  if (preset === "week") {
     const start = new Date(todayStart);
     start.setDate(start.getDate() - 6);
     return {
@@ -73,7 +82,7 @@ function getDateRangeForPreset(preset: DatePreset): { from: number; to: number }
     };
   }
 
-  if (preset === 'month') {
+  if (preset === "month") {
     const start = new Date(todayStart);
     start.setDate(start.getDate() - 29);
     return {
@@ -86,12 +95,12 @@ function getDateRangeForPreset(preset: DatePreset): { from: number; to: number }
 }
 
 const DATE_PRESETS: { value: DatePreset; label: string }[] = [
-  { value: 'today', label: 'Today' },
-  { value: 'yesterday', label: 'Yesterday' },
-  { value: 'past3', label: 'Past 3 days' },
-  { value: 'week', label: 'Past week' },
-  { value: 'month', label: 'Past 30 days' },
-  { value: 'all', label: 'All time' },
+  { value: "today", label: "Today" },
+  { value: "yesterday", label: "Yesterday" },
+  { value: "past3", label: "Past 3 days" },
+  { value: "week", label: "Past week" },
+  { value: "month", label: "Past 30 days" },
+  { value: "all", label: "All time" },
 ];
 
 interface ActivityItem {
@@ -115,54 +124,67 @@ interface ActivityLogData {
 
 function formatDateTime(ts: number): string {
   const d = new Date(ts * 1000);
-  return d.toLocaleString('en-KE', {
-    dateStyle: 'short',
-    timeStyle: 'short',
+  return d.toLocaleString("en-KE", {
+    dateStyle: "short",
+    timeStyle: "short",
     hour12: false,
   });
 }
 
 function formatDate(ts: number): string {
   const d = new Date(ts * 1000);
-  return d.toLocaleDateString('en-KE', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
+  return d.toLocaleDateString("en-KE", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
 }
 
 function formatTime(ts: number): string {
   const d = new Date(ts * 1000);
-  return d.toLocaleTimeString('en-KE', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
+  return d.toLocaleTimeString("en-KE", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
     hour12: false,
   });
 }
 
 function formatDetailsSummary(details: Record<string, unknown> | null): string {
-  if (!details) return '';
+  if (!details) return "";
   const parts: string[] = [];
-  if (typeof details.quantity === 'number') parts.push(`qty: ${details.quantity}`);
-  if (typeof details.amount === 'number') parts.push(`KES ${details.amount.toLocaleString()}`);
-  if (typeof details.reason === 'string') parts.push(details.reason);
-  if (typeof details.difference === 'number') parts.push(`Δ ${details.difference}`);
-  if (typeof details.itemCount === 'number') parts.push(`${details.itemCount} items`);
-  if (details.cleared === true) parts.push('cleared');
-  if (typeof details.newBalance === 'number') parts.push(`balance: KES ${details.newBalance.toLocaleString()}`);
-  if (typeof details.field === 'string') parts.push(details.field);
-  if (typeof details.barcode === 'string') parts.push(`barcode: ${details.barcode}`);
-  if (typeof details.itemType === 'string') parts.push(details.itemType);
-  if (typeof details.unitType === 'string') parts.push(details.unitType);
-  if (typeof details.price === 'number') parts.push(`KES ${details.price.toLocaleString()}`);
-  if (typeof details.aisle === 'string') parts.push(`aisle: ${details.aisle}`);
-  return parts.join(' · ');
+  if (typeof details.quantity === "number")
+    parts.push(`qty: ${details.quantity}`);
+  if (typeof details.amount === "number")
+    parts.push(`KES ${details.amount.toLocaleString()}`);
+  if (typeof details.reason === "string") parts.push(details.reason);
+  if (typeof details.difference === "number")
+    parts.push(`Δ ${details.difference}`);
+  if (typeof details.itemCount === "number")
+    parts.push(`${details.itemCount} items`);
+  if (details.cleared === true) parts.push("cleared");
+  if (typeof details.newBalance === "number")
+    parts.push(`balance: KES ${details.newBalance.toLocaleString()}`);
+  if (typeof details.field === "string") parts.push(details.field);
+  if (typeof details.barcode === "string")
+    parts.push(`barcode: ${details.barcode}`);
+  if (typeof details.itemType === "string") parts.push(details.itemType);
+  if (typeof details.unitType === "string") parts.push(details.unitType);
+  if (typeof details.price === "number")
+    parts.push(`KES ${details.price.toLocaleString()}`);
+  if (typeof details.aisle === "string") parts.push(`aisle: ${details.aisle}`);
+  if (typeof details.totalRefundAmount === "number")
+    parts.push(`refund: KES ${details.totalRefundAmount.toLocaleString()}`);
+  if (typeof details.refundMethod === "string")
+    parts.push(details.refundMethod);
+  if (typeof details.saleId === "string")
+    parts.push(`sale: ${String(details.saleId).slice(0, 8)}`);
+  return parts.join(" · ");
 }
 
 export default function LogsPage() {
-  const [entityType, setEntityType] = useState('');
-  const [datePreset, setDatePreset] = useState<DatePreset>('today');
+  const [entityType, setEntityType] = useState("");
+  const [datePreset, setDatePreset] = useState<DatePreset>("today");
   const [offset, setOffset] = useState(0);
   const limit = 50;
 
@@ -175,23 +197,25 @@ export default function LogsPage() {
       setLoading(true);
       setError(null);
       const params = new URLSearchParams();
-      if (entityType) params.set('entityType', entityType);
+      if (entityType) params.set("entityType", entityType);
       const dateRange = getDateRangeForPreset(datePreset);
       if (dateRange) {
-        params.set('from', String(dateRange.from));
-        params.set('to', String(dateRange.to));
+        params.set("from", String(dateRange.from));
+        params.set("to", String(dateRange.to));
       }
-      params.set('limit', String(limit));
-      params.set('offset', String(offset));
+      params.set("limit", String(limit));
+      params.set("offset", String(offset));
 
-      const result = await apiGet<ActivityLogData>(`/api/activity-log?${params.toString()}`);
+      const result = await apiGet<ActivityLogData>(
+        `/api/activity-log?${params.toString()}`,
+      );
       if (result.success && result.data) {
         setData(result.data);
       } else {
-        setError(result.message || 'Failed to load activity log');
+        setError(result.message || "Failed to load activity log");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load');
+      setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
       setLoading(false);
     }
@@ -296,7 +320,7 @@ export default function LogsPage() {
               className="h-9 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-900 dark:text-slate-100"
             >
               {ENTITY_TYPES.map((opt) => (
-                <option key={opt.value || 'all'} value={opt.value}>
+                <option key={opt.value || "all"} value={opt.value}>
                   {opt.label}
                 </option>
               ))}
@@ -308,7 +332,11 @@ export default function LogsPage() {
               className="h-9 md:hidden"
               disabled={loading}
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
             </Button>
           </div>
         </div>
@@ -330,11 +358,13 @@ export default function LogsPage() {
               <ScrollText className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p className="font-medium">No activity in this period</p>
               <p className="text-sm mt-1">
-                Activity will appear here when stock, suppliers, items, and other data are updated.
+                Activity will appear here when stock, suppliers, items, and
+                other data are updated.
               </p>
-              {datePreset !== 'all' && (
+              {datePreset !== "all" && (
                 <p className="text-sm mt-2 text-slate-400 dark:text-slate-500">
-                  Try &quot;Past 3 days&quot;, &quot;Past week&quot;, or &quot;All time&quot; to see older entries.
+                  Try &quot;Past 3 days&quot;, &quot;Past week&quot;, or
+                  &quot;All time&quot; to see older entries.
                 </p>
               )}
             </div>
@@ -366,7 +396,7 @@ export default function LogsPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-slate-400 shrink-0">
-                    <span>{item.performerName || 'Unknown'}</span>
+                    <span>{item.performerName || "Unknown"}</span>
                     <span title={formatDateTime(item.createdAt)}>
                       {formatDate(item.createdAt)} {formatTime(item.createdAt)}
                     </span>

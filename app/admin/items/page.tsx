@@ -1321,6 +1321,7 @@ export function ItemsManager() {
                   packaging_unit_name: editingItem.packaging_unit_name,
                   packaging_unit_qty: editingItem.packaging_unit_qty,
                   item_type: editingItem.item_type,
+                  image_url: editingItem.image_url,
                 } : undefined}
                 onSuccess={async (updatedItem) => {
                   setDrawerOpen(false);

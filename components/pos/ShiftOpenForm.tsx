@@ -34,7 +34,15 @@ interface CreateBalanceApprovalResponse {
   requestId: string;
 }
 
-export function ShiftOpenForm() {
+export function ShiftOpenForm({
+  embedded = false,
+  onSuccess,
+  onRequestCloseShift,
+}: {
+  embedded?: boolean;
+  onSuccess?: () => void;
+  onRequestCloseShift?: () => void;
+} = {}) {
   const router = useRouter();
   const { user } = useCurrentUser();
   const [denominations, setDenominations] = useState<DenominationCounts>({
@@ -205,7 +213,11 @@ export function ShiftOpenForm() {
         });
 
         if (result.success) {
-          router.push('/pos');
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            router.push('/pos');
+          }
         } else {
           setError(result.message || 'Failed to open shift');
         }
@@ -224,7 +236,7 @@ export function ShiftOpenForm() {
 
   if (hasOpenShift === null) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className={`flex items-center justify-center ${embedded ? 'py-12' : 'h-full'}`}>
         <div className="text-center space-y-3">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
           <p className="text-muted-foreground">Checking shift status...</p>
@@ -235,8 +247,8 @@ export function ShiftOpenForm() {
 
   if (hasOpenShift) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-6">
-        <div className="text-center space-y-4 max-w-md">
+      <div className={`flex flex-col items-center justify-center ${embedded ? 'py-8' : 'h-full p-6'}`}>
+        <div className="text-center space-y-4 max-w-md w-full">
           <div className="w-20 h-20 mx-auto bg-amber-100 dark:bg-amber-900/30 rounded-2xl flex items-center justify-center">
             <Clock className="w-10 h-10 text-amber-600 dark:text-amber-400" />
           </div>
@@ -257,15 +269,23 @@ export function ShiftOpenForm() {
           )}
           <div className="flex flex-col sm:flex-row gap-3 w-full">
             <Button
-              onClick={() => router.push('/pos/shift/close')}
+              onClick={() => {
+                if (onRequestCloseShift) {
+                  onRequestCloseShift();
+                } else {
+                  router.push('/pos/shift/close');
+                }
+              }}
               size="touch"
               className="flex-1 bg-amber-600 hover:bg-amber-700"
             >
               Close Shift
             </Button>
-            <Button onClick={() => router.push('/pos')} variant="outline" size="touch" className="flex-1">
-              Go to POS
-            </Button>
+            {!embedded && (
+              <Button onClick={() => router.push('/pos')} variant="outline" size="touch" className="flex-1">
+                Go to POS
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -274,7 +294,7 @@ export function ShiftOpenForm() {
 
   if (submittedForApproval) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-full p-6">
+      <div className={`flex flex-col items-center justify-center ${embedded ? 'py-8' : 'min-h-full p-6'}`}>
         <div className="text-center space-y-4 max-w-md">
           <div className="w-20 h-20 mx-auto bg-[#1c6a1e]/10 rounded-2xl flex items-center justify-center">
             <CheckCircle2 className="w-12 h-12 text-[#1c6a1e]" />
@@ -302,8 +322,18 @@ export function ShiftOpenForm() {
             >
               Open a new one
             </Button>
-            <Button onClick={() => router.push('/pos')} size="touch" className="flex-1 bg-[#1c6a1e] hover:bg-[#1a7a69]">
-              Back to POS
+            <Button
+              onClick={() => {
+                if (onSuccess) {
+                  onSuccess();
+                } else {
+                  router.push('/pos');
+                }
+              }}
+              size="touch"
+              className="flex-1 bg-[#1c6a1e] hover:bg-[#1a7a69]"
+            >
+              {embedded ? 'Done' : 'Back to POS'}
             </Button>
           </div>
         </div>
@@ -312,8 +342,8 @@ export function ShiftOpenForm() {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-full p-4 pb-24">
-      <Card className="w-full max-w-lg">
+    <div className={embedded ? '' : 'flex items-center justify-center min-h-full p-4 pb-24'}>
+      <Card className={`w-full ${embedded ? 'border-0 shadow-none bg-transparent' : 'max-w-lg'}`}>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2">
             <Banknote className="w-5 h-5 text-[#1c6a1e]" />

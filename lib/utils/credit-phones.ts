@@ -65,6 +65,30 @@ export function sqlCreditAccountMatchesPhoneDigits(
   };
 }
 
+/** Normalize Kenya phone input to 9-digit core for lookups (matches sales/credit routes). */
+export function extractKenyaPhoneDigits(phone: string): string {
+  const coreDigits = phone.replace(/\D/g, '');
+  if (coreDigits.startsWith('254') && coreDigits.length >= 12) {
+    return coreDigits.slice(-9);
+  }
+  if (coreDigits.startsWith('0') && coreDigits.length >= 10) {
+    return coreDigits.slice(1);
+  }
+  if (coreDigits.length >= 9) {
+    return coreDigits.slice(-9);
+  }
+  return coreDigits;
+}
+
+/** Format user input as +254XXXXXXXXX for API lookup when enough digits are present. */
+export function formatKenyaPhoneForLookup(raw: string): string {
+  const digits = extractKenyaPhoneDigits(raw);
+  if (digits.length >= 9) {
+    return `+254${digits}`;
+  }
+  return raw.trim();
+}
+
 export function formatPhonesForDisplay(phones: string[]): string {
   if (phones.length === 0) return '';
   return phones.join(' · ');

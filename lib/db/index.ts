@@ -1,38 +1,46 @@
-import { createClient, type InValue } from '@libsql/client';
-
-if (!process.env.TURSO_DATABASE_URL) {
-  throw new Error('TURSO_DATABASE_URL is not set');
-}
-
-if (!process.env.TURSO_AUTH_TOKEN) {
-  throw new Error('TURSO_AUTH_TOKEN is not set');
-}
-
-const client = createClient({
-  url: process.env.TURSO_DATABASE_URL,
-  authToken: process.env.TURSO_AUTH_TOKEN,
-});
-
-export const db = client;
+import { createClient, type InValue, type Client } from '@libsql/client';
 
 export type QueryResult = {
   rows: Array<Record<string, unknown>>;
   rowsAffected: number;
 };
 
-export async function execute(
-  sql: string,
-  params: InValue[] = []
-): Promise<{ rowsAffected: number; lastInsertRowid?: bigint }> {
-  const result = await client.execute({
-    sql,
-    args: params,
-  });
-  return {
-    rowsAffected: result.rowsAffected,
-    lastInsertRowid: result.lastInsertRowid,
-  };
+export interface Transaction {
+  execute(
+    sql: string,
+    params?: InValue[]
+  ): Promise<{ rowsAffected: number; lastInsertRowid?: bigint }>;
+  query<T = Record<string, unknown>>(sql: string, params?: InValue[]): Promise<T[]>;
+  queryOne<T = Record<string, unknown>>(sql: string, params?: InValue[]): Promise<T | null>;
 }
+
+function getDatabaseConfig(): { url: string; authToken?: string } {
+  const url = process.env.TURSO_DATABASE_URL;
+  if (!url) {
+    throw new Error('TURSO_DATABASE_URL is not set');
+  }
+
+  const authToken = process.env.TURSO_AUTH_TOKEN;
+  // Auth token is required for remote Turso connections but optional for local file-based DBs.
+  if (url.startsWith('http') && !authToken) {
+    throw new Error('TURSO_AUTH_TOKEN is required for remote Turso databases');
+  }
+
+  return { url, authToken };
+}
+
+export function createDatabaseClient(url: string, authToken?: string): Client {
+  return createClient({ url, authToken });
+}
+
+const config = getDatabaseConfig();
+export const db = createDatabaseClient(config.url, config.authToken);
+
+// Enable foreign-key enforcement on every connection. Schema migrations also set this,
+// but the runtime connection must enforce it independently.
+db.execute('PRAGMA foreign_keys = ON').catch((error) => {
+  console.error('Failed to enable foreign keys:', error);
+});
 
 function rowToObject(row: unknown): Record<string, unknown> {
   if (row && typeof row === 'object') {
@@ -81,14 +89,7 @@ function rowToObjectFromColumns(row: unknown, columns: string[]): Record<string,
   return obj;
 }
 
-export async function query<T = Record<string, unknown>>(
-  sql: string,
-  params: InValue[] = []
-): Promise<T[]> {
-  const result = await client.execute({
-    sql,
-    args: params,
-  });
+function mapResultRows<T>(result: { rows: unknown[]; columns?: string[] }): T[] {
   const columns = result.columns;
   if (!columns || columns.length === 0) {
     return result.rows.map((row) => rowToObject(row) as T);
@@ -96,9 +97,37 @@ export async function query<T = Record<string, unknown>>(
   return result.rows.map((row) => rowToObjectFromColumns(row, columns) as T);
 }
 
+export async function execute(
+  sql: string,
+  params: InValue[] = [],
+  client: Client = db
+): Promise<{ rowsAffected: number; lastInsertRowid?: bigint }> {
+  const result = await client.execute({
+    sql,
+    args: params,
+  });
+  return {
+    rowsAffected: result.rowsAffected,
+    lastInsertRowid: result.lastInsertRowid,
+  };
+}
+
+export async function query<T = Record<string, unknown>>(
+  sql: string,
+  params: InValue[] = [],
+  client: Client = db
+): Promise<T[]> {
+  const result = await client.execute({
+    sql,
+    args: params,
+  });
+  return mapResultRows<T>(result);
+}
+
 export async function queryOne<T = Record<string, unknown>>(
   sql: string,
-  params: InValue[] = []
+  params: InValue[] = [],
+  client: Client = db
 ): Promise<T | null> {
   const result = await client.execute({
     sql,
@@ -107,12 +136,51 @@ export async function queryOne<T = Record<string, unknown>>(
   if (result.rows.length === 0) {
     return null;
   }
-  const columns = result.columns;
-  if (!columns || columns.length === 0) {
-    return rowToObject(result.rows[0]) as T;
+  return mapResultRows<T>(result)[0];
+}
+
+function createTransactionWrapper(tx: Awaited<ReturnType<Client['transaction']>>): Transaction {
+  return {
+    execute: async (sql: string, params: InValue[] = []) => {
+      const result = await tx.execute({ sql, args: params });
+      return {
+        rowsAffected: result.rowsAffected,
+        lastInsertRowid: result.lastInsertRowid,
+      };
+    },
+    query: async <T = Record<string, unknown>>(sql: string, params: InValue[] = []) => {
+      const result = await tx.execute({ sql, args: params });
+      return mapResultRows<T>(result);
+    },
+    queryOne: async <T = Record<string, unknown>>(sql: string, params: InValue[] = []) => {
+      const result = await tx.execute({ sql, args: params });
+      if (result.rows.length === 0) {
+        return null;
+      }
+      return mapResultRows<T>(result)[0];
+    },
+  };
+}
+
+/**
+ * Execute a callback inside a database transaction.
+ * The callback receives a transaction object with `execute`, `query`, and `queryOne` methods.
+ * If the callback throws, the transaction is rolled back and the error is re-thrown.
+ */
+export async function transaction<T>(
+  fn: (tx: Transaction) => Promise<T>,
+  client: Client = db
+): Promise<T> {
+  const tx = await client.transaction('write');
+  try {
+    const result = await fn(createTransactionWrapper(tx));
+    await tx.commit();
+    return result;
+  } catch (error) {
+    // Rollback errors are swallowed; we re-throw the original error.
+    await tx.rollback().catch(() => {});
+    throw error;
   }
-  return rowToObjectFromColumns(result.rows[0], columns) as T;
 }
 
 export default db;
-

@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Pencil, Trash2, User, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
-import type { UserRole } from '@/lib/constants';
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus, Pencil, Trash2, User, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import type { UserRole } from "@/lib/constants";
 
 interface UserData {
   id: string;
@@ -15,7 +15,24 @@ interface UserData {
   role: UserRole;
   pin: string | null;
   active: number;
+  department?: string | null;
   created_at: number;
+}
+
+function parseDeptTypes(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed)
+      ? parsed.filter((t): t is string => typeof t === "string" && t.length > 0)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function formatDeptLabel(key: string): string {
+  return key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " ");
 }
 
 interface UserListProps {
@@ -31,7 +48,7 @@ export function UserList({ onAddUser, onEditUser }: UserListProps) {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('/api/users');
+      const response = await fetch("/api/users");
       const result = await response.json();
 
       if (result.success) {
@@ -40,7 +57,7 @@ export function UserList({ onAddUser, onEditUser }: UserListProps) {
         setError(result.message);
       }
     } catch {
-      setError('Failed to load users');
+      setError("Failed to load users");
     } finally {
       setIsLoading(false);
     }
@@ -51,44 +68,46 @@ export function UserList({ onAddUser, onEditUser }: UserListProps) {
   }, []);
 
   const handleDelete = (userId: string) => {
-    toast('Are you sure you want to deactivate this user?', {
+    toast("Are you sure you want to deactivate this user?", {
       action: {
-        label: 'Deactivate',
+        label: "Deactivate",
         onClick: async () => {
           setDeletingId(userId);
           try {
             const response = await fetch(`/api/users/${userId}`, {
-              method: 'DELETE',
+              method: "DELETE",
             });
             const result = await response.json();
 
             if (result.success) {
               fetchUsers();
-              toast.success('User deactivated');
+              toast.success("User deactivated");
             } else {
-              toast.error(result.message || 'Failed to deactivate user');
+              toast.error(result.message || "Failed to deactivate user");
             }
           } catch {
-            toast.error('An error occurred');
+            toast.error("An error occurred");
           } finally {
             setDeletingId(null);
           }
         },
       },
-      cancel: { label: 'Cancel', onClick: () => {} },
+      cancel: { label: "Cancel", onClick: () => {} },
     });
   };
 
   const getRoleBadgeVariant = (role: UserRole) => {
     switch (role) {
-      case 'owner':
-        return 'default';
-      case 'admin':
-        return 'secondary';
-      case 'cashier':
-        return 'outline';
+      case "owner":
+        return "default";
+      case "admin":
+        return "secondary";
+      case "department_staff":
+        return "secondary";
+      case "cashier":
+        return "outline";
       default:
-        return 'outline';
+        return "outline";
     }
   };
 
@@ -97,7 +116,9 @@ export function UserList({ onAddUser, onEditUser }: UserListProps) {
       <div className="flex items-center justify-center py-12">
         <div className="text-center space-y-3">
           <div className="w-12 h-12 mx-auto border-4 border-[#1c6a1e]/20 border-t-[#1c6a1e] rounded-full animate-spin"></div>
-          <p className="text-slate-600 dark:text-slate-400 font-medium">Loading users...</p>
+          <p className="text-slate-600 dark:text-slate-400 font-medium">
+            Loading users...
+          </p>
         </div>
       </div>
     );
@@ -117,10 +138,14 @@ export function UserList({ onAddUser, onEditUser }: UserListProps) {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Team Members</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Manage access and permissions</p>
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+            Team Members
+          </h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Manage access and permissions
+          </p>
         </div>
-        <Button 
+        <Button
           onClick={onAddUser}
           className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white font-semibold shadow-md shadow-[#1c6a1e]/20"
         >
@@ -131,9 +156,9 @@ export function UserList({ onAddUser, onEditUser }: UserListProps) {
 
       <div className="grid gap-4">
         {users.map((user) => (
-          <Card 
-            key={user.id} 
-            className={`border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18] ${user.active === 0 ? 'opacity-60' : ''}`}
+          <Card
+            key={user.id}
+            className={`border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1c2e18] ${user.active === 0 ? "opacity-60" : ""}`}
           >
             <CardContent className="flex items-center justify-between p-5">
               <div className="flex items-center gap-4">
@@ -152,14 +177,31 @@ export function UserList({ onAddUser, onEditUser }: UserListProps) {
                   </div>
                   <div className="text-sm text-slate-600 dark:text-slate-400 mt-1">
                     {user.email}
-                    {user.pin && (
-                      <span className="ml-2">• PIN: ****</span>
-                    )}
+                    {user.pin && <span className="ml-2">• PIN: ****</span>}
                   </div>
+                  {user.role === "department_staff" && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {parseDeptTypes(user.department).length > 0 ? (
+                        parseDeptTypes(user.department).map((type) => (
+                          <Badge
+                            key={type}
+                            variant="outline"
+                            className="text-[10px] uppercase tracking-wide border-[#1c6a1e]/30 text-[#1c6a1e]"
+                          >
+                            {formatDeptLabel(type)}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-xs text-amber-600 dark:text-amber-400">
+                          No product types assigned
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {user.role !== 'owner' && (
+              {user.role !== "owner" && (
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
@@ -194,7 +236,9 @@ export function UserList({ onAddUser, onEditUser }: UserListProps) {
               <div className="w-16 h-16 mx-auto rounded-full bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20 flex items-center justify-center mb-4">
                 <User className="w-8 h-8 text-[#1c6a1e]" />
               </div>
-              <p className="text-slate-600 dark:text-slate-400 font-medium">No users found. Add your first team member!</p>
+              <p className="text-slate-600 dark:text-slate-400 font-medium">
+                No users found. Add your first team member!
+              </p>
             </CardContent>
           </Card>
         )}

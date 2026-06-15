@@ -60,6 +60,14 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'alexawriters.s3.eu-north-1.amazonaws.com',
       },
+      {
+        protocol: 'https',
+        hostname: '*.backblazeb2.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'squlconnect.s3.us-east-005.backblazeb2.com',
+      },
     ],
   },
 };

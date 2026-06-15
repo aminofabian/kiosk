@@ -1,8 +1,7 @@
 import { NextRequest } from "next/server";
-import { execute, queryOne, query } from "@/lib/db";
+import { execute, queryOne, query, transaction } from "@/lib/db";
 import { generateUUID } from "@/lib/utils/uuid";
 import { jsonResponse, optionsResponse } from "@/lib/utils/api-response";
-import { getBatchesForSale, calculateProfit } from "@/lib/utils/fifo";
 import { requirePermission, isAuthResponse } from "@/lib/auth/api-auth";
 import { toProperCustomerName } from "@/lib/utils/customer-name";
 import {
@@ -13,7 +12,15 @@ import {
 import type { Sale } from "@/lib/db/types";
 import { awardLoyaltyPointsForSale } from "@/lib/db/loyalty";
 import { buildCreditDebtLineItemsSnapshotJson } from "@/lib/db/credit-debt-line-snapshot";
-import { migrateCreditDebtLineItemsSnapshot } from "@/lib/db/migrate-credit-debt-line-items-snapshot";
+import { migratePendingSales } from "@/lib/db/migrate-pending-sales";
+import { validateSaleLines } from "@/lib/validation/sale-lines";
+import { verifyManagerPin } from "@/lib/auth/verify-manager-pin";
+import {
+  processSaleStockDeduction,
+  InsufficientBatchStockError,
+  InsufficientItemStockError,
+} from "@/lib/db/sale-stock";
+import { logActivity } from "@/lib/db/activity-log";
 
 const EPS = 0.01;
 
@@ -80,7 +87,15 @@ export async function POST(request: NextRequest) {
       : await requirePermission("sell");
     if (isAuthResponse(auth)) return auth;
 
-    const {
+    // Block department staff from completing checkout (they cannot process payments)
+    if (auth.role === "department_staff") {
+      return jsonResponse(
+        { success: false, message: "Department staff cannot process payments" },
+        403,
+      );
+    }
+
+    let {
       items,
       paymentMethod,
       cashReceived,
@@ -89,6 +104,103 @@ export async function POST(request: NextRequest) {
       creditAccountId,
       splitPayments,
     } = body;
+
+    const pendingSaleId =
+      typeof body.pendingSaleId === "string"
+        ? body.pendingSaleId.trim()
+        : undefined;
+
+    if (pendingSaleId) {
+      await migratePendingSales();
+    }
+
+    // If completing a pending sale, load its items from the database.
+    if (pendingSaleId) {
+      const pendingSale = await queryOne<{
+        id: string;
+        user_id: string;
+        status: string;
+        customer_name: string | null;
+        customer_phone: string | null;
+      }>(
+        `SELECT id, user_id, status, customer_name, customer_phone
+         FROM sales
+         WHERE id = ? AND business_id = ?`,
+        [pendingSaleId, auth.businessId],
+      );
+
+      if (!pendingSale || pendingSale.status !== "pending") {
+        return jsonResponse(
+          { success: false, message: "Pending sale not found" },
+          404,
+        );
+      }
+
+      if (
+        pendingSale.user_id !== auth.userId &&
+        auth.role !== "admin" &&
+        auth.role !== "owner"
+      ) {
+        // Allow cashiers to complete pending sales created by department staff
+        if (auth.role !== "cashier") {
+          return jsonResponse(
+            {
+              success: false,
+              message: "Cannot complete another cashier's pending sale",
+            },
+            403,
+          );
+        }
+
+        // If cashier, check if the creator is department_staff
+        const creator = await queryOne<{ role: string }>(
+          `SELECT role FROM users WHERE id = ?`,
+          [pendingSale.user_id],
+        );
+        if (!creator || creator.role !== "department_staff") {
+          return jsonResponse(
+            {
+              success: false,
+              message: "Cannot complete another cashier's pending sale",
+            },
+            403,
+          );
+        }
+      }
+
+      const pendingItems = await query<{
+        item_id: string;
+        quantity_sold: number;
+        sell_price_per_unit: number;
+        inventory_batch_id: string | null;
+      }>(
+        `SELECT item_id, quantity_sold, sell_price_per_unit, inventory_batch_id
+         FROM sale_items
+         WHERE sale_id = ?`,
+        [pendingSaleId],
+      );
+
+      if (pendingItems.length === 0) {
+        return jsonResponse(
+          { success: false, message: "Pending sale has no items" },
+          400,
+        );
+      }
+
+      items = pendingItems.map((pi) => ({
+        itemId: pi.item_id,
+        quantity: pi.quantity_sold,
+        price: pi.sell_price_per_unit,
+        inventoryBatchId: pi.inventory_batch_id || undefined,
+      }));
+
+      if (!customerName && pendingSale.customer_name) {
+        customerName = pendingSale.customer_name;
+      }
+      if (!customerPhone && pendingSale.customer_phone) {
+        customerPhone = pendingSale.customer_phone;
+      }
+    }
 
     if (!items || !Array.isArray(items) || items.length === 0) {
       return jsonResponse(
@@ -100,6 +212,60 @@ export async function POST(request: NextRequest) {
     if (!paymentMethod) {
       return jsonResponse(
         { success: false, message: "Payment method is required" },
+        400,
+      );
+    }
+
+    const managerPin =
+      typeof body.managerPin === "string" ? body.managerPin.trim() : undefined;
+    const mpesaManualOverride = body.mpesaManualOverride === true;
+
+    if (!fromEdit && paymentMethod === "mpesa" && mpesaManualOverride) {
+      if (!managerPin) {
+        return jsonResponse(
+          {
+            success: false,
+            message: "Manager PIN is required to mark M-Pesa as paid manually",
+          },
+          403,
+        );
+      }
+      const manager = await verifyManagerPin(auth.businessId, managerPin);
+      if (!manager) {
+        return jsonResponse(
+          { success: false, message: "Invalid manager PIN" },
+          403,
+        );
+      }
+    }
+
+    const lineValidation = await validateSaleLines({
+      businessId: auth.businessId,
+      role: auth.role,
+      lines: items.map(
+        (item: {
+          itemId: string;
+          quantity: number;
+          price: number;
+          inventoryBatchId?: string;
+        }) => ({
+          itemId: item.itemId,
+          quantity: item.quantity,
+          price: item.price,
+          inventoryBatchId: item.inventoryBatchId,
+        }),
+      ),
+      managerPin,
+    });
+
+    if (!lineValidation.ok) {
+      const first = lineValidation.errors[0];
+      return jsonResponse(
+        {
+          success: false,
+          message: first?.message || "Sale validation failed",
+          errors: lineValidation.errors,
+        },
         400,
       );
     }
@@ -147,7 +313,7 @@ export async function POST(request: NextRequest) {
     }
 
     const now = Math.floor(Date.now() / 1000);
-    const saleId = generateUUID();
+    const saleId = pendingSaleId ?? generateUUID();
 
     const totalAmount = roundMoney(
       items.reduce(
@@ -445,233 +611,144 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    await execute(
-      `INSERT INTO sales (
-        id, business_id, user_id, shift_id, total_amount, payment_method,
-        status, customer_name, customer_phone, sale_date, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        saleId,
-        auth.businessId,
-        auth.userId,
-        shiftId,
-        totalAmount,
-        paymentMethod,
-        "completed",
-        saleCustomerName,
-        saleCustomerPhone,
-        now,
-        now,
-      ],
-    );
-
-    // Calculate cash amount for shift tracking
-    let cashAmountForShift = 0;
-    if (paymentMethod === "cash") {
-      cashAmountForShift = totalAmount;
-    } else if (paymentMethod === "split" && splitPayments) {
-      const cashPayment = (splitPayments as SplitPaymentInput[]).find(
-        (p) => p.method === "cash",
-      );
-      cashAmountForShift = cashPayment?.amount || 0;
-    }
-
-    // Update shift expected_closing_cash if shift exists and there's cash payment
-    if (shiftId && cashAmountForShift > 0) {
-      await execute(
-        `UPDATE shifts
-         SET expected_closing_cash = expected_closing_cash + ?
-         WHERE id = ?`,
-        [cashAmountForShift, shiftId],
-      );
-    }
-
-    // Store split payment details if split payment
-    if (paymentMethod === "split" && splitPayments) {
-      for (const payment of splitPayments as SplitPaymentInput[]) {
-        const paymentId = generateUUID();
-        await execute(
-          `INSERT INTO sale_payments (
-            id, sale_id, payment_method, amount, customer_name, customer_phone, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [
-            paymentId,
-            saleId,
-            payment.method,
-            payment.amount,
-            payment.customerName
-              ? toProperCustomerName(payment.customerName)
-              : null,
-            payment.customerPhone || null,
-            now,
-          ],
-        );
-      }
-    }
-
-    if (!fromEdit && walletAmountApplied > EPS) {
-      const walletPayId = generateUUID();
-      await execute(
-        `INSERT INTO sale_payments (
-          id, sale_id, payment_method, amount, customer_name, customer_phone, created_at
-        ) VALUES (?, ?, 'wallet', ?, NULL, NULL, ?)`,
-        [walletPayId, saleId, walletAmountApplied, now],
-      );
-    }
-
-    // Process each item (FIFO or cashier-selected batch)
-    for (const item of items) {
-      const inventoryBatchId = (item as { inventoryBatchId?: string })
-        .inventoryBatchId;
-
-      // Fetch item's current type for snapshot
-      const itemData = await queryOne<{ item_type: string }>(
-        "SELECT item_type FROM items WHERE id = ?",
-        [item.itemId],
-      );
-      const itemTypeSnapshot = itemData?.item_type || "retail";
-
-      let batches: { batchId: string; quantity: number; buyPrice: number }[];
-      if (inventoryBatchId) {
-        // Cashier selected a specific batch - use it first
-        const selectedBatch = await queryOne<{
-          id: string;
-          quantity_remaining: number;
-          buy_price_per_unit: number;
-          item_id: string;
-        }>(
-          `SELECT id, quantity_remaining, buy_price_per_unit, item_id
-           FROM inventory_batches
-           WHERE id = ? AND business_id = ? AND item_id = ? AND status = 'active'`,
-          [inventoryBatchId, auth.businessId, item.itemId],
-        );
-        if (selectedBatch && selectedBatch.quantity_remaining > 0) {
-          const take = Math.min(
-            item.quantity,
-            selectedBatch.quantity_remaining,
-          );
-          batches = [
-            {
-              batchId: selectedBatch.id,
-              quantity: take,
-              buyPrice: selectedBatch.buy_price_per_unit,
-            },
-          ];
-        } else {
-          batches = [];
-        }
-      } else {
-        batches = await getBatchesForSale(item.itemId, item.quantity);
-      }
-
-      let remainingQuantity = item.quantity;
-
-      // If we have batches, consume them
-      if (batches.length > 0) {
-        for (const batch of batches) {
-          const saleItemId = generateUUID();
-          const profit = calculateProfit(
-            item.price,
-            batch.buyPrice,
-            batch.quantity,
-          );
-
-          // Create sale_item record with item_type_snapshot
-          await execute(
-            `INSERT INTO sale_items (
-              id, sale_id, item_id, inventory_batch_id, quantity_sold,
-              sell_price_per_unit, buy_price_per_unit, profit, item_type_snapshot, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    try {
+      await transaction(async (tx) => {
+        if (pendingSaleId) {
+          const updated = await tx.execute(
+            `UPDATE sales
+             SET shift_id = ?, total_amount = ?, payment_method = ?,
+                 status = 'completed', customer_name = ?, customer_phone = ?,
+                 sale_date = ?, updated_at = ?
+             WHERE id = ? AND business_id = ? AND status = 'pending'`,
             [
-              saleItemId,
+              shiftId,
+              totalAmount,
+              paymentMethod,
+              saleCustomerName,
+              saleCustomerPhone,
+              now,
+              now,
               saleId,
-              item.itemId,
-              batch.batchId,
-              batch.quantity,
-              item.price,
-              batch.buyPrice,
-              profit,
-              itemTypeSnapshot,
+              auth.businessId,
+            ],
+          );
+          if (updated.rowsAffected === 0) {
+            throw new Error("Pending sale not found or already completed");
+          }
+          await tx.execute(`DELETE FROM sale_items WHERE sale_id = ?`, [
+            saleId,
+          ]);
+        } else {
+          await tx.execute(
+            `INSERT INTO sales (
+              id, business_id, user_id, shift_id, total_amount, payment_method,
+              status, customer_name, customer_phone, sale_date, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              saleId,
+              auth.businessId,
+              auth.userId,
+              shiftId,
+              totalAmount,
+              paymentMethod,
+              "completed",
+              saleCustomerName,
+              saleCustomerPhone,
+              now,
+              now,
               now,
             ],
           );
+        }
 
-          // Update batch quantity_remaining and set status=depleted when empty
-          await execute(
-            `UPDATE inventory_batches
-             SET quantity_remaining = quantity_remaining - ?,
-                 status = CASE WHEN (quantity_remaining - ?) <= 0 THEN 'depleted' ELSE status END
+        let cashAmountForShift = 0;
+        if (paymentMethod === "cash") {
+          cashAmountForShift = totalAmount;
+        } else if (paymentMethod === "split" && splitPayments) {
+          const cashPayment = (splitPayments as SplitPaymentInput[]).find(
+            (p) => p.method === "cash",
+          );
+          cashAmountForShift = cashPayment?.amount || 0;
+        }
+
+        if (shiftId && cashAmountForShift > 0) {
+          await tx.execute(
+            `UPDATE shifts
+             SET expected_closing_cash = expected_closing_cash + ?
              WHERE id = ?`,
-            [batch.quantity, batch.quantity, batch.batchId],
+            [cashAmountForShift, shiftId],
           );
-
-          remainingQuantity -= batch.quantity;
-        }
-      }
-
-      // If we still have remaining quantity (no batches or insufficient stock)
-      // Try to get buy price from most recent batch or purchase breakdown
-      if (remainingQuantity > 0) {
-        // Get most recent buy price from any batch (even if depleted)
-        const recentBatch = await queryOne<{ buy_price_per_unit: number }>(
-          `SELECT buy_price_per_unit
-           FROM inventory_batches
-           WHERE item_id = ?
-           ORDER BY received_at DESC
-           LIMIT 1`,
-          [item.itemId],
-        );
-
-        // If no batch, try to get from most recent purchase breakdown
-        let buyPrice = recentBatch?.buy_price_per_unit || 0;
-        if (!buyPrice) {
-          const recentBreakdown = await queryOne<{
-            buy_price_per_unit: number;
-          }>(
-            `SELECT pb.buy_price_per_unit
-             FROM purchase_breakdowns pb
-             JOIN purchase_items pi ON pb.purchase_item_id = pi.id
-             JOIN purchases p ON pi.purchase_id = p.id
-             WHERE pb.item_id = ? AND p.business_id = ?
-             ORDER BY pb.confirmed_at DESC
-             LIMIT 1`,
-            [item.itemId, auth.businessId],
-          );
-          buyPrice = recentBreakdown?.buy_price_per_unit || 0;
         }
 
-        const saleItemId = generateUUID();
-        const profit =
-          buyPrice > 0
-            ? calculateProfit(item.price, buyPrice, remainingQuantity)
-            : 0;
+        if (paymentMethod === "split" && splitPayments) {
+          for (const payment of splitPayments as SplitPaymentInput[]) {
+            const paymentId = generateUUID();
+            await tx.execute(
+              `INSERT INTO sale_payments (
+                id, sale_id, payment_method, amount, customer_name, customer_phone, created_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              [
+                paymentId,
+                saleId,
+                payment.method,
+                payment.amount,
+                payment.customerName
+                  ? toProperCustomerName(payment.customerName)
+                  : null,
+                payment.customerPhone || null,
+                now,
+              ],
+            );
+          }
+        }
 
-        await execute(
-          `INSERT INTO sale_items (
-            id, sale_id, item_id, quantity_sold, sell_price_per_unit,
-            buy_price_per_unit, profit, item_type_snapshot, created_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            saleItemId,
-            saleId,
-            item.itemId,
-            remainingQuantity,
-            item.price,
-            buyPrice,
-            profit,
-            itemTypeSnapshot,
-            now,
-          ],
+        if (!fromEdit && walletAmountApplied > EPS) {
+          const walletPayId = generateUUID();
+          await tx.execute(
+            `INSERT INTO sale_payments (
+              id, sale_id, payment_method, amount, customer_name, customer_phone, created_at
+            ) VALUES (?, ?, 'wallet', ?, NULL, NULL, ?)`,
+            [walletPayId, saleId, walletAmountApplied, now],
+          );
+        }
+
+        await processSaleStockDeduction({
+          tx,
+          saleId,
+          businessId: auth.businessId,
+          items: items.map(
+            (item: {
+              itemId: string;
+              quantity: number;
+              price: number;
+              inventoryBatchId?: string;
+            }) => ({
+              itemId: item.itemId,
+              quantity: item.quantity,
+              price: item.price,
+              inventoryBatchId: item.inventoryBatchId,
+            }),
+          ),
+          now,
+          allowNegativeStock: lineValidation.managerAuthorized,
+        });
+      });
+    } catch (stockError) {
+      if (
+        stockError instanceof InsufficientBatchStockError ||
+        stockError instanceof InsufficientItemStockError
+      ) {
+        return jsonResponse(
+          {
+            success: false,
+            message:
+              "Stock changed during checkout. Please review your cart and try again.",
+            code: "stock_conflict",
+          },
+          409,
         );
       }
-
-      // Update item stock (always decrement, even if no batches)
-      await execute(
-        `UPDATE items
-         SET current_stock = current_stock - ?
-         WHERE id = ? AND business_id = ?`,
-        [item.quantity, item.itemId, auth.businessId],
-      );
+      throw stockError;
     }
 
     let debtLineItemsSnapshotJson: string | null = null;
@@ -989,6 +1066,22 @@ export async function POST(request: NextRequest) {
       });
       loyaltyPointsAwarded = lr.awarded;
     }
+
+    await logActivity({
+      businessId: auth.businessId,
+      action: "create",
+      entityType: "sale",
+      entityId: saleId,
+      entityNameSnapshot: `Sale ${saleId.slice(0, 8)}`,
+      details: {
+        totalAmount,
+        paymentMethod,
+        itemCount: items.length,
+        walletAmountApplied,
+        pendingSaleId: pendingSaleId || undefined,
+      },
+      performedBy: auth.userId,
+    });
 
     return jsonResponse({
       success: true,

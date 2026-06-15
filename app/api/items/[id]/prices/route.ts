@@ -3,7 +3,8 @@ import { execute, queryOne } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
 import { generateBatchNumber } from '@/lib/utils/batch-number';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
-import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
+import { hasPermission } from '@/lib/auth/permissions';
 import { logActivity } from '@/lib/db/activity-log';
 import { recordBuyingPrice } from '@/lib/db/buying-prices';
 
@@ -20,8 +21,15 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await requirePermission('manage_items');
+    const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
+
+    const canManageItems = hasPermission(auth.role, 'manage_items');
+    const canAdjustStock = hasPermission(auth.role, 'adjust_stock');
+
+    if (!canManageItems && !canAdjustStock) {
+      return jsonResponse({ success: false, message: 'Forbidden' }, 403);
+    }
 
     const { id: itemId } = await params;
     const body = await request.json();
@@ -34,6 +42,13 @@ export async function PATCH(
       return jsonResponse(
         { success: false, message: 'At least one of sellPrice or buyPrice is required' },
         400
+      );
+    }
+
+    if (buyPriceNum !== undefined && !canManageItems) {
+      return jsonResponse(
+        { success: false, message: 'Not allowed to update buy price' },
+        403
       );
     }
 
@@ -52,9 +67,9 @@ export async function PATCH(
     const now = Math.floor(Date.now() / 1000);
 
     if (sellPriceNum !== undefined) {
-      if (sellPriceNum < 0) {
+      if (sellPriceNum <= 0) {
         return jsonResponse(
-          { success: false, message: 'Sell price must be >= 0' },
+          { success: false, message: 'Sell price must be greater than 0' },
           400
         );
       }

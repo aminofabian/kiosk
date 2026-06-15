@@ -100,6 +100,7 @@ export default function EditItemPage() {
             packaging_unit_name: item.packaging_unit_name,
             packaging_unit_qty: item.packaging_unit_qty,
             item_type: item.item_type,
+            image_url: item.image_url,
           }}
         />
         <div className="mt-6">

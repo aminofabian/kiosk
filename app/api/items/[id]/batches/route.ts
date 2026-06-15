@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { query } from '@/lib/db';
+import { query, queryOne } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
 
@@ -9,7 +9,7 @@ export async function OPTIONS() {
 
 /**
  * GET /api/items/[id]/batches
- * Returns all active batches for an item (FIFO order) for cashier batch selection
+ * Active batches (FIFO order) plus on-hand vs lot-total sync status.
  */
 export async function GET(
   request: NextRequest,
@@ -20,6 +20,15 @@ export async function GET(
     if (isAuthResponse(auth)) return auth;
 
     const { id: itemId } = await params;
+
+    const item = await queryOne<{ current_stock: number }>(
+      `SELECT current_stock FROM items WHERE id = ? AND business_id = ?`,
+      [itemId, auth.businessId]
+    );
+
+    if (!item) {
+      return jsonResponse({ success: false, message: 'Item not found' }, 404);
+    }
 
     const batches = await query<{
       id: string;
@@ -35,15 +44,24 @@ export async function GET(
       [itemId, auth.businessId]
     );
 
+    const batchSum = batches.reduce((sum, b) => sum + b.quantity_remaining, 0);
+    const itemStock = item.current_stock;
+    const inSync = Math.abs(batchSum - itemStock) < 0.0001;
+
     return jsonResponse({
       success: true,
-      data: batches.map((b) => ({
-        id: b.id,
-        batchNumber: b.batch_number || b.id.slice(0, 8),
-        quantityRemaining: b.quantity_remaining,
-        buyPricePerUnit: b.buy_price_per_unit,
-        receivedAt: b.received_at,
-      })),
+      data: {
+        batches: batches.map((b) => ({
+          id: b.id,
+          batchNumber: b.batch_number || b.id.slice(0, 8),
+          quantityRemaining: b.quantity_remaining,
+          buyPricePerUnit: b.buy_price_per_unit,
+          receivedAt: b.received_at,
+        })),
+        itemStock,
+        batchSum,
+        inSync,
+      },
     });
   } catch (error) {
     console.error('Error fetching item batches:', error);

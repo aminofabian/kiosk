@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
 import { execute, queryOne } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
-import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
+import { hasPermission } from '@/lib/auth/permissions';
 import { logActivity } from '@/lib/db/activity-log';
 import type { Item } from '@/lib/db/types';
 import { UNIT_TYPES } from '@/lib/constants';
@@ -19,8 +20,15 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await requirePermission('manage_items');
+    const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
+
+    if (
+      !hasPermission(auth.role, 'manage_items') &&
+      !hasPermission(auth.role, 'adjust_stock')
+    ) {
+      return jsonResponse({ success: false, message: 'Forbidden' }, 403);
+    }
 
     const { id } = await params;
     const body = await request.json();

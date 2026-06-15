@@ -1,4 +1,4 @@
-import { resolveAppSession } from './session-resolve';
+import { resolveAppSession } from "./session-resolve";
 
 export async function getSession() {
   return await resolveAppSession();
@@ -17,18 +17,26 @@ export async function getBusinessId(): Promise<string | null> {
 export async function requireAuth() {
   const session = await getSession();
   if (!session?.user) {
-    throw new Error('Unauthorized');
+    throw new Error("Unauthorized");
   }
   return session.user;
 }
 
-export async function requireRole(allowedRoles: ('owner' | 'admin' | 'cashier' | 'superadmin')[]) {
+export async function requireRole(
+  allowedRoles: (
+    | "owner"
+    | "admin"
+    | "cashier"
+    | "department_staff"
+    | "superadmin"
+  )[],
+) {
   const user = await requireAuth();
   if (!allowedRoles.includes(user.role)) {
-    throw new Error('Forbidden');
+    throw new Error("Forbidden");
   }
   return user;
 }
 
-export { authOptions } from './config';
-export * from './permissions';
+export { authOptions } from "./config";
+export * from "./permissions";

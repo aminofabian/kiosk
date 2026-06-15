@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { apiGet } from '@/lib/utils/api-client';
 import type { CreditAccount } from '@/lib/db/types';
-import { creditAccountPhonesDisplay } from '@/lib/utils/credit-phones';
+import { creditAccountPhonesDisplay, formatKenyaPhoneForLookup } from '@/lib/utils/credit-phones';
 
 const PHONE_DEBOUNCE_MS = 400;
 
@@ -43,14 +43,14 @@ export function WalletApplySection({
   const maxApply = Math.min(balance, cartTotal);
 
   const fetchByPhone = useCallback(async (raw: string) => {
-    const trimmed = raw.trim();
-    if (trimmed.length < 6) {
+    const lookupPhone = formatKenyaPhoneForLookup(raw);
+    if (lookupPhone.replace(/\D/g, '').length < 9) {
       setAccountsByPhone([]);
       return;
     }
     setLoadingByPhone(true);
     try {
-      const res = await apiGet<CreditAccount[]>(`/api/credits?phone=${encodeURIComponent(trimmed)}`);
+      const res = await apiGet<CreditAccount[]>(`/api/credits?phone=${encodeURIComponent(lookupPhone)}`);
       if (res.success && res.data) {
         setAccountsByPhone(res.data);
         if (res.data.length === 0) {
@@ -120,12 +120,9 @@ export function WalletApplySection({
 
   const selectAccount = (acc: CreditAccount) => {
     onCreditAccountIdChange(acc.id);
-    const bal = Number(acc.wallet_balance ?? 0);
-    const max = Math.min(bal, cartTotal);
-    const applied = Math.round(Math.max(0, Math.min(max, cartTotal)) * 100) / 100;
-    prevMaxApplyRef.current = applied;
-    onWalletAmountAppliedChange(applied);
-    setAmountInput(applied > 0.01 ? String(applied) : '');
+    prevMaxApplyRef.current = 0;
+    onWalletAmountAppliedChange(0);
+    setAmountInput('');
   };
 
   const applyParsedAmount = (raw: string) => {
@@ -146,8 +143,8 @@ export function WalletApplySection({
             Store wallet (optional)
           </p>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-            Look up a customer to use their prepaid balance. The amount defaults to the maximum that can apply to this
-            cart. Cash overpayment can still go to the same customer&apos;s wallet.
+            Look up a customer to use their prepaid balance. Select a customer, then enter an amount or tap Max.
+            Cash overpayment can still go to the same customer&apos;s wallet.
           </p>
         </div>
 
@@ -215,7 +212,7 @@ export function WalletApplySection({
         {creditAccountId && cartTotal > 0 && (
           <div className="space-y-2 pt-1 border-t border-violet-200/60 dark:border-violet-800/50">
             <Label htmlFor="walletAmount">
-              Pay from wallet · max {formatPrice(maxApply)} (default)
+              Pay from wallet · max {formatPrice(maxApply)}
             </Label>
             <div className="flex gap-2">
               <Input

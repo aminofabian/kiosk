@@ -5,6 +5,7 @@ import { generateBatchNumber } from '@/lib/utils/batch-number';
 import type { Item } from '@/lib/db/types';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import { hasPermission } from '@/lib/auth/permissions';
 import { logActivity } from '@/lib/db/activity-log';
 import { recordBuyingPrice } from '@/lib/db/buying-prices';
 
@@ -23,6 +24,8 @@ export async function GET(
   try {
     const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
+
+    const canViewProfit = hasPermission(auth.role, 'view_profit');
 
     const { id: itemId } = await params;
 
@@ -91,7 +94,7 @@ export async function GET(
       success: true,
       data: {
         ...item,
-        buy_price: latestBatch?.buy_price_per_unit || null,
+        buy_price: canViewProfit ? latestBatch?.buy_price_per_unit || null : null,
         batch_number: fifoBatch?.batch_number ?? null,
         isParent: isParentItem && variantCount > 0,
         variantCount,
@@ -541,8 +544,15 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await requirePermission('manage_items');
+    const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
+
+    if (
+      !hasPermission(auth.role, 'manage_items') &&
+      !hasPermission(auth.role, 'adjust_stock')
+    ) {
+      return jsonResponse({ success: false, message: 'Forbidden' }, 403);
+    }
 
     const { id: itemId } = await params;
 

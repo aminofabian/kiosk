@@ -2,6 +2,8 @@
 
 import type { Sale, SaleItem } from '@/lib/db/types';
 
+import type { ReceiptSettings } from '@/lib/utils/business-settings';
+
 interface SplitPayment {
   id: string;
   sale_id: string;
@@ -20,6 +22,7 @@ interface ReceiptProps {
     batch_number?: string | null;
   })[];
   splitPayments?: SplitPayment[];
+  receiptSettings?: ReceiptSettings;
 }
 
 function receiptTitle(method: Sale['payment_method']): string {
@@ -42,7 +45,7 @@ function paymentMethodLabel(method: SplitPayment['payment_method']): string {
   return method;
 }
 
-export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
+export function Receipt({ sale, items, splitPayments, receiptSettings }: ReceiptProps) {
   const formatPrice = (price: number) => price.toFixed(0);
 
   const walletPaid =
@@ -99,7 +102,11 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
     0
   );
 
-  const storeName = (sale.business_name || "FnM's").toUpperCase();
+  const storeName = (sale.business_name || "Store").toUpperCase();
+  const tagline = receiptSettings?.tagline;
+  const website = receiptSettings?.website;
+  const phone = receiptSettings?.phone;
+  const tillNumber = receiptSettings?.tillNumber;
 
   return (
     <div
@@ -125,9 +132,11 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
             <p className="text-[15px] print:text-[11px] font-black leading-tight mb-1 text-black">
               {storeName}
             </p>
-            <p className="text-[11px] print:text-[9px] font-semibold normal-case tracking-normal mb-1.5 print:mb-1 text-black">
-              Fresh n More
-            </p>
+            {tagline && (
+              <p className="text-[11px] print:text-[9px] font-semibold normal-case tracking-normal mb-1.5 print:mb-1 text-black">
+                {tagline}
+              </p>
+            )}
             <p className="text-[12px] print:text-[9px] font-black mb-2 print:mb-1.5 text-black leading-tight px-0.5">
               {receiptTitle(sale.payment_method)}
             </p>
@@ -315,12 +324,19 @@ export function Receipt({ sale, items, splitPayments }: ReceiptProps) {
             SHOPPING
           </p>
 
-          <div className="text-center text-[9px] print:text-[7px] mt-2 space-y-0.5 normal-case text-black leading-snug print:px-0.5">
-            <p className="text-black break-words">www.fnms.co.ke</p>
-            <p className="text-black">Tel 0113 277 767</p>
-            <p className="font-bold text-black">Till 3020127 - Zelisline</p>
-            <p className="text-black mt-1 tabular-nums">{formatDate(sale.sale_date)}</p>
-          </div>
+          {(website || phone || tillNumber) && (
+            <div className="text-center text-[9px] print:text-[7px] mt-2 space-y-0.5 normal-case text-black leading-snug print:px-0.5">
+              {website && <p className="text-black break-words">{website}</p>}
+              {phone && <p className="text-black">Tel {phone}</p>}
+              {tillNumber && <p className="font-bold text-black">Till {tillNumber}</p>}
+              <p className="text-black mt-1 tabular-nums">{formatDate(sale.sale_date)}</p>
+            </div>
+          )}
+          {!website && !phone && !tillNumber && (
+            <div className="text-center text-[9px] print:text-[7px] mt-2 text-black tabular-nums">
+              {formatDate(sale.sale_date)}
+            </div>
+          )}
         </div>
       </div>
 

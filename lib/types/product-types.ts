@@ -50,3 +50,23 @@ export function mergeSettingsProductTypes(
   obj.productTypes = productTypes;
   return JSON.stringify(obj);
 }
+
+/** Map assigned type keys to display config, with fallbacks when settings omit a key. */
+export function resolveVisibleProductTypes(
+  productTypes: ProductTypeConfig[],
+  allowedTypes?: string[],
+): ProductTypeConfig[] {
+  if (allowedTypes === undefined) return productTypes;
+  if (allowedTypes.length === 0) return [];
+
+  return allowedTypes.map((key) => {
+    const found = productTypes.find((t) => t.key === key);
+    if (found) return found;
+    return {
+      key,
+      label: key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' '),
+      emoji: '📦',
+      color: '#64748b',
+    };
+  });
+}

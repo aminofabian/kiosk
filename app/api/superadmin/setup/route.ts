@@ -3,6 +3,7 @@ import { execute, queryOne } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { migrateSuperAdmin } from '@/lib/db/migrate-superadmin';
+import { getSuperAdminContext } from '@/lib/auth/api-auth';
 import bcrypt from 'bcryptjs';
 
 export async function OPTIONS() {
@@ -31,8 +32,21 @@ export async function POST(request: NextRequest) {
     const existing = await queryOne<{ count: number }>(
       `SELECT COUNT(*) as count FROM super_admins`
     );
+    const hasExistingSuperAdmin = existing ? existing.count > 0 : false;
 
-    if (existing && existing.count > 0 && !force) {
+    // Allow initial setup without authentication. If a super admin already exists,
+    // or if force reset is requested, require an authenticated super admin.
+    if (hasExistingSuperAdmin || force === true) {
+      const currentAdmin = await getSuperAdminContext();
+      if (!currentAdmin) {
+        return jsonResponse(
+          { success: false, message: 'Super admin authentication required' },
+          403
+        );
+      }
+    }
+
+    if (hasExistingSuperAdmin && !force) {
       return jsonResponse({
         success: true,
         message: 'Super admin already exists. Use the login page or pass force: true to reset.',
@@ -41,7 +55,7 @@ export async function POST(request: NextRequest) {
     }
 
     // If force is true, delete all existing super admins
-    if (force && existing && existing.count > 0) {
+    if (force && hasExistingSuperAdmin) {
       await execute(`DELETE FROM super_admins`);
       console.log('🗑️ Deleted existing super admins');
     }

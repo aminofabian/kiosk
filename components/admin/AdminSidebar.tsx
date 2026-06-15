@@ -31,7 +31,9 @@ import {
   ScanBarcode,
   LayoutGrid,
   MapPin,
+  RotateCcw,
   ScrollText,
+  Cloud,
 } from 'lucide-react';
 
 interface SubItem {
@@ -72,6 +74,12 @@ const BASE_SECTIONS: MenuSection[] = [
         subItems: [], // filled from product types
       },
       { href: '/admin/transactions', label: 'Transactions', icon: ListOrdered },
+      {
+        href: '/admin/pending-carts',
+        label: 'Open Carts',
+        icon: Cloud,
+      },
+      { href: '/admin/returns', label: 'Returns', icon: RotateCcw, roles: ['owner', 'admin'] },
       {
         href: '/admin/profit',
         label: 'Profit',
@@ -123,6 +131,7 @@ export function AdminSidebar() {
   const { productTypes } = useItemTypes();
   const [billNotificationCount, setBillNotificationCount] = useState(0);
   const [expiryNotificationCount, setExpiryNotificationCount] = useState(0);
+  const [pendingCartCount, setPendingCartCount] = useState(0);
 
   const SECTIONS: MenuSection[] = useMemo(() => {
     const subItemsFromTypes: SubItem[] = productTypes.map((t) => ({
@@ -173,6 +182,22 @@ export function AdminSidebar() {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (!user) return;
+    const loadPending = () => {
+      apiGet<unknown[]>('/api/sales/pending')
+        .then((result) => {
+          if (result.success && Array.isArray(result.data)) {
+            setPendingCartCount(result.data.length);
+          }
+        })
+        .catch(() => {});
+    };
+    loadPending();
+    const timer = setInterval(loadPending, 60_000);
+    return () => clearInterval(timer);
+  }, [user]);
+
   const isActive = (href: string, matchPath?: string) => {
     const pathToMatch = matchPath || href;
     if (pathToMatch === '/admin') return pathname === '/admin';
@@ -202,6 +227,7 @@ export function AdminSidebar() {
           '/admin/supplier-bills',
           '/admin/supplier-price-comparison',
           '/admin/out-of-stock-requests',
+          '/admin/pending-carts',
         ];
         return (
           allowed.includes(item.href) ||
@@ -236,6 +262,8 @@ export function AdminSidebar() {
                 item.href === '/admin/supplier-bills' && billNotificationCount > 0;
               const showExpiryBadge =
                 item.href === '/admin/batches' && expiryNotificationCount > 0;
+              const showPendingCartBadge =
+                item.href === '/admin/pending-carts' && pendingCartCount > 0;
 
               return (
                 <div key={item.href}>
@@ -271,6 +299,11 @@ export function AdminSidebar() {
                       {showExpiryBadge && (
                         <span className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center justify-center shrink-0">
                           {expiryNotificationCount > 99 ? '99+' : expiryNotificationCount}
+                        </span>
+                      )}
+                      {showPendingCartBadge && (
+                        <span className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center justify-center shrink-0">
+                          {pendingCartCount > 99 ? '99+' : pendingCartCount}
                         </span>
                       )}
 

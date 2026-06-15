@@ -104,3 +104,28 @@ export function shouldShowCategory(categoryName: string, shopType: string): bool
   return categoryShopType === shopType;
 }
 
+/** Resolve active shop type for department staff scoped to assigned product types. */
+export function resolveDepartmentShopType(assignedTypes: string[]): string {
+  if (assignedTypes.length === 0) return SHOP_TYPE_ALL;
+  if (assignedTypes.length === 1) return assignedTypes[0];
+  const resolved = getShopType(assignedTypes);
+  if (resolved === SHOP_TYPE_ALL || assignedTypes.includes(resolved)) return resolved;
+  return SHOP_TYPE_ALL;
+}
+
+/** Category visibility for department staff — never wider than assignedTypes. */
+export function categoryMatchesAssignedTypes(
+  categoryName: string,
+  shopType: string,
+  assignedTypes: string[],
+): boolean {
+  if (assignedTypes.length === 0) {
+    return shouldShowCategory(categoryName, shopType);
+  }
+  if (shopType === SHOP_TYPE_ALL) {
+    return assignedTypes.some((t) => shouldShowCategory(categoryName, t));
+  }
+  if (!assignedTypes.includes(shopType)) return false;
+  return shouldShowCategory(categoryName, shopType);
+}
+

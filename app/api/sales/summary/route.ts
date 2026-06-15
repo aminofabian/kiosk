@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { queryOne } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
-import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
+import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -14,7 +14,7 @@ export async function OPTIONS() {
  */
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAuth();
+    const auth = await requirePermission('view_all_sales');
     if (isAuthResponse(auth)) return auth;
 
     const { searchParams } = new URL(request.url);

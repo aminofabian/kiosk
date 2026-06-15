@@ -49,6 +49,8 @@ interface DenominationCounts {
 
 interface ShiftCloseFormProps {
   shift: Shift;
+  embedded?: boolean;
+  onSuccess?: () => void;
 }
 
 interface ShiftSummary {
@@ -76,7 +78,7 @@ interface CreateBalanceApprovalResponse {
   requestId: string;
 }
 
-export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
+export function ShiftCloseForm({ shift, embedded = false, onSuccess }: ShiftCloseFormProps) {
   const router = useRouter();
   const { user } = useCurrentUser();
   const [denominations, setDenominations] = useState<DenominationCounts>({
@@ -299,7 +301,11 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
         });
 
         if (result.success) {
-          router.push('/pos');
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            router.push('/pos');
+          }
         } else {
           setError(result.message || 'Failed to close shift');
         }
@@ -315,7 +321,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
   // Show success screen only when they just submitted (they can submit again from here)
   if (submitted) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-full p-6">
+      <div className={`flex flex-col items-center justify-center ${embedded ? 'py-8' : 'min-h-full p-6'}`}>
         <div className="text-center space-y-4 max-w-md">
           <div className="w-20 h-20 mx-auto bg-amber-100 dark:bg-amber-900/30 rounded-2xl flex items-center justify-center">
             <Clock className="w-10 h-10 text-amber-600 dark:text-amber-400" />
@@ -350,12 +356,18 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
               Submit a different closing balance
             </Button>
             <Button 
-              onClick={() => router.push('/pos')} 
+              onClick={() => {
+                if (onSuccess) {
+                  onSuccess();
+                } else {
+                  router.push('/pos');
+                }
+              }} 
               variant="ghost" 
               size="sm"
               className="text-muted-foreground w-full"
             >
-              Back to Dashboard
+              {embedded ? 'Done' : 'Back to Dashboard'}
             </Button>
           </div>
         </div>
@@ -364,7 +376,7 @@ export function ShiftCloseForm({ shift }: ShiftCloseFormProps) {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-full p-4 pb-24">
+    <div className={embedded ? '' : 'flex items-center justify-center min-h-full p-4 pb-24'}>
       <div className="w-full max-w-2xl space-y-4">
         <div className="flex items-center justify-between gap-4">
           <h2 className="text-lg font-semibold">Closing Balance</h2>

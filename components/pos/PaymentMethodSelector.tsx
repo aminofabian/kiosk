@@ -7,6 +7,9 @@ interface PaymentMethodSelectorProps {
   selectedMethod: PaymentMethod | null;
   onSelectMethod: (method: PaymentMethod) => void;
   disabledWhenOffline?: boolean;
+  /** Hide or disable credit when cashier lacks permission */
+  creditDisabled?: boolean;
+  creditDisabledReason?: string;
 }
 
 const methods: Array<{
@@ -52,12 +55,16 @@ export function PaymentMethodSelector({
   selectedMethod,
   onSelectMethod,
   disabledWhenOffline = false,
+  creditDisabled = false,
+  creditDisabledReason = 'Credit not enabled for your account',
 }: PaymentMethodSelectorProps) {
   return (
     <div className="grid grid-cols-4 gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl">
       {methods.map((method) => {
         const isSelected = selectedMethod === method.value;
-        const isDisabled = disabledWhenOffline && method.requiresOnline;
+        const isOfflineDisabled = disabledWhenOffline && method.requiresOnline;
+        const isCreditBlocked = method.value === 'credit' && creditDisabled;
+        const isDisabled = isOfflineDisabled || isCreditBlocked;
         const Icon = method.icon;
         return (
           <button
@@ -65,7 +72,13 @@ export function PaymentMethodSelector({
             type="button"
             disabled={isDisabled}
             onClick={() => onSelectMethod(method.value)}
-            title={isDisabled ? 'Requires connection' : undefined}
+            title={
+              isCreditBlocked
+                ? creditDisabledReason
+                : isOfflineDisabled
+                  ? 'Requires connection'
+                  : undefined
+            }
             className={`flex flex-col items-center gap-1 py-2.5 rounded-lg text-xs font-semibold transition-all ${
               isSelected
                 ? method.selectedClass

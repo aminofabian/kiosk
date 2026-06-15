@@ -56,10 +56,11 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   email TEXT NOT NULL,
   password_hash TEXT NOT NULL,
-  role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'cashier')),
+  role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'cashier', 'department_staff')),
   pin TEXT, -- 4-digit PIN for quick login
   active INTEGER NOT NULL DEFAULT 1, -- 1 = true, 0 = false
   can_give_credit INTEGER NOT NULL DEFAULT 0, -- 1 = allowed to give credit on POS
+  department TEXT, -- e.g. "Produce", "Bakery", "Electronics" (null for non-department-staff)
   created_by TEXT, -- user who created this user (null for owners/self-registered)
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
@@ -280,13 +281,14 @@ CREATE TABLE IF NOT EXISTS sales (
   shift_id TEXT, -- nullable
   total_amount REAL NOT NULL,
   payment_method TEXT NOT NULL CHECK (payment_method IN ('cash', 'mpesa', 'credit', 'split')),
-  status TEXT NOT NULL DEFAULT 'completed' CHECK (status IN ('completed', 'voided')),
+  status TEXT NOT NULL DEFAULT 'completed' CHECK (status IN ('completed', 'voided', 'pending', 'discarded')),
   voided_reason TEXT,
   voided_by TEXT,
   customer_name TEXT, -- for credit sales
   customer_phone TEXT, -- for credit sales
   sale_date INTEGER NOT NULL DEFAULT (unixepoch()),
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
   FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
   FOREIGN KEY (shift_id) REFERENCES shifts(id) ON DELETE SET NULL,
@@ -298,6 +300,7 @@ CREATE INDEX IF NOT EXISTS idx_sales_user_id ON sales(user_id);
 CREATE INDEX IF NOT EXISTS idx_sales_shift_id ON sales(shift_id);
 CREATE INDEX IF NOT EXISTS idx_sales_date ON sales(business_id, sale_date DESC);
 CREATE INDEX IF NOT EXISTS idx_sales_status ON sales(business_id, status);
+CREATE INDEX IF NOT EXISTS idx_sales_user_pending ON sales(user_id, status);
 
 -- ============================================
 -- 12. sale_items (Profit Locked Here)

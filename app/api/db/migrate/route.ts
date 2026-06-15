@@ -1,11 +1,17 @@
 import { runMigrations } from '@/lib/db/migrate';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
+import { requireSuperAdmin, isAuthResponse } from '@/lib/auth/api-auth';
 
 export async function OPTIONS() {
   return optionsResponse();
 }
 
 async function executeMigration() {
+  const auth = await requireSuperAdmin();
+  if (isAuthResponse(auth)) {
+    return auth;
+  }
+
   try {
     await runMigrations();
     return jsonResponse({

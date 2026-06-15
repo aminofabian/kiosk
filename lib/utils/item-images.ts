@@ -1,3 +1,5 @@
+import { toPublicImageUrl } from '@/lib/storage/backblaze';
+
 // Item image mappings using Unsplash direct image URLs
 // All images are optimized to 400x400px with crop fit
 
@@ -96,5 +98,22 @@ export function getItemImage(itemName: string): string | null {
     }
   }
   
+  return null;
+}
+
+/** Prefer uploaded image_url; fall back to built-in name map. */
+export function resolveItemImageUrl(item: {
+  name: string;
+  image_url?: string | null;
+  variant_name?: string | null;
+}): string | null {
+  if (item.image_url?.trim()) {
+    return toPublicImageUrl(item.image_url.trim());
+  }
+  const fromName = getItemImage(item.name);
+  if (fromName) return fromName;
+  if (item.variant_name) {
+    return getItemImage(item.variant_name);
+  }
   return null;
 }

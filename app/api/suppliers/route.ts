@@ -3,6 +3,7 @@ import { query, execute } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
+import { hasPermission } from '@/lib/auth/permissions';
 import { logActivity } from '@/lib/db/activity-log';
 
 export async function OPTIONS() {
@@ -141,8 +142,13 @@ export async function POST(request: NextRequest) {
     const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
 
-    // Admin, owner, and cashier can create suppliers
-    if (auth.role !== 'admin' && auth.role !== 'owner' && auth.role !== 'cashier') {
+    // Admin, owner, cashier, and department staff with record_supplier_bill can create suppliers
+    if (
+      auth.role !== 'admin' &&
+      auth.role !== 'owner' &&
+      auth.role !== 'cashier' &&
+      !hasPermission(auth.role, 'record_supplier_bill')
+    ) {
       return jsonResponse(
         { success: false, message: 'Forbidden' },
         403

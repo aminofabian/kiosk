@@ -15,12 +15,15 @@ export async function getBatchesForSale(
   itemId: string,
   quantityToSell: number
 ): Promise<BatchConsumption[]> {
-  // Get all active batches with remaining stock, ordered by received_at (FIFO)
+  const now = Math.floor(Date.now() / 1000);
+
+  // Get all active, non-expired batches with remaining stock, ordered by received_at (FIFO)
   const batches = await query<InventoryBatch>(
     `SELECT * FROM inventory_batches 
      WHERE item_id = ? AND quantity_remaining > 0 AND status = 'active'
+     AND (expiry_date IS NULL OR expiry_date >= ?)
      ORDER BY received_at ASC`,
-    [itemId]
+    [itemId, now]
   );
 
   const result: BatchConsumption[] = [];

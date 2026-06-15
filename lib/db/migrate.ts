@@ -9,6 +9,10 @@ import { migrateBundlePricing } from "./migrate-bundle-pricing";
 import { migrateAisle } from "./migrate-aisle";
 import { migrateAislesTable } from "./migrate-aisles-table";
 import { migrateCreditPaymentApproval } from "./migrate-credit-payment-approval";
+import { migratePendingSales } from "./migrate-pending-sales";
+import { migrateDepartmentStaffRole } from "./migrate-department-staff-role";
+import { migrateOriginatedBy } from "./migrate-originated-by";
+import { migrateUserDepartment } from "./migrate-user-department";
 
 const SCHEMA_PATH = join(process.cwd(), "lib", "db", "sql", "schema.sql");
 
@@ -572,6 +576,45 @@ export async function runMigrations() {
       await migrateItemsFts();
     } catch (error) {
       console.error("⚠ items_fts migration skipped:", error);
+    }
+
+    try {
+      const { migrateSupplierBillsIntegrity } =
+        await import("./migrate-supplier-bills-integrity");
+      await migrateSupplierBillsIntegrity();
+    } catch (error) {
+      console.error("⚠ supplier_bills integrity migration skipped:", error);
+    }
+
+    try {
+      const { migrateSaleReturns } = await import("./migrate-sale-returns");
+      await migrateSaleReturns();
+    } catch (error) {
+      console.error("⚠ sale_returns migration skipped:", error);
+    }
+
+    try {
+      await migratePendingSales();
+    } catch (error) {
+      console.error("⚠ pending_sales migration skipped:", error);
+    }
+
+    try {
+      await migrateDepartmentStaffRole();
+    } catch (error) {
+      console.error("⚠ department_staff role migration skipped:", error);
+    }
+
+    try {
+      await migrateOriginatedBy();
+    } catch (error) {
+      console.error("⚠ originated_by migration skipped:", error);
+    }
+
+    try {
+      await migrateUserDepartment();
+    } catch (error) {
+      console.error("⚠ user_department migration skipped:", error);
     }
 
     console.log("✅ Migration completed successfully!");

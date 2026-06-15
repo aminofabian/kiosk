@@ -21,6 +21,7 @@ interface UserData {
   role: UserRole;
   pin: string | null;
   active: number;
+  department?: string | null;
   created_at: number;
 }
 

@@ -15,13 +15,15 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import Link from 'next/link';
-import { PackageCheck, ClipboardList, Settings, ShoppingCart, BarChart3, Plus, Scale, X, ChevronRight } from 'lucide-react';
+import { PackageCheck, ClipboardList, Settings, ShoppingCart, BarChart3, Plus, Scale, X, ChevronRight, Layers } from 'lucide-react';
+import { ReconcileBatchesButton } from '@/components/admin/ReconcileBatchesButton';
 
 export default function StockPage() {
   const [restockDrawerOpen, setRestockDrawerOpen] = useState(false);
   const [analysisDrawerOpen, setAnalysisDrawerOpen] = useState(false);
   const [addStockDrawerOpen, setAddStockDrawerOpen] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
+  const [reconcileOpen, setReconcileOpen] = useState(false);
 
   return (
     <AdminLayout>
@@ -98,6 +100,16 @@ export default function StockPage() {
                       <span className="ml-1.5 text-xs">Adjust</span>
                     </Button>
                   </Link>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-9 px-2.5 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    onClick={() => setReconcileOpen(true)}
+                  >
+                    <Layers className="w-4 h-4" />
+                    <span className="ml-1.5 text-xs">Reconcile batches</span>
+                  </Button>
                 </div>
               </div>
             </div>
@@ -143,6 +155,19 @@ export default function StockPage() {
                 </div>
                 <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Adjust</span>
               </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setFabOpen(false);
+                  setReconcileOpen(true);
+                }}
+                className="flex items-center gap-2 pl-4 pr-5 py-2.5 bg-white dark:bg-slate-800 rounded-full shadow-lg border border-slate-200 dark:border-slate-700 animate-in slide-in-from-bottom-2 fade-in duration-75"
+              >
+                <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center">
+                  <Layers className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Reconcile batches</span>
+              </button>
             </>
           )}
           
@@ -214,6 +239,12 @@ export default function StockPage() {
             </div>
           </DrawerContent>
         </Drawer>
+
+        <ReconcileBatchesButton
+          hideTrigger
+          open={reconcileOpen}
+          onOpenChange={setReconcileOpen}
+        />
       </div>
     </AdminLayout>
   );

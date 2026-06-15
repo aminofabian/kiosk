@@ -2,13 +2,14 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback, memo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Zap, Tag, Package, ShoppingBag, Flame, AlertTriangle, ArrowRight, PackageX } from 'lucide-react';
 import type { Item } from '@/lib/db/types';
 import type { Category } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
 import { itemMatchesShopType, shouldShowCategory, SHOP_TYPE_ALL } from '@/lib/utils/shop-type';
 import { getItemDisplayName } from '@/lib/utils';
+import { resolveItemImageUrl } from '@/lib/utils/item-images';
+import { PosQuickSellPhoto } from '@/components/pos/PosQuickSellPhoto';
 
 interface ItemWithVariants extends Item {
   isParent?: boolean;
@@ -41,10 +42,66 @@ interface ItemGridProps {
   lowQuantityItems?: Item[];
   /** Admin: filter home grid to out / low only */
   stockListFilter?: 'all' | 'out' | 'low';
+  /** Admin/owner: show low-stock strip below Quick Sell */
+  showLowStockStrip?: boolean;
+  /** Admin/owner: inline product photo upload on Quick Sell cards */
+  canManageItemImages?: boolean;
+  onItemImageUpdated?: (itemId: string, imageUrl: string | null) => void;
+  /** Restrict API results to these item_type keys (department staff) */
+  itemTypesFilter?: string[];
+  /** When no category/search, show full sellable catalog for the active shop type */
+  showShopTypeCatalog?: boolean;
+}
+
+function itemTypesQueryParam(itemTypesFilter?: string[]): string {
+  if (!itemTypesFilter?.length) return '';
+  return `&itemTypes=${itemTypesFilter.map(encodeURIComponent).join(',')}`;
+}
+
+function catalogTypeQuery(shopType: string, itemTypesFilter?: string[]): string {
+  if (shopType !== SHOP_TYPE_ALL) {
+    return `&itemType=${encodeURIComponent(shopType)}`;
+  }
+  return itemTypesQueryParam(itemTypesFilter);
+}
+
+function applyItemsToGrid(
+  allItems: Item[],
+  shopType: string,
+  setGroupedItems: (g: GroupedItem[]) => void,
+  setItems: (items: ItemWithVariants[]) => void,
+) {
+  const scoped =
+    shopType === SHOP_TYPE_ALL
+      ? allItems
+      : allItems.filter((item) => itemMatchesShopType(item, shopType));
+
+  const grouped = groupItemsForDisplay(scoped);
+  setGroupedItems(grouped);
+
+  const processedItems: ItemWithVariants[] = grouped.flatMap((group) => {
+    if (group.type === 'parent' && group.children) {
+      return group.children.map((child) => ({
+        ...child,
+        parentName: group.parent?.name,
+      }));
+    }
+    return group.item ? [group.item] : [];
+  });
+  setItems(processedItems);
 }
 
 /** Debounce POS grid search so rapid typing does not hit /api/items every keystroke */
 const ITEM_SEARCH_DEBOUNCE_MS = 280;
+
+/** 2 cols phone · 3+ cols tablet (iPad w/ sidebar) · auto-fill on wide desktop */
+const CATALOG_ITEM_GRID_CLASS =
+  'grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-[repeat(auto-fill,minmax(8.75rem,1fr))] auto-rows-[minmax(188px,auto)]';
+
+/** Department catalog: 2 cols in narrow panel (iPad) · 10 when center column is wide (desktop) */
+const SQUARE_CATALOG_CONTAINER_CLASS = '@container w-full';
+const SQUARE_CATALOG_GRID_CLASS =
+  'grid gap-2 sm:gap-2.5 grid-cols-2 @2xl:grid-cols-10 w-full justify-items-stretch';
 
 // Stock status helpers
 function getStockStatus(stock: number): 'negative' | 'out' | 'low' | 'ok' {
@@ -81,142 +138,175 @@ const ItemCard = memo(function ItemCard({
   item,
   onSelect,
   onQuickAdd,
+  squareTile = false,
 }: {
   item: Item;
   onSelect: (item: Item) => void;
   onQuickAdd?: (item: Item, quantity: number) => void;
+  squareTile?: boolean;
 }) {
   const formatPrice = (price: number) => `KES ${price.toFixed(0)}`;
   const stockStatus = getStockStatus(item.current_stock);
   const quickQty = getQuickAddQuantity(item);
   const isOutOfStock = stockStatus === 'out' || stockStatus === 'negative';
+  const imageUrl = resolveItemImageUrl(item);
+
+  const handleSelect = () => {
+    if (isOutOfStock) return;
+    onSelect(item);
+  };
 
   return (
     <Card
       role="button"
-      tabIndex={0}
-      className={`pos-grid-btn group cursor-pointer touch-target relative overflow-hidden rounded-none outline-none focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 transition-all duration-200 ${isOutOfStock
-        ? 'bg-gradient-to-b from-slate-50 to-slate-100/80 dark:from-slate-800/60 dark:to-slate-800/40 border-2 border-slate-300 dark:border-slate-500 opacity-75 hover:opacity-100'
-        : 'bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-800/95 dark:to-slate-800/70 border-2 border-slate-300 dark:border-slate-500 hover:border-[#1c6a1e] dark:hover:border-[#1c6a1e]'
+      tabIndex={isOutOfStock ? -1 : 0}
+      aria-disabled={isOutOfStock}
+      className={`pos-grid-btn group touch-target relative overflow-hidden rounded-none outline-none focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 transition-all duration-200 flex flex-col gap-0 p-0 ${
+        squareTile
+          ? 'aspect-square w-full min-h-0'
+          : 'min-h-[188px] h-full'
+      } ${isOutOfStock
+        ? 'bg-slate-100 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-500 opacity-75 cursor-not-allowed'
+        : 'bg-white dark:bg-slate-800 border-2 border-[#1c6a1e] dark:border-[#1c6a1e] hover:border-[#2a8a30] dark:hover:border-[#2a8a30] cursor-pointer'
         }`}
-      onClick={() => onSelect(item)}
+      onClick={handleSelect}
       onKeyDown={(e) => {
+        if (isOutOfStock) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           onSelect(item);
         }
       }}
     >
-      {/* Left accent bar */}
-      <div className={`absolute left-0 top-0 bottom-0 w-[4px] rounded-l-none transition-all duration-200 ${stockStatus === 'negative'
-        ? 'bg-red-500 dark:bg-red-500'
-        : isOutOfStock
-          ? 'bg-gray-300 dark:bg-gray-600'
-          : stockStatus === 'low'
-            ? 'bg-amber-400'
-            : 'bg-gradient-to-b from-[#1c6a1e] to-[#2a8a30] opacity-0 group-hover:opacity-100'
-        }`} />
-
-      <CardContent className="p-2.5 sm:p-3 flex flex-col h-full">
-        {/* Top row: Name + Quick Add */}
-        <div className="flex items-start justify-between gap-2 mb-auto">
-          <div className="flex-1 min-w-0">
-            <h3 className={`font-semibold text-[14px] sm:text-[16px] leading-tight transition-colors uppercase tracking-tight break-words ${isOutOfStock
-              ? 'text-gray-400 dark:text-gray-500'
-              : 'text-gray-800 dark:text-gray-100 group-hover:text-[#1c6a1e] dark:group-hover:text-[#2a8a30]'
-              }`}>
-              {getItemDisplayName(item.name, item.variant_name)}
-            </h3>
-          </div>
-
-          {onQuickAdd && !isOutOfStock && (
-            <Button
-              size="sm"
-              variant="default"
-              className="h-8 px-2 flex items-center justify-center gap-1.5 flex-shrink-0 transition-all duration-200 rounded-none bg-gradient-to-b from-[#1c6a1e] to-[#1e8a72] hover:from-[#1e8a72] hover:to-[#178266] text-white text-xs font-semibold shadow-md shadow-[#1c6a1e]/25 hover:shadow-lg hover:shadow-[#1c6a1e]/30 active:scale-95 -mt-0.5 -mr-1 focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
-              onClick={(e) => {
-                e.stopPropagation();
-                onQuickAdd(item, quickQty);
-              }}
-              title={`Quick add ${quickQty} ${item.unit_type}`}
-            >
-              <Zap className="w-3.5 h-3.5" />
-              <span>+{quickQty}</span>
-            </Button>
-          )}
-        </div>
-
-        {/* Spacer */}
-        <div className="flex-1 min-h-2" />
-
-        {/* Price section */}
-        <div className="mt-2">
-          <div className="flex items-baseline gap-1.5">
-            <span className={`text-lg sm:text-xl font-bold tracking-tight ${isOutOfStock
-              ? 'text-gray-400 dark:text-gray-500'
-              : 'text-[#1c6a1e]'
-              }`}>
-              {formatPrice(item.current_sell_price)}
-            </span>
-            <span className="text-[11px] sm:text-[12px] text-gray-400 dark:text-gray-500 font-medium">
-              /{item.unit_type}
-            </span>
-          </div>
-
-          {/* Bundle deal */}
-          {item.bundle_quantity && item.bundle_price && item.bundle_quantity > 0 && item.bundle_price > 0 && (
-            <div className="mt-1.5">
-              <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-[10px] font-semibold px-2 py-0.5 rounded-none border border-amber-200/60 dark:border-amber-700/40">
+      {/* Image zone */}
+      <div
+        className={`relative min-h-0 w-full overflow-hidden ${
+          squareTile ? 'flex-1' : 'flex-[3] p-1 pb-0'
+        }`}
+      >
+        {item.bundle_quantity &&
+          item.bundle_price &&
+          item.bundle_quantity > 0 &&
+          item.bundle_price > 0 && (
+            <div className="absolute top-1.5 right-1.5 z-10">
+              <span className="inline-flex items-center gap-0.5 bg-amber-500 text-white text-[9px] font-bold px-1 py-0.5 rounded-sm shadow-sm">
                 <Tag className="w-2.5 h-2.5" />
-                {item.bundle_name || `${item.bundle_quantity} for ${formatPrice(item.bundle_price)}`}
+                Deal
               </span>
             </div>
           )}
-        </div>
 
-        {/* Batch number (when available) */}
-        {item.batch_number && !isOutOfStock && (
-          <div className="mt-1">
-            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-              Lot: {item.batch_number}
-            </span>
+        {imageUrl ? (
+          <div
+            className={`overflow-hidden bg-slate-100 dark:bg-slate-700 ${
+              squareTile
+                ? 'absolute inset-0 border-b border-slate-200/80 dark:border-slate-600'
+                : 'relative w-full h-full border border-slate-200/80 dark:border-slate-600'
+            }`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imageUrl}
+              alt=""
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          </div>
+        ) : (
+          <div
+            className={`flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 ${
+              squareTile
+                ? 'absolute inset-0 border-b border-slate-200/60 dark:border-slate-700'
+                : 'w-full h-full border border-slate-200/60 dark:border-slate-700'
+            }`}
+          >
+            <Package className="w-5 h-5 text-slate-300 dark:text-slate-600" />
           </div>
         )}
 
-        {/* Stock indicator */}
-        <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700/40">
-          <div className="flex items-center gap-1.5">
-            {stockStatus === 'negative' ? (
-              <>
-                <span className="w-1.5 h-1.5 rounded-none bg-red-500 flex-shrink-0" />
-                <span className="text-[11px] text-red-600 dark:text-red-400 font-semibold">
-                  {formatStock(item.current_stock, item.unit_type)}
-                </span>
-              </>
-            ) : stockStatus === 'out' ? (
-              <>
-                <span className="w-1.5 h-1.5 rounded-none bg-gray-300 dark:bg-gray-600 flex-shrink-0" />
-                <span className="text-[11px] text-gray-400 dark:text-gray-500 font-medium">
-                  Out of stock
-                </span>
-              </>
-            ) : stockStatus === 'low' ? (
-              <>
-                <span className="w-1.5 h-1.5 rounded-none bg-amber-400 animate-pulse flex-shrink-0" />
-                <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-                  {formatStock(item.current_stock, item.unit_type)}
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="w-1.5 h-1.5 rounded-none bg-emerald-400 flex-shrink-0" />
-                <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
-                  {formatStock(item.current_stock, item.unit_type)}
-                </span>
-              </>
-            )}
-          </div>
+        {onQuickAdd && !isOutOfStock && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onQuickAdd(item, quickQty);
+            }}
+            className="absolute bottom-0.5 right-0.5 z-20 flex items-center justify-center gap-0.5 h-5 min-w-[1.25rem] px-1 rounded-sm bg-[#1c6a1e] hover:bg-[#1e8a72] text-white text-[8px] font-bold shadow-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white"
+            title={`Quick add ${quickQty} ${item.unit_type}`}
+          >
+            <Zap className="w-2 h-2 shrink-0" />
+            <span>+{quickQty}</span>
+          </button>
+        )}
+      </div>
+
+      {/* Footer: name, price, stock */}
+      <CardContent
+        className={`flex flex-col justify-center shrink-0 border-t border-slate-100 dark:border-slate-700/50 bg-white dark:bg-slate-800 ${
+          squareTile
+            ? 'gap-0 px-1.5 py-1 min-h-0 flex-[0_0_auto]'
+            : 'flex-[1] gap-0.5 px-2 py-1.5 min-h-[3.5rem]'
+        }`}
+      >
+        <h3
+          className={`font-semibold leading-tight ${
+            squareTile ? 'text-[10px] line-clamp-1' : 'text-xs sm:text-sm leading-snug line-clamp-2'
+          } ${
+            isOutOfStock
+              ? 'text-gray-400 dark:text-gray-500'
+              : 'text-gray-900 dark:text-gray-100 group-hover:text-[#1c6a1e] dark:group-hover:text-[#2a8a30]'
+          }`}
+        >
+          {getItemDisplayName(item.name, item.variant_name)}
+        </h3>
+        <p
+          className={`font-bold tabular-nums leading-none ${
+            squareTile ? 'text-[11px]' : 'text-sm sm:text-base'
+          } ${
+            isOutOfStock ? 'text-gray-400 dark:text-gray-500' : 'text-[#1c6a1e] dark:text-[#2a8a30]'
+          }`}
+        >
+          {formatPrice(item.current_sell_price)}
+          <span
+            className={`font-medium text-gray-500 dark:text-gray-400 ml-0.5 ${
+              squareTile ? 'text-[8px]' : 'text-[10px] sm:text-xs'
+            }`}
+          >
+            /{item.unit_type}
+          </span>
+        </p>
+        {!squareTile && (
+        <div className="flex items-center gap-1 min-w-0">
+          <span
+            className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+              stockStatus === 'negative'
+                ? 'bg-red-500'
+                : isOutOfStock
+                  ? 'bg-gray-300 dark:bg-gray-600'
+                  : stockStatus === 'low'
+                    ? 'bg-amber-400'
+                    : 'bg-emerald-400'
+            }`}
+          />
+          <span
+            className={`text-[10px] sm:text-[11px] font-medium truncate ${
+              stockStatus === 'negative'
+                ? 'text-red-600 dark:text-red-400'
+                : isOutOfStock
+                  ? 'text-gray-400'
+                  : stockStatus === 'low'
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-gray-500 dark:text-gray-400'
+            }`}
+          >
+            {stockStatus === 'negative'
+              ? formatStock(item.current_stock, item.unit_type)
+              : isOutOfStock
+                ? 'Out of stock'
+                : formatStock(item.current_stock, item.unit_type)}
+          </span>
         </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -304,7 +394,15 @@ export function ItemGrid({
   outStockItems,
   lowQuantityItems,
   stockListFilter = 'all',
+  showLowStockStrip = false,
+  canManageItemImages = false,
+  onItemImageUpdated,
+  itemTypesFilter,
+  showShopTypeCatalog = false,
 }: ItemGridProps) {
+  const catalogGridClass = showShopTypeCatalog
+    ? SQUARE_CATALOG_GRID_CLASS
+    : CATALOG_ITEM_GRID_CLASS;
   const [items, setItems] = useState<ItemWithVariants[]>([]);
   const [groupedItems, setGroupedItems] = useState<GroupedItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -443,7 +541,7 @@ export function ItemGrid({
             setError(null);
 
             const response = await fetch(
-              `/api/items?search=${encodeURIComponent(q)}&sellableOnly=true&limit=50`,
+              `/api/items?search=${encodeURIComponent(q)}&sellableOnly=true&limit=50${itemTypesQueryParam(itemTypesFilter)}`,
               { signal: controller.signal, cache: 'no-store' }
             );
 
@@ -523,6 +621,47 @@ export function ItemGrid({
     lastSearchRef.current = '';
     setShowingOtherShopType(false);
 
+    if (!searchQuery && !categoryId && showShopTypeCatalog) {
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      async function fetchCatalog() {
+        try {
+          setLoading(true);
+          setError(null);
+
+          const response = await fetch(
+            `/api/items?all=true&sellableOnly=true${catalogTypeQuery(shopType, itemTypesFilter)}`,
+            { signal: controller.signal, cache: 'no-store' },
+          );
+
+          if (controller.signal.aborted) return;
+
+          const result = await response.json();
+
+          if (result.success) {
+            applyItemsToGrid(result.data ?? [], shopType, setGroupedItems, setItems);
+          } else {
+            setError(result.message || 'Failed to load items');
+          }
+        } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') return;
+          setError('Failed to load items');
+          console.error('Error fetching catalog items:', err);
+        } finally {
+          if (!controller.signal.aborted) {
+            setLoading(false);
+          }
+        }
+      }
+
+      void fetchCatalog();
+
+      return () => {
+        controller.abort();
+      };
+    }
+
     if (!categoryId) {
       setItems([]);
       setGroupedItems([]);
@@ -538,7 +677,7 @@ export function ItemGrid({
         setError(null);
 
         const response = await fetch(
-          `/api/items?categoryId=${categoryId}`,
+          `/api/items?categoryId=${categoryId}${itemTypesQueryParam(itemTypesFilter)}`,
           { signal: controller.signal, cache: 'no-store' }
         );
 
@@ -548,26 +687,7 @@ export function ItemGrid({
 
         if (result.success) {
           const allItems: Item[] = result.data;
-          const scoped =
-            shopType === SHOP_TYPE_ALL
-              ? allItems
-              : allItems.filter((item) => itemMatchesShopType(item, shopType));
-
-          // Use optimized grouping function
-          const grouped = groupItemsForDisplay(scoped);
-          setGroupedItems(grouped);
-
-          // Create flat list for backward compatibility
-          const processedItems: ItemWithVariants[] = grouped.flatMap(group => {
-            if (group.type === 'parent' && group.children) {
-              return group.children.map(child => ({
-                ...child,
-                parentName: group.parent?.name,
-              }));
-            }
-            return group.item ? [group.item] : [];
-          });
-          setItems(processedItems);
+          applyItemsToGrid(allItems, shopType, setGroupedItems, setItems);
         } else {
           setError(result.message || 'Failed to load items');
         }
@@ -587,10 +707,10 @@ export function ItemGrid({
     return () => {
       controller.abort();
     };
-  }, [categoryId, searchQuery, shopType, categoryMap, itemTypeKeys]);
+  }, [categoryId, searchQuery, shopType, categoryMap, itemTypeKeys, itemTypesFilter, showShopTypeCatalog]);
 
-  if (!categoryId && !searchQuery) {
-    const hasLowStock = !adminStockView && lowStockForType.length > 0;
+  if (!categoryId && !searchQuery && !showShopTypeCatalog) {
+    const hasLowStock = showLowStockStrip && !adminStockView && lowStockForType.length > 0;
     const hasContent = hasHomePool || hasLowStock;
     const formatPrice = (price: number) => `KES ${price.toFixed(0)}`;
 
@@ -649,7 +769,7 @@ export function ItemGrid({
 
         {/* ── Quick Sell / admin stock views ── */}
         {hasHomePool && (
-          <section className="min-h-0 flex flex-col flex-1 rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-sm pt-3 px-1 sm:px-1.5 pb-1 overflow-visible flex-shrink-0 justify-center">
+          <section className="min-h-0 flex flex-col flex-1 rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-sm pt-3 px-1 sm:px-1.5 pb-1 overflow-visible justify-start">
             {/* Section header - compact */}
             <div className="flex items-center gap-1.5 mb-0.5 flex-shrink-0">
               <div
@@ -751,8 +871,14 @@ export function ItemGrid({
               )}
             </div>
 
-            {/* Products grid – sorted alphabetically so related items appear together */}
-            <div className="mx-auto max-w-6xl grid grid-cols-4 sm:grid-cols-6 md:grid-cols-10 lg:grid-cols-10 xl:grid-cols-10 gap-x-5 gap-y-6 sm:gap-x-6 sm:gap-y-7 overflow-visible pt-3 flex-1 min-h-0" style={{ gridAutoRows: '110px' }}>
+            {/* Products grid – auto-fill so sidebar layouts (iPad) keep sensible card widths */}
+            <div
+              className="w-full grid gap-2 sm:gap-3 pt-3 flex-1 min-h-0 overflow-visible content-start"
+              style={{
+                gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+                gridAutoRows: 'minmax(188px, auto)',
+              }}
+            >
               {(() => {
                 if (!adminStockView && displayedHomeItems.length === 0) {
                   return (
@@ -785,6 +911,7 @@ export function ItemGrid({
                 const stock = getStockStatus(item.current_stock);
                 const isOut = stock === 'out' || stock === 'negative';
                 const quickQty = getQuickAddQuantity(item);
+                const imageUrl = resolveItemImageUrl(item);
 
                 return (
                   <div
@@ -798,59 +925,104 @@ export function ItemGrid({
                         onSelectItem(item);
                       }
                     }}
-                    className={`pos-grid-btn group relative rounded-none overflow-visible cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 flex flex-col ${
+                    className={`pos-grid-btn group relative rounded-none overflow-hidden cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 flex flex-col min-h-[188px] h-full ${
                       isOut
                         ? 'bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-500 opacity-60'
                         : 'bg-white dark:bg-slate-800 border border-[#1c6a1e] dark:border-[#1c6a1e]'
                     }`}
                   >
-                    {/* Price label layered on top border */}
-                    <div className="absolute left-1.5 top-0 -translate-y-1/2 z-20 px-1 py-px rounded-none bg-white dark:bg-slate-900 border border-[#1c6a1e] text-[#1c6a1e] text-[8px] sm:text-[9px] font-semibold tabular-nums leading-none">
-                      {formatPrice(item.current_sell_price)}
-                    </div>
-
-                    {/* Rank badge for top 3 */}
-                    {rank != null && (
-                      <div
-                        className={`absolute top-0.5 right-0.5 z-10 w-4 h-4 rounded-none flex items-center justify-center text-[8px] font-black shadow ${
-                          RANK_STYLES[rank - 1]
-                        }`}
-                      >
-                        {rank}
-                      </div>
-                    )}
-
-                    {/* Bundle deal badge */}
-                    {item.bundle_quantity &&
-                      item.bundle_price &&
-                      item.bundle_quantity > 0 &&
-                      item.bundle_price > 0 && (
-                        <div className="absolute top-0.5 right-0.5 z-10">
-                          <span className="inline-flex items-center gap-0.5 bg-amber-400/90 text-white text-[6px] font-bold px-0.5 py-px rounded-none shadow-sm">
-                            <Tag className="w-1.5 h-1.5" />
-                            Deal
-                          </span>
+                    {/* Image zone ~75% of card */}
+                    <div className="relative flex-[3] min-h-0 w-full p-1 pb-0">
+                      {/* Rank badge for top 3 */}
+                      {rank != null && (
+                        <div
+                          className={`absolute top-1 right-1 z-10 w-3.5 h-3.5 rounded-none flex items-center justify-center text-[7px] font-black shadow ${
+                            RANK_STYLES[rank - 1]
+                          }`}
+                        >
+                          {rank}
                         </div>
                       )}
 
-                    {/* Product name */}
-                    <div className="px-1.5 pt-3 flex-1 min-h-0 overflow-hidden">
+                      {/* Bundle deal badge */}
+                      {item.bundle_quantity &&
+                        item.bundle_price &&
+                        item.bundle_quantity > 0 &&
+                        item.bundle_price > 0 && (
+                          <div className="absolute top-1 right-1 z-10">
+                            <span className="inline-flex items-center gap-0.5 bg-amber-400/90 text-white text-[6px] font-bold px-0.5 py-px rounded-none shadow-sm">
+                              <Tag className="w-1.5 h-1.5" />
+                              Deal
+                            </span>
+                          </div>
+                        )}
+
+                      {canManageItemImages ? (
+                        <PosQuickSellPhoto
+                          itemId={item.id}
+                          itemName={item.name}
+                          imageUrl={item.image_url}
+                          variantName={item.variant_name}
+                          onImageUrlChange={(url) => onItemImageUpdated?.(item.id, url)}
+                          fill
+                        />
+                      ) : imageUrl ? (
+                        <div className="relative w-full h-full overflow-hidden bg-slate-100 dark:bg-slate-700 border border-slate-200/80 dark:border-slate-600">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={imageUrl}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border border-slate-200/60 dark:border-slate-700 flex items-center justify-center">
+                          <Package className="w-5 h-5 text-slate-300 dark:text-slate-600" />
+                        </div>
+                      )}
+
+                      {/* Compact quick-add on image */}
+                      {onQuickAdd && !isOut && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onQuickAdd(item, quickQty);
+                          }}
+                          className="absolute bottom-0.5 right-0.5 z-20 flex items-center justify-center gap-0.5 h-5 min-w-[1.25rem] px-1 rounded-sm bg-[#1c6a1e] hover:bg-[#1e8a72] text-white text-[8px] font-bold shadow-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white"
+                          title={`Quick add ${quickQty} ${item.unit_type}`}
+                        >
+                          <Zap className="w-2 h-2 shrink-0" />
+                          <span>+{quickQty}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Footer ~25%: name, price, stock */}
+                    <div className="flex-[1] flex flex-col justify-center gap-0.5 px-2 py-1.5 min-h-[3.5rem] shrink-0 border-t border-slate-100 dark:border-slate-700/50 bg-white dark:bg-slate-800">
                       <h3
-                        className={`font-semibold text-[9px] sm:text-[10px] leading-tight transition-colors uppercase tracking-tight break-words ${
+                        className={`font-semibold text-xs sm:text-sm leading-snug line-clamp-2 ${
                           isOut
                             ? 'text-gray-400 dark:text-gray-500'
-                            : 'text-gray-800 dark:text-gray-100 group-hover:text-[#1c6a1e] dark:group-hover:text-[#2a8a30]'
+                            : 'text-gray-900 dark:text-gray-100 group-hover:text-[#1c6a1e] dark:group-hover:text-[#2a8a30]'
                         }`}
                       >
                         {getItemDisplayName(item.name, item.variant_name)}
                       </h3>
-                    </div>
-
-                    {/* Bottom row: stock + quick add */}
-                    <div className="px-1.5 pb-1 pt-0.5 flex items-center justify-between gap-0.5 flex-shrink-0 mt-auto">
-                      <div className="flex items-center gap-0.5 min-w-0">
+                      <p
+                        className={`text-sm sm:text-base font-bold tabular-nums leading-none ${
+                          isOut ? 'text-gray-400 dark:text-gray-500' : 'text-[#1c6a1e] dark:text-[#2a8a30]'
+                        }`}
+                      >
+                        {formatPrice(item.current_sell_price)}
+                        <span className="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 ml-1">
+                          / {item.unit_type}
+                        </span>
+                      </p>
+                      <div className="flex items-center gap-1 min-w-0">
                         <span
-                          className={`w-1 h-1 rounded-none flex-shrink-0 ${
+                          className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
                             stock === 'negative'
                               ? 'bg-red-500'
                               : isOut
@@ -861,38 +1033,23 @@ export function ItemGrid({
                           }`}
                         />
                         <span
-                          className={`text-[7px] sm:text-[8px] font-medium truncate ${
+                          className={`text-[10px] sm:text-[11px] font-medium truncate ${
                             stock === 'negative'
-                              ? 'text-red-600 dark:text-red-400 font-semibold'
+                              ? 'text-red-600 dark:text-red-400'
                               : isOut
                                 ? 'text-gray-400'
                                 : stock === 'low'
                                   ? 'text-amber-600 dark:text-amber-400'
-                                  : 'text-gray-400'
+                                  : 'text-gray-500 dark:text-gray-400'
                           }`}
                         >
                           {stock === 'negative'
                             ? formatStock(item.current_stock, item.unit_type)
                             : isOut
-                              ? 'Out'
+                              ? 'Out of stock'
                               : formatStock(item.current_stock, item.unit_type)}
                         </span>
                       </div>
-
-                      {/* Quick-add button – instantly adds to cart */}
-                      {onQuickAdd && !isOut && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onQuickAdd(item, quickQty);
-                          }}
-                          className="flex items-center justify-center gap-0.5 h-4 sm:h-5 px-1 rounded-none bg-[#1c6a1e] hover:bg-[#1e8a72] text-white text-[8px] sm:text-[9px] font-bold shadow-sm transition-all duration-200 flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900"
-                          title={`Quick add ${quickQty} ${item.unit_type}`}
-                        >
-                          <Zap className="w-2 h-2" />
-                          <span>+{quickQty}</span>
-                        </button>
-                      )}
                     </div>
                   </div>
                 );
@@ -963,10 +1120,23 @@ export function ItemGrid({
 
 if (loading) {
   return (
-    <div className="mx-4 sm:mx-6 lg:mx-8 px-4 sm:px-6 py-4 sm:py-6">
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+    <div
+      className={
+        showShopTypeCatalog
+          ? 'px-3 sm:px-4 py-3 min-h-full'
+          : 'mx-4 sm:mx-6 lg:mx-8 px-4 sm:px-6 py-4 sm:py-6'
+      }
+    >
+      <div className={showShopTypeCatalog ? SQUARE_CATALOG_CONTAINER_CLASS : undefined}>
+      <div className={catalogGridClass}>
         {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800/50 overflow-hidden animate-pulse">
+          <div
+            key={i}
+            className={`rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800/50 overflow-hidden animate-pulse ${
+              showShopTypeCatalog ? 'aspect-square' : ''
+            }`}
+          >
+            {!showShopTypeCatalog && (
             <div className="p-3.5 sm:p-4 flex flex-col gap-3">
               <div className="space-y-1.5">
                 <div className="h-3.5 bg-gray-100 dark:bg-gray-700 rounded-none w-[85%]" />
@@ -979,8 +1149,10 @@ if (loading) {
                 <div className="h-2.5 bg-gray-50 dark:bg-gray-700/40 rounded-none w-[35%]" />
               </div>
             </div>
+            )}
           </div>
         ))}
+      </div>
       </div>
     </div>
   );
@@ -1045,8 +1217,20 @@ if (items.length === 0 && !loading) {
 }
 
 return (
-  <div className="mx-4 sm:mx-6 lg:mx-8 px-4 sm:px-6 py-4 sm:py-6 flex items-start justify-center min-h-full">
-    <div className="w-full max-w-6xl rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white/90 dark:bg-slate-900/80 shadow-sm px-4 sm:px-6 py-4 sm:py-5">
+  <div
+    className={
+      showShopTypeCatalog
+        ? 'px-3 sm:px-4 py-3 sm:py-4 min-h-full'
+        : 'mx-4 sm:mx-6 lg:mx-8 px-4 sm:px-6 py-4 sm:py-6 flex items-start justify-center min-h-full'
+    }
+  >
+    <div
+      className={
+        showShopTypeCatalog
+          ? SQUARE_CATALOG_CONTAINER_CLASS
+          : 'w-full max-w-6xl rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white/90 dark:bg-slate-900/80 shadow-sm px-4 sm:px-6 py-4 sm:py-5'
+      }
+    >
       {searchQuery && items.length > 0 && (
         <div className="mb-6 space-y-2.5">
           <div className="flex items-center justify-between">
@@ -1098,13 +1282,14 @@ return (
               </div>
               {/* Children Grid */}
               <div className="p-3 sm:p-4">
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+                <div className={catalogGridClass}>
                   {group.children.map((item) => (
                     <ItemCard
                       key={item.id}
                       item={item}
                       onSelect={handleItemClick}
                       onQuickAdd={onQuickAdd}
+                      squareTile={showShopTypeCatalog}
                     />
                   ))}
                 </div>
@@ -1128,7 +1313,7 @@ return (
                 <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800" />
               </div>
             )}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div className={catalogGridClass}>
               {groupedItems.filter(g => g.type === 'standalone').map((group) => (
                 group.item && (
                   <ItemCard
@@ -1136,6 +1321,7 @@ return (
                     item={group.item}
                     onSelect={handleItemClick}
                     onQuickAdd={onQuickAdd}
+                    squareTile={showShopTypeCatalog}
                   />
                 )
               ))}

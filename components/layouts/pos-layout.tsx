@@ -9,9 +9,11 @@ import { preloadOfflineData } from '@/lib/offline/sync';
 interface POSLayoutProps {
   children: ReactNode;
   header?: ReactNode;
+  /** Fit parent flex area instead of viewport (e.g. above a bottom nav). */
+  fillParent?: boolean;
 }
 
-export function POSLayout({ children, header }: POSLayoutProps) {
+export function POSLayout({ children, header, fillParent }: POSLayoutProps) {
   useEffect(() => {
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       preloadOfflineData().catch((err) => console.error('preloadOfflineData:', err));
@@ -19,7 +21,11 @@ export function POSLayout({ children, header }: POSLayoutProps) {
   }, []);
 
   return (
-    <div className="relative flex flex-col h-screen w-screen bg-[#f6f8f6] dark:bg-[#0f1a0d]">
+    <div
+      className={`relative flex flex-col bg-[#f6f8f6] dark:bg-[#0f1a0d] ${
+        fillParent ? 'h-full w-full' : 'h-screen w-screen'
+      }`}
+    >
       <SyncOnReconnect />
       <OfflineBanner />
       <div className="absolute top-2 right-2 z-10 flex">
@@ -30,7 +36,7 @@ export function POSLayout({ children, header }: POSLayoutProps) {
           {header}
         </header>
       )}
-      <main className="flex-1 min-h-0 overflow-auto flex flex-col">{children}</main>
+      <main className="flex-1 min-h-0 overflow-hidden flex flex-col">{children}</main>
     </div>
   );
 }

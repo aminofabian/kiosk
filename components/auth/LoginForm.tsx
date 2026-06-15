@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { signIn } from 'next-auth/react';
+import { signIn, getSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { getPostLoginPath } from '@/lib/utils/post-login-redirect';
+import { storeUserRole } from '@/lib/utils/user-role-storage';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 
 const DEFAULT_DOMAIN = 'kiosk.co.ke';
@@ -100,7 +102,11 @@ export function LoginForm() {
         return;
       }
 
-      router.push('/admin');
+      const session = await getSession();
+      const role = session?.user?.role;
+      if (role) storeUserRole(role);
+
+      router.push(getPostLoginPath(role));
       router.refresh();
     } catch {
       setError('An error occurred. Please try again.');

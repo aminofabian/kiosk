@@ -3,6 +3,8 @@ import bcrypt from 'bcryptjs';
 import { execute, queryOne } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { getSession } from '@/lib/auth';
+import { migrateDepartmentStaffRole } from '@/lib/db/migrate-department-staff-role';
+import { migrateUserDepartment } from '@/lib/db/migrate-user-department';
 import type { User } from '@/lib/db/types';
 
 const SALT_ROUNDS = 12;
@@ -28,7 +30,7 @@ export async function GET(
     }
 
     const user = await queryOne<Omit<User, 'password_hash'>>(
-      `SELECT id, business_id, name, email, role, pin, active, created_at
+      `SELECT id, business_id, name, email, role, pin, active, department, created_at
        FROM users 
        WHERE id = ? AND business_id = ?`,
       [userId, session.user.businessId]
@@ -71,8 +73,15 @@ export async function PUT(
       return jsonResponse({ success: false, message: 'Forbidden' }, 403);
     }
 
+    try {
+      await migrateDepartmentStaffRole();
+      await migrateUserDepartment();
+    } catch {
+      // Non-fatal
+    }
+
     const body = await request.json();
-    const { name, email, password, role, pin, active } = body;
+    const { name, email, password, role, pin, active, department } = body;
 
     // Verify user exists and belongs to business
     const existingUser = await queryOne<User>(
@@ -156,6 +165,16 @@ export async function PUT(
     if (active !== undefined) {
       updates.push('active = ?');
       values.push(active ? 1 : 0);
+    }
+
+    const effectiveRole = role !== undefined ? role : existingUser.role;
+    if (department !== undefined || (role !== undefined && effectiveRole !== 'department_staff')) {
+      const deptValue =
+        effectiveRole === 'department_staff'
+          ? department || null
+          : null;
+      updates.push('department = ?');
+      values.push(deptValue);
     }
 
     if (updates.length === 0) {

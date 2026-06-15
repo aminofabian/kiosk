@@ -1,12 +1,14 @@
 import { NextRequest } from 'next/server';
-import { query, execute } from '@/lib/db';
+import { query, execute, transaction } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
-import { generateSupplierBatchNumber, getNextSupplierBatchSeq } from '@/lib/utils/batch-number';
+import { getNextSupplierBatchSeq } from '@/lib/utils/batch-number';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
-import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
+import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 import type { SupplierBill } from '@/lib/db/types';
 import { logActivity } from '@/lib/db/activity-log';
-import { recordBuyingPrice } from '@/lib/db/buying-prices';
+import { migrateSupplierBillsIntegrity } from '@/lib/db/migrate-supplier-bills-integrity';
+import { validateSupplierBillCreate } from '@/lib/validation/supplier-bill';
+import { receiveStockForSupplierBill } from '@/lib/db/supplier-bill-stock';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -34,10 +36,11 @@ async function ensureSupplierBillsPaymentColumns() {
 // GET - List supplier bills
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAuth();
+    const auth = await requirePermission('record_supplier_bill');
     if (isAuthResponse(auth)) return auth;
 
     await ensureSupplierBillsPaymentColumns();
+    await migrateSupplierBillsIntegrity();
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
@@ -64,14 +67,12 @@ export async function GET(request: NextRequest) {
     }
 
     if (status === 'overdue') {
-      // Overdue = status 'overdue' OR pending bills past due date
       querySql += ` AND (sb.status = 'overdue' OR (sb.status = 'pending' AND sb.due_date < ?))`;
       params.push(now);
     } else if (status) {
       querySql += ` AND sb.status = ?`;
       params.push(status);
     } else if (!includeOverdue) {
-      // By default, show pending and overdue
       querySql += ` AND sb.status IN ('pending', 'overdue')`;
     }
 
@@ -83,7 +84,6 @@ export async function GET(request: NextRequest) {
       payer_name: string | null;
     }>(querySql, params);
 
-    // Update overdue status for bills past due date
     const overdueBills = bills.filter(
       (bill) => bill.status === 'pending' && bill.due_date < now
     );
@@ -96,8 +96,6 @@ export async function GET(request: NextRequest) {
          WHERE id IN (${overdueIds.map(() => '?').join(',')}) AND status = 'pending'`,
         overdueIds
       );
-
-      // Update local data
       overdueBills.forEach((bill) => {
         bill.status = 'overdue';
       });
@@ -120,17 +118,21 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST - Create supplier bill (cashiers can create)
+// POST - Create supplier bill with validated stock receipt
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth();
+    const auth = await requirePermission('record_supplier_bill');
     if (isAuthResponse(auth)) return auth;
+
+    await ensureSupplierBillsPaymentColumns();
+    await migrateSupplierBillsIntegrity();
 
     const body = await request.json();
     const {
       supplierId,
       supplierName,
       supplierPhone,
+      supplierInvoiceNo,
       billDescription,
       amount,
       dueDate,
@@ -142,6 +144,7 @@ export async function POST(request: NextRequest) {
       supplierId?: string;
       supplierName: string;
       supplierPhone?: string;
+      supplierInvoiceNo?: string;
       billDescription: string;
       amount: number;
       dueDate: string;
@@ -157,128 +160,114 @@ export async function POST(request: NextRequest) {
       paymentDetails?: string;
     };
 
-    if (!supplierName || !billDescription || !amount || !dueDate) {
+    if (!supplierName || !billDescription || amount == null || !dueDate) {
       return jsonResponse(
         { success: false, message: 'Missing required fields' },
         400
       );
     }
 
-    if (amount <= 0) {
+    const now = Math.floor(Date.now() / 1000);
+    const dueDateTimestamp = Math.floor(new Date(dueDate).getTime() / 1000);
+    const normalizedStockItems = (stockItems ?? []).filter(
+      (s) => s?.itemId && s.quantity > 0
+    );
+
+    const validation = await validateSupplierBillCreate({
+      businessId: auth.businessId,
+      supplierId: supplierId || null,
+      supplierName,
+      amount,
+      dueDateTimestamp,
+      supplierInvoiceNo: supplierInvoiceNo ?? null,
+      stockItems: normalizedStockItems,
+      now,
+    });
+
+    if (!validation.ok) {
+      const first = validation.errors[0];
       return jsonResponse(
-        { success: false, message: 'Amount must be greater than 0' },
+        {
+          success: false,
+          message: first?.message || 'Bill validation failed',
+          errors: validation.errors,
+        },
         400
       );
     }
 
-    const now = Math.floor(Date.now() / 1000);
-    const dueDateTimestamp = Math.floor(new Date(dueDate).getTime() / 1000);
     const billId = generateUUID();
-
-    // Determine initial status
     const status = dueDateTimestamp < now ? 'overdue' : 'pending';
+    const invoiceNo = supplierInvoiceNo?.trim() || null;
 
-    await execute(
-      `INSERT INTO supplier_bills (
-        id, business_id, supplier_id, supplier_name, supplier_phone, bill_description,
-        amount, due_date, status, created_by, notes, preferred_payment_method, payment_details, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        billId,
-        auth.businessId,
-        supplierId || null,
-        supplierName.trim(),
-        supplierPhone?.trim() || null,
-        billDescription.trim(),
-        amount,
-        dueDateTimestamp,
-        status,
-        auth.userId,
-        notes?.trim() || null,
-        preferredPaymentMethod?.trim() || null,
-        paymentDetails?.trim() || null,
-        now,
-      ]
+    const existingBatchNumbers = normalizedStockItems
+      .map((s) => s.batchNumber?.trim())
+      .filter(Boolean) as string[];
+    const batchSeqStart = await getNextSupplierBatchSeq(
+      supplierId || null,
+      auth.businessId,
+      existingBatchNumbers
     );
 
-    // Update stock for linked product items
-    let stockUpdated = 0;
-    if (stockItems && Array.isArray(stockItems) && stockItems.length > 0) {
-      const existingBatchNumbers = stockItems
-        .map((s) => s.batchNumber?.trim())
-        .filter(Boolean) as string[];
-      let seq = await getNextSupplierBatchSeq(
-        supplierId || null,
-        auth.businessId,
-        existingBatchNumbers
+    const { stockUpdated } = await transaction(async (tx) => {
+      await tx.execute(
+        `INSERT INTO supplier_bills (
+          id, business_id, supplier_id, supplier_name, supplier_phone, supplier_invoice_no,
+          bill_description, amount, due_date, status, created_by, notes,
+          preferred_payment_method, payment_details, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          billId,
+          auth.businessId,
+          supplierId || null,
+          supplierName.trim(),
+          supplierPhone?.trim() || null,
+          invoiceNo,
+          billDescription.trim(),
+          amount,
+          dueDateTimestamp,
+          status,
+          auth.userId,
+          notes?.trim() || null,
+          preferredPaymentMethod?.trim() || null,
+          paymentDetails?.trim() || null,
+          now,
+        ]
       );
-      for (const stockItem of stockItems) {
-        if (!stockItem.itemId || !stockItem.quantity || stockItem.quantity <= 0) continue;
 
-        // Verify item belongs to this business
-        const item = await query<{ id: string; current_stock: number }>(
-          `SELECT id, current_stock FROM items WHERE id = ? AND business_id = ?`,
-          [stockItem.itemId, auth.businessId]
-        );
-        if (item.length === 0) continue;
-
-        const batchId = generateUUID();
-        const batchNumber =
-          stockItem.batchNumber?.trim() ||
-          generateSupplierBatchNumber(supplierName || 'Supplier', seq, now);
-        seq += 1;
-
-        // Create inventory batch for FIFO cost tracking
-        await execute(
-          `INSERT INTO inventory_batches (
-            id, business_id, item_id, source_breakdown_id, batch_number, status,
-            supplier_id, initial_quantity, quantity_remaining, buy_price_per_unit,
-            received_at, expiry_date, created_at
-          ) VALUES (?, ?, ?, NULL, ?, 'active', ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            batchId,
-            auth.businessId,
-            stockItem.itemId,
-            batchNumber,
-            supplierId || null,
-            stockItem.quantity,
-            stockItem.quantity,
-            stockItem.costPricePerUnit,
-            now,
-            stockItem.expiryDate || null,
-            now,
-          ]
-        );
-
-        // Update item stock
-        await execute(
-          `UPDATE items 
-           SET current_stock = current_stock + ? 
-           WHERE id = ? AND business_id = ?`,
-          [stockItem.quantity, stockItem.itemId, auth.businessId]
-        );
-
-        await recordBuyingPrice({
-          itemId: stockItem.itemId,
-          supplierId: supplierId || null,
-          price: stockItem.costPricePerUnit,
-          setBy: auth.userId,
-          notes: `Supplier bill: ${billDescription.trim()}`,
-        });
-
-        stockUpdated++;
+      if (normalizedStockItems.length === 0) {
+        return { stockUpdated: 0 };
       }
-    }
 
-    logActivity({
+      return receiveStockForSupplierBill({
+        tx,
+        businessId: auth.businessId,
+        billId,
+        supplierId: supplierId || null,
+        supplierName: supplierName.trim(),
+        billDescription: billDescription.trim(),
+        stockItems: normalizedStockItems,
+        userId: auth.userId,
+        receivedAt: now,
+        batchSeqStart,
+      });
+    });
+
+    await logActivity({
       businessId: auth.businessId,
       action: 'create',
       entityType: 'supplier_bill',
       entityId: billId,
       entityNameSnapshot: billDescription.trim(),
-      details: { amount, supplierName: supplierName.trim(), stockUpdated },
+      details: {
+        amount,
+        supplierName: supplierName.trim(),
+        supplierInvoiceNo: invoiceNo,
+        stockUpdated,
+        stockTotal: validation.stockTotal,
+      },
       performedBy: auth.userId,
-    }).catch(() => {});
+    });
 
     return jsonResponse({
       success: true,
@@ -289,7 +278,6 @@ export async function POST(request: NextRequest) {
         billId,
         status,
         stockUpdated,
-        requiresApproval: auth.role === 'cashier',
       },
     });
   } catch (error) {

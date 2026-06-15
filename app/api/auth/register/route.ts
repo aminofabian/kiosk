@@ -13,6 +13,22 @@ export async function OPTIONS() {
 
 export async function POST(request: NextRequest) {
   try {
+    const registrationToken = process.env.REGISTRATION_TOKEN;
+    const providedToken = request.headers.get('x-registration-token');
+
+    if (registrationToken && providedToken !== registrationToken) {
+      return jsonResponse(
+        { success: false, message: 'Invalid or missing registration token' },
+        403
+      );
+    }
+
+    if (!registrationToken && process.env.NODE_ENV === 'production') {
+      console.warn(
+        'Registration endpoint is open because REGISTRATION_TOKEN is not set. Set REGISTRATION_TOKEN to secure business registration.'
+      );
+    }
+
     const body = await request.json();
     const { businessName, ownerName, email, password } = body;
 

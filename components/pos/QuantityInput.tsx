@@ -10,6 +10,7 @@ interface QuantityInputProps {
   onChange: (value: number) => void;
   max?: number;
   min?: number;
+  compact?: boolean;
 }
 
 export function QuantityInput({
@@ -18,6 +19,7 @@ export function QuantityInput({
   onChange,
   max,
   min = 0,
+  compact = false,
 }: QuantityInputProps) {
   const supportsFractions = ['kg', 'g', 'litre', 'ml', 'piece', 'bunch'].includes(unitType);
   const [useDecimalStep, setUseDecimalStep] = useState(false);
@@ -63,8 +65,17 @@ export function QuantityInput({
       { label: '1/20', value: 0.05 },
     ];
 
+    const btnClass = compact
+      ? 'h-6 w-6 rounded border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors shrink-0'
+      : 'h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors shrink-0';
+    const inputClass = compact
+      ? 'h-6 w-10 text-center text-xs font-bold rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+      : 'h-8 w-14 text-center text-sm font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none';
+    const iconClass = compact ? 'h-3 w-3' : 'h-3.5 w-3.5';
+
     return (
-      <div className="space-y-2">
+      <div className={compact ? 'space-y-1' : 'space-y-2'}>
+        {!compact && (
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -89,16 +100,16 @@ export function QuantityInput({
             Step 0.1
           </button>
         </div>
+        )}
 
-        {/* Compact stepper */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <button
             type="button"
             onClick={handleDecrement}
             disabled={value <= min}
-            className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors shrink-0"
+            className={`${btnClass} flex items-center justify-center`}
           >
-            <Minus className="h-3.5 w-3.5" />
+            <Minus className={iconClass} />
           </button>
           <input
             type="number"
@@ -109,19 +120,19 @@ export function QuantityInput({
             max={max}
             placeholder="0"
             style={{ WebkitAppearance: 'none', MozAppearance: 'textfield' }}
-            className="h-8 w-14 text-center text-sm font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className={inputClass}
           />
           <button
             type="button"
             onClick={handleIncrement}
             disabled={max !== undefined && value >= max}
-            className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors shrink-0"
+            className={`${btnClass} flex items-center justify-center`}
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className={iconClass} />
           </button>
         </div>
 
-        {/* Quick-pick pills */}
+        {!compact && (
         <div className="flex flex-wrap gap-1.5">
           {fractionQuickPicks.map((qv) => {
             const isSelected = Math.abs(value - qv.value) < 0.0001;
@@ -146,20 +157,28 @@ export function QuantityInput({
             );
           })}
         </div>
+        )}
       </div>
     );
   }
 
-  // Count items — compact stepper
+  const btnClass = compact
+    ? 'h-6 w-6 flex items-center justify-center rounded border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors shrink-0'
+    : 'h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors shrink-0';
+  const inputClass = compact
+    ? 'h-6 w-10 text-center text-xs font-bold rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
+    : 'h-8 w-14 text-center text-sm font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none';
+  const iconClass = compact ? 'h-3 w-3' : 'h-3.5 w-3.5';
+
   return (
-    <div className="flex items-center gap-1">
+    <div className={`flex items-center ${compact ? 'gap-0.5' : 'gap-1'}`}>
       <button
         type="button"
         onClick={handleDecrement}
         disabled={value <= min}
-        className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors shrink-0"
+        className={btnClass}
       >
-        <Minus className="h-3.5 w-3.5" />
+        <Minus className={iconClass} />
       </button>
       <input
         type="number"
@@ -169,15 +188,15 @@ export function QuantityInput({
         min={min}
         max={max}
         style={{ WebkitAppearance: 'none', MozAppearance: 'textfield' }}
-        className="h-8 w-14 text-center text-sm font-bold rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]/40 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        className={inputClass}
       />
       <button
         type="button"
         onClick={handleIncrement}
         disabled={max !== undefined && value >= max}
-        className="h-8 w-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-30 transition-colors shrink-0"
+        className={btnClass}
       >
-        <Plus className="h-3.5 w-3.5" />
+        <Plus className={iconClass} />
       </button>
     </div>
   );

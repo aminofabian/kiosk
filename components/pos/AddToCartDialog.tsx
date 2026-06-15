@@ -5,13 +5,16 @@ import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Minus, Plus, ShoppingCart, X, Package, Tag, Edit2, Layers, Ban } from 'lucide-react';
+import { Minus, Plus, ShoppingCart, X, Package, Tag, Edit2, Layers, Ban, AlertTriangle, Loader2 } from 'lucide-react';
 import { useCartStore } from '@/lib/stores/cart-store';
 import type { Item } from '@/lib/db/types';
-import { getItemImage } from '@/lib/utils/item-images';
+import { resolveItemImageUrl } from '@/lib/utils/item-images';
 import { Badge } from '@/components/ui/badge';
 import { apiGet, apiPatch, apiPost } from '@/lib/utils/api-client';
+import { PosNumericKeypad } from '@/components/pos/PosNumericKeypad';
 import { toast } from 'sonner';
+
+const STOCK_EPS = 0.0001;
 
 interface BatchOption {
   id: string;
@@ -19,6 +22,13 @@ interface BatchOption {
   quantityRemaining: number;
   buyPricePerUnit: number;
   receivedAt: number;
+}
+
+interface ItemBatchesPayload {
+  batches: BatchOption[];
+  itemStock: number;
+  batchSum: number;
+  inSync: boolean;
 }
 
 type PurchaseMode = 'regular' | 'bundle';
@@ -47,7 +57,10 @@ export function AddToCartDialog({
   const [useManualPrice, setUseManualPrice] = useState(false);
   const [portion, setPortion] = useState<PortionSize>('full');
   const [batches, setBatches] = useState<BatchOption[]>([]);
-  const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
+  const [batchSum, setBatchSum] = useState<number | null>(null);
+  const [batchesInSync, setBatchesInSync] = useState(true);
+  const [loadingBatches, setLoadingBatches] = useState(false);
+  const [syncingBatches, setSyncingBatches] = useState(false);
   const [deactivatingBatchId, setDeactivatingBatchId] = useState<string | null>(null);
   const [stockEditorOpen, setStockEditorOpen] = useState(false);
   const [stockDraft, setStockDraft] = useState('');
@@ -63,11 +76,7 @@ export function AddToCartDialog({
       });
       if (result.success) {
         toast.success(`Batch ${batchNumber} deactivated`);
-        setBatches((prev) => prev.filter((b) => b.id !== batchId));
-        if (selectedBatchId === batchId) {
-          const remaining = batches.filter((b) => b.id !== batchId);
-          setSelectedBatchId(remaining[0]?.id ?? null);
-        }
+        if (item) await loadItemBatches(item.id, false);
       } else {
         toast.error(result.message || 'Failed to deactivate');
       }
@@ -78,29 +87,82 @@ export function AddToCartDialog({
     }
   };
 
-  // Fetch active batches when dialog opens (for regular/non-bundle adds)
-  useEffect(() => {
-    if (open && item) {
-      apiGet<BatchOption[]>(`/api/items/${item.id}/batches`)
-        .then((res) => {
-          const list = res.success && Array.isArray(res.data) ? res.data : [];
-          if (list.length > 0) {
-            setBatches(list);
-            setSelectedBatchId(list[0].id);
-          } else {
-            setBatches([]);
-            setSelectedBatchId(null);
+  const loadItemBatches = async (itemId: string, autoSync = true) => {
+    setLoadingBatches(true);
+    try {
+      const res = await apiGet<ItemBatchesPayload>(`/api/items/${itemId}/batches`);
+      if (!res.success || !res.data) {
+        setBatches([]);
+        setBatchSum(null);
+        setBatchesInSync(true);
+        return;
+      }
+
+      let payload = res.data;
+
+      if (autoSync && !payload.inSync && allowStockEdit) {
+        setSyncingBatches(true);
+        const sync = await apiPost<{ reconciled: number; deactivatedBatches: number }>(
+          '/api/stock/reconcile-batches',
+          { itemId }
+        );
+        if (sync.success) {
+          const refreshed = await apiGet<ItemBatchesPayload>(`/api/items/${itemId}/batches`);
+          if (refreshed.success && refreshed.data) {
+            payload = refreshed.data;
           }
-        })
-        .catch(() => {
-          setBatches([]);
-          setSelectedBatchId(null);
-        });
+          toast.success(
+            `Batch lots synced to on-hand stock (${payload.itemStock.toFixed(0)} ${item?.unit_type ?? 'units'})`
+          );
+        } else {
+          toast.error(sync.message || 'Could not sync batch lots');
+        }
+        setSyncingBatches(false);
+      }
+
+      setBatches(payload.batches);
+      setBatchSum(payload.batchSum);
+      setBatchesInSync(payload.inSync);
+    } catch {
+      setBatches([]);
+      setBatchSum(null);
+      setBatchesInSync(true);
+    } finally {
+      setLoadingBatches(false);
+    }
+  };
+
+  const handleSyncBatches = async () => {
+    if (!item) return;
+    setSyncingBatches(true);
+    try {
+      const sync = await apiPost('/api/stock/reconcile-batches', { itemId: item.id });
+      if (sync.success) {
+        await loadItemBatches(item.id, false);
+        toast.success('Batch lots synced to on-hand stock');
+      } else {
+        toast.error(sync.message || 'Could not sync batch lots');
+      }
+    } catch {
+      toast.error('Could not sync batch lots');
+    } finally {
+      setSyncingBatches(false);
+    }
+  };
+
+  // Admin-only: show active batches for management (sales use automatic FIFO server-side)
+  useEffect(() => {
+    if (open && item && allowStockEdit) {
+      loadItemBatches(item.id);
     } else {
       setBatches([]);
-      setSelectedBatchId(null);
+      setBatchSum(null);
+      setBatchesInSync(true);
+      setLoadingBatches(false);
+      setSyncingBatches(false);
     }
-  }, [open, item?.id, item?.current_stock]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when stock changes
+  }, [open, item?.id, item?.current_stock, allowStockEdit]);
 
   useEffect(() => {
     if (!open) {
@@ -166,17 +228,12 @@ export function AddToCartDialog({
       const finalPrice = useManualPrice && manualPrice !== null 
         ? manualPrice 
         : item.current_sell_price;
-      const selectedBatch = selectedBatchId ? batches.find((b) => b.id === selectedBatchId) : null;
       addItem(
         {
           itemId: item.id,
           name: item.name,
           price: finalPrice,
           unitType: item.unit_type,
-          ...(selectedBatch && {
-            inventoryBatchId: selectedBatch.id,
-            batchNumber: selectedBatch.batchNumber,
-          }),
         },
         quantity
       );
@@ -208,15 +265,22 @@ export function AddToCartDialog({
     .filter((i) => i.itemId === item.id && !i.isBundle)
     .reduce((sum, i) => sum + i.quantity, 0);
   
-  // Remaining on hand after this line's quantity (can be negative if overselling vs system stock)
+  // Remaining on hand after cart lines for this item (regular units, not bundles)
   const rawRemaining = item.current_stock - quantityInCart;
+  const maxQuantity =
+    purchaseMode === 'bundle' && hasBundle && item.bundle_quantity
+      ? Math.max(0, Math.floor(rawRemaining / item.bundle_quantity))
+      : Math.max(0, rawRemaining);
   const hasNegativeStock = item.current_stock < 0 || rawRemaining < 0;
-  // Remove maxQuantity restriction - allow any quantity
   const isWeight = item.unit_type === 'kg' || item.unit_type === 'g';
   const step = isWeight ? 0.05 : 1;
 
   const handleIncrement = () => {
     const newValue = quantity + step;
+    if (purchaseMode !== 'bundle' && maxQuantity > 0 && newValue > maxQuantity + STOCK_EPS) {
+      toast.error(`Only ${maxQuantity.toFixed(isWeight ? 2 : 0)} available in stock`);
+      return;
+    }
     setQuantity(Number(newValue.toFixed(isWeight ? 2 : 0)));
     setPortion('custom');
   };
@@ -248,6 +312,12 @@ export function AddToCartDialog({
     // Preserve fractional quantities for all items - portion buttons (½, ¼, etc.) allow
     // selling portions of piece/bunch items (e.g. half cabbage), so we must not floor.
     const fixedValue = parseFloat(numValue.toFixed(2));
+    if (purchaseMode !== 'bundle' && maxQuantity > 0 && fixedValue > maxQuantity + STOCK_EPS) {
+      toast.error(`Only ${maxQuantity.toFixed(isWeight ? 2 : 0)} available in stock`);
+      setQuantity(maxQuantity);
+      setPortion('custom');
+      return;
+    }
     setQuantity(fixedValue);
     setPortion('custom');
   };
@@ -349,9 +419,9 @@ export function AddToCartDialog({
 
             <div className="flex flex-col items-center pt-8 pb-4">
               <div className="w-20 h-20 rounded-full bg-[#1c6a1e]/20 dark:bg-[#1c6a1e]/10 flex items-center justify-center mb-4 overflow-hidden">
-                {getItemImage(item.name) ? (
+                {resolveItemImageUrl(item) ? (
                   <img
-                    src={getItemImage(item.name)!}
+                    src={resolveItemImageUrl(item)!}
                     alt={item.name}
                     className="w-full h-full object-cover rounded-full"
                     loading="lazy"
@@ -504,46 +574,84 @@ export function AddToCartDialog({
                   )}
                 </div>
               )}
-              {batches.length > 0 && purchaseMode === 'regular' && (
+              {allowStockEdit && (batches.length > 0 || loadingBatches || syncingBatches) && purchaseMode === 'regular' && (
                 <div className="mt-2 w-full">
                   <Label className="text-xs text-gray-600 dark:text-gray-400 mb-1.5 flex items-center gap-1">
                     <Layers className="w-3 h-3" />
-                    Sell from batch
+                    Active batches (auto FIFO at checkout)
                   </Label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {batches.map((b) => (
-                      <div
-                        key={b.id}
-                        className="inline-flex items-center gap-0.5 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden"
-                      >
-                        <button
-                          type="button"
-                          onClick={() => setSelectedBatchId(b.id)}
-                          className={`px-2.5 py-1.5 text-xs font-mono transition-all ${
-                            selectedBatchId === b.id
-                              ? 'bg-[#1c6a1e] text-white'
-                              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
-                          }`}
-                        >
-                          {b.batchNumber}
-                          <span className="ml-1 opacity-75">({b.quantityRemaining})</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => handleDeactivateBatch(b.id, b.batchNumber, e)}
-                          disabled={deactivatingBatchId === b.id}
-                          className="p-1.5 text-amber-600 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors disabled:opacity-50"
-                          title="Deactivate batch (won't appear for sale)"
-                        >
-                          {deactivatingBatchId === b.id ? (
-                            <span className="inline-block w-3 h-3 border border-amber-500 border-t-transparent rounded-full animate-spin" />
-                          ) : (
-                            <Ban className="w-3 h-3" />
-                          )}
-                        </button>
+
+                  {!batchesInSync && batchSum !== null && item && (
+                    <div className="mb-2 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <div className="flex-1 space-y-1">
+                          <p>
+                            Lots total <strong>{batchSum.toFixed(0)}</strong> but on-hand is{' '}
+                            <strong>{item.current_stock.toFixed(0)}</strong>. Checkout uses on-hand
+                            stock; lots are being aligned.
+                          </p>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs border-amber-400 text-amber-900 dark:text-amber-100"
+                            disabled={syncingBatches}
+                            onClick={handleSyncBatches}
+                          >
+                            {syncingBatches ? (
+                              <>
+                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                Syncing…
+                              </>
+                            ) : (
+                              'Sync lots now'
+                            )}
+                          </Button>
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  )}
+
+                  {batchesInSync && batchSum !== null && (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-1.5">
+                      Lots total: {batchSum.toFixed(0)} {item.unit_type} (matches on-hand)
+                    </p>
+                  )}
+
+                  {(loadingBatches || syncingBatches) && batches.length === 0 ? (
+                    <div className="flex items-center gap-2 text-xs text-slate-500 py-1">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      {syncingBatches ? 'Syncing batch lots…' : 'Loading batches…'}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5">
+                      {batches.map((b) => (
+                        <div
+                          key={b.id}
+                          className="inline-flex items-center gap-0.5 rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden"
+                        >
+                          <span className="px-2.5 py-1.5 text-xs font-mono bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                            {b.batchNumber}
+                            <span className="ml-1 opacity-75">({b.quantityRemaining})</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeactivateBatch(b.id, b.batchNumber, e)}
+                            disabled={deactivatingBatchId === b.id}
+                            className="p-1.5 text-amber-600 hover:bg-amber-100 dark:text-amber-400 dark:hover:bg-amber-900/30 transition-colors disabled:opacity-50"
+                            title="Deactivate batch (won't be used for sales)"
+                          >
+                            {deactivatingBatchId === b.id ? (
+                              <span className="inline-block w-3 h-3 border border-amber-500 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <Ban className="w-3 h-3" />
+                            )}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               {item.batch_number && rawRemaining > 0 && batches.length === 0 && (
@@ -667,11 +775,24 @@ export function AddToCartDialog({
                     </span>
                   </div>
                   <button
+                    type="button"
                     onClick={handleIncrement}
-                    className="w-12 h-12 rounded-full bg-[#1c6a1e] flex items-center justify-center hover:bg-[#2a8a30] transition-colors"
+                    className="w-12 h-12 min-h-[44px] min-w-[44px] rounded-full bg-[#1c6a1e] flex items-center justify-center hover:bg-[#2a8a30] transition-colors touch-target"
                   >
                     <Plus className="w-6 h-6 text-white" />
                   </button>
+                </div>
+
+                <div className="md:hidden w-full max-w-[260px] px-2">
+                  <PosNumericKeypad
+                    value={
+                      quantity === 0
+                        ? ''
+                        : quantity.toFixed(isWeight ? 2 : 0).replace(/\.?0+$/, '')
+                    }
+                    allowDecimal={isWeight}
+                    onChange={(v) => handleQuantityChange(v)}
+                  />
                 </div>
 
                 <div className="flex flex-col items-center gap-2">

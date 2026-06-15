@@ -1,6 +1,7 @@
 import { db } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { runMigrations } from '@/lib/db/migrate';
+import { requireSuperAdmin, isAuthResponse } from '@/lib/auth/api-auth';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -13,11 +14,16 @@ export async function GET() {
 
 /**
  * POST /api/db/reset
- * 
+ *
  * WARNING: This will DELETE ALL DATA and recreate the database schema.
  * Only use this in development or when you need a complete fresh start.
  */
 export async function POST() {
+  const auth = await requireSuperAdmin();
+  if (isAuthResponse(auth)) {
+    return auth;
+  }
+
   try {
     console.log('🗑️ Starting database reset...');
 

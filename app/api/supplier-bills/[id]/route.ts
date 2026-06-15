@@ -1,8 +1,14 @@
 import { NextRequest } from 'next/server';
-import { execute, queryOne } from '@/lib/db';
+import { execute, queryOne, transaction } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
-import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
+import { requirePermission, requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
 import type { SupplierBill } from '@/lib/db/types';
+import { logActivity } from '@/lib/db/activity-log';
+import { migrateSupplierBillsIntegrity } from '@/lib/db/migrate-supplier-bills-integrity';
+import {
+  reverseStockForSupplierBill,
+  SupplierBillCancelError,
+} from '@/lib/db/supplier-bill-stock';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -14,7 +20,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await requireAuth();
+    const auth = await requirePermission('record_supplier_bill');
     if (isAuthResponse(auth)) return auth;
 
     const { id } = await params;
@@ -60,20 +66,23 @@ export async function GET(
   }
 }
 
-// PATCH - Update pending/overdue bill
+// PATCH - Update pending/overdue bill (header only; stock not changed)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const auth = await requireAuth();
+    const auth = await requirePermission('record_supplier_bill');
     if (isAuthResponse(auth)) return auth;
+
+    await migrateSupplierBillsIntegrity();
 
     const { id } = await params;
     const body = await request.json();
     const {
       supplierName,
       supplierPhone,
+      supplierInvoiceNo,
       billDescription,
       amount,
       dueDate,
@@ -82,8 +91,13 @@ export async function PATCH(
       paymentDetails,
     } = body;
 
-    const bill = await queryOne<{ id: string; business_id: string; status: string }>(
-      `SELECT id, business_id, status FROM supplier_bills WHERE id = ? AND business_id = ?`,
+    const bill = await queryOne<{
+      id: string;
+      business_id: string;
+      status: string;
+      supplier_id: string | null;
+    }>(
+      `SELECT id, business_id, status, supplier_id FROM supplier_bills WHERE id = ? AND business_id = ?`,
       [id, auth.businessId]
     );
 
@@ -118,11 +132,33 @@ export async function PATCH(
     const dueDateTimestamp = Math.floor(new Date(dueDate).getTime() / 1000);
     const now = Math.floor(Date.now() / 1000);
     const status = dueDateTimestamp < now ? 'overdue' : 'pending';
+    const invoiceNo =
+      supplierInvoiceNo != null ? String(supplierInvoiceNo).trim() || null : undefined;
+
+    if (invoiceNo && bill.supplier_id) {
+      const dup = await queryOne<{ id: string }>(
+        `SELECT id FROM supplier_bills
+         WHERE business_id = ? AND supplier_id = ? AND supplier_invoice_no = ?
+         AND status != 'cancelled' AND id != ?
+         LIMIT 1`,
+        [auth.businessId, bill.supplier_id, invoiceNo, id]
+      );
+      if (dup) {
+        return jsonResponse(
+          {
+            success: false,
+            message: `Invoice number "${invoiceNo}" already exists for this supplier`,
+          },
+          409
+        );
+      }
+    }
 
     await execute(
       `UPDATE supplier_bills SET
         supplier_name = ?,
         supplier_phone = ?,
+        supplier_invoice_no = COALESCE(?, supplier_invoice_no),
         bill_description = ?,
         amount = ?,
         due_date = ?,
@@ -134,6 +170,7 @@ export async function PATCH(
       [
         String(supplierName).trim(),
         supplierPhone != null ? String(supplierPhone).trim() || null : null,
+        invoiceNo ?? null,
         String(billDescription).trim(),
         amount,
         dueDateTimestamp,
@@ -145,6 +182,16 @@ export async function PATCH(
         auth.businessId,
       ]
     );
+
+    await logActivity({
+      businessId: auth.businessId,
+      action: 'update',
+      entityType: 'supplier_bill',
+      entityId: id,
+      entityNameSnapshot: String(billDescription).trim(),
+      details: { amount, status },
+      performedBy: auth.userId,
+    });
 
     return jsonResponse({
       success: true,
@@ -164,7 +211,7 @@ export async function PATCH(
   }
 }
 
-// DELETE - Cancel/delete bill (admin/owner only)
+// DELETE - Cancel bill and reverse unreceived stock atomically
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -173,7 +220,6 @@ export async function DELETE(
     const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
 
-    // Only admin and owner can delete bills
     if (auth.role !== 'admin' && auth.role !== 'owner') {
       return jsonResponse(
         { success: false, message: 'Only administrators can cancel bills' },
@@ -181,15 +227,19 @@ export async function DELETE(
       );
     }
 
+    await migrateSupplierBillsIntegrity();
+
     const { id } = await params;
 
     const bill = await queryOne<{
       id: string;
       business_id: string;
       status: string;
+      bill_description: string;
+      amount: number;
     }>(
-      `SELECT * FROM supplier_bills 
-       WHERE id = ? AND business_id = ?`,
+      `SELECT id, business_id, status, bill_description, amount
+       FROM supplier_bills WHERE id = ? AND business_id = ?`,
       [id, auth.businessId]
     );
 
@@ -202,23 +252,62 @@ export async function DELETE(
 
     if (bill.status === 'paid') {
       return jsonResponse(
-        { success: false, message: 'Cannot delete a paid bill' },
+        { success: false, message: 'Cannot cancel a paid bill' },
         400
       );
     }
 
-    // Mark as cancelled instead of deleting
-    await execute(
-      `UPDATE supplier_bills 
-       SET status = 'cancelled' 
-       WHERE id = ?`,
-      [id]
-    );
+    if (bill.status === 'cancelled') {
+      return jsonResponse(
+        { success: false, message: 'Bill is already cancelled' },
+        400
+      );
+    }
 
-    return jsonResponse({
-      success: true,
-      message: 'Bill cancelled',
-    });
+    const now = Math.floor(Date.now() / 1000);
+
+    try {
+      const { batchesReversed } = await transaction(async (tx) => {
+        const reversal = await reverseStockForSupplierBill(
+          tx,
+          auth.businessId,
+          id,
+          auth.userId,
+          now
+        );
+
+        await tx.execute(
+          `UPDATE supplier_bills SET status = 'cancelled' WHERE id = ? AND business_id = ?`,
+          [id, auth.businessId]
+        );
+
+        return reversal;
+      });
+
+      await logActivity({
+        businessId: auth.businessId,
+        action: 'delete',
+        entityType: 'supplier_bill',
+        entityId: id,
+        entityNameSnapshot: bill.bill_description,
+        details: { amount: bill.amount, batchesReversed, cancelled: true },
+        performedBy: auth.userId,
+      });
+
+      return jsonResponse({
+        success: true,
+        message:
+          batchesReversed > 0
+            ? `Bill cancelled and stock reversed for ${batchesReversed} batch(es)`
+            : 'Bill cancelled',
+        data: { batchesReversed },
+      });
+    } catch (error) {
+      if (error instanceof SupplierBillCancelError) {
+        return jsonResponse({ success: false, message: error.message }, 409);
+      }
+      throw error;
+    }
   } catch (error) {
     console.error('Error cancelling bill:', error);
     return jsonResponse(

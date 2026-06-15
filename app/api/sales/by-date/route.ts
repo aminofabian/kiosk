@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { query } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
+import { hasPermission } from '@/lib/auth/permissions';
 
 interface SaleWithUser {
   id: string;
@@ -28,6 +29,8 @@ export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
+
+    const canViewAll = hasPermission(auth.role, 'view_all_sales');
 
     const searchParams = request.nextUrl.searchParams;
     const dateStr = searchParams.get('date'); // YYYY-MM-DD
@@ -57,8 +60,9 @@ export async function GET(request: NextRequest) {
        WHERE s.business_id = ?
          AND s.sale_date >= ?
          AND s.sale_date <= ?
+         ${!canViewAll ? 'AND s.user_id = ?' : ''}
        ORDER BY s.sale_date DESC, s.created_at DESC`,
-      [auth.businessId, startTs, endTs]
+      !canViewAll ? [auth.businessId, startTs, endTs, auth.userId] : [auth.businessId, startTs, endTs]
     );
 
     if (sales.length === 0) {

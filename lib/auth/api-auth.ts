@@ -2,23 +2,10 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from './config';
 import { resolveAppSession } from './session-resolve';
 import { jsonResponse } from '@/lib/utils/api-response';
-import { hasPermission } from './permissions';
+import { hasPermission, type Permission } from './permissions';
 import { queryOne } from '@/lib/db';
 import type { UserRole } from '@/lib/constants';
 import type { Business } from '@/lib/db/types';
-
-type Permission =
-  | 'sell'
-  | 'view_own_sales'
-  | 'void_own_sale'
-  | 'record_purchase'
-  | 'breakdown_purchase'
-  | 'adjust_stock'
-  | 'view_all_sales'
-  | 'view_profit'
-  | 'manage_items'
-  | 'manage_users'
-  | 'business_settings';
 
 export interface AuthContext {
   userId: string;

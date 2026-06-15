@@ -1,9 +1,10 @@
 import { NextRequest } from 'next/server';
-import { execute, queryOne } from '@/lib/db';
+import { queryOne, transaction } from '@/lib/db';
 import { generateUUID } from '@/lib/utils/uuid';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 import { logActivity } from '@/lib/db/activity-log';
+import { applyStockAdjustmentToBatches } from '@/lib/db/batch-stock-sync';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -81,41 +82,46 @@ export async function POST(
     const actualStock = Math.max(0, systemStock + stockChange);
     const difference = actualStock - systemStock;
 
-    // Update approval request status
-    await execute(
-      `UPDATE stock_approval_requests 
-       SET status = 'approved', approved_by = ?, approved_at = ?
-       WHERE id = ?`,
-      [auth.userId, now, id]
-    );
+    await transaction(async (tx) => {
+      await tx.execute(
+        `UPDATE stock_approval_requests
+         SET status = 'approved', approved_by = ?, approved_at = ?
+         WHERE id = ?`,
+        [auth.userId, now, id]
+      );
 
-    // Create stock adjustment record
-    await execute(
-      `INSERT INTO stock_adjustments (
-        id, business_id, item_id, system_stock, actual_stock,
-        difference, reason, notes, adjusted_by, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        adjustmentId,
-        auth.businessId,
+      await tx.execute(
+        `INSERT INTO stock_adjustments (
+          id, business_id, item_id, system_stock, actual_stock,
+          difference, reason, notes, adjusted_by, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          adjustmentId,
+          auth.businessId,
+          request.item_id,
+          systemStock,
+          actualStock,
+          difference,
+          request.reason,
+          request.notes,
+          request.requested_by,
+          now,
+        ]
+      );
+
+      await tx.execute(
+        `UPDATE items SET current_stock = ? WHERE id = ? AND business_id = ?`,
+        [actualStock, request.item_id, auth.businessId]
+      );
+
+      await applyStockAdjustmentToBatches(
+        tx,
         request.item_id,
-        systemStock,
-        actualStock,
+        auth.businessId,
         difference,
-        request.reason,
-        request.notes,
-        request.requested_by, // Original requester
-        now,
-      ]
-    );
-
-    // Update item stock
-    await execute(
-      `UPDATE items 
-       SET current_stock = ? 
-       WHERE id = ? AND business_id = ?`,
-      [actualStock, request.item_id, auth.businessId]
-    );
+        now
+      );
+    });
 
     logActivity({
       businessId: auth.businessId,
