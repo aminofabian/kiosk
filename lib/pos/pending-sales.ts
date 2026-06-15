@@ -11,10 +11,13 @@ export interface PendingSaleItem {
   batch_number: string | null;
 }
 
+export type PendingSaleSource = "cashier" | "department";
+
 export interface PendingSale {
   id: string;
   user_id: string;
   user_name?: string;
+  user_role?: string | null;
   status: "pending" | "discarded" | "completed";
   total_amount: number;
   customer_name: string | null;
@@ -25,6 +28,17 @@ export interface PendingSale {
   originated_by_user_id?: string | null;
   originated_by_name?: string | null;
   items: PendingSaleItem[];
+}
+
+/** Pending sale created by department staff (forwarded order or dept draft). */
+export function isDepartmentOrder(sale: PendingSale): boolean {
+  return (
+    sale.user_role === "department_staff" || Boolean(sale.originated_by_user_id)
+  );
+}
+
+export function getPendingSaleSource(sale: PendingSale): PendingSaleSource {
+  return isDepartmentOrder(sale) ? "department" : "cashier";
 }
 
 export async function fetchPendingSales(options?: {

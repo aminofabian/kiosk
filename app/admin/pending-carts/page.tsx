@@ -22,6 +22,7 @@ import {
   fetchPendingSales,
   formatPendingSaleAge,
   formatPendingSaleDateTime,
+  isDepartmentOrder,
   isPendingSaleStale,
   type PendingSale,
 } from "@/lib/pos/pending-sales";
@@ -286,6 +287,15 @@ export default function PendingCartsPage() {
                               Open
                             </span>
                           )}
+                          {isDepartmentOrder(sale) ? (
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-700 bg-blue-100 dark:bg-blue-900/40 dark:text-blue-300 px-1.5 py-0.5 rounded">
+                              Dept order
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-semibold uppercase tracking-wide text-amber-800 bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded">
+                              Saved cart
+                            </span>
+                          )}
                           {stale && (
                             <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-100 dark:bg-amber-900/40 dark:text-amber-300 px-1.5 py-0.5 rounded">
                               <AlertTriangle className="w-3 h-3" />
@@ -297,13 +307,9 @@ export default function PendingCartsPage() {
                         {isAdmin && sale.user_name && (
                           <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-400">
                             <User className="w-3.5 h-3.5" />
-                            {sale.user_name}
-                            {sale.originated_by_name &&
-                              sale.originated_by_name !== sale.user_name && (
-                                <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-1.5 py-0.5 rounded">
-                                  🧑‍🌾 Prepared by {sale.originated_by_name}
-                                </span>
-                              )}
+                            {isDepartmentOrder(sale)
+                              ? `From ${sale.originated_by_name || sale.user_name}`
+                              : sale.user_name}
                           </p>
                         )}
 

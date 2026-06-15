@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import {
   ChevronDown,
   ChevronUp,
+  ClipboardList,
   Cloud,
   Loader2,
   RefreshCw,
@@ -15,7 +16,11 @@ import {
 import { useCartStore } from "@/lib/stores/cart-store";
 import { useShallow } from "zustand/react/shallow";
 import { abandonPendingSaleOnApi } from "@/lib/stores/cart-sync";
-import { formatPendingSaleAge } from "@/lib/pos/pending-sales";
+import {
+  formatPendingSaleAge,
+  getPendingSaleSource,
+  isDepartmentOrder,
+} from "@/lib/pos/pending-sales";
 import { useCurrentUser } from "@/lib/hooks/use-current-user";
 import { usePendingSales } from "@/lib/hooks/use-pending-sales";
 import { useOnlineStatus } from "@/lib/hooks/use-online-status";
@@ -58,6 +63,32 @@ export function PosPendingSalesPanel({
   const [actionId, setActionId] = useState<string | null>(null);
   const linkedSet = new Set(linkedIds);
 
+  const departmentSales = sales.filter(isDepartmentOrder);
+  const cashierSales = sales.filter((s) => !isDepartmentOrder(s));
+  const orphanedDept = orphaned.filter(isDepartmentOrder);
+  const orphanedCashier = orphaned.filter((s) => !isDepartmentOrder(s));
+
+  const sourceSummary = (() => {
+    const parts: string[] = [];
+    if (departmentSales.length > 0) {
+      parts.push(`${departmentSales.length} dept`);
+    }
+    if (cashierSales.length > 0) {
+      parts.push(`${cashierSales.length} saved`);
+    }
+    return parts.join(" · ");
+  })();
+
+  const collapsedSubtitle = (() => {
+    if (orphaned.length > 0) {
+      const parts: string[] = [];
+      if (orphanedDept.length > 0) parts.push(`${orphanedDept.length} dept`);
+      if (orphanedCashier.length > 0) parts.push(`${orphanedCashier.length} saved`);
+      return `${parts.join(" · ")} to resume`;
+    }
+    return sourceSummary;
+  })();
+
   useEffect(() => {
     if (orphaned.length > 0) {
       setExpanded(true);
@@ -76,7 +107,7 @@ export function PosPendingSalesPanel({
   const handleAbandon = async (sale: (typeof sales)[number]) => {
     if (
       !window.confirm(
-        `Discard this saved sale (${sale.items.length} items, KES ${sale.total_amount.toFixed(0)})?`,
+        `Discard this ${isDepartmentOrder(sale) ? "department order" : "saved cart"} (${sale.items.length} items, KES ${sale.total_amount.toFixed(0)})?`,
       )
     ) {
       return;
@@ -93,6 +124,143 @@ export function PosPendingSalesPanel({
     } finally {
       setActionId(null);
     }
+  };
+
+  const renderSaleRow = (sale: (typeof sales)[number]) => {
+    const isLinked = linkedSet.has(sale.id);
+    const isBusy = actionId === sale.id;
+    const source = getPendingSaleSource(sale);
+    const isDept = source === "department";
+    const staffName =
+      sale.originated_by_name || (isDept ? sale.user_name : null);
+
+    return (
+      <div
+        key={sale.id}
+        className={`rounded-lg border bg-white/80 dark:bg-slate-900/60 ${
+          isDept
+            ? "border-blue-200/70 dark:border-blue-900/60"
+            : "border-amber-200/70 dark:border-amber-900/60"
+        } ${compact ? "p-1.5" : "p-2.5"}`}
+      >
+        <div
+          className={`flex items-start justify-between ${compact ? "gap-1" : "gap-2"}`}
+        >
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1 flex-wrap">
+              <span
+                className={`inline-flex items-center gap-0.5 font-semibold uppercase tracking-wide ${
+                  isDept
+                    ? "text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/40"
+                    : "text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40"
+                } ${compact ? "text-[8px] px-1 py-0.5 rounded" : "text-[9px] px-1.5 py-0.5 rounded"}`}
+              >
+                {isDept ? (
+                  <>
+                    <ClipboardList
+                      className={compact ? "w-2.5 h-2.5" : "w-3 h-3"}
+                    />
+                    Dept
+                  </>
+                ) : (
+                  <>
+                    <Cloud className={compact ? "w-2.5 h-2.5" : "w-3 h-3"} />
+                    Saved
+                  </>
+                )}
+              </span>
+              <span
+                className={`font-semibold text-slate-900 dark:text-white ${compact ? "text-[11px]" : "text-xs"}`}
+              >
+                KES {sale.total_amount.toFixed(0)}
+              </span>
+              <span
+                className={`text-slate-500 dark:text-slate-400 ${compact ? "text-[9px]" : "text-[10px]"}`}
+              >
+                {sale.items.length} · {formatPendingSaleAge(sale.updated_at)}
+              </span>
+              {isLinked && !compact && (
+                <span className="text-[10px] font-medium text-[#1c6a1e] bg-[#1c6a1e]/10 px-1.5 py-0.5 rounded">
+                  Open here
+                </span>
+              )}
+            </div>
+            {!compact && staffName && isDept && (
+              <p className="mt-0.5 flex items-center gap-1 text-[11px] text-blue-700 dark:text-blue-300">
+                <User className="w-3 h-3" />
+                From {staffName}
+              </p>
+            )}
+            {!compact && !isDept && isAdmin && sale.user_name && (
+              <p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-400">
+                <User className="w-3 h-3" />
+                {sale.user_name}
+              </p>
+            )}
+            {!compact && sale.customer_name && (
+              <p className="mt-0.5 text-[11px] text-slate-600 dark:text-slate-400 truncate">
+                Customer: {sale.customer_name}
+              </p>
+            )}
+            {!compact && (
+              <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-500 line-clamp-2">
+                {sale.items
+                  .slice(0, 3)
+                  .map((i) => `${i.name} ×${i.quantity_sold}`)
+                  .join(", ")}
+                {sale.items.length > 3 ? "…" : ""}
+              </p>
+            )}
+          </div>
+          <div
+            className={`flex shrink-0 ${compact ? "flex-row gap-0.5" : "flex-col gap-1"}`}
+          >
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className={`border-[#1c6a1e]/30 text-[#1c6a1e] hover:bg-[#1c6a1e]/10 ${
+                compact ? "h-6 w-6 p-0" : "h-7 px-2 text-[11px]"
+              }`}
+              disabled={isBusy}
+              onClick={() => handleResume(sale)}
+              title={isLinked ? "Switch to this cart" : "Resume sale"}
+            >
+              {isBusy ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : compact ? (
+                <RotateCcw className="w-3 h-3" />
+              ) : (
+                <>
+                  <RotateCcw className="w-3 h-3 mr-1" />
+                  {isLinked ? "Switch" : "Resume"}
+                </>
+              )}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className={`text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 ${
+                compact ? "h-6 w-6 p-0" : "h-7 px-2 text-[11px]"
+              }`}
+              disabled={isBusy}
+              onClick={() => void handleAbandon(sale)}
+              title="Discard saved sale"
+            >
+              {compact ? (
+                <Trash2 className="w-3 h-3" />
+              ) : (
+                <>
+                  <Trash2 className="w-3 h-3 mr-1" />
+                  Discard
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -112,18 +280,18 @@ export function PosPendingSalesPanel({
             <p
               className={`font-semibold text-amber-900 dark:text-amber-200 ${compact ? "text-[11px]" : "text-xs"}`}
             >
-              {isAdmin ? "Open carts" : "Saved"}
+              {isAdmin ? "Open carts" : "Saved & orders"}
               {sales.length > 0 && (
                 <span className="ml-1 font-normal text-amber-700 dark:text-amber-400">
                   ({sales.length})
                 </span>
               )}
             </p>
-            {orphaned.length > 0 && !expanded && (
+            {!expanded && collapsedSubtitle && (
               <p
                 className={`text-amber-700/90 dark:text-amber-400/90 truncate ${compact ? "text-[10px]" : "text-[11px]"}`}
               >
-                {orphaned.length} to resume
+                {collapsedSubtitle}
               </p>
             )}
           </div>
@@ -173,115 +341,28 @@ export function PosPendingSalesPanel({
               No saved sales on the server.
             </p>
           ) : (
-            sales.map((sale) => {
-              const isLinked = linkedSet.has(sale.id);
-              const isBusy = actionId === sale.id;
-              return (
-                <div
-                  key={sale.id}
-                  className={`rounded-lg border border-amber-200/70 dark:border-amber-900/60 bg-white/80 dark:bg-slate-900/60 ${
-                    compact ? "p-1.5" : "p-2.5"
-                  }`}
-                >
-                  <div
-                    className={`flex items-start justify-between ${compact ? "gap-1" : "gap-2"}`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1 flex-wrap">
-                        <span
-                          className={`font-semibold text-slate-900 dark:text-white ${compact ? "text-[11px]" : "text-xs"}`}
-                        >
-                          KES {sale.total_amount.toFixed(0)}
-                        </span>
-                        <span
-                          className={`text-slate-500 dark:text-slate-400 ${compact ? "text-[9px]" : "text-[10px]"}`}
-                        >
-                          {sale.items.length} ·{" "}
-                          {formatPendingSaleAge(sale.updated_at)}
-                        </span>
-                        {isLinked && !compact && (
-                          <span className="text-[10px] font-medium text-[#1c6a1e] bg-[#1c6a1e]/10 px-1.5 py-0.5 rounded">
-                            Open here
-                          </span>
-                        )}
-                      </div>
-                      {!compact && isAdmin && sale.user_name && (
-                        <p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-600 dark:text-slate-400">
-                          <User className="w-3 h-3" />
-                          {sale.user_name}
-                          {sale.originated_by_name &&
-                            sale.originated_by_name !== sale.user_name && (
-                              <span className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded">
-                                🧑‍🌾 {sale.originated_by_name}
-                              </span>
-                            )}
-                        </p>
-                      )}
-                      {!compact && sale.customer_name && (
-                        <p className="mt-0.5 text-[11px] text-slate-600 dark:text-slate-400 truncate">
-                          Customer: {sale.customer_name}
-                        </p>
-                      )}
-                      {!compact && (
-                        <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-500 line-clamp-2">
-                          {sale.items
-                            .slice(0, 3)
-                            .map((i) => `${i.name} ×${i.quantity_sold}`)
-                            .join(", ")}
-                          {sale.items.length > 3 ? "…" : ""}
-                        </p>
-                      )}
-                    </div>
-                    <div
-                      className={`flex shrink-0 ${compact ? "flex-row gap-0.5" : "flex-col gap-1"}`}
-                    >
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className={`border-[#1c6a1e]/30 text-[#1c6a1e] hover:bg-[#1c6a1e]/10 ${
-                          compact ? "h-6 w-6 p-0" : "h-7 px-2 text-[11px]"
-                        }`}
-                        disabled={isBusy}
-                        onClick={() => handleResume(sale)}
-                        title={isLinked ? "Switch to this cart" : "Resume sale"}
-                      >
-                        {isBusy ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : compact ? (
-                          <RotateCcw className="w-3 h-3" />
-                        ) : (
-                          <>
-                            <RotateCcw className="w-3 h-3 mr-1" />
-                            {isLinked ? "Switch" : "Resume"}
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className={`text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 ${
-                          compact ? "h-6 w-6 p-0" : "h-7 px-2 text-[11px]"
-                        }`}
-                        disabled={isBusy}
-                        onClick={() => void handleAbandon(sale)}
-                        title="Discard saved sale"
-                      >
-                        {compact ? (
-                          <Trash2 className="w-3 h-3" />
-                        ) : (
-                          <>
-                            <Trash2 className="w-3 h-3 mr-1" />
-                            Discard
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
+            <>
+              {departmentSales.length > 0 && (
+                <div className="space-y-1.5">
+                  {!compact && cashierSales.length > 0 && (
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300 px-0.5">
+                      Department orders ({departmentSales.length})
+                    </p>
+                  )}
+                  {departmentSales.map(renderSaleRow)}
                 </div>
-              );
-            })
+              )}
+              {cashierSales.length > 0 && (
+                <div className="space-y-1.5">
+                  {!compact && departmentSales.length > 0 && (
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300 px-0.5 pt-1">
+                      Saved carts ({cashierSales.length})
+                    </p>
+                  )}
+                  {cashierSales.map(renderSaleRow)}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}

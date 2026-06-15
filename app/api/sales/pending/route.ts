@@ -258,7 +258,8 @@ export async function GET(request: NextRequest) {
         : "";
 
     const sales = await query<PendingSaleRow>(
-      `SELECT s.id, s.user_id, u.name AS user_name, s.status, s.total_amount,
+      `SELECT s.id, s.user_id, u.name AS user_name, u.role AS user_role,
+              s.status, s.total_amount,
               s.customer_name, s.customer_phone, s.created_at, s.updated_at,
               du.name AS discarded_by_name,
               s.originated_by_user_id, ou.name AS originated_by_name
