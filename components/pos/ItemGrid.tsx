@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState, useMemo, useRef, useCallback, memo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Zap, Tag, Package, ShoppingBag, Flame, AlertTriangle, ArrowRight, PackageX } from 'lucide-react';
+import { useEffect, useState, useMemo, useRef, useCallback, memo, type ReactNode } from 'react';
+import { Tag, Package, ShoppingBag, Flame, AlertTriangle, ArrowRight, PackageX } from 'lucide-react';
 import type { Item } from '@/lib/db/types';
 import type { Category } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
@@ -94,14 +93,13 @@ function applyItemsToGrid(
 /** Debounce POS grid search so rapid typing does not hit /api/items every keystroke */
 const ITEM_SEARCH_DEBOUNCE_MS = 280;
 
-/** 2 cols phone · 3+ cols tablet (iPad w/ sidebar) · auto-fill on wide desktop */
+/** Dense square grid — up to 10 columns on wide screens (matches POS reference layout). */
 const CATALOG_ITEM_GRID_CLASS =
-  'grid gap-3 sm:gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-[repeat(auto-fill,minmax(8.75rem,1fr))] auto-rows-[minmax(188px,auto)]';
+  'grid w-full gap-1.5 sm:gap-2 grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10';
 
 /** Department catalog: 2 cols in narrow panel (iPad) · 10 when center column is wide (desktop) */
 const SQUARE_CATALOG_CONTAINER_CLASS = '@container w-full';
-const SQUARE_CATALOG_GRID_CLASS =
-  'grid gap-2 sm:gap-2.5 grid-cols-2 @2xl:grid-cols-10 w-full justify-items-stretch';
+const SQUARE_CATALOG_GRID_CLASS = CATALOG_ITEM_GRID_CLASS;
 
 // Stock status helpers
 function getStockStatus(stock: number): 'negative' | 'out' | 'low' | 'ok' {
@@ -133,94 +131,77 @@ const RANK_STYLES = [
   'bg-[#1c6a1e]/15 text-[#1c6a1e] dark:bg-[#1c6a1e]/20 dark:text-[#2a8a30]',
 ];
 
-// Memoized item card component for better performance
-const ItemCard = memo(function ItemCard({
+function formatTilePrice(price: number) {
+  return `KES ${price.toFixed(0)}`;
+}
+
+function PosProductTile({
   item,
+  isOutOfStock,
   onSelect,
   onQuickAdd,
-  squareTile = false,
+  imageContent,
+  rank,
+  showDealBadge = false,
 }: {
   item: Item;
-  onSelect: (item: Item) => void;
-  onQuickAdd?: (item: Item, quantity: number) => void;
-  squareTile?: boolean;
+  isOutOfStock: boolean;
+  onSelect: () => void;
+  onQuickAdd?: (quantity: number) => void;
+  imageContent: ReactNode;
+  rank?: number;
+  showDealBadge?: boolean;
 }) {
-  const formatPrice = (price: number) => `KES ${price.toFixed(0)}`;
-  const stockStatus = getStockStatus(item.current_stock);
   const quickQty = getQuickAddQuantity(item);
-  const isOutOfStock = stockStatus === 'out' || stockStatus === 'negative';
-  const imageUrl = resolveItemImageUrl(item);
-
-  const handleSelect = () => {
-    if (isOutOfStock) return;
-    onSelect(item);
-  };
+  const displayName = getItemDisplayName(item.name, item.variant_name);
+  const hasDeal =
+    showDealBadge &&
+    item.bundle_quantity &&
+    item.bundle_price &&
+    item.bundle_quantity > 0 &&
+    item.bundle_price > 0;
 
   return (
-    <Card
+    <div
       role="button"
       tabIndex={isOutOfStock ? -1 : 0}
       aria-disabled={isOutOfStock}
-      className={`pos-grid-btn group touch-target relative overflow-hidden rounded-none outline-none focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 transition-all duration-200 flex flex-col gap-0 p-0 ${
-        squareTile
-          ? 'aspect-square w-full min-h-0'
-          : 'min-h-[188px] h-full'
-      } ${isOutOfStock
-        ? 'bg-slate-100 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-500 opacity-75 cursor-not-allowed'
-        : 'bg-white dark:bg-slate-800 border-2 border-[#1c6a1e] dark:border-[#1c6a1e] hover:border-[#2a8a30] dark:hover:border-[#2a8a30] cursor-pointer'
-        }`}
-      onClick={handleSelect}
+      onClick={() => {
+        if (!isOutOfStock) onSelect();
+      }}
       onKeyDown={(e) => {
         if (isOutOfStock) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          onSelect(item);
+          onSelect();
         }
       }}
+      className={`pos-grid-btn group touch-target relative flex aspect-square w-full min-h-0 flex-col overflow-hidden outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-1 ${
+        isOutOfStock
+          ? 'cursor-not-allowed border border-slate-200 bg-slate-50 opacity-55 dark:border-slate-600 dark:bg-slate-800/80'
+          : 'cursor-pointer border border-[#1c6a1e] bg-white hover:border-[#2a8a30] dark:bg-slate-900 dark:border-[#1c6a1e]'
+      }`}
     >
-      {/* Image zone */}
-      <div
-        className={`relative min-h-0 w-full overflow-hidden ${
-          squareTile ? 'flex-1' : 'flex-[3] p-1 pb-0'
-        }`}
-      >
-        {item.bundle_quantity &&
-          item.bundle_price &&
-          item.bundle_quantity > 0 &&
-          item.bundle_price > 0 && (
-            <div className="absolute top-1.5 right-1.5 z-10">
-              <span className="inline-flex items-center gap-0.5 bg-amber-500 text-white text-[9px] font-bold px-1 py-0.5 rounded-sm shadow-sm">
-                <Tag className="w-2.5 h-2.5" />
-                Deal
-              </span>
-            </div>
-          )}
+      {/* Image ~ top two-thirds */}
+      <div className="relative min-h-0 w-full flex-[3] bg-slate-50 dark:bg-slate-800/50">
+        {imageContent}
 
-        {imageUrl ? (
+        {rank != null && (
           <div
-            className={`overflow-hidden bg-slate-100 dark:bg-slate-700 ${
-              squareTile
-                ? 'absolute inset-0 border-b border-slate-200/80 dark:border-slate-600'
-                : 'relative w-full h-full border border-slate-200/80 dark:border-slate-600'
+            className={`absolute top-1 left-1 z-10 flex h-4 w-4 items-center justify-center text-[7px] font-black shadow ${
+              RANK_STYLES[rank - 1]
             }`}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={imageUrl}
-              alt=""
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
+            {rank}
           </div>
-        ) : (
-          <div
-            className={`flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 ${
-              squareTile
-                ? 'absolute inset-0 border-b border-slate-200/60 dark:border-slate-700'
-                : 'w-full h-full border border-slate-200/60 dark:border-slate-700'
-            }`}
-          >
-            <Package className="w-5 h-5 text-slate-300 dark:text-slate-600" />
+        )}
+
+        {hasDeal && rank == null && (
+          <div className="absolute top-1 left-1 z-10">
+            <span className="inline-flex items-center gap-0.5 bg-amber-500 px-1 py-0.5 text-[7px] font-bold text-white shadow-sm">
+              <Tag className="h-2 w-2" />
+              Deal
+            </span>
           </div>
         )}
 
@@ -229,86 +210,88 @@ const ItemCard = memo(function ItemCard({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onQuickAdd(item, quickQty);
+              onQuickAdd(quickQty);
             }}
-            className="absolute bottom-0.5 right-0.5 z-20 flex items-center justify-center gap-0.5 h-5 min-w-[1.25rem] px-1 rounded-sm bg-[#1c6a1e] hover:bg-[#1e8a72] text-white text-[8px] font-bold shadow-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white"
+            className="absolute top-1 right-1 z-20 flex h-6 min-w-[1.375rem] items-center justify-center rounded-full bg-[#1c6a1e] px-1 text-[9px] font-bold leading-none text-white shadow-sm transition-colors hover:bg-[#165a18] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
             title={`Quick add ${quickQty} ${item.unit_type}`}
           >
-            <Zap className="w-2 h-2 shrink-0" />
-            <span>+{quickQty}</span>
+            +{quickQty}
           </button>
         )}
       </div>
 
-      {/* Footer: name, price, stock */}
-      <CardContent
-        className={`flex flex-col justify-center shrink-0 border-t border-slate-100 dark:border-slate-700/50 bg-white dark:bg-slate-800 ${
-          squareTile
-            ? 'gap-0 px-1.5 py-1 min-h-0 flex-[0_0_auto]'
-            : 'flex-[1] gap-0.5 px-2 py-1.5 min-h-[3.5rem]'
-        }`}
-      >
+      {/* Name + price — bottom strip */}
+      <div className="flex min-h-[2.65rem] shrink-0 flex-col justify-center bg-white px-1.5 py-1 text-left dark:bg-slate-900">
         <h3
-          className={`font-semibold leading-tight ${
-            squareTile ? 'text-[10px] line-clamp-1' : 'text-xs sm:text-sm leading-snug line-clamp-2'
-          } ${
+          className={`line-clamp-2 text-[10px] font-medium leading-tight ${
             isOutOfStock
-              ? 'text-gray-400 dark:text-gray-500'
-              : 'text-gray-900 dark:text-gray-100 group-hover:text-[#1c6a1e] dark:group-hover:text-[#2a8a30]'
+              ? 'text-slate-400 dark:text-slate-500'
+              : 'text-slate-800 dark:text-slate-100'
           }`}
         >
-          {getItemDisplayName(item.name, item.variant_name)}
+          {displayName}
         </h3>
         <p
-          className={`font-bold tabular-nums leading-none ${
-            squareTile ? 'text-[11px]' : 'text-sm sm:text-base'
-          } ${
-            isOutOfStock ? 'text-gray-400 dark:text-gray-500' : 'text-[#1c6a1e] dark:text-[#2a8a30]'
+          className={`mt-0.5 text-[10px] font-bold tabular-nums leading-none ${
+            isOutOfStock
+              ? 'text-slate-400 dark:text-slate-500'
+              : 'text-[#1c6a1e] dark:text-[#3cb043]'
           }`}
         >
-          {formatPrice(item.current_sell_price)}
-          <span
-            className={`font-medium text-gray-500 dark:text-gray-400 ml-0.5 ${
-              squareTile ? 'text-[8px]' : 'text-[10px] sm:text-xs'
-            }`}
-          >
+          {formatTilePrice(item.current_sell_price)}
+          <span className="ml-0.5 font-normal text-slate-500 dark:text-slate-400">
             /{item.unit_type}
           </span>
         </p>
-        {!squareTile && (
-        <div className="flex items-center gap-1 min-w-0">
-          <span
-            className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-              stockStatus === 'negative'
-                ? 'bg-red-500'
-                : isOutOfStock
-                  ? 'bg-gray-300 dark:bg-gray-600'
-                  : stockStatus === 'low'
-                    ? 'bg-amber-400'
-                    : 'bg-emerald-400'
-            }`}
-          />
-          <span
-            className={`text-[10px] sm:text-[11px] font-medium truncate ${
-              stockStatus === 'negative'
-                ? 'text-red-600 dark:text-red-400'
-                : isOutOfStock
-                  ? 'text-gray-400'
-                  : stockStatus === 'low'
-                    ? 'text-amber-600 dark:text-amber-400'
-                    : 'text-gray-500 dark:text-gray-400'
-            }`}
-          >
-            {stockStatus === 'negative'
-              ? formatStock(item.current_stock, item.unit_type)
-              : isOutOfStock
-                ? 'Out of stock'
-                : formatStock(item.current_stock, item.unit_type)}
-          </span>
-        </div>
-        )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
+  );
+}
+
+function renderItemImageContent(item: Item, imageUrl: string | null) {
+  if (imageUrl) {
+    return (
+      /* eslint-disable-next-line @next/next/no-img-element */
+      <img
+        src={imageUrl}
+        alt=""
+        className="absolute inset-0 h-full w-full object-cover"
+        loading="lazy"
+      />
+    );
+  }
+  return (
+    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
+      <Package className="h-8 w-8 text-slate-300 dark:text-slate-600" strokeWidth={1.25} />
+    </div>
+  );
+}
+
+// Memoized item card component for better performance
+const ItemCard = memo(function ItemCard({
+  item,
+  onSelect,
+  onQuickAdd,
+}: {
+  item: Item;
+  onSelect: (item: Item) => void;
+  onQuickAdd?: (item: Item, quantity: number) => void;
+}) {
+  const stockStatus = getStockStatus(item.current_stock);
+  const isOutOfStock = stockStatus === 'out' || stockStatus === 'negative';
+  const imageUrl = resolveItemImageUrl(item);
+
+  return (
+    <PosProductTile
+      item={item}
+      isOutOfStock={isOutOfStock}
+      onSelect={() => onSelect(item)}
+      onQuickAdd={
+        onQuickAdd ? (qty) => onQuickAdd(item, qty) : undefined
+      }
+      imageContent={renderItemImageContent(item, imageUrl)}
+      showDealBadge
+    />
   );
 });
 
@@ -871,14 +854,8 @@ export function ItemGrid({
               )}
             </div>
 
-            {/* Products grid – auto-fill so sidebar layouts (iPad) keep sensible card widths */}
-            <div
-              className="w-full grid gap-2 sm:gap-3 pt-3 flex-1 min-h-0 overflow-visible content-start"
-              style={{
-                gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
-                gridAutoRows: 'minmax(188px, auto)',
-              }}
-            >
+            {/* Products grid – dense square tiles */}
+            <div className={`${CATALOG_ITEM_GRID_CLASS} pt-3 flex-1 min-h-0 content-start`}>
               {(() => {
                 if (!adminStockView && displayedHomeItems.length === 0) {
                   return (
@@ -910,148 +887,40 @@ export function ItemGrid({
                 const rank = top3Ranks.get(item.id);
                 const stock = getStockStatus(item.current_stock);
                 const isOut = stock === 'out' || stock === 'negative';
-                const quickQty = getQuickAddQuantity(item);
                 const imageUrl = resolveItemImageUrl(item);
 
-                return (
-                  <div
-                    key={item.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => onSelectItem(item)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        onSelectItem(item);
+                const imageContent = canManageItemImages ? (
+                  <div className="absolute inset-0">
+                    <PosQuickSellPhoto
+                      itemId={item.id}
+                      itemName={item.name}
+                      imageUrl={item.image_url}
+                      variantName={item.variant_name}
+                      onImageUrlChange={(url) =>
+                        onItemImageUpdated?.(item.id, url)
                       }
-                    }}
-                    className={`pos-grid-btn group relative rounded-none overflow-hidden cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 flex flex-col min-h-[188px] h-full ${
-                      isOut
-                        ? 'bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-500 opacity-60'
-                        : 'bg-white dark:bg-slate-800 border border-[#1c6a1e] dark:border-[#1c6a1e]'
-                    }`}
-                  >
-                    {/* Image zone ~75% of card */}
-                    <div className="relative flex-[3] min-h-0 w-full p-1 pb-0">
-                      {/* Rank badge for top 3 */}
-                      {rank != null && (
-                        <div
-                          className={`absolute top-1 right-1 z-10 w-3.5 h-3.5 rounded-none flex items-center justify-center text-[7px] font-black shadow ${
-                            RANK_STYLES[rank - 1]
-                          }`}
-                        >
-                          {rank}
-                        </div>
-                      )}
-
-                      {/* Bundle deal badge */}
-                      {item.bundle_quantity &&
-                        item.bundle_price &&
-                        item.bundle_quantity > 0 &&
-                        item.bundle_price > 0 && (
-                          <div className="absolute top-1 right-1 z-10">
-                            <span className="inline-flex items-center gap-0.5 bg-amber-400/90 text-white text-[6px] font-bold px-0.5 py-px rounded-none shadow-sm">
-                              <Tag className="w-1.5 h-1.5" />
-                              Deal
-                            </span>
-                          </div>
-                        )}
-
-                      {canManageItemImages ? (
-                        <PosQuickSellPhoto
-                          itemId={item.id}
-                          itemName={item.name}
-                          imageUrl={item.image_url}
-                          variantName={item.variant_name}
-                          onImageUrlChange={(url) => onItemImageUpdated?.(item.id, url)}
-                          fill
-                        />
-                      ) : imageUrl ? (
-                        <div className="relative w-full h-full overflow-hidden bg-slate-100 dark:bg-slate-700 border border-slate-200/80 dark:border-slate-600">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={imageUrl}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                        </div>
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 border border-slate-200/60 dark:border-slate-700 flex items-center justify-center">
-                          <Package className="w-5 h-5 text-slate-300 dark:text-slate-600" />
-                        </div>
-                      )}
-
-                      {/* Compact quick-add on image */}
-                      {onQuickAdd && !isOut && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onQuickAdd(item, quickQty);
-                          }}
-                          className="absolute bottom-0.5 right-0.5 z-20 flex items-center justify-center gap-0.5 h-5 min-w-[1.25rem] px-1 rounded-sm bg-[#1c6a1e] hover:bg-[#1e8a72] text-white text-[8px] font-bold shadow-md transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white"
-                          title={`Quick add ${quickQty} ${item.unit_type}`}
-                        >
-                          <Zap className="w-2 h-2 shrink-0" />
-                          <span>+{quickQty}</span>
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Footer ~25%: name, price, stock */}
-                    <div className="flex-[1] flex flex-col justify-center gap-0.5 px-2 py-1.5 min-h-[3.5rem] shrink-0 border-t border-slate-100 dark:border-slate-700/50 bg-white dark:bg-slate-800">
-                      <h3
-                        className={`font-semibold text-xs sm:text-sm leading-snug line-clamp-2 ${
-                          isOut
-                            ? 'text-gray-400 dark:text-gray-500'
-                            : 'text-gray-900 dark:text-gray-100 group-hover:text-[#1c6a1e] dark:group-hover:text-[#2a8a30]'
-                        }`}
-                      >
-                        {getItemDisplayName(item.name, item.variant_name)}
-                      </h3>
-                      <p
-                        className={`text-sm sm:text-base font-bold tabular-nums leading-none ${
-                          isOut ? 'text-gray-400 dark:text-gray-500' : 'text-[#1c6a1e] dark:text-[#2a8a30]'
-                        }`}
-                      >
-                        {formatPrice(item.current_sell_price)}
-                        <span className="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 ml-1">
-                          / {item.unit_type}
-                        </span>
-                      </p>
-                      <div className="flex items-center gap-1 min-w-0">
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-                            stock === 'negative'
-                              ? 'bg-red-500'
-                              : isOut
-                                ? 'bg-gray-300 dark:bg-gray-600'
-                                : stock === 'low'
-                                  ? 'bg-amber-400'
-                                  : 'bg-emerald-400'
-                          }`}
-                        />
-                        <span
-                          className={`text-[10px] sm:text-[11px] font-medium truncate ${
-                            stock === 'negative'
-                              ? 'text-red-600 dark:text-red-400'
-                              : isOut
-                                ? 'text-gray-400'
-                                : stock === 'low'
-                                  ? 'text-amber-600 dark:text-amber-400'
-                                  : 'text-gray-500 dark:text-gray-400'
-                          }`}
-                        >
-                          {stock === 'negative'
-                            ? formatStock(item.current_stock, item.unit_type)
-                            : isOut
-                              ? 'Out of stock'
-                              : formatStock(item.current_stock, item.unit_type)}
-                        </span>
-                      </div>
-                    </div>
+                      fill
+                    />
                   </div>
+                ) : (
+                  renderItemImageContent(item, imageUrl)
+                );
+
+                return (
+                  <PosProductTile
+                    key={item.id}
+                    item={item}
+                    isOutOfStock={isOut}
+                    onSelect={() => onSelectItem(item)}
+                    onQuickAdd={
+                      onQuickAdd
+                        ? (qty) => onQuickAdd(item, qty)
+                        : undefined
+                    }
+                    imageContent={imageContent}
+                    rank={rank}
+                    showDealBadge
+                  />
                 );
                   });
               })()}
@@ -1289,7 +1158,6 @@ return (
                       item={item}
                       onSelect={handleItemClick}
                       onQuickAdd={onQuickAdd}
-                      squareTile={showShopTypeCatalog}
                     />
                   ))}
                 </div>
@@ -1321,7 +1189,6 @@ return (
                     item={group.item}
                     onSelect={handleItemClick}
                     onQuickAdd={onQuickAdd}
-                    squareTile={showShopTypeCatalog}
                   />
                 )
               ))}
