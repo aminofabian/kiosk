@@ -1,23 +1,26 @@
 import { describe, it, expect } from 'vitest';
-import { salePaymentShareSql, salesByPaymentMethodQuery } from '@/lib/utils/sales-payment-allocation';
+import {
+  salePaymentAmountSql,
+  salesByPaymentMethodQuery,
+} from '@/lib/utils/sales-payment-allocation';
 
 describe('sales-payment-allocation', () => {
-  it('builds share SQL for each payment method', () => {
-    expect(salePaymentShareSql('cash')).toContain("s.payment_method = 'cash'");
-    expect(salePaymentShareSql('mpesa')).toContain("s.payment_method = 'mpesa'");
-    expect(salePaymentShareSql('wallet')).toContain("payment_method = 'wallet'");
+  it('allocates remainder to the primary payment method', () => {
+    expect(salePaymentAmountSql('cash')).toContain("s.payment_method = 'cash'");
+    expect(salePaymentAmountSql('wallet')).toContain("payment_method = 'wallet'");
   });
 
-  it('builds a grouped payment query from line items', () => {
+  it('builds sale-level payment query without item type', () => {
     const sql = salesByPaymentMethodQuery('s.sale_date >= ?');
-    expect(sql).toContain('si.quantity_sold * si.sell_price_per_unit');
+    expect(sql).toContain('FROM sales s');
+    expect(sql).not.toContain('sale_items');
     expect(sql).toContain("'cash' AS payment_method");
-    expect(sql).toContain("'wallet' AS payment_method");
     expect(sql).toContain('GROUP BY payment_method');
   });
 
-  it('includes item type filter when provided', () => {
+  it('builds line-item payment query when item type is filtered', () => {
     const sql = salesByPaymentMethodQuery('s.sale_date >= ?', 'grocery');
+    expect(sql).toContain('JOIN sale_items si');
     expect(sql).toContain("item_type_snapshot, 'retail') = ?");
   });
 });

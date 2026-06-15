@@ -159,13 +159,17 @@ export async function GET(request: NextRequest) {
         : `SELECT 
             COUNT(DISTINCT s.id) as total_transactions,
             COALESCE(SUM(si.quantity_sold), 0) as total_items_sold,
-            COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
+            (
+              SELECT COALESCE(SUM(sr.total_amount), 0)
+              FROM sales sr
+              WHERE sr.business_id = ? AND sr.status = 'completed' AND ${dateFilter.replace(/s\./g, 'sr.')}
+            ) as total_revenue,
             COALESCE(SUM(si.quantity_sold * si.buy_price_per_unit), 0) as total_cost,
             COALESCE(SUM(si.profit), 0) as total_profit
           FROM sales s
           JOIN sale_items si ON s.id = si.sale_id
           WHERE s.business_id = ? AND s.status = 'completed' AND ${dateFilter}`,
-      itemType ? [auth.businessId, ...dateParams, itemType] : [auth.businessId, ...dateParams]
+      itemType ? [auth.businessId, ...dateParams, itemType] : [auth.businessId, ...dateParams, auth.businessId, ...dateParams]
     );
 
     const summaryData = summaryResult[0] || {
