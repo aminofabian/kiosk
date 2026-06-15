@@ -7,7 +7,9 @@ import {
   ChevronUp,
   ClipboardList,
   Cloud,
+  GitMerge,
   Loader2,
+  Plus,
   RefreshCw,
   RotateCcw,
   Trash2,
@@ -41,6 +43,18 @@ export function PosPendingSalesPanel({
   const isAdmin = user?.role === "owner" || user?.role === "admin";
   const { sales, loading, error, orphaned, refresh } = usePendingSales();
   const restorePendingSale = useCartStore((s) => s.restorePendingSale);
+  const mergePendingSaleIntoActiveCart = useCartStore(
+    (s) => s.mergePendingSaleIntoActiveCart,
+  );
+  const mergeActiveCartIntoPendingSale = useCartStore(
+    (s) => s.mergeActiveCartIntoPendingSale,
+  );
+  const activeCart = useCartStore(
+    useShallow((s) => {
+      const id = s.activeCartId || s.carts[0]?.id;
+      return s.carts.find((c) => c.id === id);
+    }),
+  );
 
   // Refresh on external trigger (e.g. SSE event)
   useEffect(() => {
@@ -104,6 +118,16 @@ export function PosPendingSalesPanel({
     onResume?.();
   };
 
+  const handleAddToActiveCart = (sale: (typeof sales)[number]) => {
+    mergePendingSaleIntoActiveCart(sale);
+    onResume?.();
+  };
+
+  const handleMergeActiveIntoSale = (sale: (typeof sales)[number]) => {
+    mergeActiveCartIntoPendingSale(sale);
+    onResume?.();
+  };
+
   const handleAbandon = async (sale: (typeof sales)[number]) => {
     if (
       !window.confirm(
@@ -133,6 +157,11 @@ export function PosPendingSalesPanel({
     const isDept = source === "department";
     const staffName =
       sale.originated_by_name || (isDept ? sale.user_name : null);
+    const isActiveInvoice = activeCart?.pendingSaleId === sale.id;
+    const activeHasItems = (activeCart?.items.length ?? 0) > 0;
+    const canAddToActive = !isActiveInvoice;
+    const canMergeActiveInto =
+      activeHasItems && !isActiveInvoice && activeCart?.pendingSaleId !== sale.id;
 
     return (
       <div
@@ -213,8 +242,52 @@ export function PosPendingSalesPanel({
             )}
           </div>
           <div
-            className={`flex shrink-0 ${compact ? "flex-row gap-0.5" : "flex-col gap-1"}`}
+            className={`flex shrink-0 ${compact ? "flex-row flex-wrap gap-0.5 justify-end" : "flex-col gap-1"}`}
           >
+            {canAddToActive && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className={`border-blue-500/40 text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-950/30 ${
+                  compact ? "h-6 w-6 p-0" : "h-7 px-2 text-[11px]"
+                }`}
+                disabled={isBusy}
+                onClick={() => handleAddToActiveCart(sale)}
+                title="Add invoice items to current cart"
+              >
+                {compact ? (
+                  <Plus className="w-3 h-3" />
+                ) : (
+                  <>
+                    <Plus className="w-3 h-3 mr-1" />
+                    Add here
+                  </>
+                )}
+              </Button>
+            )}
+            {canMergeActiveInto && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className={`border-amber-500/40 text-amber-800 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/30 ${
+                  compact ? "h-6 w-6 p-0" : "h-7 px-2 text-[11px]"
+                }`}
+                disabled={isBusy}
+                onClick={() => handleMergeActiveIntoSale(sale)}
+                title="Merge current cart into this invoice"
+              >
+                {compact ? (
+                  <GitMerge className="w-3 h-3" />
+                ) : (
+                  <>
+                    <GitMerge className="w-3 h-3 mr-1" />
+                    Merge cart
+                  </>
+                )}
+              </Button>
+            )}
             <Button
               type="button"
               size="sm"

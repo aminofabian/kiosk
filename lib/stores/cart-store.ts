@@ -64,6 +64,63 @@ function formatSavedSaleTime(updatedAt: number): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+function pendingSaleCartName(pending: PendingSale): string {
+  return pending.customer_name
+    ? `Saved: ${pending.customer_name}`
+    : `Saved ${formatSavedSaleTime(pending.updated_at)}`;
+}
+
+function pendingItemsToCartItems(pending: PendingSale): CartItem[] {
+  return pending.items.map((pi) => ({
+    itemId: pi.item_id,
+    name: pi.name,
+    price: pi.sell_price_per_unit,
+    quantity: pi.quantity_sold,
+    unitType: 'piece',
+    inventoryBatchId: pi.inventory_batch_id || undefined,
+    batchNumber: pi.batch_number || undefined,
+  }));
+}
+
+function mergeCartItems(existing: CartItem[], incoming: CartItem[]): CartItem[] {
+  const result = existing.map((item) => ({ ...item }));
+  for (const item of incoming) {
+    const idx = result.findIndex(
+      (i) =>
+        i.itemId === item.itemId &&
+        Boolean(i.isBundle) === Boolean(item.isBundle) &&
+        (i.inventoryBatchId || null) === (item.inventoryBatchId || null),
+    );
+    if (idx >= 0) {
+      result[idx] = {
+        ...result[idx],
+        quantity: result[idx].quantity + item.quantity,
+      };
+    } else {
+      result.push({ ...item });
+    }
+  }
+  return result;
+}
+
+function detachPendingFromOtherCarts(
+  carts: Cart[],
+  pendingSaleId: string,
+  keepCartId: string,
+): Cart[] {
+  return carts.map((c) =>
+    c.id !== keepCartId && c.pendingSaleId === pendingSaleId
+      ? {
+          ...c,
+          items: [],
+          total: 0,
+          pendingSaleId: undefined,
+          syncStatus: 'synced' as const,
+        }
+      : c,
+  );
+}
+
 const createEmptyCart = (name: string): Cart => ({
   id: generateCartId(),
   name,
@@ -154,6 +211,8 @@ interface CartStore {
   clearActiveCartPendingSaleId: () => void;
   getLinkedPendingSaleIds: () => string[];
   restorePendingSale: (pending: PendingSale) => string;
+  mergePendingSaleIntoActiveCart: (pending: PendingSale) => string;
+  mergeActiveCartIntoPendingSale: (pending: PendingSale) => string;
   clearCartByPendingSaleId: (pendingSaleId: string) => void;
 }
 
@@ -481,19 +540,9 @@ export const useCartStore = create<CartStore>()(
           return existing.id;
         }
 
-        const items: CartItem[] = pending.items.map((pi) => ({
-          itemId: pi.item_id,
-          name: pi.name,
-          price: pi.sell_price_per_unit,
-          quantity: pi.quantity_sold,
-          unitType: 'piece',
-          inventoryBatchId: pi.inventory_batch_id || undefined,
-          batchNumber: pi.batch_number || undefined,
-        }));
+        const items = pendingItemsToCartItems(pending);
         const total = calculateTotal(items);
-        const cartName = pending.customer_name
-          ? `Saved: ${pending.customer_name}`
-          : `Saved ${formatSavedSaleTime(pending.updated_at)}`;
+        const cartName = pendingSaleCartName(pending);
 
         const emptyCart = state.carts.find(
           (c) => c.items.length === 0 && !c.pendingSaleId,
@@ -531,6 +580,160 @@ export const useCartStore = create<CartStore>()(
           activeCartId: newCart.id,
         });
         return newCart.id;
+      },
+
+      mergePendingSaleIntoActiveCart: (pending) => {
+        const state = get();
+        let activeCartId = state.activeCartId || state.carts[0]?.id;
+        if (!activeCartId) {
+          return get().restorePendingSale(pending);
+        }
+
+        const activeCart = state.carts.find((c) => c.id === activeCartId);
+        if (!activeCart) {
+          return get().restorePendingSale(pending);
+        }
+
+        if (activeCart.pendingSaleId === pending.id) {
+          return activeCartId;
+        }
+
+        const invoiceItems = pendingItemsToCartItems(pending);
+        const mergedItems = mergeCartItems(activeCart.items, invoiceItems);
+        const oldPendingId = activeCart.pendingSaleId;
+        const cartName =
+          activeCart.items.length === 0
+            ? pendingSaleCartName(pending)
+            : activeCart.name;
+
+        set({
+          activeCartId,
+          carts: detachPendingFromOtherCarts(
+            state.carts.map((c) =>
+              c.id === activeCartId
+                ? {
+                    ...c,
+                    name: cartName,
+                    items: mergedItems,
+                    total: calculateTotal(mergedItems),
+                    pendingSaleId: pending.id,
+                    syncStatus: 'syncing' as const,
+                  }
+                : c,
+            ),
+            pending.id,
+            activeCartId,
+          ),
+        });
+
+        if (oldPendingId && oldPendingId !== pending.id) {
+          abandonPendingSaleOnApi(oldPendingId);
+        }
+
+        scheduleCartSync(activeCartId, () =>
+          get().syncPendingSale(activeCartId!),
+        );
+        return activeCartId;
+      },
+
+      mergeActiveCartIntoPendingSale: (pending) => {
+        const state = get();
+        const activeCartId = state.activeCartId || state.carts[0]?.id;
+        if (!activeCartId) {
+          return get().restorePendingSale(pending);
+        }
+
+        const activeCart = state.carts.find((c) => c.id === activeCartId);
+        if (!activeCart) {
+          return get().restorePendingSale(pending);
+        }
+
+        const linkedCart = state.carts.find((c) => c.pendingSaleId === pending.id);
+        const invoiceItems = pendingItemsToCartItems(pending);
+        const cartName = pendingSaleCartName(pending);
+
+        if (linkedCart) {
+          if (linkedCart.id === activeCartId) {
+            return activeCartId;
+          }
+
+          const mergedItems = mergeCartItems(
+            linkedCart.items.length > 0 ? linkedCart.items : invoiceItems,
+            activeCart.items,
+          );
+          const activeOldPending = activeCart.pendingSaleId;
+
+          set({
+            activeCartId: linkedCart.id,
+            carts: detachPendingFromOtherCarts(
+              state.carts.map((c) => {
+                if (c.id === linkedCart.id) {
+                  return {
+                    ...c,
+                    name: cartName,
+                    items: mergedItems,
+                    total: calculateTotal(mergedItems),
+                    pendingSaleId: pending.id,
+                    syncStatus: 'syncing' as const,
+                  };
+                }
+                if (c.id === activeCartId) {
+                  return {
+                    ...c,
+                    items: [],
+                    total: 0,
+                    pendingSaleId: undefined,
+                    syncStatus: 'synced' as const,
+                  };
+                }
+                return c;
+              }),
+              pending.id,
+              linkedCart.id,
+            ),
+          });
+
+          if (activeOldPending && activeOldPending !== pending.id) {
+            abandonPendingSaleOnApi(activeOldPending);
+          }
+
+          scheduleCartSync(linkedCart.id, () =>
+            get().syncPendingSale(linkedCart.id),
+          );
+          return linkedCart.id;
+        }
+
+        if (activeCart.items.length === 0) {
+          return get().restorePendingSale(pending);
+        }
+
+        const mergedItems = mergeCartItems(invoiceItems, activeCart.items);
+        const oldPendingId = activeCart.pendingSaleId;
+
+        set({
+          activeCartId,
+          carts: state.carts.map((c) =>
+            c.id === activeCartId
+              ? {
+                  ...c,
+                  name: cartName,
+                  items: mergedItems,
+                  total: calculateTotal(mergedItems),
+                  pendingSaleId: pending.id,
+                  syncStatus: 'syncing' as const,
+                }
+              : c,
+          ),
+        });
+
+        if (oldPendingId && oldPendingId !== pending.id) {
+          abandonPendingSaleOnApi(oldPendingId);
+        }
+
+        scheduleCartSync(activeCartId, () =>
+          get().syncPendingSale(activeCartId),
+        );
+        return activeCartId;
       },
 
       clearCartByPendingSaleId: (pendingSaleId) => {
