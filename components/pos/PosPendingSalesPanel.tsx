@@ -23,17 +23,26 @@ import { useOnlineStatus } from "@/lib/hooks/use-online-status";
 interface PosPendingSalesPanelProps {
   onResume?: () => void;
   compact?: boolean;
+  refreshTrigger?: number;
 }
 
 export function PosPendingSalesPanel({
   onResume,
   compact = false,
+  refreshTrigger,
 }: PosPendingSalesPanelProps) {
   const isOnline = useOnlineStatus();
   const { user } = useCurrentUser();
   const isAdmin = user?.role === "owner" || user?.role === "admin";
   const { sales, loading, error, orphaned, refresh } = usePendingSales();
   const restorePendingSale = useCartStore((s) => s.restorePendingSale);
+
+  // Refresh on external trigger (e.g. SSE event)
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0) {
+      void refresh();
+    }
+  }, [refreshTrigger, refresh]);
   const clearCartByPendingSaleId = useCartStore(
     (s) => s.clearCartByPendingSaleId,
   );

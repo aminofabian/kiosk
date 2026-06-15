@@ -87,20 +87,40 @@ export function useDepartmentEvents(options: UseDepartmentEventsOptions) {
   useEffect(() => {
     if (!role || role === "superadmin") return;
 
-    let ws: WebSocket | null = null;
-    let reconnectTimer: ReturnType<typeof setTimeout>;
-    let reconnectDelay = 1000;
+    let cleanup: (() => void) | null = null;
+    let tryWs = true;
 
     function connect() {
-      try {
-        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const wsUrl = `${protocol}//${window.location.host}/api/department/events`;
+      if (tryWs) {
+        tryWs = false;
+        tryWebSocket();
+      } else {
+        connectSSE();
+      }
+    }
 
-        ws = new WebSocket(wsUrl);
+    function tryWebSocket() {
+      let settled = false;
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+
+      try {
+        const ws = new WebSocket(
+          `${protocol}//${window.location.host}/api/department/events`,
+        );
+
+        const failTimer = setTimeout(() => {
+          if (!settled) {
+            settled = true;
+            ws.close();
+            // Fall back to SSE
+            cleanup = connectSSE();
+          }
+        }, 2000);
 
         ws.onopen = () => {
-          // Send auth handshake
-          ws?.send(
+          settled = true;
+          clearTimeout(failTimer);
+          ws.send(
             JSON.stringify({
               type: "auth",
               userId: userId || "",
@@ -108,40 +128,70 @@ export function useDepartmentEvents(options: UseDepartmentEventsOptions) {
               role,
             }),
           );
-          reconnectDelay = 1000;
         };
 
         ws.onmessage = (e) => {
           try {
-            const event = JSON.parse(e.data) as DeptEvent;
-            handleEvent(event);
+            handleEvent(JSON.parse(e.data) as DeptEvent);
           } catch {
-            // ignore parse errors
+            /* ignore */
           }
         };
 
         ws.onclose = () => {
-          ws = null;
-          reconnectDelay = Math.min(reconnectDelay * 2, 30000);
-          reconnectTimer = setTimeout(connect, reconnectDelay);
+          clearTimeout(failTimer);
+          if (settled && !fallbackSSE) {
+            // Reconnect via WebSocket after delay
+            setTimeout(() => {
+              tryWs = true;
+              connect();
+            }, 3000);
+          }
         };
 
         ws.onerror = () => {
-          ws?.close();
-          ws = null;
-          reconnectDelay = Math.min(reconnectDelay * 2, 30000);
-          reconnectTimer = setTimeout(connect, reconnectDelay);
+          clearTimeout(failTimer);
+          if (!settled) {
+            settled = true;
+            ws.close();
+            cleanup = connectSSE();
+          }
+        };
+
+        cleanup = () => {
+          clearTimeout(failTimer);
+          settled = true;
+          ws.close();
         };
       } catch {
-        reconnectTimer = setTimeout(connect, reconnectDelay);
+        cleanup = connectSSE();
       }
+    }
+
+    let fallbackSSE = false;
+    function connectSSE(): () => void {
+      fallbackSSE = true;
+      const es = new EventSource("/api/department/events");
+      es.onmessage = (e) => {
+        try {
+          handleEvent(JSON.parse(e.data) as DeptEvent);
+        } catch {
+          /* ignore */
+        }
+      };
+      es.onerror = () => {
+        es.close();
+        setTimeout(() => {
+          cleanup = connectSSE();
+        }, 3000);
+      };
+      return () => es.close();
     }
 
     connect();
 
     return () => {
-      ws?.close();
-      clearTimeout(reconnectTimer);
+      cleanup?.();
     };
   }, [role, userId, businessId, handleEvent]);
 }

@@ -227,6 +227,9 @@ export default function POSPage() {
   const { orphanedCount, refresh: refreshPendingSales } = usePendingSales();
   const { user } = useCurrentUser();
 
+  // Refresh trigger for PosPendingSalesPanel (incremented on SSE events)
+  const [cartRefreshTrigger, setCartRefreshTrigger] = useState(0);
+
   // Auto-select first cart if none is active
   useEffect(() => {
     if (!activeCartId && carts.length > 0) {
@@ -251,9 +254,11 @@ export default function POSPage() {
     businessId: user?.businessId,
     onForwarded: () => {
       refreshPendingSales();
+      setCartRefreshTrigger((k) => k + 1);
     },
     onQueueUpdate: () => {
       refreshPendingSales();
+      setCartRefreshTrigger((k) => k + 1);
     },
   });
 
@@ -2779,6 +2784,7 @@ export default function POSPage() {
                 cartItemCount={cartItemCount}
                 cartTotal={cartTotal}
                 onCheckout={() => setCheckoutDrawerOpen(true)}
+                refreshTrigger={cartRefreshTrigger}
               />
             </div>
           </POSLayout>
