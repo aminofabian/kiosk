@@ -93,11 +93,11 @@ function applyItemsToGrid(
 /** Debounce POS grid search so rapid typing does not hit /api/items every keystroke */
 const ITEM_SEARCH_DEBOUNCE_MS = 280;
 
-/** Dense square grid — up to 10 columns on wide screens (matches POS reference layout). */
+/** Square grid: 2 cols phone · 3 cols iPad (md–lg) · dense on desktop (xl+). */
 const CATALOG_ITEM_GRID_CLASS =
-  'grid w-full gap-1.5 sm:gap-2 grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10';
+  'grid w-full gap-1.5 sm:gap-2 grid-cols-2 md:grid-cols-3 xl:grid-cols-8 2xl:grid-cols-10';
 
-/** Department catalog: 2 cols in narrow panel (iPad) · 10 when center column is wide (desktop) */
+/** Department catalog uses the same responsive column counts as POS. */
 const SQUARE_CATALOG_CONTAINER_CLASS = '@container w-full';
 const SQUARE_CATALOG_GRID_CLASS = CATALOG_ITEM_GRID_CLASS;
 
