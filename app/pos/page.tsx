@@ -554,11 +554,9 @@ export default function POSPage() {
   // Handle selecting a suggestion
   const handleSelectSuggestion = useCallback(
     async (suggestion: { id: string; name: string }) => {
-      setShowSuggestions(false);
-      setSearchQuery("");
       setShowSearch(false);
+      resetSearch();
 
-      // Fetch the full item details and open the dialog
       try {
         const result = await apiGetOffline<Item>(`/api/items/${suggestion.id}`);
         if (result.success && result.data) {
@@ -569,7 +567,7 @@ export default function POSPage() {
         console.error("Error fetching item:", err);
       }
     },
-    [],
+    [resetSearch],
   );
 
   useEffect(() => {
