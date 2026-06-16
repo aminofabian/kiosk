@@ -4,6 +4,7 @@ import { migratePendingSales } from '@/lib/db/migrate-pending-sales';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
 import { hasPermission } from '@/lib/auth/permissions';
+import { canAccessOthersPendingSale } from '@/lib/pos/pending-sale-access';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -48,10 +49,17 @@ export async function DELETE(
     }
 
     if (!canViewAll && existing.user_id !== auth.userId) {
-      return jsonResponse(
-        { success: false, message: 'Cannot abandon another cashier pending sale' },
-        403,
+      const canDiscard = await canAccessOthersPendingSale(
+        auth.role,
+        auth.userId,
+        existing.user_id,
       );
+      if (!canDiscard) {
+        return jsonResponse(
+          { success: false, message: 'Cannot abandon another cashier pending sale' },
+          403,
+        );
+      }
     }
 
     const now = Math.floor(Date.now() / 1000);

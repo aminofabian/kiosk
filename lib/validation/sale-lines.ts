@@ -17,6 +17,8 @@ export interface ValidateSaleLinesOptions {
   role: UserRole;
   lines: SaleLineInput[];
   managerPin?: string;
+  /** Business setting: cashiers may oversell without manager PIN */
+  allowSellOutOfStock?: boolean;
 }
 
 export interface SaleLineValidationError {
@@ -38,6 +40,8 @@ export interface ValidateSaleLinesResult {
   ok: boolean;
   errors: SaleLineValidationError[];
   managerAuthorized: boolean;
+  /** True when stock may go negative (manager approval or business setting). */
+  allowNegativeStock: boolean;
 }
 
 interface ItemRow {
@@ -92,7 +96,7 @@ async function isBatchExpired(batchId: string, businessId: string): Promise<bool
 export async function validateSaleLines(
   options: ValidateSaleLinesOptions
 ): Promise<ValidateSaleLinesResult> {
-  const { businessId, role, lines, managerPin } = options;
+  const { businessId, role, lines, managerPin, allowSellOutOfStock = false } = options;
   const errors: SaleLineValidationError[] = [];
 
   const canOverridePrice = hasPermission(role, 'can_override_price');
@@ -101,6 +105,7 @@ export async function validateSaleLines(
       ? await verifyManagerPin(businessId, managerPin)
       : null;
   const managerAuthorized = canOverridePrice || manager !== null;
+  const allowNegativeStock = managerAuthorized || allowSellOutOfStock;
 
   for (const line of lines) {
     if (!line.itemId || line.quantity <= 0) {
@@ -180,7 +185,7 @@ export async function validateSaleLines(
       continue;
     }
 
-    if (line.quantity > item.current_stock + EPS && !managerAuthorized) {
+    if (line.quantity > item.current_stock + EPS && !allowNegativeStock) {
       errors.push({
         itemId: line.itemId,
         itemName: item.name,
@@ -191,5 +196,5 @@ export async function validateSaleLines(
     }
   }
 
-  return { ok: errors.length === 0, errors, managerAuthorized };
+  return { ok: errors.length === 0, errors, managerAuthorized, allowNegativeStock };
 }

@@ -57,7 +57,7 @@ interface PaymentStatusResponse {
 interface CheckoutFormProps {
   onBackToCart?: () => void;
   onContinueShopping?: () => void;
-  onSaleComplete?: (saleId: string) => void;
+  onSaleComplete?: (saleId: string, pendingSaleId?: string) => void;
 }
 
 export function CheckoutForm({
@@ -539,11 +539,12 @@ export function CheckoutForm({
         return;
       }
 
-      const pendingSaleId = getActiveCartPendingSaleId();
+      const linkedPendingSaleId = getActiveCartPendingSaleId();
       if (activeCartId) {
         await syncPendingSale(activeCartId);
         const cart = useCartStore.getState().carts.find((c) => c.id === activeCartId);
-        if (cart?.syncStatus === "error") {
+        const stillLinked = cart?.pendingSaleId ?? linkedPendingSaleId;
+        if (cart?.syncStatus === "error" && !stillLinked) {
           setError("Could not save cart to server. Check your connection and try again.");
           setIsProcessing(false);
           return;
@@ -588,7 +589,8 @@ export function CheckoutForm({
         requestBody.managerPin = effectivePin;
       }
       const resolvedPendingSaleId =
-        useCartStore.getState().getActiveCartPendingSaleId() ?? pendingSaleId;
+        useCartStore.getState().getActiveCartPendingSaleId() ??
+        linkedPendingSaleId;
       if (resolvedPendingSaleId) {
         requestBody.pendingSaleId = resolvedPendingSaleId;
       }
@@ -603,7 +605,7 @@ export function CheckoutForm({
       if (result.success && result.data) {
         clearCart({ skipAbandon: true });
         if (onSaleComplete) {
-          onSaleComplete(result.data.saleId);
+          onSaleComplete(result.data.saleId, resolvedPendingSaleId ?? undefined);
         } else {
           router.push(`/pos/receipt/${result.data.saleId}?print=true`);
         }

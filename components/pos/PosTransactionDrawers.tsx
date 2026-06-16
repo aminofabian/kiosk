@@ -32,7 +32,7 @@ interface PosTransactionDrawersProps {
   receiptLoading: boolean;
   receiptError: string | null;
   receiptData: ReceiptPayload | null;
-  onSaleComplete: (saleId: string) => void;
+  onSaleComplete: (saleId: string, pendingSaleId?: string) => void;
   onDirectPrint: () => void;
   onContinueShoppingFromReceipt: () => void;
 }

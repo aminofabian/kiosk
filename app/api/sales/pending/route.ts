@@ -8,6 +8,7 @@ import { generateUUID } from "@/lib/utils/uuid";
 import { jsonResponse, optionsResponse } from "@/lib/utils/api-response";
 import { requireAuth, isAuthResponse } from "@/lib/auth/api-auth";
 import { hasPermission } from "@/lib/auth/permissions";
+import { canAccessOthersPendingSale } from "@/lib/pos/pending-sale-access";
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -121,13 +122,24 @@ export async function POST(request: NextRequest) {
       let saleId: string;
 
       if (typeof body.pendingSaleId === "string" && body.pendingSaleId) {
-        // Verify the pending sale exists and belongs to this user/business.
-        const existing = await tx.queryOne<{ id: string; status: string }>(
-          `SELECT id, status FROM sales
-           WHERE id = ? AND business_id = ? AND user_id = ?`,
-          [body.pendingSaleId, auth.businessId, auth.userId],
+        const existing = await tx.queryOne<{
+          id: string;
+          status: string;
+          user_id: string;
+        }>(
+          `SELECT id, status, user_id FROM sales
+           WHERE id = ? AND business_id = ?`,
+          [body.pendingSaleId, auth.businessId],
         );
         if (!existing || existing.status !== "pending") {
+          throw new Error("Pending sale not found");
+        }
+        const canUpdate = await canAccessOthersPendingSale(
+          auth.role,
+          auth.userId,
+          existing.user_id,
+        );
+        if (!canUpdate) {
           throw new Error("Pending sale not found");
         }
         saleId = existing.id;

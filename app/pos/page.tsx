@@ -3355,9 +3355,10 @@ export default function POSPage() {
           receiptLoading={receiptLoading}
           receiptError={receiptError}
           receiptData={receiptData}
-          onSaleComplete={(saleId) => {
-            removeSale(saleId);
-            clearCartByPendingSaleId(saleId);
+          onSaleComplete={(saleId, pendingSaleId) => {
+            const completedPendingId = pendingSaleId ?? saleId;
+            removeSale(completedPendingId);
+            clearCartByPendingSaleId(completedPendingId);
             void refreshPendingSales();
             setCartRefreshTrigger((k) => k + 1);
             setCheckoutDrawerOpen(false);

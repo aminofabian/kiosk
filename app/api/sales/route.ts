@@ -3,6 +3,7 @@ import { execute, queryOne, query, transaction } from "@/lib/db";
 import { generateUUID } from "@/lib/utils/uuid";
 import { jsonResponse, optionsResponse } from "@/lib/utils/api-response";
 import { requirePermission, isAuthResponse } from "@/lib/auth/api-auth";
+import { canAccessOthersPendingSale } from "@/lib/pos/pending-sale-access";
 import { toProperCustomerName } from "@/lib/utils/customer-name";
 import {
   primaryCreditPhone,
@@ -140,36 +141,19 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      if (
-        pendingSale.user_id !== auth.userId &&
-        auth.role !== "admin" &&
-        auth.role !== "owner"
-      ) {
-        // Allow cashiers to complete pending sales created by department staff
-        if (auth.role !== "cashier") {
-          return jsonResponse(
-            {
-              success: false,
-              message: "Cannot complete another cashier's pending sale",
-            },
-            403,
-          );
-        }
-
-        // If cashier, check if the creator is department_staff
-        const creator = await queryOne<{ role: string }>(
-          `SELECT role FROM users WHERE id = ?`,
-          [pendingSale.user_id],
+      const canComplete = await canAccessOthersPendingSale(
+        auth.role,
+        auth.userId,
+        pendingSale.user_id,
+      );
+      if (!canComplete) {
+        return jsonResponse(
+          {
+            success: false,
+            message: "Cannot complete another cashier's pending sale",
+          },
+          403,
         );
-        if (!creator || creator.role !== "department_staff") {
-          return jsonResponse(
-            {
-              success: false,
-              message: "Cannot complete another cashier's pending sale",
-            },
-            403,
-          );
-        }
       }
 
       originatedByUserId = pendingSale.originated_by_user_id;

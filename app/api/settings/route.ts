@@ -8,6 +8,10 @@ import {
   mergeSettingsProductTypes,
   type ProductTypeConfig,
 } from '@/lib/types/product-types';
+import {
+  parseAllowSellOutOfStock,
+  mergeSettingsAllowSellOutOfStock,
+} from '@/lib/utils/stock-settings';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -34,12 +38,14 @@ export async function GET() {
     }
 
     const productTypes = parseProductTypes(business.settings);
+    const allowSellOutOfStock = parseAllowSellOutOfStock(business.settings);
 
     return jsonResponse({
       success: true,
       data: {
         productTypes,
         loyaltyPointsPerKes: Number(business.loyalty_points_per_kes ?? 0),
+        allowSellOutOfStock,
       },
     });
   } catch (error) {
