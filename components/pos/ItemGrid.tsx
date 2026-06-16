@@ -705,6 +705,7 @@ export function ItemGrid({
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    let cancelled = false;
 
     async function fetchItems() {
       try {
@@ -716,7 +717,7 @@ export function ItemGrid({
           { signal: controller.signal, cache: "no-store" },
         );
 
-        if (controller.signal.aborted) return;
+        if (cancelled) return;
 
         const result = await response.json();
 
@@ -727,11 +728,11 @@ export function ItemGrid({
           setError(result.message || "Failed to load items");
         }
       } catch (err) {
-        if (err instanceof Error && err.name === "AbortError") return;
+        if (cancelled) return;
         setError("Failed to load items");
         console.error("Error fetching items:", err);
       } finally {
-        if (!controller.signal.aborted) {
+        if (!cancelled) {
           setLoading(false);
         }
       }
@@ -740,6 +741,7 @@ export function ItemGrid({
     fetchItems();
 
     return () => {
+      cancelled = true;
       controller.abort();
     };
   }, [
