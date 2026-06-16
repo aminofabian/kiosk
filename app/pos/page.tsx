@@ -230,8 +230,11 @@ export default function POSPage() {
     createCart,
     clearCartByPendingSaleId,
   } = useCartStore();
-  const { orphanedCount, refresh: refreshPendingSales, removeSale } =
-    usePendingSales();
+  const {
+    orphanedCount,
+    refresh: refreshPendingSales,
+    removeSale,
+  } = usePendingSales();
   const { user } = useCurrentUser();
 
   // Refresh trigger for PosPendingSalesPanel (incremented on SSE events)
@@ -274,7 +277,10 @@ export default function POSPage() {
     },
     onQueueUpdate: (event) => {
       const pendingSaleId = event.data.pendingSaleId;
-      if (event.data.action === "completed" && typeof pendingSaleId === "string") {
+      if (
+        event.data.action === "completed" &&
+        typeof pendingSaleId === "string"
+      ) {
         removeSale(pendingSaleId);
         clearCartByPendingSaleId(pendingSaleId);
       }
@@ -318,8 +324,9 @@ export default function POSPage() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [statsMenuOpen]);
 
-  // Debounced search - waits 100ms after user stops typing (snappy response)
+  // Debounced search - 50ms for suggestions (instant feel), 100ms for item grid
   const debouncedSearchQuery = useDebounce(searchQuery, 100);
+  const quickDebouncedSearchQuery = useDebounce(searchQuery, 50);
   const isSearchPending =
     searchQuery !== debouncedSearchQuery && searchQuery.length > 0;
 
@@ -586,7 +593,8 @@ export default function POSPage() {
   const suggestCacheRef = useRef<
     Map<string, { data: typeof searchSuggestions; ts: number }>
   >(new Map());
-  const SUGGEST_CACHE_TTL = 30_000; // 30 seconds
+  const SUGGEST_CACHE_TTL = 5 * 60_000; // 5 minutes
+  const SUGGEST_PREFETCH_CACHE_TTL = 2_000; // 2s for optimistically showing previous results
 
   // Fetch search suggestions: offline = cached search, online = /api/items/suggest
   useEffect(() => {
@@ -623,12 +631,65 @@ export default function POSPage() {
       return;
     }
 
-    // Online: check in-memory cache first
+    // Online: check cache - show cached immediately, refresh in background
     const cached = suggestCacheRef.current.get(cacheKey);
-    if (cached && Date.now() - cached.ts < SUGGEST_CACHE_TTL) {
-      setSearchSuggestions(cached.data);
-      setShowSuggestions(cached.data.length > 0);
-      setSelectedSuggestionIndex(-1);
+    if (cached) {
+      const age = Date.now() - cached.ts;
+      // Show cached results immediately
+      if (age < SUGGEST_PREFETCH_CACHE_TTL || searchQuery.length <= 2) {
+        setSearchSuggestions(cached.data);
+        setShowSuggestions(cached.data.length > 0);
+        setSelectedSuggestionIndex(-1);
+      }
+      // Skip network if cache is still fresh
+      if (age < SUGGEST_CACHE_TTL) {
+        if (age >= SUGGEST_PREFETCH_CACHE_TTL && searchQuery.length > 2) {
+          setSearchSuggestions(cached.data);
+          setShowSuggestions(cached.data.length > 0);
+          setSelectedSuggestionIndex(-1);
+        }
+        setLoadingSuggestions(false);
+        return;
+      }
+      // Still show cached while we refresh in background for short queries
+      if (searchQuery.length <= 3) {
+        setSearchSuggestions(cached.data);
+        setShowSuggestions(cached.data.length > 0);
+        setSelectedSuggestionIndex(-1);
+      }
+    }
+
+    // Don't flash loading for < 3 chars — just fetch in background
+    if (searchQuery.length < 3 && cached) {
+      // Fire-and-forget background refresh
+      const bgController = new AbortController();
+      fetch(
+        `/api/items/suggest?q=${encodeURIComponent(searchQuery)}&limit=10`,
+        { signal: bgController.signal },
+      )
+        .then((r) => r.json())
+        .then((result) => {
+          if (result.success && result.data) {
+            const suggestions = result.data.map((item: any) => ({
+              id: item.id,
+              name: item.name,
+              variant_name: item.variant_name,
+              current_sell_price: item.current_sell_price,
+              unit_type: item.unit_type,
+              category_name: item.category_name,
+              parent_item_id: item.parent_item_id,
+              parent_name: item.parent_name,
+              sibling_count: item.sibling_count,
+            }));
+            suggestCacheRef.current.set(cacheKey, {
+              data: suggestions,
+              ts: Date.now(),
+            });
+            setSearchSuggestions(suggestions);
+            setShowSuggestions(suggestions.length > 0);
+          }
+        })
+        .catch(() => {});
       setLoadingSuggestions(false);
       return;
     }
@@ -701,7 +762,7 @@ export default function POSPage() {
     return () => {
       controller.abort();
     };
-  }, [searchQuery]);
+  }, [searchQuery, quickDebouncedSearchQuery]);
 
   // Close suggestions when clicking outside (use 'click' so suggestion button onClick runs first)
   useEffect(() => {

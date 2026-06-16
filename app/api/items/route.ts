@@ -242,6 +242,70 @@ export async function GET(request: NextRequest) {
       }
 
       // When search returns variants, include their parents so the grid can display them
+      // ── Fuzzy fallback: split a single unspaced word into two for typo/spacing tolerance ──
+      if (
+        items.length === 0 &&
+        !searchLower.includes(" ") &&
+        searchLower.length >= 6 &&
+        searchLower.length <= 20
+      ) {
+        const fuzzyMatches: string[] = [];
+        for (let i = 3; i < searchLower.length - 2; i++) {
+          fuzzyMatches.push(
+            `${searchLower.slice(0, i)}* AND ${searchLower.slice(i)}*`,
+          );
+        }
+        // Try FTS with all word splits using OR
+        const sellableFuzzyFilter = sellableOnly
+          ? ` AND (i.parent_item_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1))`
+          : "";
+        if (useItemFts && fuzzyMatches.length > 0) {
+          const fuzzyQuery = `(${fuzzyMatches.join(" OR ")})`;
+          const fuzzyItems = await query<Item>(
+            `SELECT i.* FROM items_fts
+             INNER JOIN items i ON i.id = items_fts.item_id
+             WHERE items_fts.business_id = ?
+               AND items_fts MATCH ?
+               AND i.active = 1${sellableFuzzyFilter}
+             ORDER BY bm25(items_fts), i.name ASC
+             LIMIT ?`,
+            [auth.businessId, fuzzyQuery, limit],
+          );
+          if (fuzzyItems.length > 0) items = fuzzyItems;
+        }
+        // Also try LIKE with spaces between each possible split
+        if (items.length === 0) {
+          for (let i = 3; i < searchLower.length - 2; i++) {
+            const w1 = searchLower.slice(0, i);
+            const w2 = searchLower.slice(i);
+            const fuzzyLikeItems = await query<Item>(
+              `SELECT i.* FROM items i
+               LEFT JOIN items p ON i.parent_item_id = p.id AND p.business_id = i.business_id
+               WHERE i.business_id = ? AND i.active = 1
+               AND (
+                 (LOWER(i.name) LIKE ? AND LOWER(i.name) LIKE ?)
+                 OR (LOWER(COALESCE(i.variant_name, '')) LIKE ? AND LOWER(COALESCE(i.variant_name, '')) LIKE ?)
+               )${sellableFuzzyFilter}
+               ORDER BY i.name ASC
+               LIMIT ?`,
+              [
+                auth.businessId,
+                `%${w1}%`,
+                `%${w2}%`,
+                `%${w1}%`,
+                `%${w2}%`,
+                limit,
+              ],
+            );
+            if (fuzzyLikeItems.length > 0) {
+              items = fuzzyLikeItems;
+              break;
+            }
+          }
+        }
+      }
+
+      // When search returns variants, include their parents so the grid can display them
       const variantParentIds = [
         ...new Set(
           items
