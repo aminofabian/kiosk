@@ -7,7 +7,6 @@ import { ItemGrid } from "@/components/pos/ItemGrid";
 import { AddToCartDialog } from "@/components/pos/AddToCartDialog";
 import { OutOfStockRequestModal } from "@/components/pos/OutOfStockRequestModal";
 import { VariantSelector } from "@/components/pos/VariantSelector";
-import { PosClearCacheButton } from "@/components/pos/PosClearCacheButton";
 import { PosCategoryChips } from "@/components/pos/PosCategoryChips";
 import { PosTransactionDrawers } from "@/components/pos/PosTransactionDrawers";
 import { PosCartColumn } from "@/components/pos/PosCartColumn";
@@ -23,7 +22,6 @@ import {
   PosShiftStatusBar,
 } from "@/components/pos/PosCashierOperations";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
   Drawer,
