@@ -29,6 +29,7 @@ import {
 import { getItemDisplayName } from "@/lib/utils";
 import { resolveItemImageUrl } from "@/lib/utils/item-images";
 import { PosQuickSellPhoto } from "@/components/pos/PosQuickSellPhoto";
+import { searchItemsGridOffline } from "@/lib/offline/search";
 
 interface ItemWithVariants extends Item {
   isParent?: boolean;
@@ -103,6 +104,61 @@ function applyItemsToGrid(
       : allItems.filter((item) => itemMatchesShopType(item, shopType));
 
   const grouped = groupItemsForDisplay(scoped);
+  setGroupedItems(grouped);
+
+  const processedItems: ItemWithVariants[] = grouped.flatMap((group) => {
+    if (group.type === "parent" && group.children) {
+      return group.children.map((child) => ({
+        ...child,
+        parentName: group.parent?.name,
+      }));
+    }
+    return group.item ? [group.item] : [];
+  });
+  setItems(processedItems);
+}
+
+function applySearchResultsToGrid(
+  allItems: Item[],
+  shopType: string,
+  itemTypeKeys: string[] | undefined,
+  categoryMap: Map<string, string>,
+  setShowingOtherShopType: (showing: boolean) => void,
+  setGroupedItems: (grouped: GroupedItem[]) => void,
+  setItems: (items: ItemWithVariants[]) => void,
+) {
+  let filteredItems: Item[];
+  let isShowingOtherShopType = false;
+
+  if (shopType === SHOP_TYPE_ALL) {
+    filteredItems = allItems;
+  } else {
+    const matchesTypeFilter = (items: Item[], type: string) =>
+      items.filter((item) => {
+        const categoryName = categoryMap.get(item.category_id);
+        if (categoryName && !shouldShowCategory(categoryName, type)) return false;
+        return itemMatchesShopType(item, type);
+      });
+
+    filteredItems = matchesTypeFilter(allItems, shopType);
+
+    if (filteredItems.length === 0 && allItems.length > 0) {
+      const keys = itemTypeKeys?.length ? itemTypeKeys : ["grocery", "retail"];
+      for (const key of keys) {
+        if (key === shopType) continue;
+        const alt = matchesTypeFilter(allItems, key);
+        if (alt.length > 0) {
+          filteredItems = alt;
+          isShowingOtherShopType = true;
+          break;
+        }
+      }
+    }
+  }
+
+  setShowingOtherShopType(isShowingOtherShopType);
+
+  const grouped = groupItemsForDisplay(filteredItems);
   setGroupedItems(grouped);
 
   const processedItems: ItemWithVariants[] = grouped.flatMap((group) => {
@@ -561,6 +617,24 @@ export function ItemGrid({
             setLoading(true);
             setError(null);
 
+            const isOffline =
+              typeof navigator !== "undefined" && !navigator.onLine;
+
+            if (isOffline) {
+              const allItems = await searchItemsGridOffline(q, 50);
+              if (cancelled || requestId !== searchRequestIdRef.current) return;
+              applySearchResultsToGrid(
+                allItems,
+                shopType,
+                itemTypeKeys,
+                categoryMapRef.current,
+                setShowingOtherShopType,
+                setGroupedItems,
+                setItems,
+              );
+              return;
+            }
+
             const response = await fetch(
               `/api/items?search=${encodeURIComponent(q)}&sellableOnly=true&limit=50${itemTypesQueryParam(itemTypesFilter)}`,
               { signal: controller.signal, cache: "no-store" },
@@ -573,59 +647,15 @@ export function ItemGrid({
             if (cancelled || requestId !== searchRequestIdRef.current) return;
 
             if (result.success) {
-              const allItems: Item[] = result.data;
-
-              let filteredItems: Item[];
-              let isShowingOtherShopType = false;
-
-              if (shopType === SHOP_TYPE_ALL) {
-                filteredItems = allItems;
-              } else {
-                const matchesTypeFilter = (items: Item[], type: string) =>
-                  items.filter((item) => {
-                    const categoryName = categoryMapRef.current.get(
-                      item.category_id,
-                    );
-                    if (categoryName && !shouldShowCategory(categoryName, type))
-                      return false;
-                    return itemMatchesShopType(item, type);
-                  });
-
-                filteredItems = matchesTypeFilter(allItems, shopType);
-
-                if (filteredItems.length === 0 && allItems.length > 0) {
-                  const keys = itemTypeKeys?.length
-                    ? itemTypeKeys
-                    : ["grocery", "retail"];
-                  for (const key of keys) {
-                    if (key === shopType) continue;
-                    const alt = matchesTypeFilter(allItems, key);
-                    if (alt.length > 0) {
-                      filteredItems = alt;
-                      isShowingOtherShopType = true;
-                      break;
-                    }
-                  }
-                }
-              }
-
-              setShowingOtherShopType(isShowingOtherShopType);
-
-              const grouped = groupItemsForDisplay(filteredItems);
-              setGroupedItems(grouped);
-
-              const processedItems: ItemWithVariants[] = grouped.flatMap(
-                (group) => {
-                  if (group.type === "parent" && group.children) {
-                    return group.children.map((child) => ({
-                      ...child,
-                      parentName: group.parent?.name,
-                    }));
-                  }
-                  return group.item ? [group.item] : [];
-                },
+              applySearchResultsToGrid(
+                result.data as Item[],
+                shopType,
+                itemTypeKeys,
+                categoryMapRef.current,
+                setShowingOtherShopType,
+                setGroupedItems,
+                setItems,
               );
-              setItems(processedItems);
             } else {
               setError(result.message || "Failed to search items");
             }
