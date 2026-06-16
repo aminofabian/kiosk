@@ -2164,7 +2164,7 @@ export default function POSPage() {
               <main className="flex-1 min-h-0 overflow-y-auto no-scrollbar pb-[calc(3.25rem+env(safe-area-inset-bottom,0px))] px-3">
                 {debouncedSearchQuery ? (
                   <ItemGrid
-                    key={`search-${debouncedSearchQuery}`}
+                    key="search-mobile"
                     categoryId={null}
                     searchQuery={debouncedSearchQuery}
                     searchDebounceMs={0}
@@ -2235,7 +2235,7 @@ export default function POSPage() {
                 {debouncedSearchQuery ? (
                   <div className="flex-1 min-h-0 flex flex-col -mx-1">
                     <ItemGrid
-                      key={`msearch-${debouncedSearchQuery}`}
+                      key="msearch"
                       categoryId={null}
                       searchQuery={debouncedSearchQuery}
                     searchDebounceMs={0}
@@ -2340,7 +2340,7 @@ export default function POSPage() {
               <main className="flex-1 overflow-y-auto no-scrollbar pb-[calc(3.25rem+env(safe-area-inset-bottom,0px))] px-5 sm:px-6">
                 {debouncedSearchQuery ? (
                   <ItemGrid
-                    key={`csearch-${debouncedSearchQuery}`}
+                    key="csearch"
                     categoryId={null}
                     searchQuery={debouncedSearchQuery}
                     searchDebounceMs={0}
@@ -2631,7 +2631,7 @@ export default function POSPage() {
                     <ItemGrid
                       key={
                         debouncedSearchQuery
-                          ? `grid-q-${debouncedSearchQuery}`
+                          ? "grid-search"
                           : `grid-${selectedCategoryId ?? "home"}-${refreshKey}`
                       }
                         categoryId={

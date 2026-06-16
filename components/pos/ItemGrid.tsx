@@ -544,21 +544,18 @@ export function ItemGrid({
   );
 
   useEffect(() => {
-    // Abort any pending request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
     if (searchQuery) {
       const controller = new AbortController();
       abortControllerRef.current = controller;
       const requestId = ++searchRequestIdRef.current;
       let cancelled = false;
+      const searchTimeoutMs = 20_000;
+      const timeoutId = window.setTimeout(() => controller.abort(), searchTimeoutMs);
 
       const q = searchQuery;
       const runSearch = () => {
         void (async () => {
-          if (cancelled || requestId !== searchRequestIdRef.current) return;
+          if (cancelled) return;
 
           try {
             setLoading(true);
@@ -634,10 +631,18 @@ export function ItemGrid({
             }
           } catch (err) {
             if (cancelled || requestId !== searchRequestIdRef.current) return;
-            if (err instanceof Error && err.name === "AbortError") return;
+            if (err instanceof Error && err.name === "AbortError") {
+              if (!cancelled) {
+                setError(
+                  "Search timed out. Check your connection and try again.",
+                );
+              }
+              return;
+            }
             setError("Failed to search items");
             console.error("Error searching items:", err);
           } finally {
+            window.clearTimeout(timeoutId);
             if (requestId === searchRequestIdRef.current) {
               setLoading(false);
             }
@@ -652,14 +657,26 @@ export function ItemGrid({
         return () => {
           cancelled = true;
           window.clearTimeout(tid);
+          window.clearTimeout(timeoutId);
           controller.abort();
+          if (requestId === searchRequestIdRef.current) {
+            setLoading(false);
+          }
         };
       }
 
       return () => {
         cancelled = true;
+        window.clearTimeout(timeoutId);
         controller.abort();
+        if (requestId === searchRequestIdRef.current) {
+          setLoading(false);
+        }
       };
+    }
+
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
     }
 
     setShowingOtherShopType(false);
@@ -759,7 +776,7 @@ export function ItemGrid({
     categoryId,
     searchQuery,
     shopType,
-    itemTypeKeys,
+    itemTypeKeys?.join("\0") ?? "",
     itemTypesFilter,
     showShopTypeCatalog,
     searchDebounceMs,
