@@ -16,7 +16,6 @@ import { buildCreditDebtLineItemsSnapshotJson } from "@/lib/db/credit-debt-line-
 import { migrateCreditDebtLineItemsSnapshot } from "@/lib/db/migrate-credit-debt-line-items-snapshot";
 import { migratePendingSales } from "@/lib/db/migrate-pending-sales";
 import { validateSaleLines } from "@/lib/validation/sale-lines";
-import { verifyManagerPin } from "@/lib/auth/verify-manager-pin";
 import { parseAllowSellOutOfStock } from "@/lib/utils/stock-settings";
 import {
   processSaleStockDeduction,
@@ -209,26 +208,6 @@ export async function POST(request: NextRequest) {
 
     const managerPin =
       typeof body.managerPin === "string" ? body.managerPin.trim() : undefined;
-    const mpesaManualOverride = body.mpesaManualOverride === true;
-
-    if (!fromEdit && paymentMethod === "mpesa" && mpesaManualOverride) {
-      if (!managerPin) {
-        return jsonResponse(
-          {
-            success: false,
-            message: "Manager PIN is required to mark M-Pesa as paid manually",
-          },
-          403,
-        );
-      }
-      const manager = await verifyManagerPin(auth.businessId, managerPin);
-      if (!manager) {
-        return jsonResponse(
-          { success: false, message: "Invalid manager PIN" },
-          403,
-        );
-      }
-    }
 
     const businessSettings = await queryOne<{ settings: string | null }>(
       `SELECT settings FROM businesses WHERE id = ?`,

@@ -241,7 +241,6 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // When search returns variants, include their parents so the grid can display them
       // ── Fuzzy fallback: split a single unspaced word into two for typo/spacing tolerance ──
       if (
         items.length === 0 &&

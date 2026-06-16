@@ -118,6 +118,7 @@ import {
 } from "@/lib/pos/category-maps";
 import { usePosKeyboardShortcuts } from "@/lib/hooks/use-pos-keyboard-shortcuts";
 import { usePendingSales } from "@/lib/hooks/use-pending-sales";
+import { isDepartmentOrder } from "@/lib/pos/pending-sales";
 import { useDepartmentEvents } from "@/lib/hooks/use-department-events";
 
 export default function POSPage() {
@@ -231,10 +232,14 @@ export default function POSPage() {
     clearCartByPendingSaleId,
   } = useCartStore();
   const {
-    orphanedCount,
+    orphaned,
     refresh: refreshPendingSales,
     removeSale,
   } = usePendingSales();
+  const departmentOrphanedCount = useMemo(
+    () => orphaned.filter(isDepartmentOrder).length,
+    [orphaned],
+  );
   const { user } = useCurrentUser();
 
   // Refresh trigger for PosPendingSalesPanel (incremented on SSE events)
@@ -324,8 +329,8 @@ export default function POSPage() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [statsMenuOpen]);
 
-  // Debounced search - 50ms for suggestions (instant feel), 100ms for item grid
-  const debouncedSearchQuery = useDebounce(searchQuery, 100);
+  // Debounced search - 50ms for suggestions (instant feel), 80ms for item grid
+  const debouncedSearchQuery = useDebounce(searchQuery, 80);
   const quickDebouncedSearchQuery = useDebounce(searchQuery, 50);
   const isSearchPending =
     searchQuery !== debouncedSearchQuery && searchQuery.length > 0;
@@ -594,7 +599,60 @@ export default function POSPage() {
     Map<string, { data: typeof searchSuggestions; ts: number }>
   >(new Map());
   const SUGGEST_CACHE_TTL = 5 * 60_000; // 5 minutes
-  const SUGGEST_PREFETCH_CACHE_TTL = 2_000; // 2s for optimistically showing previous results
+
+  const mapSuggestItem = useCallback(
+    (item: {
+      id: string;
+      name: string;
+      variant_name?: string | null;
+      current_sell_price: number;
+      unit_type?: string;
+      category_name?: string | null;
+      parent_item_id?: string | null;
+      parent_name?: string | null;
+      sibling_count?: number;
+      batch_number?: string | null;
+    }) => ({
+      id: item.id,
+      name: item.name,
+      variant_name: item.variant_name,
+      current_sell_price: item.current_sell_price,
+      unit_type: item.unit_type,
+      category_name: item.category_name,
+      parent_item_id: item.parent_item_id,
+      parent_name: item.parent_name,
+      sibling_count: item.sibling_count,
+      batch_number: item.batch_number,
+    }),
+    [],
+  );
+
+  const filterSuggestionsForQuery = useCallback(
+    (
+      suggestions: typeof searchSuggestions,
+      query: string,
+    ): typeof searchSuggestions => {
+      const q = query.toLowerCase().trim();
+      if (!q) return suggestions;
+      const filtered = suggestions.filter((s) => {
+        const hay = `${s.name} ${s.variant_name ?? ""} ${s.parent_name ?? ""} ${s.category_name ?? ""}`.toLowerCase();
+        return hay.includes(q);
+      });
+      return filtered.length > 0 ? filtered : suggestions;
+    },
+    [],
+  );
+
+  const findWarmSuggestionCache = useCallback((query: string) => {
+    const key = query.toLowerCase().trim();
+    const exact = suggestCacheRef.current.get(key);
+    if (exact) return exact;
+    for (let len = key.length - 1; len >= 1; len--) {
+      const prefix = suggestCacheRef.current.get(key.slice(0, len));
+      if (prefix) return prefix;
+    }
+    return null;
+  }, []);
 
   // Fetch search suggestions: offline = cached search, online = /api/items/suggest
   useEffect(() => {
@@ -617,79 +675,35 @@ export default function POSPage() {
     const cacheKey = searchQuery.toLowerCase().trim();
     const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
 
+    const applySuggestions = (suggestions: typeof searchSuggestions) => {
+      setSearchSuggestions(suggestions);
+      setShowSuggestions(suggestions.length > 0);
+      setSelectedSuggestionIndex(-1);
+    };
+
     // Offline: search cached items
     if (isOffline) {
       setLoadingSuggestions(true);
       searchItemsOffline(searchQuery, 10)
         .then((suggestions) => {
-          setSearchSuggestions(suggestions);
-          setShowSuggestions(suggestions.length > 0);
-          setSelectedSuggestionIndex(-1);
+          applySuggestions(suggestions);
         })
         .catch((err) => console.error("Offline search error:", err))
         .finally(() => setLoadingSuggestions(false));
       return;
     }
 
-    // Online: check cache - show cached immediately, refresh in background
-    const cached = suggestCacheRef.current.get(cacheKey);
-    if (cached) {
-      const age = Date.now() - cached.ts;
-      // Show cached results immediately
-      if (age < SUGGEST_PREFETCH_CACHE_TTL || searchQuery.length <= 2) {
-        setSearchSuggestions(cached.data);
-        setShowSuggestions(cached.data.length > 0);
-        setSelectedSuggestionIndex(-1);
-      }
-      // Skip network if cache is still fresh
-      if (age < SUGGEST_CACHE_TTL) {
-        if (age >= SUGGEST_PREFETCH_CACHE_TTL && searchQuery.length > 2) {
-          setSearchSuggestions(cached.data);
-          setShowSuggestions(cached.data.length > 0);
-          setSelectedSuggestionIndex(-1);
-        }
-        setLoadingSuggestions(false);
-        return;
-      }
-      // Still show cached while we refresh in background for short queries
-      if (searchQuery.length <= 3) {
-        setSearchSuggestions(cached.data);
-        setShowSuggestions(cached.data.length > 0);
-        setSelectedSuggestionIndex(-1);
-      }
+    // Show prefix/exact cache instantly while fetching updated results
+    const warmCache = findWarmSuggestionCache(cacheKey);
+    if (warmCache) {
+      applySuggestions(
+        filterSuggestionsForQuery(warmCache.data, cacheKey),
+      );
     }
 
-    // Don't flash loading for < 3 chars — just fetch in background
-    if (searchQuery.length < 3 && cached) {
-      // Fire-and-forget background refresh
-      const bgController = new AbortController();
-      fetch(
-        `/api/items/suggest?q=${encodeURIComponent(searchQuery)}&limit=10`,
-        { signal: bgController.signal },
-      )
-        .then((r) => r.json())
-        .then((result) => {
-          if (result.success && result.data) {
-            const suggestions = result.data.map((item: any) => ({
-              id: item.id,
-              name: item.name,
-              variant_name: item.variant_name,
-              current_sell_price: item.current_sell_price,
-              unit_type: item.unit_type,
-              category_name: item.category_name,
-              parent_item_id: item.parent_item_id,
-              parent_name: item.parent_name,
-              sibling_count: item.sibling_count,
-            }));
-            suggestCacheRef.current.set(cacheKey, {
-              data: suggestions,
-              ts: Date.now(),
-            });
-            setSearchSuggestions(suggestions);
-            setShowSuggestions(suggestions.length > 0);
-          }
-        })
-        .catch(() => {});
+    const cached = suggestCacheRef.current.get(cacheKey);
+    if (cached && Date.now() - cached.ts < SUGGEST_CACHE_TTL) {
+      applySuggestions(cached.data);
       setLoadingSuggestions(false);
       return;
     }
@@ -700,7 +714,7 @@ export default function POSPage() {
     async function fetchSuggestions() {
       if (controller.signal.aborted) return;
       try {
-        setLoadingSuggestions(true);
+        if (!warmCache) setLoadingSuggestions(true);
         const response = await fetch(
           `/api/items/suggest?q=${encodeURIComponent(searchQuery)}&limit=10`,
           { signal: controller.signal, cache: "no-store" },
@@ -711,29 +725,7 @@ export default function POSPage() {
         const result = await response.json();
 
         if (result.success && result.data) {
-          const suggestions = result.data.map(
-            (item: {
-              id: string;
-              name: string;
-              variant_name?: string | null;
-              current_sell_price: number;
-              unit_type?: string;
-              category_name?: string | null;
-              parent_item_id?: string | null;
-              parent_name?: string | null;
-              sibling_count?: number;
-            }) => ({
-              id: item.id,
-              name: item.name,
-              variant_name: item.variant_name,
-              current_sell_price: item.current_sell_price,
-              unit_type: item.unit_type,
-              category_name: item.category_name,
-              parent_item_id: item.parent_item_id,
-              parent_name: item.parent_name,
-              sibling_count: item.sibling_count,
-            }),
-          );
+          const suggestions = result.data.map(mapSuggestItem);
           suggestCacheRef.current.set(cacheKey, {
             data: suggestions,
             ts: Date.now(),
@@ -744,9 +736,7 @@ export default function POSPage() {
             )[0];
             if (oldest) suggestCacheRef.current.delete(oldest[0]);
           }
-          setSearchSuggestions(suggestions);
-          setShowSuggestions(suggestions.length > 0);
-          setSelectedSuggestionIndex(-1);
+          applySuggestions(suggestions);
         }
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") return;
@@ -762,7 +752,13 @@ export default function POSPage() {
     return () => {
       controller.abort();
     };
-  }, [searchQuery, quickDebouncedSearchQuery]);
+  }, [
+    searchQuery,
+    quickDebouncedSearchQuery,
+    mapSuggestItem,
+    filterSuggestionsForQuery,
+    findWarmSuggestionCache,
+  ]);
 
   // Close suggestions when clicking outside (use 'click' so suggestion button onClick runs first)
   useEffect(() => {
@@ -2727,7 +2723,7 @@ export default function POSPage() {
             onTabChange={handleMobileTabChange}
             onMorePress={() => setMoreSheetOpen(true)}
             cartItemCount={cartItemCount}
-            orphanedCount={orphanedCount}
+            orphanedCount={departmentOrphanedCount}
           />
 
           <PosMobileMoreSheet
@@ -2793,7 +2789,7 @@ export default function POSPage() {
                   cartItemCount={cartItemCount}
                   cartTotal={cartTotal}
                   cartsCount={carts.length}
-                  orphanedCount={orphanedCount}
+                  orphanedCount={departmentOrphanedCount}
                   onClearCart={handleClearCart}
                 />
               </>

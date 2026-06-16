@@ -31,12 +31,15 @@ interface PosPendingSalesPanelProps {
   onResume?: () => void;
   compact?: boolean;
   refreshTrigger?: number;
+  /** Cashier POS: only department-forwarded orders, not cashier-saved carts */
+  departmentOrdersOnly?: boolean;
 }
 
 export function PosPendingSalesPanel({
   onResume,
   compact = false,
   refreshTrigger,
+  departmentOrdersOnly = false,
 }: PosPendingSalesPanelProps) {
   const isOnline = useOnlineStatus();
   const { user } = useCurrentUser();
@@ -79,10 +82,18 @@ export function PosPendingSalesPanel({
 
   const departmentSales = sales.filter(isDepartmentOrder);
   const cashierSales = sales.filter((s) => !isDepartmentOrder(s));
+  const visibleSales = departmentOrdersOnly ? departmentSales : sales;
+  const visibleCashierSales = departmentOrdersOnly ? [] : cashierSales;
   const orphanedDept = orphaned.filter(isDepartmentOrder);
   const orphanedCashier = orphaned.filter((s) => !isDepartmentOrder(s));
+  const visibleOrphaned = departmentOrdersOnly ? orphanedDept : orphaned;
 
   const sourceSummary = (() => {
+    if (departmentOrdersOnly) {
+      return departmentSales.length > 0
+        ? `${departmentSales.length} dept order${departmentSales.length === 1 ? "" : "s"}`
+        : "";
+    }
     const parts: string[] = [];
     if (departmentSales.length > 0) {
       parts.push(`${departmentSales.length} dept`);
@@ -94,7 +105,10 @@ export function PosPendingSalesPanel({
   })();
 
   const collapsedSubtitle = (() => {
-    if (orphaned.length > 0) {
+    if (visibleOrphaned.length > 0) {
+      if (departmentOrdersOnly) {
+        return `${orphanedDept.length} dept order${orphanedDept.length === 1 ? "" : "s"} to resume`;
+      }
       const parts: string[] = [];
       if (orphanedDept.length > 0) parts.push(`${orphanedDept.length} dept`);
       if (orphanedCashier.length > 0) parts.push(`${orphanedCashier.length} saved`);
@@ -104,12 +118,12 @@ export function PosPendingSalesPanel({
   })();
 
   useEffect(() => {
-    if (orphaned.length > 0) {
+    if (visibleOrphaned.length > 0) {
       setExpanded(true);
     }
-  }, [orphaned.length]);
+  }, [visibleOrphaned.length]);
 
-  if (!isOnline || (sales.length === 0 && !loading && !error)) {
+  if (!isOnline || (visibleSales.length === 0 && !loading && !error)) {
     return null;
   }
 
@@ -353,10 +367,14 @@ export function PosPendingSalesPanel({
             <p
               className={`font-semibold text-amber-900 dark:text-amber-200 ${compact ? "text-[11px]" : "text-xs"}`}
             >
-              {isAdmin ? "Open carts" : "Saved & orders"}
-              {sales.length > 0 && (
+              {departmentOrdersOnly
+                ? "Department orders"
+                : isAdmin
+                  ? "Open carts"
+                  : "Saved & orders"}
+              {visibleSales.length > 0 && (
                 <span className="ml-1 font-normal text-amber-700 dark:text-amber-400">
-                  ({sales.length})
+                  ({visibleSales.length})
                 </span>
               )}
             </p>
@@ -404,20 +422,24 @@ export function PosPendingSalesPanel({
           {error && (
             <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
           )}
-          {loading && sales.length === 0 ? (
+          {loading && visibleSales.length === 0 ? (
             <div className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-300 py-2">
               <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              Loading saved sales…
+              {departmentOrdersOnly
+                ? "Loading department orders…"
+                : "Loading saved sales…"}
             </div>
-          ) : sales.length === 0 ? (
+          ) : visibleSales.length === 0 ? (
             <p className="text-xs text-amber-800/80 dark:text-amber-400/80 py-1">
-              No saved sales on the server.
+              {departmentOrdersOnly
+                ? "No department orders waiting."
+                : "No saved sales on the server."}
             </p>
           ) : (
             <>
               {departmentSales.length > 0 && (
                 <div className="space-y-1.5">
-                  {!compact && cashierSales.length > 0 && (
+                  {!compact && visibleCashierSales.length > 0 && (
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300 px-0.5">
                       Department orders ({departmentSales.length})
                     </p>
@@ -425,14 +447,14 @@ export function PosPendingSalesPanel({
                   {departmentSales.map(renderSaleRow)}
                 </div>
               )}
-              {cashierSales.length > 0 && (
+              {visibleCashierSales.length > 0 && (
                 <div className="space-y-1.5">
                   {!compact && departmentSales.length > 0 && (
                     <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300 px-0.5 pt-1">
-                      Saved carts ({cashierSales.length})
+                      Saved carts ({visibleCashierSales.length})
                     </p>
                   )}
-                  {cashierSales.map(renderSaleRow)}
+                  {visibleCashierSales.map(renderSaleRow)}
                 </div>
               )}
             </>

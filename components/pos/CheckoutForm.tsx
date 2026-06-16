@@ -654,11 +654,6 @@ export function CheckoutForm({
       return;
     }
     if (paymentMethod === "mpesa") {
-      if (mpesaStatus !== "success" && !managerPin) {
-        setPendingSaleAfterPin(true);
-        setPinDialogOpen(true);
-        return;
-      }
       setIsProcessing(true);
       setError(null);
       await completeSale();

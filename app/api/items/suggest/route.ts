@@ -207,6 +207,66 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Unspaced compound words: "redonions" → "red onions"
+    if (
+      items.length === 0 &&
+      !searchLower.includes(" ") &&
+      searchLower.length >= 6 &&
+      searchLower.length <= 20
+    ) {
+      if (ftsMatch && useItemFts) {
+        const fuzzyMatches: string[] = [];
+        for (let i = 3; i < searchLower.length - 2; i++) {
+          fuzzyMatches.push(
+            `${searchLower.slice(0, i)}* AND ${searchLower.slice(i)}*`,
+          );
+        }
+        if (fuzzyMatches.length > 0) {
+          const splitItems = await query<SuggestItem>(
+            `${selectList}${fromFts}
+             WHERE ${activeFilterFts}
+               AND items_fts MATCH ?
+             ORDER BY bm25(items_fts), i.name ASC
+             LIMIT ?`,
+            [auth.businessId, `(${fuzzyMatches.join(" OR ")})`, limit],
+          );
+          if (splitItems.length > 0) items = splitItems;
+        }
+      }
+
+      if (items.length === 0) {
+        for (let i = 3; i < searchLower.length - 2; i++) {
+          const w1 = searchLower.slice(0, i);
+          const w2 = searchLower.slice(i);
+          const splitItems = await query<SuggestItem>(
+            `${selectClause}
+             WHERE ${activeFilter}
+               AND (
+                 (LOWER(i.name) LIKE ? AND LOWER(i.name) LIKE ?)
+                 OR (LOWER(COALESCE(i.variant_name, '')) LIKE ? AND LOWER(COALESCE(i.variant_name, '')) LIKE ?)
+                 OR (LOWER(COALESCE(p.name, '')) LIKE ? AND LOWER(COALESCE(p.name, '')) LIKE ?)
+               )
+             ORDER BY i.name ASC
+             LIMIT ?`,
+            [
+              auth.businessId,
+              `%${w1}%`,
+              `%${w2}%`,
+              `%${w1}%`,
+              `%${w2}%`,
+              `%${w1}%`,
+              `%${w2}%`,
+              limit,
+            ],
+          );
+          if (splitItems.length > 0) {
+            items = splitItems;
+            break;
+          }
+        }
+      }
+    }
+
     // === Phase 2: Fuzzy fallback if exact matching found too few results ===
     if (items.length < 3 && searchLower.length >= 2) {
       const existingIds = new Set(items.map(i => i.id));

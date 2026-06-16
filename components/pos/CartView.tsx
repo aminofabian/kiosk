@@ -112,6 +112,7 @@ export function CartView({
         onResume={onContinueShopping}
         compact={isColumn}
         refreshTrigger={refreshTrigger}
+        departmentOrdersOnly
       />
       {/* Cart Tabs */}
       <div className="shrink-0 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">

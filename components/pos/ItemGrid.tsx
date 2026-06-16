@@ -93,7 +93,7 @@ function applyItemsToGrid(
 }
 
 /** Debounce POS grid search so rapid typing does not hit /api/items every keystroke */
-const ITEM_SEARCH_DEBOUNCE_MS = 280;
+const ITEM_SEARCH_DEBOUNCE_MS = 120;
 
 /** Square grid: 2 cols phone · 3 cols iPad (md–lg) · dense on desktop (xl+). */
 const CATALOG_ITEM_GRID_CLASS =
