@@ -215,6 +215,7 @@ export default function POSPage() {
     }[]
   >([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
   const suggestionsAbortRef = useRef<AbortController | null>(null);
@@ -484,22 +485,47 @@ export default function POSPage() {
   // Handle keyboard navigation in suggestions
   const handleSearchKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (!showSuggestions || searchSuggestions.length === 0) return;
+      if (e.key === "Escape") {
+        if (showSuggestions) {
+          e.preventDefault();
+          setShowSuggestions(false);
+          setSelectedSuggestionIndex(-1);
+        }
+        return;
+      }
+
+      const flatLen = flatSuggestionsRef.current.length;
+      if (!showSuggestions || flatLen === 0) return;
 
       if (e.key === "ArrowDown") {
         e.preventDefault();
         setSelectedSuggestionIndex((prev) =>
-          prev < searchSuggestions.length - 1 ? prev + 1 : 0,
+          prev < flatLen - 1 ? prev + 1 : 0,
         );
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setSelectedSuggestionIndex((prev) =>
-          prev > 0 ? prev - 1 : searchSuggestions.length - 1,
+          prev > 0 ? prev - 1 : flatLen - 1,
         );
       }
     },
-    [showSuggestions, searchSuggestions.length],
+    [showSuggestions],
   );
+
+  const handleSearchFocus = useCallback(() => {
+    setSearchFocused(true);
+    if (!searchQuery.trim() && recentSearches.length > 0) {
+      setShowSuggestions(true);
+    } else if (searchSuggestions.length > 0) {
+      setShowSuggestions(true);
+    }
+  }, [searchQuery, recentSearches.length, searchSuggestions.length]);
+
+  const handleRecentSearchClick = useCallback((query: string) => {
+    setSearchQuery(query);
+    setShowSuggestions(false);
+    setSelectedSuggestionIndex(-1);
+  }, []);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -724,15 +750,17 @@ export default function POSPage() {
         if (cancelled) return;
         if (result.success && result.data) {
           const suggestions = result.data.map(mapSuggestItem);
-          suggestCacheRef.current.set(cacheKey, {
-            data: suggestions,
-            ts: Date.now(),
-          });
-          if (suggestCacheRef.current.size > 50) {
-            const oldest = [...suggestCacheRef.current.entries()].sort(
-              (a, b) => a[1].ts - b[1].ts,
-            )[0];
-            if (oldest) suggestCacheRef.current.delete(oldest[0]);
+          if (suggestions.length > 0) {
+            suggestCacheRef.current.set(cacheKey, {
+              data: suggestions,
+              ts: Date.now(),
+            });
+            if (suggestCacheRef.current.size > 50) {
+              const oldest = [...suggestCacheRef.current.entries()].sort(
+                (a, b) => a[1].ts - b[1].ts,
+              )[0];
+              if (oldest) suggestCacheRef.current.delete(oldest[0]);
+            }
           }
           applySuggestions(suggestions);
         }
@@ -765,6 +793,7 @@ export default function POSPage() {
       const insideDesktop = desktopSearchContainerRef.current?.contains(target);
       if (!insideMobile && !insideDesktop) {
         setShowSuggestions(false);
+        setSearchFocused(false);
       }
     };
 
@@ -1050,15 +1079,20 @@ export default function POSPage() {
         !showSuggestions &&
         !debouncedSearchQuery;
       const showResults = showSuggestions && searchSuggestions.length > 0;
+      const showRecentSearches =
+        searchFocused &&
+        !searchQuery.trim() &&
+        recentSearches.length > 0 &&
+        showSuggestions;
       const showNoResults =
         !loadingSuggestions &&
         searchQuery.length >= 2 &&
         searchSuggestions.length === 0 &&
-        !showSuggestions &&
-        !isSearchPending &&
-        !debouncedSearchQuery;
+        showSuggestions &&
+        !showRecentSearches;
 
-      if (!showSkeleton && !showResults && !showNoResults) return null;
+      if (!showSkeleton && !showResults && !showNoResults && !showRecentSearches)
+        return null;
 
       const { groups, flatItems } = groupedSuggestionsData;
 
@@ -1189,6 +1223,34 @@ export default function POSPage() {
         <div
           className={`absolute top-full left-0 right-0 mt-1 bg-white dark:bg-[#192e15] border border-gray-200/90 dark:border-gray-700/50 shadow-xl shadow-black/[0.08] dark:shadow-black/30 z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150 rounded-[4px] ${isDesktop ? "max-h-[440px]" : "max-h-[65vh]"}`}
         >
+          {/* Recent searches */}
+          {showRecentSearches && (
+            <div className="py-2">
+              <div className="flex items-center gap-1.5 px-3.5 pb-2">
+                <Clock className="w-3 h-3 text-gray-400 dark:text-gray-500" />
+                <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
+                  Recent searches
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 px-3 pb-1">
+                {recentSearches.map((query) => (
+                  <button
+                    key={query}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleRecentSearchClick(query);
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[12px] font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800/70 hover:bg-[#1c6a1e]/10 dark:hover:bg-[#1c6a1e]/15 hover:text-[#1c6a1e] dark:hover:text-[#2a8a30] rounded-md transition-colors"
+                  >
+                    <Clock className="w-3 h-3 opacity-50" />
+                    {query}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Skeleton loading */}
           {showSkeleton && (
             <div className="p-1.5">
@@ -1366,10 +1428,12 @@ export default function POSPage() {
       searchQuery,
       debouncedSearchQuery,
       showSuggestions,
+      searchFocused,
+      recentSearches,
       searchSuggestions,
-      isSearchPending,
       selectedSuggestionIndex,
       handleSelectSuggestion,
+      handleRecentSearchClick,
       highlightMatch,
       groupedSuggestionsData,
     ],
@@ -2328,9 +2392,7 @@ export default function POSPage() {
                 onSearchKeyDown={handleSearchKeyDown}
                 onClear={clearSearch}
                 onOpenCamera={() => setBarcodeCameraOpen(true)}
-                onFocus={() =>
-                  searchSuggestions.length > 0 && setShowSuggestions(true)
-                }
+                onFocus={handleSearchFocus}
                 inputRef={mobileSearchInputRef}
                 containerRef={searchContainerRef}
                 isPending={isSearchPending}
@@ -2339,18 +2401,9 @@ export default function POSPage() {
                 suggestions={suggestionsMobile}
               />
               <main className="flex-1 min-h-0 overflow-y-auto no-scrollbar pb-[calc(3.25rem+env(safe-area-inset-bottom,0px))] px-3">
-                {searchQuery && isSearchPending ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-2">
-                    {[1, 2, 3, 4, 5, 6].map((i) => (
-                      <div
-                        key={i}
-                        className="bg-white dark:bg-[#1c2e18] rounded-xl border border-slate-200 h-32 animate-pulse"
-                      />
-                    ))}
-                  </div>
-                ) : debouncedSearchQuery ? (
+                {debouncedSearchQuery ? (
                   <ItemGrid
-                    key={`search-${refreshKey}`}
+                    key={`search-${debouncedSearchQuery}`}
                     categoryId={null}
                     searchQuery={debouncedSearchQuery}
                     onSelectItem={handleSelectItem}
@@ -2407,9 +2460,7 @@ export default function POSPage() {
                 onSearchKeyDown={handleSearchKeyDown}
                 onClear={clearSearch}
                 onOpenCamera={() => setBarcodeCameraOpen(true)}
-                onFocus={() =>
-                  searchSuggestions.length > 0 && setShowSuggestions(true)
-                }
+                onFocus={handleSearchFocus}
                 inputRef={mobileSearchInputRef}
                 containerRef={searchContainerRef}
                 isPending={isSearchPending}
@@ -2422,7 +2473,7 @@ export default function POSPage() {
                 {debouncedSearchQuery ? (
                   <div className="flex-1 min-h-0 flex flex-col -mx-1">
                     <ItemGrid
-                      key={`msearch-${refreshKey}`}
+                      key={`msearch-${debouncedSearchQuery}`}
                       categoryId={null}
                       searchQuery={debouncedSearchQuery}
                       onSelectItem={handleSelectItem}
@@ -2499,9 +2550,7 @@ export default function POSPage() {
                 onSearchKeyDown={handleSearchKeyDown}
                 onClear={clearSearch}
                 onOpenCamera={() => setBarcodeCameraOpen(true)}
-                onFocus={() =>
-                  searchSuggestions.length > 0 && setShowSuggestions(true)
-                }
+                onFocus={handleSearchFocus}
                 inputRef={mobileSearchInputRef}
                 containerRef={searchContainerRef}
                 isPending={isSearchPending}
@@ -2528,7 +2577,7 @@ export default function POSPage() {
               <main className="flex-1 overflow-y-auto no-scrollbar pb-[calc(3.25rem+env(safe-area-inset-bottom,0px))] px-5 sm:px-6">
                 {debouncedSearchQuery ? (
                   <ItemGrid
-                    key={`csearch-${refreshKey}`}
+                    key={`csearch-${debouncedSearchQuery}`}
                     categoryId={null}
                     searchQuery={debouncedSearchQuery}
                     onSelectItem={handleSelectItem}
@@ -2763,9 +2812,7 @@ export default function POSPage() {
                   onSearchChange={handleSearchChange}
                   onSearchSubmit={handleSearchSubmit}
                   onSearchKeyDown={handleSearchKeyDown}
-                  onSearchFocus={() =>
-                    searchSuggestions.length > 0 && setShowSuggestions(true)
-                  }
+                  onSearchFocus={handleSearchFocus}
                   onClearSearch={clearSearch}
                   onOpenCamera={() => setBarcodeCameraOpen(true)}
                   searchInputRef={searchInputRef}
@@ -2816,29 +2863,13 @@ export default function POSPage() {
                   </div>
                 )}
                 <div className="flex-1 min-h-0 overflow-y-auto bg-gradient-to-b from-transparent to-gray-50/50 flex flex-col">
-                  {searchQuery && isSearchPending ? (
-                    <div className="p-6 px-6 sm:px-10">
-                      {/* Skeleton loading grid for desktop search */}
-                      <div className="grid gap-3 sm:gap-4 grid-cols-[repeat(auto-fill,minmax(min(100%,8.75rem),1fr))] animate-pulse">
-                        {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                          <div
-                            key={i}
-                            className="bg-white dark:bg-slate-800 rounded-none border-2 border-slate-300 dark:border-slate-600 overflow-hidden"
-                          >
-                            <div className="p-4 sm:p-5 space-y-3">
-                              <div className="h-4 bg-gray-100 dark:bg-gray-700 rounded w-4/5" />
-                              <div className="h-3 bg-gray-50 dark:bg-gray-700/60 rounded w-3/5" />
-                              <div className="h-6 bg-gray-100 dark:bg-gray-700 rounded w-2/5 mt-2" />
-                              <div className="h-3 bg-gray-50 dark:bg-gray-700/60 rounded w-1/3" />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="min-h-full flex flex-col px-3 sm:px-4 lg:px-6">
-                      <ItemGrid
-                        key={`grid-${refreshKey}`}
+                  <div className="min-h-full flex flex-col px-3 sm:px-4 lg:px-6">
+                    <ItemGrid
+                      key={
+                        debouncedSearchQuery
+                          ? `grid-q-${debouncedSearchQuery}`
+                          : `grid-${selectedCategoryId ?? "home"}-${refreshKey}`
+                      }
                         categoryId={
                           debouncedSearchQuery ? null : selectedCategoryId
                         }
@@ -2866,7 +2897,6 @@ export default function POSPage() {
                         allowSellOutOfStock={allowSellOutOfStock}
                       />
                     </div>
-                  )}
                 </div>
               </div>
               <PosCartColumn

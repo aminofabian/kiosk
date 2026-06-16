@@ -460,6 +460,8 @@ export function ItemGrid({
     });
     return map;
   }, [categories]);
+  const categoryMapRef = useRef(categoryMap);
+  categoryMapRef.current = categoryMap;
 
   const featuredForType = useMemo(
     () => (featuredItems ?? []).filter((i) => itemMatchesShopType(i, shopType)),
@@ -581,7 +583,9 @@ export function ItemGrid({
               } else {
                 const matchesTypeFilter = (items: Item[], type: string) =>
                   items.filter((item) => {
-                    const categoryName = categoryMap.get(item.category_id);
+                    const categoryName = categoryMapRef.current.get(
+                      item.category_id,
+                    );
                     if (categoryName && !shouldShowCategory(categoryName, type))
                       return false;
                     return itemMatchesShopType(item, type);
@@ -742,7 +746,6 @@ export function ItemGrid({
     categoryId,
     searchQuery,
     shopType,
-    categoryMap,
     itemTypeKeys,
     itemTypesFilter,
     showShopTypeCatalog,
