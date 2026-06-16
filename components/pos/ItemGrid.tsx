@@ -1,14 +1,34 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useMemo, useRef, useCallback, memo, type ReactNode } from 'react';
-import { Tag, Package, ShoppingBag, Flame, AlertTriangle, ArrowRight, PackageX } from 'lucide-react';
-import type { Item } from '@/lib/db/types';
-import type { Category } from '@/lib/db/types';
-import type { UnitType } from '@/lib/constants';
-import { itemMatchesShopType, shouldShowCategory, SHOP_TYPE_ALL } from '@/lib/utils/shop-type';
-import { getItemDisplayName } from '@/lib/utils';
-import { resolveItemImageUrl } from '@/lib/utils/item-images';
-import { PosQuickSellPhoto } from '@/components/pos/PosQuickSellPhoto';
+import {
+  useEffect,
+  useState,
+  useMemo,
+  useRef,
+  useCallback,
+  memo,
+  type ReactNode,
+} from "react";
+import {
+  Tag,
+  Package,
+  ShoppingBag,
+  Flame,
+  AlertTriangle,
+  ArrowRight,
+  PackageX,
+} from "lucide-react";
+import type { Item } from "@/lib/db/types";
+import type { Category } from "@/lib/db/types";
+import type { UnitType } from "@/lib/constants";
+import {
+  itemMatchesShopType,
+  shouldShowCategory,
+  SHOP_TYPE_ALL,
+} from "@/lib/utils/shop-type";
+import { getItemDisplayName } from "@/lib/utils";
+import { resolveItemImageUrl } from "@/lib/utils/item-images";
+import { PosQuickSellPhoto } from "@/components/pos/PosQuickSellPhoto";
 
 interface ItemWithVariants extends Item {
   isParent?: boolean;
@@ -18,7 +38,7 @@ interface ItemWithVariants extends Item {
 }
 
 interface GroupedItem {
-  type: 'parent' | 'standalone';
+  type: "parent" | "standalone";
   parent?: Item;
   children?: Item[];
   item?: Item;
@@ -40,7 +60,7 @@ interface ItemGridProps {
   outStockItems?: Item[];
   lowQuantityItems?: Item[];
   /** Admin: filter home grid to out / low only */
-  stockListFilter?: 'all' | 'out' | 'low';
+  stockListFilter?: "all" | "out" | "low";
   /** Admin/owner: show low-stock strip below Quick Sell */
   showLowStockStrip?: boolean;
   /** Admin/owner: inline product photo upload on Quick Sell cards */
@@ -55,11 +75,14 @@ interface ItemGridProps {
 }
 
 function itemTypesQueryParam(itemTypesFilter?: string[]): string {
-  if (!itemTypesFilter?.length) return '';
-  return `&itemTypes=${itemTypesFilter.map(encodeURIComponent).join(',')}`;
+  if (!itemTypesFilter?.length) return "";
+  return `&itemTypes=${itemTypesFilter.map(encodeURIComponent).join(",")}`;
 }
 
-function catalogTypeQuery(shopType: string, itemTypesFilter?: string[]): string {
+function catalogTypeQuery(
+  shopType: string,
+  itemTypesFilter?: string[],
+): string {
   if (shopType !== SHOP_TYPE_ALL) {
     return `&itemType=${encodeURIComponent(shopType)}`;
   }
@@ -81,7 +104,7 @@ function applyItemsToGrid(
   setGroupedItems(grouped);
 
   const processedItems: ItemWithVariants[] = grouped.flatMap((group) => {
-    if (group.type === 'parent' && group.children) {
+    if (group.type === "parent" && group.children) {
       return group.children.map((child) => ({
         ...child,
         parentName: group.parent?.name,
@@ -97,40 +120,40 @@ const ITEM_SEARCH_DEBOUNCE_MS = 120;
 
 /** Square grid: 2 cols phone · 3 cols iPad (md–lg) · dense on desktop (xl+). */
 const CATALOG_ITEM_GRID_CLASS =
-  'grid w-full gap-1.5 sm:gap-2 grid-cols-2 md:grid-cols-3 xl:grid-cols-8 2xl:grid-cols-10';
+  "grid w-full gap-1.5 sm:gap-2 grid-cols-2 md:grid-cols-3 xl:grid-cols-8 2xl:grid-cols-10";
 
 /** Department catalog uses the same responsive column counts as POS. */
-const SQUARE_CATALOG_CONTAINER_CLASS = '@container w-full';
+const SQUARE_CATALOG_CONTAINER_CLASS = "@container w-full";
 const SQUARE_CATALOG_GRID_CLASS = CATALOG_ITEM_GRID_CLASS;
 
 // Stock status helpers
-function getStockStatus(stock: number): 'negative' | 'out' | 'low' | 'ok' {
-  if (stock < 0) return 'negative';
-  if (stock === 0) return 'out';
-  if (stock < 10) return 'low';
-  return 'ok';
+function getStockStatus(stock: number): "negative" | "out" | "low" | "ok" {
+  if (stock < 0) return "negative";
+  if (stock === 0) return "out";
+  if (stock < 10) return "low";
+  return "ok";
 }
 
 function formatStock(stock: number, unitType: UnitType): string {
   if (stock < 0) {
-    const decimals = unitType === 'kg' || unitType === 'g' ? 2 : 0;
+    const decimals = unitType === "kg" || unitType === "g" ? 2 : 0;
     return `${stock.toFixed(decimals)} ${unitType}`;
   }
-  if (stock === 0) return 'Out of stock';
+  if (stock === 0) return "Out of stock";
   return `${stock} ${unitType}`;
 }
 
 function getQuickAddQuantity(item: Item): number {
-  if (item.unit_type === 'kg' || item.unit_type === 'g') return 0.5;
+  if (item.unit_type === "kg" || item.unit_type === "g") return 0.5;
   return 1;
 }
 
 // Rank badge colors for top sellers
 const RANK_STYLES = [
-  'bg-gradient-to-br from-amber-400 to-yellow-500 text-white shadow-amber-400/30',
-  'bg-gradient-to-br from-slate-300 to-slate-400 text-white shadow-slate-300/30',
-  'bg-gradient-to-br from-amber-600 to-orange-700 text-white shadow-amber-600/30',
-  'bg-[#1c6a1e]/15 text-[#1c6a1e] dark:bg-[#1c6a1e]/20 dark:text-[#2a8a30]',
+  "bg-gradient-to-br from-amber-400 to-yellow-500 text-white shadow-amber-400/30",
+  "bg-gradient-to-br from-slate-300 to-slate-400 text-white shadow-slate-300/30",
+  "bg-gradient-to-br from-amber-600 to-orange-700 text-white shadow-amber-600/30",
+  "bg-[#1c6a1e]/15 text-[#1c6a1e] dark:bg-[#1c6a1e]/20 dark:text-[#2a8a30]",
 ];
 
 function formatTilePrice(price: number) {
@@ -173,15 +196,15 @@ function PosProductTile({
       }}
       onKeyDown={(e) => {
         if (isOutOfStock) return;
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onSelect();
         }
       }}
       className={`pos-grid-btn group touch-target relative flex aspect-square w-full min-h-0 flex-col overflow-hidden outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-1 ${
         isOutOfStock
-          ? 'cursor-not-allowed border border-slate-200 bg-slate-50 opacity-55 dark:border-slate-600 dark:bg-slate-800/80'
-          : 'cursor-pointer border border-[#1c6a1e] bg-white hover:border-[#2a8a30] dark:bg-slate-900 dark:border-[#1c6a1e]'
+          ? "cursor-not-allowed border border-slate-200 bg-slate-50 opacity-55 dark:border-slate-600 dark:bg-slate-800/80"
+          : "cursor-pointer border border-[#1c6a1e] bg-white hover:border-[#2a8a30] dark:bg-slate-900 dark:border-[#1c6a1e]"
       }`}
     >
       {/* Image ~ top two-thirds */}
@@ -227,8 +250,8 @@ function PosProductTile({
         <h3
           className={`line-clamp-2 text-[10px] font-medium leading-tight ${
             isOutOfStock
-              ? 'text-slate-400 dark:text-slate-500'
-              : 'text-slate-800 dark:text-slate-100'
+              ? "text-slate-400 dark:text-slate-500"
+              : "text-slate-800 dark:text-slate-100"
           }`}
         >
           {displayName}
@@ -236,8 +259,8 @@ function PosProductTile({
         <p
           className={`mt-0.5 text-[10px] font-bold tabular-nums leading-none ${
             isOutOfStock
-              ? 'text-slate-400 dark:text-slate-500'
-              : 'text-[#1c6a1e] dark:text-[#3cb043]'
+              ? "text-slate-400 dark:text-slate-500"
+              : "text-[#1c6a1e] dark:text-[#3cb043]"
           }`}
         >
           {formatTilePrice(item.current_sell_price)}
@@ -264,7 +287,10 @@ function renderItemImageContent(item: Item, imageUrl: string | null) {
   }
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
-      <Package className="h-8 w-8 text-slate-300 dark:text-slate-600" strokeWidth={1.25} />
+      <Package
+        className="h-8 w-8 text-slate-300 dark:text-slate-600"
+        strokeWidth={1.25}
+      />
     </div>
   );
 }
@@ -283,7 +309,8 @@ const ItemCard = memo(function ItemCard({
 }) {
   const stockStatus = getStockStatus(item.current_stock);
   const isOutOfStock =
-    !allowSellOutOfStock && (stockStatus === 'out' || stockStatus === 'negative');
+    !allowSellOutOfStock &&
+    (stockStatus === "out" || stockStatus === "negative");
   const imageUrl = resolveItemImageUrl(item);
 
   return (
@@ -291,9 +318,7 @@ const ItemCard = memo(function ItemCard({
       item={item}
       isOutOfStock={isOutOfStock}
       onSelect={() => onSelect(item)}
-      onQuickAdd={
-        onQuickAdd ? (qty) => onQuickAdd(item, qty) : undefined
-      }
+      onQuickAdd={onQuickAdd ? (qty) => onQuickAdd(item, qty) : undefined}
       imageContent={renderItemImageContent(item, imageUrl)}
       showDealBadge
     />
@@ -328,19 +353,19 @@ function groupItemsForDisplay(items: Item[]): GroupedItem[] {
     const parent = parentItems.get(parentId);
     if (parent) {
       grouped.push({
-        type: 'parent',
+        type: "parent",
         parent,
         children: children.sort((a, b) =>
-          (a.variant_name || a.name).localeCompare(b.variant_name || b.name)
+          (a.variant_name || a.name).localeCompare(b.variant_name || b.name),
         ),
       });
     } else {
       // Parent not in results (e.g. searched "explode" - got variant but not parent)
       // Show each variant as standalone so they appear in search results
       for (const child of children.sort((a, b) =>
-        (a.variant_name || a.name).localeCompare(b.variant_name || b.name)
+        (a.variant_name || a.name).localeCompare(b.variant_name || b.name),
       )) {
-        grouped.push({ type: 'standalone', item: child });
+        grouped.push({ type: "standalone", item: child });
       }
     }
   }
@@ -353,18 +378,18 @@ function groupItemsForDisplay(items: Item[]): GroupedItem[] {
   }
 
   for (const item of standaloneItems) {
-    grouped.push({ type: 'standalone', item });
+    grouped.push({ type: "standalone", item });
   }
 
   // Sort: parents first (alphabetically), then standalone (alphabetically)
   return grouped.sort((a, b) => {
-    if (a.type === 'parent' && b.type === 'parent') {
-      return (a.parent?.name || '').localeCompare(b.parent?.name || '');
+    if (a.type === "parent" && b.type === "parent") {
+      return (a.parent?.name || "").localeCompare(b.parent?.name || "");
     }
-    if (a.type === 'standalone' && b.type === 'standalone') {
-      return (a.item?.name || '').localeCompare(b.item?.name || '');
+    if (a.type === "standalone" && b.type === "standalone") {
+      return (a.item?.name || "").localeCompare(b.item?.name || "");
     }
-    return a.type === 'parent' ? -1 : 1;
+    return a.type === "parent" ? -1 : 1;
   });
 }
 
@@ -381,7 +406,7 @@ export function ItemGrid({
   lowStockItems,
   outStockItems,
   lowQuantityItems,
-  stockListFilter = 'all',
+  stockListFilter = "all",
   showLowStockStrip = false,
   canManageItemImages = false,
   onItemImageUpdated,
@@ -400,14 +425,14 @@ export function ItemGrid({
   const [showingOtherShopType, setShowingOtherShopType] = useState(false);
   /** Quick Sell only: filter featured items by stock band (badges in section header) */
   const [quickSellStockFilter, setQuickSellStockFilter] = useState<
-    'all' | 'out' | 'low' | 'ok'
-  >('all');
+    "all" | "out" | "low" | "ok"
+  >("all");
 
   // Use prop categories if available, otherwise use local state
   const categories = propCategories || localCategories;
 
   // Track last search to prevent duplicate requests
-  const lastSearchRef = useRef<string>('');
+  const lastSearchRef = useRef<string>("");
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Only fetch categories if not provided via props
@@ -416,13 +441,13 @@ export function ItemGrid({
 
     async function fetchCategories() {
       try {
-        const response = await fetch('/api/categories', { cache: 'no-store' });
+        const response = await fetch("/api/categories", { cache: "no-store" });
         const result = await response.json();
         if (result.success) {
           setLocalCategories(result.data);
         }
       } catch (err) {
-        console.error('Error fetching categories:', err);
+        console.error("Error fetching categories:", err);
       }
     }
     fetchCategories();
@@ -439,30 +464,31 @@ export function ItemGrid({
 
   const featuredForType = useMemo(
     () => (featuredItems ?? []).filter((i) => itemMatchesShopType(i, shopType)),
-    [featuredItems, shopType]
+    [featuredItems, shopType],
   );
   const lowStockForType = useMemo(
     () => (lowStockItems ?? []).filter((i) => itemMatchesShopType(i, shopType)),
-    [lowStockItems, shopType]
+    [lowStockItems, shopType],
   );
   const outPoolForType = useMemo(
     () => (outStockItems ?? []).filter((i) => itemMatchesShopType(i, shopType)),
-    [outStockItems, shopType]
+    [outStockItems, shopType],
   );
   const lowQtyPoolForType = useMemo(
-    () => (lowQuantityItems ?? []).filter((i) => itemMatchesShopType(i, shopType)),
-    [lowQuantityItems, shopType]
+    () =>
+      (lowQuantityItems ?? []).filter((i) => itemMatchesShopType(i, shopType)),
+    [lowQuantityItems, shopType],
   );
 
-  const adminStockView = stockListFilter === 'out' || stockListFilter === 'low';
+  const adminStockView = stockListFilter === "out" || stockListFilter === "low";
   const primaryHomeItems = adminStockView
-    ? stockListFilter === 'out'
+    ? stockListFilter === "out"
       ? outPoolForType
       : lowQtyPoolForType
     : featuredForType;
 
   useEffect(() => {
-    setQuickSellStockFilter('all');
+    setQuickSellStockFilter("all");
   }, [stockListFilter]);
 
   const featuredStockCounts = useMemo(() => {
@@ -471,8 +497,8 @@ export function ItemGrid({
     let ok = 0;
     for (const i of featuredForType) {
       const s = getStockStatus(i.current_stock);
-      if (s === 'out' || s === 'negative') out += 1;
-      else if (s === 'low') low += 1;
+      if (s === "out" || s === "negative") out += 1;
+      else if (s === "low") low += 1;
       else ok += 1;
     }
     return { out, low, ok, popular: featuredForType.length };
@@ -485,26 +511,33 @@ export function ItemGrid({
   const displayedHomeItems = useMemo(() => {
     if (adminStockView) return primaryHomeItems;
     switch (quickSellStockFilter) {
-      case 'all':
+      case "all":
         return featuredForType;
-      case 'out':
+      case "out":
         return featuredForType.filter((i) => {
           const s = getStockStatus(i.current_stock);
-          return s === 'out' || s === 'negative';
+          return s === "out" || s === "negative";
         });
-      case 'low':
-        return featuredForType.filter((i) => getStockStatus(i.current_stock) === 'low');
-      case 'ok':
-        return featuredForType.filter((i) => getStockStatus(i.current_stock) === 'ok');
+      case "low":
+        return featuredForType.filter(
+          (i) => getStockStatus(i.current_stock) === "low",
+        );
+      case "ok":
+        return featuredForType.filter(
+          (i) => getStockStatus(i.current_stock) === "ok",
+        );
       default:
         return featuredForType;
     }
   }, [adminStockView, primaryHomeItems, featuredForType, quickSellStockFilter]);
 
   // Memoized item click handler
-  const handleItemClick = useCallback((item: ItemWithVariants) => {
-    onSelectItem(item);
-  }, [onSelectItem]);
+  const handleItemClick = useCallback(
+    (item: ItemWithVariants) => {
+      onSelectItem(item);
+    },
+    [onSelectItem],
+  );
 
   useEffect(() => {
     // Abort any pending request
@@ -515,11 +548,12 @@ export function ItemGrid({
     if (searchQuery) {
       const controller = new AbortController();
       abortControllerRef.current = controller;
+      let cancelled = false;
 
       const q = searchQuery;
       const tid = window.setTimeout(() => {
         void (async () => {
-          if (controller.signal.aborted) return;
+          if (cancelled) return;
 
           const searchKey = `${q}\0${shopType}`;
           if (lastSearchRef.current === searchKey) return;
@@ -531,10 +565,10 @@ export function ItemGrid({
 
             const response = await fetch(
               `/api/items?search=${encodeURIComponent(q)}&sellableOnly=true&limit=50${itemTypesQueryParam(itemTypesFilter)}`,
-              { signal: controller.signal, cache: 'no-store' }
+              { signal: controller.signal, cache: "no-store" },
             );
 
-            if (controller.signal.aborted) return;
+            if (cancelled) return;
 
             const result = await response.json();
 
@@ -550,14 +584,17 @@ export function ItemGrid({
                 const matchesTypeFilter = (items: Item[], type: string) =>
                   items.filter((item) => {
                     const categoryName = categoryMap.get(item.category_id);
-                    if (categoryName && !shouldShowCategory(categoryName, type)) return false;
+                    if (categoryName && !shouldShowCategory(categoryName, type))
+                      return false;
                     return itemMatchesShopType(item, type);
                   });
 
                 filteredItems = matchesTypeFilter(allItems, shopType);
 
                 if (filteredItems.length === 0 && allItems.length > 0) {
-                  const keys = itemTypeKeys?.length ? itemTypeKeys : ['grocery', 'retail'];
+                  const keys = itemTypeKeys?.length
+                    ? itemTypeKeys
+                    : ["grocery", "retail"];
                   for (const key of keys) {
                     if (key === shopType) continue;
                     const alt = matchesTypeFilter(allItems, key);
@@ -575,23 +612,25 @@ export function ItemGrid({
               const grouped = groupItemsForDisplay(filteredItems);
               setGroupedItems(grouped);
 
-              const processedItems: ItemWithVariants[] = grouped.flatMap((group) => {
-                if (group.type === 'parent' && group.children) {
-                  return group.children.map((child) => ({
-                    ...child,
-                    parentName: group.parent?.name,
-                  }));
-                }
-                return group.item ? [group.item] : [];
-              });
+              const processedItems: ItemWithVariants[] = grouped.flatMap(
+                (group) => {
+                  if (group.type === "parent" && group.children) {
+                    return group.children.map((child) => ({
+                      ...child,
+                      parentName: group.parent?.name,
+                    }));
+                  }
+                  return group.item ? [group.item] : [];
+                },
+              );
               setItems(processedItems);
             } else {
-              setError(result.message || 'Failed to search items');
+              setError(result.message || "Failed to search items");
             }
           } catch (err) {
-            if (err instanceof Error && err.name === 'AbortError') return;
-            setError('Failed to search items');
-            console.error('Error searching items:', err);
+            if (err instanceof Error && err.name === "AbortError") return;
+            setError("Failed to search items");
+            console.error("Error searching items:", err);
           } finally {
             if (!controller.signal.aborted) {
               setLoading(false);
@@ -607,12 +646,13 @@ export function ItemGrid({
     }
 
     // Reset last search when query is cleared
-    lastSearchRef.current = '';
+    lastSearchRef.current = "";
     setShowingOtherShopType(false);
 
     if (!searchQuery && !categoryId && showShopTypeCatalog) {
       const controller = new AbortController();
       abortControllerRef.current = controller;
+      let cancelled = false;
 
       async function fetchCatalog() {
         try {
@@ -621,24 +661,29 @@ export function ItemGrid({
 
           const response = await fetch(
             `/api/items?all=true&sellableOnly=true${catalogTypeQuery(shopType, itemTypesFilter)}`,
-            { signal: controller.signal, cache: 'no-store' },
+            { signal: controller.signal, cache: "no-store" },
           );
 
-          if (controller.signal.aborted) return;
+          if (cancelled) return;
 
           const result = await response.json();
 
           if (result.success) {
-            applyItemsToGrid(result.data ?? [], shopType, setGroupedItems, setItems);
+            applyItemsToGrid(
+              result.data ?? [],
+              shopType,
+              setGroupedItems,
+              setItems,
+            );
           } else {
-            setError(result.message || 'Failed to load items');
+            setError(result.message || "Failed to load items");
           }
         } catch (err) {
-          if (err instanceof Error && err.name === 'AbortError') return;
-          setError('Failed to load items');
-          console.error('Error fetching catalog items:', err);
+          if (cancelled) return;
+          setError("Failed to load items");
+          console.error("Error fetching catalog items:", err);
         } finally {
-          if (!controller.signal.aborted) {
+          if (!cancelled) {
             setLoading(false);
           }
         }
@@ -647,6 +692,7 @@ export function ItemGrid({
       void fetchCatalog();
 
       return () => {
+        cancelled = true;
         controller.abort();
       };
     }
@@ -667,7 +713,7 @@ export function ItemGrid({
 
         const response = await fetch(
           `/api/items?categoryId=${categoryId}${itemTypesQueryParam(itemTypesFilter)}`,
-          { signal: controller.signal, cache: 'no-store' }
+          { signal: controller.signal, cache: "no-store" },
         );
 
         if (controller.signal.aborted) return;
@@ -678,12 +724,12 @@ export function ItemGrid({
           const allItems: Item[] = result.data;
           applyItemsToGrid(allItems, shopType, setGroupedItems, setItems);
         } else {
-          setError(result.message || 'Failed to load items');
+          setError(result.message || "Failed to load items");
         }
       } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') return;
-        setError('Failed to load items');
-        console.error('Error fetching items:', err);
+        if (err instanceof Error && err.name === "AbortError") return;
+        setError("Failed to load items");
+        console.error("Error fetching items:", err);
       } finally {
         if (!controller.signal.aborted) {
           setLoading(false);
@@ -696,10 +742,19 @@ export function ItemGrid({
     return () => {
       controller.abort();
     };
-  }, [categoryId, searchQuery, shopType, categoryMap, itemTypeKeys, itemTypesFilter, showShopTypeCatalog]);
+  }, [
+    categoryId,
+    searchQuery,
+    shopType,
+    categoryMap,
+    itemTypeKeys,
+    itemTypesFilter,
+    showShopTypeCatalog,
+  ]);
 
   if (!categoryId && !searchQuery && !showShopTypeCatalog) {
-    const hasLowStock = showLowStockStrip && !adminStockView && lowStockForType.length > 0;
+    const hasLowStock =
+      showLowStockStrip && !adminStockView && lowStockForType.length > 0;
     const hasContent = hasHomePool || hasLowStock;
     const formatPrice = (price: number) => `KES ${price.toFixed(0)}`;
 
@@ -709,26 +764,26 @@ export function ItemGrid({
           <div className="text-center space-y-3 max-w-md animate-in fade-in duration-500">
             <div
               className={`w-16 h-16 mx-auto rounded-none flex items-center justify-center ${
-                stockListFilter === 'out'
-                  ? 'bg-red-100 dark:bg-red-950/40'
-                  : 'bg-amber-100 dark:bg-amber-950/40'
+                stockListFilter === "out"
+                  ? "bg-red-100 dark:bg-red-950/40"
+                  : "bg-amber-100 dark:bg-amber-950/40"
               }`}
             >
-              {stockListFilter === 'out' ? (
+              {stockListFilter === "out" ? (
                 <PackageX className="w-8 h-8 text-red-600 dark:text-red-400" />
               ) : (
                 <AlertTriangle className="w-8 h-8 text-amber-600 dark:text-amber-400" />
               )}
             </div>
             <p className="text-base font-semibold text-gray-800 dark:text-gray-100">
-              {stockListFilter === 'out'
-                ? 'No out-of-stock products here'
-                : 'No low-quantity products here'}
+              {stockListFilter === "out"
+                ? "No out-of-stock products here"
+                : "No low-quantity products here"}
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {shopType === SHOP_TYPE_ALL
-                ? 'Try another stock filter or department.'
-                : 'Try “All” departments or another filter.'}
+                ? "Try another stock filter or department."
+                : "Try “All” departments or another filter."}
             </p>
           </div>
         </div>
@@ -755,7 +810,6 @@ export function ItemGrid({
 
     return (
       <div className="min-h-full flex flex-col mx-2 sm:mx-4 lg:mx-6 px-2 sm:px-3 py-1 animate-in fade-in duration-300">
-
         {/* ── Quick Sell / admin stock views ── */}
         {hasHomePool && (
           <section className="min-h-0 flex flex-col flex-1 rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-sm pt-3 px-1 sm:px-1.5 pb-1 overflow-visible justify-start">
@@ -764,14 +818,14 @@ export function ItemGrid({
               <div
                 className={`w-6 h-6 rounded-none flex items-center justify-center shadow-sm ${
                   adminStockView
-                    ? stockListFilter === 'out'
-                      ? 'bg-red-600'
-                      : 'bg-amber-500'
-                    : 'bg-[#1c6a1e]'
+                    ? stockListFilter === "out"
+                      ? "bg-red-600"
+                      : "bg-amber-500"
+                    : "bg-[#1c6a1e]"
                 }`}
               >
                 {adminStockView ? (
-                  stockListFilter === 'out' ? (
+                  stockListFilter === "out" ? (
                     <PackageX className="w-3 h-3 text-white" />
                   ) : (
                     <AlertTriangle className="w-3 h-3 text-white" />
@@ -783,17 +837,19 @@ export function ItemGrid({
               <div className="flex-1 min-w-0">
                 <h2 className="text-xs font-bold text-gray-800 dark:text-gray-100 tracking-tight leading-none">
                   {adminStockView
-                    ? stockListFilter === 'out'
-                      ? 'Out of stock'
-                      : 'Low stock · under 10'
-                    : 'Quick Sell'}
+                    ? stockListFilter === "out"
+                      ? "Out of stock"
+                      : "Low stock · under 10"
+                    : "Quick Sell"}
                 </h2>
                 <p className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">
                   {adminStockView ? (
                     <>Tap a product to open details</>
                   ) : (
                     <>
-                      Tap <span className="text-[#1c6a1e] font-semibold">⚡</span> to add
+                      Tap{" "}
+                      <span className="text-[#1c6a1e] font-semibold">⚡</span>{" "}
+                      to add
                     </>
                   )}
                 </p>
@@ -802,24 +858,24 @@ export function ItemGrid({
                 <div className="flex items-center gap-1 flex-wrap justify-end">
                   <button
                     type="button"
-                    aria-pressed={quickSellStockFilter === 'all'}
-                    onClick={() => setQuickSellStockFilter('all')}
+                    aria-pressed={quickSellStockFilter === "all"}
+                    onClick={() => setQuickSellStockFilter("all")}
                     className={`text-[10px] font-semibold px-2 py-1 rounded-none border shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
-                      quickSellStockFilter === 'all'
-                        ? 'text-[#1c6a1e] dark:text-[#2a8a30] bg-[#1c6a1e]/15 dark:bg-[#1c6a1e]/20 border-[#1c6a1e]/40 dark:border-[#1c6a1e]/35 ring-2 ring-[#1c6a1e]/35 ring-offset-1 ring-offset-white dark:ring-offset-slate-900'
-                        : 'text-[#1c6a1e] dark:text-[#2a8a30] bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/15 border-[#1c6a1e]/20 dark:border-[#1c6a1e]/25 hover:bg-[#1c6a1e]/14'
+                      quickSellStockFilter === "all"
+                        ? "text-[#1c6a1e] dark:text-[#2a8a30] bg-[#1c6a1e]/15 dark:bg-[#1c6a1e]/20 border-[#1c6a1e]/40 dark:border-[#1c6a1e]/35 ring-2 ring-[#1c6a1e]/35 ring-offset-1 ring-offset-white dark:ring-offset-slate-900"
+                        : "text-[#1c6a1e] dark:text-[#2a8a30] bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/15 border-[#1c6a1e]/20 dark:border-[#1c6a1e]/25 hover:bg-[#1c6a1e]/14"
                     }`}
                   >
                     {featuredStockCounts.popular} popular
                   </button>
                   <button
                     type="button"
-                    aria-pressed={quickSellStockFilter === 'out'}
-                    onClick={() => setQuickSellStockFilter('out')}
+                    aria-pressed={quickSellStockFilter === "out"}
+                    onClick={() => setQuickSellStockFilter("out")}
                     className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px] font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
-                      quickSellStockFilter === 'out'
-                        ? 'bg-red-100/90 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700 ring-2 ring-red-400/50 ring-offset-1 ring-offset-white dark:ring-offset-slate-900'
-                        : 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200/60 dark:border-red-800/50 hover:bg-red-100/70 dark:hover:bg-red-950/55'
+                      quickSellStockFilter === "out"
+                        ? "bg-red-100/90 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700 ring-2 ring-red-400/50 ring-offset-1 ring-offset-white dark:ring-offset-slate-900"
+                        : "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200/60 dark:border-red-800/50 hover:bg-red-100/70 dark:hover:bg-red-950/55"
                     }`}
                   >
                     <span className="w-1 h-1 rounded-none bg-red-500" />
@@ -827,12 +883,12 @@ export function ItemGrid({
                   </button>
                   <button
                     type="button"
-                    aria-pressed={quickSellStockFilter === 'low'}
-                    onClick={() => setQuickSellStockFilter('low')}
+                    aria-pressed={quickSellStockFilter === "low"}
+                    onClick={() => setQuickSellStockFilter("low")}
                     className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px] font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
-                      quickSellStockFilter === 'low'
-                        ? 'bg-amber-100/90 dark:bg-amber-950/45 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/50 ring-offset-1 ring-offset-white dark:ring-offset-slate-900'
-                        : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200/60 dark:border-amber-800/50 hover:bg-amber-100/70 dark:hover:bg-amber-950/50'
+                      quickSellStockFilter === "low"
+                        ? "bg-amber-100/90 dark:bg-amber-950/45 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/50 ring-offset-1 ring-offset-white dark:ring-offset-slate-900"
+                        : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200/60 dark:border-amber-800/50 hover:bg-amber-100/70 dark:hover:bg-amber-950/50"
                     }`}
                   >
                     <span className="w-1 h-1 rounded-none bg-amber-500" />
@@ -840,12 +896,12 @@ export function ItemGrid({
                   </button>
                   <button
                     type="button"
-                    aria-pressed={quickSellStockFilter === 'ok'}
-                    onClick={() => setQuickSellStockFilter('ok')}
+                    aria-pressed={quickSellStockFilter === "ok"}
+                    onClick={() => setQuickSellStockFilter("ok")}
                     className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px] font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
-                      quickSellStockFilter === 'ok'
-                        ? 'bg-emerald-100/90 dark:bg-emerald-950/45 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700 ring-2 ring-emerald-400/45 ring-offset-1 ring-offset-white dark:ring-offset-slate-900'
-                        : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-800/50 hover:bg-emerald-100/70 dark:hover:bg-emerald-950/50'
+                      quickSellStockFilter === "ok"
+                        ? "bg-emerald-100/90 dark:bg-emerald-950/45 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700 ring-2 ring-emerald-400/45 ring-offset-1 ring-offset-white dark:ring-offset-slate-900"
+                        : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-800/50 hover:bg-emerald-100/70 dark:hover:bg-emerald-950/50"
                     }`}
                   >
                     <span className="w-1 h-1 rounded-none bg-emerald-500" />
@@ -861,7 +917,9 @@ export function ItemGrid({
             </div>
 
             {/* Products grid – dense square tiles */}
-            <div className={`${CATALOG_ITEM_GRID_CLASS} pt-3 flex-1 min-h-0 content-start`}>
+            <div
+              className={`${CATALOG_ITEM_GRID_CLASS} pt-3 flex-1 min-h-0 content-start`}
+            >
               {(() => {
                 if (!adminStockView && displayedHomeItems.length === 0) {
                   return (
@@ -874,62 +932,72 @@ export function ItemGrid({
                   ? new Map<string, number>()
                   : new Map(
                       [...featuredForType]
-                        .filter((i) => ((i as { quantity_sold?: number }).quantity_sold ?? 0) > 0)
+                        .filter(
+                          (i) =>
+                            ((i as { quantity_sold?: number }).quantity_sold ??
+                              0) > 0,
+                        )
                         .sort(
                           (a, b) =>
-                            ((b as { quantity_sold?: number }).quantity_sold ?? 0) -
-                            ((a as { quantity_sold?: number }).quantity_sold ?? 0)
+                            ((b as { quantity_sold?: number }).quantity_sold ??
+                              0) -
+                            ((a as { quantity_sold?: number }).quantity_sold ??
+                              0),
                         )
                         .slice(0, 3)
-                        .map((i, idx) => [i.id, idx + 1])
+                        .map((i, idx) => [i.id, idx + 1]),
                     );
                 return [...displayedHomeItems]
                   .sort((a, b) => {
-                    const nameA = `${a.name} ${a.variant_name || ''}`.trim().toLowerCase();
-                    const nameB = `${b.name} ${b.variant_name || ''}`.trim().toLowerCase();
+                    const nameA = `${a.name} ${a.variant_name || ""}`
+                      .trim()
+                      .toLowerCase();
+                    const nameB = `${b.name} ${b.variant_name || ""}`
+                      .trim()
+                      .toLowerCase();
                     return nameA.localeCompare(nameB);
                   })
                   .map((item) => {
-                const rank = top3Ranks.get(item.id);
-                const stock = getStockStatus(item.current_stock);
-                const isOut =
-                  !allowSellOutOfStock &&
-                  (stock === 'out' || stock === 'negative');
-                const imageUrl = resolveItemImageUrl(item);
+                    const rank = top3Ranks.get(item.id);
+                    const stock = getStockStatus(item.current_stock);
+                    const isOut =
+                      !allowSellOutOfStock &&
+                      (stock === "out" || stock === "negative");
+                    const imageUrl = resolveItemImageUrl(item);
 
-                const imageContent = canManageItemImages ? (
-                  <div className="absolute inset-0">
-                    <PosQuickSellPhoto
-                      itemId={item.id}
-                      itemName={item.name}
-                      imageUrl={item.image_url}
-                      variantName={item.variant_name}
-                      onImageUrlChange={(url) =>
-                        onItemImageUpdated?.(item.id, url)
-                      }
-                      fill
-                    />
-                  </div>
-                ) : (
-                  renderItemImageContent(item, imageUrl)
-                );
+                    const imageContent = canManageItemImages ? (
+                      <div className="absolute inset-0">
+                        <PosQuickSellPhoto
+                          itemId={item.id}
+                          itemName={item.name}
+                          imageUrl={item.image_url}
+                          variantName={item.variant_name}
+                          onImageUrlChange={(url) =>
+                            onItemImageUpdated?.(item.id, url)
+                          }
+                          fill
+                        />
+                      </div>
+                    ) : (
+                      renderItemImageContent(item, imageUrl)
+                    );
 
-                return (
-                  <PosProductTile
-                    key={item.id}
-                    item={item}
-                    isOutOfStock={isOut}
-                    onSelect={() => onSelectItem(item)}
-                    onQuickAdd={
-                      onQuickAdd
-                        ? (qty) => onQuickAdd(item, qty)
-                        : undefined
-                    }
-                    imageContent={imageContent}
-                    rank={rank}
-                    showDealBadge
-                  />
-                );
+                    return (
+                      <PosProductTile
+                        key={item.id}
+                        item={item}
+                        isOutOfStock={isOut}
+                        onSelect={() => onSelectItem(item)}
+                        onQuickAdd={
+                          onQuickAdd
+                            ? (qty) => onQuickAdd(item, qty)
+                            : undefined
+                        }
+                        imageContent={imageContent}
+                        rank={rank}
+                        showDealBadge
+                      />
+                    );
                   });
               })()}
             </div>
@@ -967,16 +1035,16 @@ export function ItemGrid({
                       <span
                         className={`text-[8px] font-semibold tabular-nums ${
                           item.current_stock < 0
-                            ? 'text-red-600 dark:text-red-400'
+                            ? "text-red-600 dark:text-red-400"
                             : item.current_stock === 0
-                              ? 'text-red-500'
-                              : 'text-amber-600 dark:text-amber-400'
+                              ? "text-red-500"
+                              : "text-amber-600 dark:text-amber-400"
                         }`}
                       >
                         {item.current_stock < 0
                           ? formatStock(item.current_stock, item.unit_type)
                           : item.current_stock === 0
-                            ? 'OUT'
+                            ? "OUT"
                             : `${item.current_stock} left`}
                       </span>
                       <span className="text-[7px] text-gray-400">·</span>
@@ -995,219 +1063,258 @@ export function ItemGrid({
     );
   }
 
-if (loading) {
-  return (
-    <div
-      className={
-        showShopTypeCatalog
-          ? 'px-3 sm:px-4 py-3 min-h-full'
-          : 'mx-4 sm:mx-6 lg:mx-8 px-4 sm:px-6 py-4 sm:py-6'
-      }
-    >
-      <div className={showShopTypeCatalog ? SQUARE_CATALOG_CONTAINER_CLASS : undefined}>
-      <div className={catalogGridClass}>
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div
-            key={i}
-            className={`rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800/50 overflow-hidden animate-pulse ${
-              showShopTypeCatalog ? 'aspect-square' : ''
-            }`}
-          >
-            {!showShopTypeCatalog && (
-            <div className="p-3.5 sm:p-4 flex flex-col gap-3">
-              <div className="space-y-1.5">
-                <div className="h-3.5 bg-gray-100 dark:bg-gray-700 rounded-none w-[85%]" />
-                <div className="h-3 bg-gray-50 dark:bg-gray-700/50 rounded-none w-[55%]" />
+  if (loading) {
+    return (
+      <div
+        className={
+          showShopTypeCatalog
+            ? "px-3 sm:px-4 py-3 min-h-full"
+            : "mx-4 sm:mx-6 lg:mx-8 px-4 sm:px-6 py-4 sm:py-6"
+        }
+      >
+        <div
+          className={
+            showShopTypeCatalog ? SQUARE_CATALOG_CONTAINER_CLASS : undefined
+          }
+        >
+          <div className={catalogGridClass}>
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className={`rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800/50 overflow-hidden animate-pulse ${
+                  showShopTypeCatalog ? "aspect-square" : ""
+                }`}
+              >
+                {!showShopTypeCatalog && (
+                  <div className="p-3.5 sm:p-4 flex flex-col gap-3">
+                    <div className="space-y-1.5">
+                      <div className="h-3.5 bg-gray-100 dark:bg-gray-700 rounded-none w-[85%]" />
+                      <div className="h-3 bg-gray-50 dark:bg-gray-700/50 rounded-none w-[55%]" />
+                    </div>
+                    <div className="mt-1">
+                      <div className="h-5 bg-gray-100 dark:bg-gray-700 rounded-none w-[45%]" />
+                    </div>
+                    <div className="pt-2 border-t border-gray-100 dark:border-gray-700/30">
+                      <div className="h-2.5 bg-gray-50 dark:bg-gray-700/40 rounded-none w-[35%]" />
+                    </div>
+                  </div>
+                )}
               </div>
-              <div className="mt-1">
-                <div className="h-5 bg-gray-100 dark:bg-gray-700 rounded-none w-[45%]" />
-              </div>
-              <div className="pt-2 border-t border-gray-100 dark:border-gray-700/30">
-                <div className="h-2.5 bg-gray-50 dark:bg-gray-700/40 rounded-none w-[35%]" />
-              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="mx-4 sm:mx-6 lg:mx-8 p-4 flex items-center justify-center h-full">
+        <div className="text-center space-y-3">
+          <div className="w-16 h-16 mx-auto bg-red-100 rounded-none flex items-center justify-center">
+            <span className="text-2xl">⚠️</span>
+          </div>
+          <p className="text-destructive font-semibold">Error: {error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (items.length === 0 && !loading) {
+    return (
+      <div className="mx-4 sm:mx-6 lg:mx-8 p-6 flex items-center justify-center h-full min-h-[300px]">
+        <div className="text-center space-y-5 max-w-sm">
+          <div className="relative mx-auto w-20 h-20">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1c6a1e]/10 to-[#2a8a30]/10 rounded-none rotate-6" />
+            <div className="relative w-20 h-20 bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50 rounded-none flex items-center justify-center border-2 border-slate-300 dark:border-slate-500 shadow-sm">
+              <svg
+                className="w-9 h-9 text-gray-300 dark:text-gray-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
             </div>
+          </div>
+          <div className="space-y-2">
+            <p className="text-base font-semibold text-gray-700 dark:text-gray-300">
+              {searchQuery ? "No products found" : "No items in this category"}
+            </p>
+            {searchQuery && (
+              <>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  We couldn&apos;t find anything matching &quot;
+                  <span className="font-medium text-gray-700 dark:text-gray-300">
+                    {searchQuery}
+                  </span>
+                  &quot;
+                </p>
+                <div className="pt-3 flex flex-col gap-1.5 items-start mx-auto max-w-[200px]">
+                  <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+                    <span className="w-1 h-1 rounded-none bg-gray-300 dark:bg-gray-600" />
+                    <span>Check for spelling errors</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+                    <span className="w-1 h-1 rounded-none bg-gray-300 dark:bg-gray-600" />
+                    <span>Try different keywords</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+                    <span className="w-1 h-1 rounded-none bg-gray-300 dark:bg-gray-600" />
+                    <span>Browse by category instead</span>
+                  </div>
+                </div>
+              </>
             )}
           </div>
-        ))}
+        </div>
       </div>
-      </div>
-    </div>
-  );
-}
+    );
+  }
 
-if (error) {
   return (
-    <div className="mx-4 sm:mx-6 lg:mx-8 p-4 flex items-center justify-center h-full">
-      <div className="text-center space-y-3">
-        <div className="w-16 h-16 mx-auto bg-red-100 rounded-none flex items-center justify-center">
-          <span className="text-2xl">⚠️</span>
-        </div>
-        <p className="text-destructive font-semibold">Error: {error}</p>
-      </div>
-    </div>
-  );
-}
-
-if (items.length === 0 && !loading) {
-  return (
-    <div className="mx-4 sm:mx-6 lg:mx-8 p-6 flex items-center justify-center h-full min-h-[300px]">
-      <div className="text-center space-y-5 max-w-sm">
-        <div className="relative mx-auto w-20 h-20">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#1c6a1e]/10 to-[#2a8a30]/10 rounded-none rotate-6" />
-          <div className="relative w-20 h-20 bg-gradient-to-br from-gray-50 to-white dark:from-gray-800 dark:to-gray-800/50 rounded-none flex items-center justify-center border-2 border-slate-300 dark:border-slate-500 shadow-sm">
-            <svg className="w-9 h-9 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-        </div>
-        <div className="space-y-2">
-          <p className="text-base font-semibold text-gray-700 dark:text-gray-300">
-            {searchQuery
-              ? 'No products found'
-              : 'No items in this category'}
-          </p>
-          {searchQuery && (
-            <>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                We couldn&apos;t find anything matching &quot;<span className="font-medium text-gray-700 dark:text-gray-300">{searchQuery}</span>&quot;
-              </p>
-              <div className="pt-3 flex flex-col gap-1.5 items-start mx-auto max-w-[200px]">
-                <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
-                  <span className="w-1 h-1 rounded-none bg-gray-300 dark:bg-gray-600" />
-                  <span>Check for spelling errors</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
-                  <span className="w-1 h-1 rounded-none bg-gray-300 dark:bg-gray-600" />
-                  <span>Try different keywords</span>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
-                  <span className="w-1 h-1 rounded-none bg-gray-300 dark:bg-gray-600" />
-                  <span>Browse by category instead</span>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-return (
-  <div
-    className={
-      showShopTypeCatalog
-        ? 'px-3 sm:px-4 py-3 sm:py-4 min-h-full'
-        : 'mx-4 sm:mx-6 lg:mx-8 px-4 sm:px-6 py-4 sm:py-6 flex items-start justify-center min-h-full'
-    }
-  >
     <div
       className={
         showShopTypeCatalog
-          ? SQUARE_CATALOG_CONTAINER_CLASS
-          : 'w-full max-w-6xl rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white/90 dark:bg-slate-900/80 shadow-sm px-4 sm:px-6 py-4 sm:py-5'
+          ? "px-3 sm:px-4 py-3 sm:py-4 min-h-full"
+          : "mx-4 sm:mx-6 lg:mx-8 px-4 sm:px-6 py-4 sm:py-6 flex items-start justify-center min-h-full"
       }
     >
-      {searchQuery && items.length > 0 && (
-        <div className="mb-6 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-none bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-sm shadow-[#1c6a1e]/20">
-                <span className="text-white text-xs font-bold">{items.length}</span>
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
-                  {items.length} result{items.length !== 1 ? 's' : ''} found
-                </p>
-                <p className="text-xs text-gray-400 dark:text-gray-500">
-                  for &quot;<span className="text-gray-600 dark:text-gray-300 font-medium">{searchQuery}</span>&quot;
-                </p>
-              </div>
-            </div>
-          </div>
-          {showingOtherShopType && shopType !== SHOP_TYPE_ALL && (
-            <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-amber-50/80 dark:bg-amber-900/15 border-2 border-amber-300 dark:border-amber-700 rounded-none">
-              <div className="w-5 h-5 rounded-none bg-amber-400/20 flex items-center justify-center flex-shrink-0">
-                <span className="text-amber-600 text-[10px] font-bold">i</span>
-              </div>
-              <p className="text-xs text-amber-700 dark:text-amber-200/80">
-                No results in <span className="font-semibold">{shopType}</span> mode. Showing results from another department instead.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-      <div className="space-y-6">
-        {/* Render parent groups */}
-        {groupedItems.filter(g => g.type === 'parent').map((group) => {
-          if (!group.parent || !group.children || group.children.length === 0) return null;
-          return (
-            <div key={group.parent.id} className="rounded-none border-2 border-slate-300 dark:border-slate-600 bg-gradient-to-br from-white via-white to-[#1c6a1e]/[0.02] dark:from-slate-800/60 dark:via-slate-800/40 dark:to-[#1c6a1e]/[0.05] overflow-hidden">
-              {/* Parent header */}
-              <div className="flex items-center gap-3 px-4 sm:px-5 py-3 border-b border-gray-100 dark:border-gray-700/40 bg-gray-50/50 dark:bg-gray-800/30">
-                <div className="w-8 h-8 rounded-none bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-sm shadow-[#1c6a1e]/20 flex-shrink-0">
-                  <Package className="w-4 h-4 text-white" />
+      <div
+        className={
+          showShopTypeCatalog
+            ? SQUARE_CATALOG_CONTAINER_CLASS
+            : "w-full max-w-6xl rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white/90 dark:bg-slate-900/80 shadow-sm px-4 sm:px-6 py-4 sm:py-5"
+        }
+      >
+        {searchQuery && items.length > 0 && (
+          <div className="mb-6 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-none bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-sm shadow-[#1c6a1e]/20">
+                  <span className="text-white text-xs font-bold">
+                    {items.length}
+                  </span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 truncate">
-                    {group.parent.name}
-                  </h2>
-                  <p className="text-[11px] text-gray-400 dark:text-gray-500">
-                    {group.children.length} variant{group.children.length !== 1 ? 's' : ''}
+                <div>
+                  <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                    {items.length} result{items.length !== 1 ? "s" : ""} found
+                  </p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    for &quot;
+                    <span className="text-gray-600 dark:text-gray-300 font-medium">
+                      {searchQuery}
+                    </span>
+                    &quot;
                   </p>
                 </div>
               </div>
-              {/* Children Grid */}
-              <div className="p-3 sm:p-4">
-                <div className={catalogGridClass}>
-                  {group.children.map((item) => (
-                    <ItemCard
-                      key={item.id}
-                      item={item}
-                      onSelect={handleItemClick}
-                      onQuickAdd={onQuickAdd}
-                      allowSellOutOfStock={allowSellOutOfStock}
-                    />
-                  ))}
-                </div>
-              </div>
             </div>
-          );
-        })}
-
-        {/* Render standalone items grouped together */}
-        {groupedItems.filter(g => g.type === 'standalone').length > 0 && (
-          <div>
-            {/* Section label if there are also parent groups */}
-            {groupedItems.some(g => g.type === 'parent') && (
-              <div className="flex items-center gap-2.5 mb-3 px-1">
-                <div className="w-6 h-6 rounded-none bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
-                  <ShoppingBag className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+            {showingOtherShopType && shopType !== SHOP_TYPE_ALL && (
+              <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-amber-50/80 dark:bg-amber-900/15 border-2 border-amber-300 dark:border-amber-700 rounded-none">
+                <div className="w-5 h-5 rounded-none bg-amber-400/20 flex items-center justify-center flex-shrink-0">
+                  <span className="text-amber-600 text-[10px] font-bold">
+                    i
+                  </span>
                 </div>
-                <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                  Individual Products
-                </h3>
-                <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800" />
+                <p className="text-xs text-amber-700 dark:text-amber-200/80">
+                  No results in{" "}
+                  <span className="font-semibold">{shopType}</span> mode.
+                  Showing results from another department instead.
+                </p>
               </div>
             )}
-            <div className={catalogGridClass}>
-              {groupedItems.filter(g => g.type === 'standalone').map((group) => (
-                group.item && (
-                  <ItemCard
-                    key={group.item.id}
-                    item={group.item}
-                    onSelect={handleItemClick}
-                    onQuickAdd={onQuickAdd}
-                    allowSellOutOfStock={allowSellOutOfStock}
-                  />
-                )
-              ))}
-            </div>
           </div>
         )}
+        <div className="space-y-6">
+          {/* Render parent groups */}
+          {groupedItems
+            .filter((g) => g.type === "parent")
+            .map((group) => {
+              if (
+                !group.parent ||
+                !group.children ||
+                group.children.length === 0
+              )
+                return null;
+              return (
+                <div
+                  key={group.parent.id}
+                  className="rounded-none border-2 border-slate-300 dark:border-slate-600 bg-gradient-to-br from-white via-white to-[#1c6a1e]/[0.02] dark:from-slate-800/60 dark:via-slate-800/40 dark:to-[#1c6a1e]/[0.05] overflow-hidden"
+                >
+                  {/* Parent header */}
+                  <div className="flex items-center gap-3 px-4 sm:px-5 py-3 border-b border-gray-100 dark:border-gray-700/40 bg-gray-50/50 dark:bg-gray-800/30">
+                    <div className="w-8 h-8 rounded-none bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-sm shadow-[#1c6a1e]/20 flex-shrink-0">
+                      <Package className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 truncate">
+                        {group.parent.name}
+                      </h2>
+                      <p className="text-[11px] text-gray-400 dark:text-gray-500">
+                        {group.children.length} variant
+                        {group.children.length !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                  </div>
+                  {/* Children Grid */}
+                  <div className="p-3 sm:p-4">
+                    <div className={catalogGridClass}>
+                      {group.children.map((item) => (
+                        <ItemCard
+                          key={item.id}
+                          item={item}
+                          onSelect={handleItemClick}
+                          onQuickAdd={onQuickAdd}
+                          allowSellOutOfStock={allowSellOutOfStock}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+          {/* Render standalone items grouped together */}
+          {groupedItems.filter((g) => g.type === "standalone").length > 0 && (
+            <div>
+              {/* Section label if there are also parent groups */}
+              {groupedItems.some((g) => g.type === "parent") && (
+                <div className="flex items-center gap-2.5 mb-3 px-1">
+                  <div className="w-6 h-6 rounded-none bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
+                    <ShoppingBag className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                  </div>
+                  <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                    Individual Products
+                  </h3>
+                  <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800" />
+                </div>
+              )}
+              <div className={catalogGridClass}>
+                {groupedItems
+                  .filter((g) => g.type === "standalone")
+                  .map(
+                    (group) =>
+                      group.item && (
+                        <ItemCard
+                          key={group.item.id}
+                          item={group.item}
+                          onSelect={handleItemClick}
+                          onQuickAdd={onQuickAdd}
+                          allowSellOutOfStock={allowSellOutOfStock}
+                        />
+                      ),
+                  )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
 }
-
