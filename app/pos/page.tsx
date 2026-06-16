@@ -635,7 +635,8 @@ export default function POSPage() {
       const q = query.toLowerCase().trim();
       if (!q) return suggestions;
       const filtered = suggestions.filter((s) => {
-        const hay = `${s.name} ${s.variant_name ?? ""} ${s.parent_name ?? ""} ${s.category_name ?? ""}`.toLowerCase();
+        const hay =
+          `${s.name} ${s.variant_name ?? ""} ${s.parent_name ?? ""} ${s.category_name ?? ""}`.toLowerCase();
         return hay.includes(q);
       });
       return filtered.length > 0 ? filtered : suggestions;
@@ -697,9 +698,7 @@ export default function POSPage() {
     // Show prefix/exact cache instantly while fetching updated results
     const warmCache = findWarmSuggestionCache(cacheKey);
     if (warmCache) {
-      applySuggestions(
-        filterSuggestionsForQuery(warmCache.data, cacheKey),
-      );
+      applySuggestions(filterSuggestionsForQuery(warmCache.data, cacheKey));
     }
 
     const cached = suggestCacheRef.current.get(cacheKey);
@@ -711,9 +710,10 @@ export default function POSPage() {
 
     const controller = new AbortController();
     suggestionsAbortRef.current = controller;
+    let cancelled = false;
 
     async function fetchSuggestions() {
-      if (controller.signal.aborted) return;
+      if (cancelled) return;
       try {
         if (!warmCache) setLoadingSuggestions(true);
         const response = await fetch(
@@ -721,10 +721,11 @@ export default function POSPage() {
           { signal: controller.signal, cache: "no-store" },
         );
 
-        if (controller.signal.aborted) return;
+        if (cancelled) return;
 
         const result = await response.json();
 
+        if (cancelled) return;
         if (result.success && result.data) {
           const suggestions = result.data.map(mapSuggestItem);
           suggestCacheRef.current.set(cacheKey, {
@@ -740,10 +741,11 @@ export default function POSPage() {
           applySuggestions(suggestions);
         }
       } catch (err) {
+        if (cancelled) return;
         if (err instanceof Error && err.name === "AbortError") return;
         console.error("Error fetching suggestions:", err);
       } finally {
-        if (suggestionsAbortRef.current === controller) {
+        if (!cancelled) {
           setLoadingSuggestions(false);
         }
       }
@@ -751,6 +753,7 @@ export default function POSPage() {
 
     fetchSuggestions();
     return () => {
+      cancelled = true;
       controller.abort();
     };
   }, [
