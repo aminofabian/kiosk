@@ -743,9 +743,7 @@ export default function POSPage() {
         if (err instanceof Error && err.name === "AbortError") return;
         console.error("Error fetching suggestions:", err);
       } finally {
-        if (!cancelled) {
-          setLoadingSuggestions(false);
-        }
+        setLoadingSuggestions(false);
       }
     }
 

@@ -633,9 +633,7 @@ export function ItemGrid({
             setError("Failed to search items");
             console.error("Error searching items:", err);
           } finally {
-            if (!cancelled) {
-              setLoading(false);
-            }
+            setLoading(false);
           }
         })();
       }, ITEM_SEARCH_DEBOUNCE_MS);
@@ -685,9 +683,7 @@ export function ItemGrid({
           setError("Failed to load items");
           console.error("Error fetching catalog items:", err);
         } finally {
-          if (!cancelled) {
-            setLoading(false);
-          }
+          setLoading(false);
         }
       }
 
@@ -734,9 +730,7 @@ export function ItemGrid({
         setError("Failed to load items");
         console.error("Error fetching items:", err);
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     }
 
