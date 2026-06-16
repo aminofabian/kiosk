@@ -252,25 +252,30 @@ export default function POSPage() {
     ? canProcessRefund(user.role as UserRole)
     : false;
 
-  // SSE connection for real-time events
-  useDepartmentEvents({
-    role: user?.role,
-    userId: user?.id,
-    businessId: user?.businessId,
-    onForwarded: () => {
-      void refreshPendingSales();
-      setCartRefreshTrigger((k) => k + 1);
-    },
-    onCompleted: (event) => {
+  const bumpCartRefresh = useCallback(() => {
+    setCartRefreshTrigger((k) => k + 1);
+  }, []);
+
+  const handleDeptOrderForwarded = useCallback(() => {
+    void refreshPendingSales();
+    bumpCartRefresh();
+  }, [refreshPendingSales, bumpCartRefresh]);
+
+  const handleDeptOrderCompleted = useCallback(
+    (event: { data: Record<string, unknown> }) => {
       const pendingSaleId = event.data.pendingSaleId;
       if (typeof pendingSaleId === "string") {
         removeSale(pendingSaleId);
         clearCartByPendingSaleId(pendingSaleId);
       }
       void refreshPendingSales();
-      setCartRefreshTrigger((k) => k + 1);
+      bumpCartRefresh();
     },
-    onQueueUpdate: (event) => {
+    [removeSale, clearCartByPendingSaleId, refreshPendingSales, bumpCartRefresh],
+  );
+
+  const handleDeptQueueUpdate = useCallback(
+    (event: { data: Record<string, unknown> }) => {
       const pendingSaleId = event.data.pendingSaleId;
       if (
         event.data.action === "completed" &&
@@ -280,8 +285,19 @@ export default function POSPage() {
         clearCartByPendingSaleId(pendingSaleId);
       }
       void refreshPendingSales();
-      setCartRefreshTrigger((k) => k + 1);
+      bumpCartRefresh();
     },
+    [removeSale, clearCartByPendingSaleId, refreshPendingSales, bumpCartRefresh],
+  );
+
+  // WebSocket/SSE for department orders — stable callbacks avoid reconnect on each keystroke
+  useDepartmentEvents({
+    role: user?.role,
+    userId: user?.id,
+    businessId: user?.businessId,
+    onForwarded: handleDeptOrderForwarded,
+    onCompleted: handleDeptOrderCompleted,
+    onQueueUpdate: handleDeptQueueUpdate,
   });
 
   const posStockStats = useMemo(() => {

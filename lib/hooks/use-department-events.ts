@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { playDepartmentOrderPop } from "@/lib/utils/department-order-sound";
 
@@ -35,6 +35,18 @@ export function useDepartmentEvents(options: UseDepartmentEventsOptions) {
     onQueueUpdate,
   } = options;
 
+  const onForwardedRef = useRef(onForwarded);
+  const onCompletedRef = useRef(onCompleted);
+  const onLoadedRef = useRef(onLoaded);
+  const onQueueUpdateRef = useRef(onQueueUpdate);
+
+  useEffect(() => {
+    onForwardedRef.current = onForwarded;
+    onCompletedRef.current = onCompleted;
+    onLoadedRef.current = onLoaded;
+    onQueueUpdateRef.current = onQueueUpdate;
+  });
+
   const handleEvent = useCallback(
     (event: DeptEvent) => {
       if (event.type === "connected") return;
@@ -51,8 +63,8 @@ export function useDepartmentEvents(options: UseDepartmentEventsOptions) {
             { duration: 5000 },
           );
         }
-        onForwarded?.(event);
-        onQueueUpdate?.(event);
+        onForwardedRef.current?.(event);
+        return;
       }
 
       if (event.type === "order:completed") {
@@ -66,8 +78,8 @@ export function useDepartmentEvents(options: UseDepartmentEventsOptions) {
             { duration: 5000 },
           );
         }
-        onCompleted?.(event);
-        onQueueUpdate?.(event);
+        onCompletedRef.current?.(event);
+        return;
       }
 
       if (event.type === "order:loaded") {
@@ -76,14 +88,15 @@ export function useDepartmentEvents(options: UseDepartmentEventsOptions) {
             duration: 3000,
           });
         }
-        onLoaded?.(event);
+        onLoadedRef.current?.(event);
+        return;
       }
 
       if (event.type === "queue:update") {
-        onQueueUpdate?.(event);
+        onQueueUpdateRef.current?.(event);
       }
     },
-    [role, onForwarded, onCompleted, onLoaded, onQueueUpdate],
+    [role],
   );
 
   useEffect(() => {
