@@ -541,7 +541,13 @@ export function CheckoutForm({
 
       const linkedPendingSaleId = getActiveCartPendingSaleId();
       if (activeCartId) {
-        await syncPendingSale(activeCartId);
+        const cartBefore = useCartStore
+          .getState()
+          .carts.find((c) => c.id === activeCartId);
+        // Background sync keeps synced carts up to date — skip redundant round trip at checkout.
+        if (cartBefore && cartBefore.syncStatus !== "synced") {
+          await syncPendingSale(activeCartId);
+        }
         const cart = useCartStore.getState().carts.find((c) => c.id === activeCartId);
         const stillLinked = cart?.pendingSaleId ?? linkedPendingSaleId;
         if (cart?.syncStatus === "error" && !stillLinked) {
@@ -603,6 +609,7 @@ export function CheckoutForm({
         requestBody,
       );
       if (result.success && result.data) {
+        setIsProcessing(false);
         clearCart({ skipAbandon: true });
         if (onSaleComplete) {
           onSaleComplete(result.data.saleId, resolvedPendingSaleId ?? undefined);

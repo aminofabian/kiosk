@@ -1,6 +1,8 @@
 import { execute, query } from './index';
 
-export async function migrateCreditDebtLineItemsSnapshot(): Promise<void> {
+let creditDebtSnapshotMigration: Promise<void> | null = null;
+
+async function runCreditDebtSnapshotMigration(): Promise<void> {
   const tableCheck = await query<{ name: string }>(
     `SELECT name FROM sqlite_master WHERE type='table' AND name='credit_transactions'`
   );
@@ -18,4 +20,15 @@ export async function migrateCreditDebtLineItemsSnapshot(): Promise<void> {
   }
 
   console.log('✓ credit debt line items snapshot column OK');
+}
+
+/** Schema checks run once per server process. */
+export async function migrateCreditDebtLineItemsSnapshot(): Promise<void> {
+  if (!creditDebtSnapshotMigration) {
+    creditDebtSnapshotMigration = runCreditDebtSnapshotMigration().catch((err) => {
+      creditDebtSnapshotMigration = null;
+      throw err;
+    });
+  }
+  return creditDebtSnapshotMigration;
 }

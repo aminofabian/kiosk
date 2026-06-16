@@ -205,7 +205,9 @@ async function ensureSalesUpdatedAt(): Promise<void> {
   }
 }
 
-export async function migratePendingSales(): Promise<void> {
+let pendingSalesMigration: Promise<void> | null = null;
+
+async function runPendingSalesMigration(): Promise<void> {
   console.log('🔄 Starting pending sales migration...');
 
   await recoverSalesTable();
@@ -222,4 +224,15 @@ export async function migratePendingSales(): Promise<void> {
   }
 
   console.log('✅ Pending sales migration completed');
+}
+
+/** Schema checks run once per server process — not on every checkout. */
+export async function migratePendingSales(): Promise<void> {
+  if (!pendingSalesMigration) {
+    pendingSalesMigration = runPendingSalesMigration().catch((err) => {
+      pendingSalesMigration = null;
+      throw err;
+    });
+  }
+  return pendingSalesMigration;
 }

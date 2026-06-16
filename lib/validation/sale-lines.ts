@@ -1,4 +1,4 @@
-import { queryOne } from '@/lib/db';
+import { query } from '@/lib/db';
 import { hasPermission } from '@/lib/auth/permissions';
 import { verifyManagerPin } from '@/lib/auth/verify-manager-pin';
 import type { UserRole } from '@/lib/constants';
@@ -53,9 +53,7 @@ interface ItemRow {
   buy_price: number;
 }
 
-async function loadItem(businessId: string, itemId: string): Promise<ItemRow | null> {
-  return queryOne<ItemRow>(
-    `SELECT
+const ITEM_SELECT = `SELECT
       i.id,
       i.name,
       i.active,
@@ -70,23 +68,42 @@ async function loadItem(businessId: string, itemId: string): Promise<ItemRow | n
          ORDER BY effective_from DESC LIMIT 1),
         0
       ) AS buy_price
-     FROM items i
-     WHERE i.id = ? AND i.business_id = ?`,
-    [itemId, businessId]
+     FROM items i`;
+
+async function loadItemsByIds(
+  businessId: string,
+  itemIds: string[],
+): Promise<Map<string, ItemRow>> {
+  const uniqueIds = [...new Set(itemIds.filter(Boolean))];
+  if (uniqueIds.length === 0) {
+    return new Map();
+  }
+  const placeholders = uniqueIds.map(() => '?').join(',');
+  const rows = await query<ItemRow>(
+    `${ITEM_SELECT}
+     WHERE i.id IN (${placeholders}) AND i.business_id = ?`,
+    [...uniqueIds, businessId],
   );
+  return new Map(rows.map((row) => [row.id, row]));
 }
 
-async function isBatchExpired(batchId: string, businessId: string): Promise<boolean> {
-  const batch = await queryOne<{ expiry_date: number | null }>(
-    `SELECT expiry_date FROM inventory_batches
-     WHERE id = ? AND business_id = ?`,
-    [batchId, businessId]
-  );
-  if (!batch?.expiry_date) {
-    return false;
+async function loadExpiredBatchIds(
+  businessId: string,
+  batchIds: string[],
+): Promise<Set<string>> {
+  const uniqueIds = [...new Set(batchIds.filter(Boolean))];
+  if (uniqueIds.length === 0) {
+    return new Set();
   }
   const now = Math.floor(Date.now() / 1000);
-  return batch.expiry_date < now;
+  const placeholders = uniqueIds.map(() => '?').join(',');
+  const rows = await query<{ id: string }>(
+    `SELECT id FROM inventory_batches
+     WHERE id IN (${placeholders}) AND business_id = ?
+       AND expiry_date IS NOT NULL AND expiry_date < ?`,
+    [...uniqueIds, businessId, now],
+  );
+  return new Set(rows.map((row) => row.id));
 }
 
 /**
@@ -106,6 +123,17 @@ export async function validateSaleLines(
       : null;
   const managerAuthorized = canOverridePrice || manager !== null;
   const allowNegativeStock = managerAuthorized || allowSellOutOfStock;
+
+  const itemMap = await loadItemsByIds(
+    businessId,
+    lines.map((line) => line.itemId),
+  );
+  const expiredBatchIds = await loadExpiredBatchIds(
+    businessId,
+    lines
+      .map((line) => line.inventoryBatchId)
+      .filter((id): id is string => Boolean(id)),
+  );
 
   for (const line of lines) {
     if (!line.itemId || line.quantity <= 0) {
@@ -128,7 +156,7 @@ export async function validateSaleLines(
       continue;
     }
 
-    const item = await loadItem(businessId, line.itemId);
+    const item = itemMap.get(line.itemId);
     if (!item) {
       errors.push({
         itemId: line.itemId,
@@ -163,8 +191,7 @@ export async function validateSaleLines(
     }
 
     if (line.inventoryBatchId) {
-      const expired = await isBatchExpired(line.inventoryBatchId, businessId);
-      if (expired) {
+      if (expiredBatchIds.has(line.inventoryBatchId)) {
         errors.push({
           itemId: line.itemId,
           itemName: item.name,
