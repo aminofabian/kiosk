@@ -16,12 +16,16 @@ import {
   ArrowUpDown, ArrowUp, ArrowDown, Filter, RotateCcw,
   Boxes, Scale, DollarSign, ShoppingBag,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { StockItemEditDrawer } from '@/components/admin/StockItemEditDrawer';
+import { InlineEditableCell } from '@/components/admin/InlineEditableCell';
 import type { Item, Category } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
+import { isDiscreteUnitType } from '@/lib/constants';
 
 interface StockItem extends Item {
   category_name?: string;
+  current_buy_price?: number | null;
   initial_stock: number;
   stock_change: number;
   stock_change_percent: number | null;
@@ -104,6 +108,19 @@ export function StockList() {
   // Edit drawer
   const [editItem, setEditItem] = useState<StockItem | null>(null);
   const [editDrawerOpen, setEditDrawerOpen] = useState(false);
+
+  // Inline edits
+  const [editingStockId, setEditingStockId] = useState<string | null>(null);
+  const [editingStockValue, setEditingStockValue] = useState('');
+  const [savingStockId, setSavingStockId] = useState<string | null>(null);
+
+  const [editingCostValueId, setEditingCostValueId] = useState<string | null>(null);
+  const [editingCostValue, setEditingCostValue] = useState('');
+  const [savingCostValueId, setSavingCostValueId] = useState<string | null>(null);
+
+  const [editingSalesValueId, setEditingSalesValueId] = useState<string | null>(null);
+  const [editingSalesValue, setEditingSalesValue] = useState('');
+  const [savingSalesValueId, setSavingSalesValueId] = useState<string | null>(null);
 
   const fetchData = useCallback(async (showLoader = true) => {
     try {
@@ -237,6 +254,172 @@ export function StockList() {
     if (change === null) return '—';
     const sign = change >= 0 ? '+' : '';
     return `${sign}${change.toFixed(0)}%`;
+  };
+
+  const formatStockQty = (stock: number, unitType: UnitType) =>
+    isDiscreteUnitType(unitType) ? Math.round(stock).toString() : stock.toFixed(2);
+
+  const getUnitBuyPrice = (item: StockItem) => {
+    if (item.current_buy_price != null && item.current_buy_price > 0) return item.current_buy_price;
+    if (item.current_stock > 0 && item.stock_value > 0) return item.stock_value / item.current_stock;
+    return 0;
+  };
+
+  const startStockEdit = (item: StockItem) => {
+    setEditingCostValueId(null);
+    setEditingSalesValueId(null);
+    setEditingStockId(item.id);
+    setEditingStockValue(formatStockQty(item.current_stock, item.unit_type));
+  };
+
+  const startCostValueEdit = (item: StockItem) => {
+    setEditingStockId(null);
+    setEditingSalesValueId(null);
+    setEditingCostValueId(item.id);
+    setEditingCostValue(String(Math.round(item.stock_value || 0)));
+  };
+
+  const startSalesValueEdit = (item: StockItem) => {
+    setEditingStockId(null);
+    setEditingCostValueId(null);
+    setEditingSalesValueId(item.id);
+    setEditingSalesValue(String(Math.round(item.sales_value || item.current_value || 0)));
+  };
+
+  const saveInlineStock = async (item: StockItem) => {
+    const isDiscrete = isDiscreteUnitType(item.unit_type);
+    const target = isDiscrete ? parseInt(editingStockValue, 10) : parseFloat(editingStockValue);
+
+    if (!editingStockValue || isNaN(target) || target < 0) {
+      toast.error('Enter a valid stock level');
+      setEditingStockId(null);
+      setEditingStockValue('');
+      return;
+    }
+
+    const diff = target - item.current_stock;
+    if (diff === 0) {
+      setEditingStockId(null);
+      setEditingStockValue('');
+      return;
+    }
+
+    setSavingStockId(item.id);
+    setEditingStockId(null);
+    try {
+      const res = await fetch('/api/stock/adjust', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemId: item.id,
+          adjustmentType: diff > 0 ? 'increase' : 'decrease',
+          quantity: Math.abs(diff),
+          reason: 'counting_error',
+          notes: null,
+        }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast.success('Stock updated');
+        fetchData(false);
+      } else {
+        toast.error(result.message || 'Failed to update stock');
+        setEditingStockId(item.id);
+        setEditingStockValue(formatStockQty(target, item.unit_type));
+      }
+    } catch {
+      toast.error('Failed to update stock');
+      setEditingStockId(item.id);
+      setEditingStockValue(formatStockQty(target, item.unit_type));
+    } finally {
+      setSavingStockId(null);
+      if (!editingStockId) setEditingStockValue('');
+    }
+  };
+
+  const saveInlineCostValue = async (item: StockItem) => {
+    const total = parseFloat(editingCostValue);
+    if (!editingCostValue || isNaN(total) || total < 0) {
+      toast.error('Enter a valid cost value');
+      setEditingCostValueId(null);
+      setEditingCostValue('');
+      return;
+    }
+
+    const buyPrice =
+      item.current_stock > 0 ? total / item.current_stock : total;
+    const currentBuy = getUnitBuyPrice(item);
+    if (Math.abs(buyPrice - currentBuy) < 0.01) {
+      setEditingCostValueId(null);
+      setEditingCostValue('');
+      return;
+    }
+
+    setSavingCostValueId(item.id);
+    setEditingCostValueId(null);
+    try {
+      const res = await fetch(`/api/items/${item.id}/prices`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buyPrice }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast.success('Cost value updated');
+        fetchData(false);
+      } else {
+        toast.error(result.message || 'Failed to update cost');
+        setEditingCostValueId(item.id);
+      }
+    } catch {
+      toast.error('Failed to update cost');
+      setEditingCostValueId(item.id);
+    } finally {
+      setSavingCostValueId(null);
+      if (!editingCostValueId) setEditingCostValue('');
+    }
+  };
+
+  const saveInlineSalesValue = async (item: StockItem) => {
+    const total = parseFloat(editingSalesValue);
+    if (!editingSalesValue || isNaN(total) || total < 0) {
+      toast.error('Enter a valid sales value');
+      setEditingSalesValueId(null);
+      setEditingSalesValue('');
+      return;
+    }
+
+    const sellPrice =
+      item.current_stock > 0 ? total / item.current_stock : total;
+    if (Math.abs(sellPrice - item.current_sell_price) < 0.01) {
+      setEditingSalesValueId(null);
+      setEditingSalesValue('');
+      return;
+    }
+
+    setSavingSalesValueId(item.id);
+    setEditingSalesValueId(null);
+    try {
+      const res = await fetch(`/api/items/${item.id}/prices`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sellPrice }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        toast.success('Sales value updated');
+        fetchData(false);
+      } else {
+        toast.error(result.message || 'Failed to update sales value');
+        setEditingSalesValueId(item.id);
+      }
+    } catch {
+      toast.error('Failed to update sales value');
+      setEditingSalesValueId(item.id);
+    } finally {
+      setSavingSalesValueId(null);
+      if (!editingSalesValueId) setEditingSalesValue('');
+    }
   };
 
   const SortIcon = ({ field }: { field: SortField }) => {
@@ -692,15 +875,21 @@ export function StockList() {
                         )}
                       </div>
                     </div>
-                    <div className="text-right flex-shrink-0">
-                      <div className="flex items-baseline gap-0.5 justify-end">
-                        <span className={`text-lg font-bold tabular-nums ${
+                    <div className="text-right flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <InlineEditableCell
+                        displayValue={`${formatStock(item.current_stock, item.unit_type)} ${item.unit_type}`}
+                        isEditing={editingStockId === item.id}
+                        value={editingStockValue}
+                        isSaving={savingStockId === item.id}
+                        unitType={item.unit_type}
+                        onStartEdit={() => startStockEdit(item)}
+                        onChange={setEditingStockValue}
+                        onSave={() => void saveInlineStock(item)}
+                        onCancel={() => { setEditingStockId(null); setEditingStockValue(''); }}
+                        className={`text-lg font-bold ${
                           outOfStock ? 'text-slate-300 dark:text-slate-600' : low ? 'text-amber-500' : 'text-slate-900 dark:text-white'
-                        }`}>
-                          {formatStock(item.current_stock, item.unit_type)}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-medium ml-0.5">{item.unit_type}</span>
-                      </div>
+                        }`}
+                      />
                       {outOfStock ? (
                         <span className="text-[10px] font-bold text-slate-400 uppercase">Out of stock</span>
                       ) : low ? (
@@ -710,14 +899,40 @@ export function StockList() {
                   </div>
 
                   <div className="mt-2.5 flex items-center justify-between">
-                    <div className="flex items-center gap-3 text-[11px]">
+                    <div className="flex items-center gap-3 text-[11px]" onClick={(e) => e.stopPropagation()}>
                       <div>
                         <span className="text-slate-400">Cost </span>
-                        <span className="font-semibold text-slate-600 dark:text-slate-300">{formatCurrency(item.stock_value || 0)}</span>
+                        <InlineEditableCell
+                          displayValue={formatCurrency(item.stock_value || 0)}
+                          isEditing={editingCostValueId === item.id}
+                          value={editingCostValue}
+                          isSaving={savingCostValueId === item.id}
+                          valueKind="price"
+                          align="left"
+                          inline
+                          onStartEdit={() => startCostValueEdit(item)}
+                          onChange={setEditingCostValue}
+                          onSave={() => void saveInlineCostValue(item)}
+                          onCancel={() => { setEditingCostValueId(null); setEditingCostValue(''); }}
+                          className="inline font-semibold text-slate-600 dark:text-slate-300"
+                        />
                       </div>
                       <div>
                         <span className="text-slate-400">Sale </span>
-                        <span className="font-semibold text-[#1c6a1e] dark:text-emerald-400">{formatCurrency(item.sales_value || item.current_value || 0)}</span>
+                        <InlineEditableCell
+                          displayValue={formatCurrency(item.sales_value || item.current_value || 0)}
+                          isEditing={editingSalesValueId === item.id}
+                          value={editingSalesValue}
+                          isSaving={savingSalesValueId === item.id}
+                          valueKind="price"
+                          align="left"
+                          inline
+                          onStartEdit={() => startSalesValueEdit(item)}
+                          onChange={setEditingSalesValue}
+                          onSave={() => void saveInlineSalesValue(item)}
+                          onCancel={() => { setEditingSalesValueId(null); setEditingSalesValue(''); }}
+                          className="inline font-semibold text-[#1c6a1e] dark:text-emerald-400"
+                        />
                       </div>
                     </div>
                     <div className={`flex items-center gap-1 px-2 py-1 rounded-md ${trendConfig.bg}`}>
@@ -816,23 +1031,49 @@ export function StockList() {
                           <td className="py-3 px-4">
                             <span className="text-xs capitalize text-slate-500 dark:text-slate-400">{item.item_type || '—'}</span>
                           </td>
-                          <td className="py-3 px-4 text-right">
-                            <span className={`font-bold text-sm tabular-nums ${
-                              outOfStock ? 'text-slate-300 dark:text-slate-600' : low ? 'text-amber-500' : 'text-slate-900 dark:text-white'
-                            }`}>
-                              {formatStock(item.current_stock, item.unit_type)}
-                            </span>
-                            <span className="text-xs text-slate-400 ml-1">{item.unit_type}</span>
+                          <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                            <InlineEditableCell
+                              displayValue={`${formatStock(item.current_stock, item.unit_type)} ${item.unit_type}`}
+                              isEditing={editingStockId === item.id}
+                              value={editingStockValue}
+                              isSaving={savingStockId === item.id}
+                              unitType={item.unit_type}
+                              onStartEdit={() => startStockEdit(item)}
+                              onChange={setEditingStockValue}
+                              onSave={() => void saveInlineStock(item)}
+                              onCancel={() => { setEditingStockId(null); setEditingStockValue(''); }}
+                              className={`font-bold text-sm ${
+                                outOfStock ? 'text-slate-300 dark:text-slate-600' : low ? 'text-amber-500' : 'text-slate-900 dark:text-white'
+                              }`}
+                            />
                           </td>
-                          <td className="py-3 px-4 text-right">
-                            <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 tabular-nums">
-                              {formatCurrency(item.stock_value || 0)}
-                            </span>
+                          <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                            <InlineEditableCell
+                              displayValue={formatCurrency(item.stock_value || 0)}
+                              isEditing={editingCostValueId === item.id}
+                              value={editingCostValue}
+                              isSaving={savingCostValueId === item.id}
+                              valueKind="price"
+                              onStartEdit={() => startCostValueEdit(item)}
+                              onChange={setEditingCostValue}
+                              onSave={() => void saveInlineCostValue(item)}
+                              onCancel={() => { setEditingCostValueId(null); setEditingCostValue(''); }}
+                              className="text-xs font-semibold text-slate-600 dark:text-slate-300"
+                            />
                           </td>
-                          <td className="py-3 px-4 text-right">
-                            <span className="text-xs font-semibold text-[#1c6a1e] dark:text-emerald-400 tabular-nums">
-                              {formatCurrency(item.sales_value || item.current_value || 0)}
-                            </span>
+                          <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                            <InlineEditableCell
+                              displayValue={formatCurrency(item.sales_value || item.current_value || 0)}
+                              isEditing={editingSalesValueId === item.id}
+                              value={editingSalesValue}
+                              isSaving={savingSalesValueId === item.id}
+                              valueKind="price"
+                              onStartEdit={() => startSalesValueEdit(item)}
+                              onChange={setEditingSalesValue}
+                              onSave={() => void saveInlineSalesValue(item)}
+                              onCancel={() => { setEditingSalesValueId(null); setEditingSalesValue(''); }}
+                              className="text-xs font-semibold text-[#1c6a1e] dark:text-emerald-400"
+                            />
                           </td>
                           <td className="py-3 px-4 text-right">
                             <span className={`text-xs font-bold tabular-nums ${
