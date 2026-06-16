@@ -87,7 +87,6 @@ import { Settings } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { apiGet } from "@/lib/utils/api-client";
 import { apiGetOffline } from "@/lib/offline/api-offline";
-import { searchItemsOffline } from "@/lib/offline/search";
 import { ShopTypeSelector } from "@/components/pos/ShopTypeSelector";
 import {
   getShopType,
@@ -95,19 +94,13 @@ import {
   shouldShowCategory,
 } from "@/lib/utils/shop-type";
 import { useItemTypes } from "@/lib/hooks/use-item-types";
-import { storeUserRole, clearUserRole } from "@/lib/utils/user-role-storage";
-import { useDebounce } from "@/lib/hooks/use-debounce";
+import { usePosSearch } from "@/lib/hooks/use-pos-search";
 import {
   useBarcodeScanner,
   isValidBarcode,
 } from "@/lib/hooks/use-barcode-scanner";
 import { BarcodeCameraScannerDialog } from "@/components/pos/BarcodeCameraScannerDialog";
-import {
-  getRecentSearches,
-  addRecentSearch,
-  clearRecentSearches,
-  removeRecentSearch,
-} from "@/lib/utils/recent-searches";
+import { storeUserRole, clearUserRole } from "@/lib/utils/user-role-storage";
 import { Clock, Command } from "lucide-react";
 import {
   CATEGORY_COLOR_MAP,
@@ -125,8 +118,27 @@ export default function POSPage() {
   );
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
+  const {
+    searchQuery,
+    setSearchQuery,
+    debouncedSearchQuery,
+    isSearchPending,
+    recentSearches,
+    searchSuggestions,
+    showSuggestions,
+    setShowSuggestions,
+    searchFocused,
+    loadingSuggestions,
+    selectedSuggestionIndex,
+    setSelectedSuggestionIndex,
+    flatSuggestionsRef,
+    handleSearchFocus,
+    handleRecentSearchClick,
+    handleSearchKeyDown,
+    dismissSuggestions,
+    resetSearch,
+  } = usePosSearch();
   const [categories, setCategories] = useState<Category[]>([]);
   const { itemTypeKeys, allowSellOutOfStock } = useItemTypes();
   const [shopType, setShopType] = useState<string>(() => getShopType());
@@ -199,27 +211,6 @@ export default function POSPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const printedReceiptIdRef = useRef<string | null>(null);
-  const [recentSearches, setRecentSearches] = useState<string[]>([]);
-  const [searchSuggestions, setSearchSuggestions] = useState<
-    {
-      id: string;
-      name: string;
-      variant_name?: string | null;
-      current_sell_price: number;
-      unit_type?: string;
-      category_name?: string | null;
-      parent_item_id?: string | null;
-      parent_name?: string | null;
-      sibling_count?: number;
-      batch_number?: string | null;
-    }[]
-  >([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [searchFocused, setSearchFocused] = useState(false);
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
-  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
-  const suggestionsAbortRef = useRef<AbortController | null>(null);
-  const flatSuggestionsRef = useRef<typeof searchSuggestions>([]);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const desktopSearchContainerRef = useRef<HTMLDivElement>(null);
   const {
@@ -327,12 +318,6 @@ export default function POSPage() {
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [statsMenuOpen]);
-
-  // Debounced search - 50ms for suggestions (instant feel), 80ms for item grid
-  const debouncedSearchQuery = useDebounce(searchQuery, 80);
-  const quickDebouncedSearchQuery = useDebounce(searchQuery, 50);
-  const isSearchPending =
-    searchQuery !== debouncedSearchQuery && searchQuery.length > 0;
 
   useEffect(() => {
     if (user?.role) {
@@ -452,10 +437,8 @@ export default function POSPage() {
         selectedSuggestionIndex < flatItems.length
       ) {
         const selectedSuggestion = flatItems[selectedSuggestionIndex];
-        setShowSuggestions(false);
-        setSearchQuery("");
         setShowSearch(false);
-        setSearchSuggestions([]);
+        resetSearch();
 
         try {
           const result = await apiGetOffline<Item>(
@@ -479,53 +462,8 @@ export default function POSPage() {
         handleBarcodeScan(query);
       }
     },
-    [searchQuery, handleBarcodeScan, showSuggestions, selectedSuggestionIndex],
+    [searchQuery, handleBarcodeScan, showSuggestions, selectedSuggestionIndex, resetSearch],
   );
-
-  // Handle keyboard navigation in suggestions
-  const handleSearchKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Escape") {
-        if (showSuggestions) {
-          e.preventDefault();
-          setShowSuggestions(false);
-          setSelectedSuggestionIndex(-1);
-        }
-        return;
-      }
-
-      const flatLen = flatSuggestionsRef.current.length;
-      if (!showSuggestions || flatLen === 0) return;
-
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        setSelectedSuggestionIndex((prev) =>
-          prev < flatLen - 1 ? prev + 1 : 0,
-        );
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        setSelectedSuggestionIndex((prev) =>
-          prev > 0 ? prev - 1 : flatLen - 1,
-        );
-      }
-    },
-    [showSuggestions],
-  );
-
-  const handleSearchFocus = useCallback(() => {
-    setSearchFocused(true);
-    if (!searchQuery.trim() && recentSearches.length > 0) {
-      setShowSuggestions(true);
-    } else if (searchSuggestions.length > 0) {
-      setShowSuggestions(true);
-    }
-  }, [searchQuery, recentSearches.length, searchSuggestions.length]);
-
-  const handleRecentSearchClick = useCallback((query: string) => {
-    setSearchQuery(query);
-    setShowSuggestions(false);
-    setSelectedSuggestionIndex(-1);
-  }, []);
 
   const fetchCategories = useCallback(async () => {
     try {
@@ -598,193 +536,6 @@ export default function POSPage() {
     }
   }, [loadPosInsights, fetchCategories]);
 
-  // Load recent searches on mount
-  useEffect(() => {
-    const searches = getRecentSearches();
-    setRecentSearches(searches.map((s) => s.query));
-  }, []);
-
-  // Save search when user commits to a search
-  useEffect(() => {
-    if (debouncedSearchQuery && debouncedSearchQuery.length >= 2) {
-      addRecentSearch(debouncedSearchQuery);
-      // Update local state
-      setRecentSearches((prev) => {
-        const filtered = prev.filter(
-          (s) => s.toLowerCase() !== debouncedSearchQuery.toLowerCase(),
-        );
-        return [debouncedSearchQuery, ...filtered].slice(0, 8);
-      });
-    }
-  }, [debouncedSearchQuery]);
-
-  // In-memory suggestion cache to avoid redundant requests
-  const suggestCacheRef = useRef<
-    Map<string, { data: typeof searchSuggestions; ts: number }>
-  >(new Map());
-  const SUGGEST_CACHE_TTL = 5 * 60_000; // 5 minutes
-
-  const mapSuggestItem = useCallback(
-    (item: {
-      id: string;
-      name: string;
-      variant_name?: string | null;
-      current_sell_price: number;
-      unit_type?: string;
-      category_name?: string | null;
-      parent_item_id?: string | null;
-      parent_name?: string | null;
-      sibling_count?: number;
-      batch_number?: string | null;
-    }) => ({
-      id: item.id,
-      name: item.name,
-      variant_name: item.variant_name,
-      current_sell_price: item.current_sell_price,
-      unit_type: item.unit_type,
-      category_name: item.category_name,
-      parent_item_id: item.parent_item_id,
-      parent_name: item.parent_name,
-      sibling_count: item.sibling_count,
-      batch_number: item.batch_number,
-    }),
-    [],
-  );
-
-  const filterSuggestionsForQuery = useCallback(
-    (
-      suggestions: typeof searchSuggestions,
-      query: string,
-    ): typeof searchSuggestions => {
-      const q = query.toLowerCase().trim();
-      if (!q) return suggestions;
-      const filtered = suggestions.filter((s) => {
-        const hay =
-          `${s.name} ${s.variant_name ?? ""} ${s.parent_name ?? ""} ${s.category_name ?? ""}`.toLowerCase();
-        return hay.includes(q);
-      });
-      return filtered.length > 0 ? filtered : suggestions;
-    },
-    [],
-  );
-
-  const findWarmSuggestionCache = useCallback((query: string) => {
-    const key = query.toLowerCase().trim();
-    const exact = suggestCacheRef.current.get(key);
-    if (exact) return exact;
-    for (let len = key.length - 1; len >= 1; len--) {
-      const prefix = suggestCacheRef.current.get(key.slice(0, len));
-      if (prefix) return prefix;
-    }
-    return null;
-  }, []);
-
-  // Fetch search suggestions: offline = cached search, online = /api/items/suggest
-  useEffect(() => {
-    const suggestionQuery = quickDebouncedSearchQuery.trim();
-    if (suggestionsAbortRef.current) {
-      suggestionsAbortRef.current.abort();
-    }
-
-    if (!suggestionQuery || suggestionQuery.length < 1) {
-      setSearchSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-
-    if (isValidBarcode(suggestionQuery)) {
-      setSearchSuggestions([]);
-      setShowSuggestions(false);
-      return;
-    }
-
-    const cacheKey = suggestionQuery.toLowerCase();
-    const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
-
-    const applySuggestions = (suggestions: typeof searchSuggestions) => {
-      setSearchSuggestions(suggestions);
-      setShowSuggestions(suggestions.length > 0);
-      setSelectedSuggestionIndex(-1);
-    };
-
-    // Offline: search cached items
-    if (isOffline) {
-      setLoadingSuggestions(true);
-      searchItemsOffline(suggestionQuery, 10)
-        .then((suggestions) => {
-          applySuggestions(suggestions);
-        })
-        .catch((err) => console.error("Offline search error:", err))
-        .finally(() => setLoadingSuggestions(false));
-      return;
-    }
-
-    // Show prefix/exact cache instantly while fetching updated results
-    const warmCache = findWarmSuggestionCache(cacheKey);
-    if (warmCache) {
-      applySuggestions(filterSuggestionsForQuery(warmCache.data, cacheKey));
-    }
-
-    const cached = suggestCacheRef.current.get(cacheKey);
-    if (cached && Date.now() - cached.ts < SUGGEST_CACHE_TTL) {
-      applySuggestions(cached.data);
-    }
-
-    const controller = new AbortController();
-    suggestionsAbortRef.current = controller;
-    let cancelled = false;
-
-    async function fetchSuggestions() {
-      if (cancelled) return;
-      try {
-        if (!warmCache && !cached) setLoadingSuggestions(true);
-        const response = await fetch(
-          `/api/items/suggest?q=${encodeURIComponent(suggestionQuery)}&limit=10`,
-          { signal: controller.signal, cache: "no-store" },
-        );
-
-        if (cancelled) return;
-
-        const result = await response.json();
-
-        if (cancelled) return;
-        if (result.success && result.data) {
-          const suggestions = result.data.map(mapSuggestItem);
-          if (suggestions.length > 0) {
-            suggestCacheRef.current.set(cacheKey, {
-              data: suggestions,
-              ts: Date.now(),
-            });
-            if (suggestCacheRef.current.size > 50) {
-              const oldest = [...suggestCacheRef.current.entries()].sort(
-                (a, b) => a[1].ts - b[1].ts,
-              )[0];
-              if (oldest) suggestCacheRef.current.delete(oldest[0]);
-            }
-          }
-          applySuggestions(suggestions);
-        }
-      } catch (err) {
-        if (cancelled) return;
-        if (err instanceof Error && err.name === "AbortError") return;
-        console.error("Error fetching suggestions:", err);
-      } finally {
-        setLoadingSuggestions(false);
-      }
-    }
-
-    fetchSuggestions();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [
-    quickDebouncedSearchQuery,
-    mapSuggestItem,
-    filterSuggestionsForQuery,
-    findWarmSuggestionCache,
-  ]);
-
   // Close suggestions when clicking outside (use 'click' so suggestion button onClick runs first)
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -792,14 +543,13 @@ export default function POSPage() {
       const insideMobile = searchContainerRef.current?.contains(target);
       const insideDesktop = desktopSearchContainerRef.current?.contains(target);
       if (!insideMobile && !insideDesktop) {
-        setShowSuggestions(false);
-        setSearchFocused(false);
+        dismissSuggestions();
       }
     };
 
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
+  }, [dismissSuggestions]);
 
   // Handle selecting a suggestion
   const handleSelectSuggestion = useCallback(
@@ -879,10 +629,8 @@ export default function POSPage() {
 
   const clearSearch = useCallback(() => {
     setShowSearch(false);
-    setSearchQuery("");
-    setSearchSuggestions([]);
-    setShowSuggestions(false);
-  }, []);
+    resetSearch();
+  }, [resetSearch]);
 
   // Highlight matching text segments in search results
   // Supports exact substring → word-level → fuzzy character-level matching
@@ -1506,8 +1254,7 @@ export default function POSPage() {
         setShowSuggestions(false);
       } else if (showSearch) {
         setShowSearch(false);
-        setSearchQuery("");
-        setSearchSuggestions([]);
+        resetSearch();
       }
     },
     onOpenCheckout: () => {
@@ -2406,6 +2153,7 @@ export default function POSPage() {
                     key={`search-${debouncedSearchQuery}`}
                     categoryId={null}
                     searchQuery={debouncedSearchQuery}
+                    searchDebounceMs={0}
                     onSelectItem={handleSelectItem}
                     onSelectParent={handleSelectParent}
                     onQuickAdd={handleQuickAdd}
@@ -2476,6 +2224,7 @@ export default function POSPage() {
                       key={`msearch-${debouncedSearchQuery}`}
                       categoryId={null}
                       searchQuery={debouncedSearchQuery}
+                    searchDebounceMs={0}
                       onSelectItem={handleSelectItem}
                       onSelectParent={handleSelectParent}
                       onQuickAdd={handleQuickAdd}
@@ -2580,6 +2329,7 @@ export default function POSPage() {
                     key={`csearch-${debouncedSearchQuery}`}
                     categoryId={null}
                     searchQuery={debouncedSearchQuery}
+                    searchDebounceMs={0}
                     onSelectItem={handleSelectItem}
                     onSelectParent={handleSelectParent}
                     onQuickAdd={handleQuickAdd}
@@ -2874,6 +2624,7 @@ export default function POSPage() {
                           debouncedSearchQuery ? null : selectedCategoryId
                         }
                         searchQuery={debouncedSearchQuery || undefined}
+                        searchDebounceMs={debouncedSearchQuery ? 0 : undefined}
                         onSelectItem={handleSelectItem}
                         onSelectParent={handleSelectParent}
                         onQuickAdd={handleQuickAdd}

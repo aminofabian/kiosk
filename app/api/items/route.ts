@@ -1,6 +1,10 @@
 import { NextRequest } from "next/server";
 import { query, execute, queryOne } from "@/lib/db";
-import { buildFtsMatchQuery, itemsFtsAvailable } from "@/lib/db/item-fts";
+import { buildFtsFuzzyProbeMatch, buildFtsMatchQuery, itemsFtsAvailable } from "@/lib/db/item-fts";
+import {
+  charSequencePattern,
+  scoreItemTextMatch,
+} from "@/lib/search/fuzzy-text";
 import { generateUUID } from "@/lib/utils/uuid";
 import { generateBatchNumber } from "@/lib/utils/batch-number";
 import type { Item } from "@/lib/db/types";
@@ -301,6 +305,80 @@ export async function GET(request: NextRequest) {
               break;
             }
           }
+        }
+      }
+
+      // Fuzzy fallback (same scoring as /api/items/suggest) when primary search finds too few
+      if (items.length < 3 && searchLower.length >= 2 && !isBarcodeLike) {
+        const existingIds = new Set(items.map((i) => i.id));
+        const fuzzyLimit = limit - items.length;
+        const fuzzyCap = fuzzyLimit + 10;
+        const sellableFuzzyFilter = sellableOnly
+          ? ` AND (i.parent_item_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1))`
+          : "";
+        const ftsFuzzyProbe = useItemFts
+          ? buildFtsFuzzyProbeMatch(rawSearch)
+          : null;
+
+        type FuzzyRow = Item & { parent_name?: string | null };
+        let fuzzyItems: FuzzyRow[];
+
+        if (ftsFuzzyProbe) {
+          fuzzyItems = await query<FuzzyRow>(
+            `SELECT i.*, p.name as parent_name FROM items_fts
+             INNER JOIN items i ON i.id = items_fts.item_id
+             LEFT JOIN items p ON i.parent_item_id = p.id AND p.business_id = i.business_id
+             WHERE items_fts.business_id = ?
+               AND items_fts MATCH ?
+               AND i.active = 1${sellableFuzzyFilter}
+             ORDER BY bm25(items_fts), i.name ASC
+             LIMIT ?`,
+            [
+              auth.businessId,
+              ftsFuzzyProbe,
+              Math.min(200, fuzzyCap * 8),
+            ],
+          );
+        } else {
+          const fuzzyPattern = charSequencePattern(searchLower);
+          fuzzyItems = await query<FuzzyRow>(
+            `SELECT i.*, p.name as parent_name FROM items i
+             LEFT JOIN items p ON i.parent_item_id = p.id AND p.business_id = i.business_id
+             WHERE i.business_id = ? AND i.active = 1
+             AND (
+               LOWER(i.name) LIKE ?
+               OR LOWER(COALESCE(i.variant_name, '')) LIKE ?
+               OR LOWER(COALESCE(p.name, '')) LIKE ?
+             )${sellableFuzzyFilter}
+             LIMIT ?`,
+            [
+              auth.businessId,
+              fuzzyPattern,
+              fuzzyPattern,
+              fuzzyPattern,
+              fuzzyCap,
+            ],
+          );
+        }
+
+        const scored = fuzzyItems
+          .filter((fi) => !existingIds.has(fi.id))
+          .map((fi) => ({
+            item: fi,
+            score: scoreItemTextMatch(searchLower, {
+              name: fi.name,
+              variantName: fi.variant_name,
+              parentName: fi.parent_name,
+            }),
+          }))
+          .filter((s) => s.score > 0.25)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, fuzzyLimit);
+
+        for (const { item } of scored) {
+          const { parent_name: _pn, ...rest } = item;
+          items.push(rest);
+          existingIds.add(item.id);
         }
       }
 

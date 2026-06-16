@@ -1,6 +1,11 @@
 import { NextRequest } from 'next/server';
 import { query } from '@/lib/db';
 import { buildFtsFuzzyProbeMatch, buildFtsMatchQuery, itemsFtsAvailable } from '@/lib/db/item-fts';
+import {
+  charSequencePattern,
+  scoreCombinedTextMatch,
+  scoreItemTextMatch,
+} from '@/lib/search/fuzzy-text';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
 
@@ -26,60 +31,6 @@ interface SuggestItem {
 
 export async function OPTIONS() {
   return optionsResponse();
-}
-
-// Generate a character-sequence LIKE pattern for fuzzy matching
-// "tomto" → "%t%o%m%t%o%" — matches "tomato" because chars appear in order
-function charSequencePattern(word: string): string {
-  const chars = word.toLowerCase().replace(/[^a-z0-9]/g, '').split('');
-  if (chars.length === 0) return '%%';
-  return '%' + chars.join('%') + '%';
-}
-
-// Generate bigrams from a string for scoring
-function getBigrams(str: string): Set<string> {
-  const s = str.toLowerCase();
-  const bigrams = new Set<string>();
-  for (let i = 0; i < s.length - 1; i++) {
-    bigrams.add(s.slice(i, i + 2));
-  }
-  return bigrams;
-}
-
-// Compute Dice coefficient similarity between two strings using bigrams
-function diceCoefficient(a: string, b: string): number {
-  const bigramsA = getBigrams(a);
-  const bigramsB = getBigrams(b);
-  if (bigramsA.size === 0 && bigramsB.size === 0) return 1;
-  if (bigramsA.size === 0 || bigramsB.size === 0) return 0;
-  let intersection = 0;
-  for (const bg of bigramsA) {
-    if (bigramsB.has(bg)) intersection++;
-  }
-  return (2 * intersection) / (bigramsA.size + bigramsB.size);
-}
-
-// Simple Levenshtein distance for short strings
-function levenshtein(a: string, b: string): number {
-  const m = a.length, n = b.length;
-  if (m === 0) return n;
-  if (n === 0) return m;
-  // Use single-row DP for memory efficiency
-  let prev = Array.from({ length: n + 1 }, (_, i) => i);
-  let curr = new Array(n + 1);
-  for (let i = 1; i <= m; i++) {
-    curr[0] = i;
-    for (let j = 1; j <= n; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      curr[j] = Math.min(
-        prev[j] + 1,      // deletion
-        curr[j - 1] + 1,  // insertion
-        prev[j - 1] + cost // substitution
-      );
-    }
-    [prev, curr] = [curr, prev];
-  }
-  return prev[n];
 }
 
 export async function GET(request: NextRequest) {
@@ -300,27 +251,14 @@ export async function GET(request: NextRequest) {
         // Score fuzzy results by similarity and add best ones
         const scored = fuzzyItems
           .filter(fi => !existingIds.has(fi.id))
-          .map(fi => {
-            const nameScore = diceCoefficient(searchLower, fi.name.toLowerCase());
-            const variantScore = fi.variant_name ? diceCoefficient(searchLower, fi.variant_name.toLowerCase()) : 0;
-            const parentScore = fi.parent_name ? diceCoefficient(searchLower, fi.parent_name.toLowerCase()) : 0;
-            const bestScore = Math.max(nameScore, variantScore, parentScore);
-
-            // Also compute Levenshtein for short queries (more accurate for typos)
-            let levScore = 0;
-            if (searchLower.length <= 8) {
-              const nameLev = levenshtein(searchLower, fi.name.toLowerCase().slice(0, searchLower.length + 2));
-              const maxLen = Math.max(searchLower.length, fi.name.length);
-              levScore = maxLen > 0 ? 1 - (nameLev / maxLen) : 0;
-              if (fi.variant_name) {
-                const varLev = levenshtein(searchLower, fi.variant_name.toLowerCase().slice(0, searchLower.length + 2));
-                const varMaxLen = Math.max(searchLower.length, fi.variant_name.length);
-                levScore = Math.max(levScore, varMaxLen > 0 ? 1 - (varLev / varMaxLen) : 0);
-              }
-            }
-
-            return { item: fi, score: Math.max(bestScore, levScore) };
-          })
+          .map(fi => ({
+            item: fi,
+            score: scoreItemTextMatch(searchLower, {
+              name: fi.name,
+              variantName: fi.variant_name,
+              parentName: fi.parent_name,
+            }),
+          }))
           .filter(s => s.score > 0.25) // Minimum similarity threshold
           .sort((a, b) => b.score - a.score)
           .slice(0, fuzzyLimit);
@@ -363,11 +301,14 @@ export async function GET(request: NextRequest) {
 
         const scored = fuzzyItems
           .filter(fi => !existingIds.has(fi.id))
-          .map(fi => {
-            const combinedTarget = [fi.name, fi.variant_name, fi.parent_name].filter(Boolean).join(' ').toLowerCase();
-            const nameScore = diceCoefficient(searchLower, combinedTarget);
-            return { item: fi, score: nameScore };
-          })
+          .map(fi => ({
+            item: fi,
+            score: scoreCombinedTextMatch(searchLower, [
+              fi.name,
+              fi.variant_name,
+              fi.parent_name,
+            ]),
+          }))
           .filter(s => s.score > 0.2)
           .sort((a, b) => b.score - a.score)
           .slice(0, fuzzyLimit);

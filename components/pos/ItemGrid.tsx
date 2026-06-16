@@ -72,6 +72,8 @@ interface ItemGridProps {
   showShopTypeCatalog?: boolean;
   /** Business setting: cashiers may sell zero/negative stock items */
   allowSellOutOfStock?: boolean;
+  /** Parent debounce already applied (POS page); set 0 to fetch immediately */
+  searchDebounceMs?: number;
 }
 
 function itemTypesQueryParam(itemTypesFilter?: string[]): string {
@@ -413,6 +415,7 @@ export function ItemGrid({
   itemTypesFilter,
   showShopTypeCatalog = false,
   allowSellOutOfStock = false,
+  searchDebounceMs = ITEM_SEARCH_DEBOUNCE_MS,
 }: ItemGridProps) {
   const catalogGridClass = showShopTypeCatalog
     ? SQUARE_CATALOG_GRID_CLASS
@@ -553,7 +556,7 @@ export function ItemGrid({
       let cancelled = false;
 
       const q = searchQuery;
-      const tid = window.setTimeout(() => {
+      const runSearch = () => {
         void (async () => {
           if (cancelled || requestId !== searchRequestIdRef.current) return;
 
@@ -640,11 +643,21 @@ export function ItemGrid({
             }
           }
         })();
-      }, ITEM_SEARCH_DEBOUNCE_MS);
+      };
+
+      if (searchDebounceMs <= 0) {
+        runSearch();
+      } else {
+        const tid = window.setTimeout(runSearch, searchDebounceMs);
+        return () => {
+          cancelled = true;
+          window.clearTimeout(tid);
+          controller.abort();
+        };
+      }
 
       return () => {
         cancelled = true;
-        window.clearTimeout(tid);
         controller.abort();
       };
     }
@@ -749,6 +762,7 @@ export function ItemGrid({
     itemTypeKeys,
     itemTypesFilter,
     showShopTypeCatalog,
+    searchDebounceMs,
   ]);
 
   if (!categoryId && !searchQuery && !showShopTypeCatalog) {
