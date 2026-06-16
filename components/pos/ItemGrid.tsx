@@ -50,6 +50,8 @@ interface ItemGridProps {
   itemTypesFilter?: string[];
   /** When no category/search, show full sellable catalog for the active shop type */
   showShopTypeCatalog?: boolean;
+  /** Business setting: cashiers may sell zero/negative stock items */
+  allowSellOutOfStock?: boolean;
 }
 
 function itemTypesQueryParam(itemTypesFilter?: string[]): string {
@@ -272,13 +274,16 @@ const ItemCard = memo(function ItemCard({
   item,
   onSelect,
   onQuickAdd,
+  allowSellOutOfStock = false,
 }: {
   item: Item;
   onSelect: (item: Item) => void;
   onQuickAdd?: (item: Item, quantity: number) => void;
+  allowSellOutOfStock?: boolean;
 }) {
   const stockStatus = getStockStatus(item.current_stock);
-  const isOutOfStock = stockStatus === 'out' || stockStatus === 'negative';
+  const isOutOfStock =
+    !allowSellOutOfStock && (stockStatus === 'out' || stockStatus === 'negative');
   const imageUrl = resolveItemImageUrl(item);
 
   return (
@@ -382,6 +387,7 @@ export function ItemGrid({
   onItemImageUpdated,
   itemTypesFilter,
   showShopTypeCatalog = false,
+  allowSellOutOfStock = false,
 }: ItemGridProps) {
   const catalogGridClass = showShopTypeCatalog
     ? SQUARE_CATALOG_GRID_CLASS
@@ -886,7 +892,9 @@ export function ItemGrid({
                   .map((item) => {
                 const rank = top3Ranks.get(item.id);
                 const stock = getStockStatus(item.current_stock);
-                const isOut = stock === 'out' || stock === 'negative';
+                const isOut =
+                  !allowSellOutOfStock &&
+                  (stock === 'out' || stock === 'negative');
                 const imageUrl = resolveItemImageUrl(item);
 
                 const imageContent = canManageItemImages ? (
@@ -1158,6 +1166,7 @@ return (
                       item={item}
                       onSelect={handleItemClick}
                       onQuickAdd={onQuickAdd}
+                      allowSellOutOfStock={allowSellOutOfStock}
                     />
                   ))}
                 </div>
@@ -1189,6 +1198,7 @@ return (
                     item={group.item}
                     onSelect={handleItemClick}
                     onQuickAdd={onQuickAdd}
+                    allowSellOutOfStock={allowSellOutOfStock}
                   />
                 )
               ))}

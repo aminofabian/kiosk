@@ -36,7 +36,7 @@ export default function DepartmentPage() {
     submitting,
   } = useDepartmentApp();
   const { carts, activeCartId, switchCart, addItem } = useCartStore();
-  const { itemTypeKeys } = useItemTypes();
+  const { itemTypeKeys, allowSellOutOfStock } = useItemTypes();
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -154,6 +154,7 @@ export default function DepartmentPage() {
     itemTypesFilter: assignedTypes.length > 0 ? assignedTypes : undefined,
     stockListFilter: 'all' as const,
     showShopTypeCatalog: assignedTypes.length > 0,
+    allowSellOutOfStock,
   };
 
   const noTypesBanner = assignedTypes.length === 0 && (
@@ -377,7 +378,12 @@ export default function DepartmentPage() {
         </POSLayout>
       </div>
 
-      <AddToCartDialog item={selectedItem} open={dialogOpen} onOpenChange={setDialogOpen} />
+      <AddToCartDialog
+        item={selectedItem}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        allowSellOutOfStock={allowSellOutOfStock}
+      />
 
       <VariantSelector
         parentItem={selectedParentItem}

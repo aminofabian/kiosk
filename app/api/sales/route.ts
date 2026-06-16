@@ -17,6 +17,7 @@ import { migrateCreditDebtLineItemsSnapshot } from "@/lib/db/migrate-credit-debt
 import { migratePendingSales } from "@/lib/db/migrate-pending-sales";
 import { validateSaleLines } from "@/lib/validation/sale-lines";
 import { verifyManagerPin } from "@/lib/auth/verify-manager-pin";
+import { parseAllowSellOutOfStock } from "@/lib/utils/stock-settings";
 import {
   processSaleStockDeduction,
   InsufficientBatchStockError,
@@ -229,6 +230,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const businessSettings = await queryOne<{ settings: string | null }>(
+      `SELECT settings FROM businesses WHERE id = ?`,
+      [auth.businessId],
+    );
+    const allowSellOutOfStock = parseAllowSellOutOfStock(
+      businessSettings?.settings,
+    );
+
     const lineValidation = await validateSaleLines({
       businessId: auth.businessId,
       role: auth.role,
@@ -246,6 +255,7 @@ export async function POST(request: NextRequest) {
         }),
       ),
       managerPin,
+      allowSellOutOfStock,
     });
 
     if (!lineValidation.ok) {
@@ -720,7 +730,7 @@ export async function POST(request: NextRequest) {
             }),
           ),
           now,
-          allowNegativeStock: lineValidation.managerAuthorized,
+          allowNegativeStock: lineValidation.allowNegativeStock,
         });
       });
     } catch (stockError) {

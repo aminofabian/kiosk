@@ -125,6 +125,27 @@ describe('validateSaleLines', () => {
     expect(result.managerAuthorized).toBe(true);
   });
 
+  it('allows oversell when business setting allowSellOutOfStock is enabled', async () => {
+    queryOneMock.mockResolvedValue({
+      id: 'item-1',
+      name: 'Milk',
+      active: 1,
+      current_stock: 0,
+      current_sell_price: 50,
+      buy_price: 30,
+    });
+
+    const result = await validateSaleLines({
+      businessId: 'biz-1',
+      role: 'cashier',
+      lines: [{ itemId: 'item-1', quantity: 2, price: 50 }],
+      allowSellOutOfStock: true,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.allowNegativeStock).toBe(true);
+  });
+
   it('rejects stale cart prices without manager authorization', async () => {
     queryOneMock.mockResolvedValue({
       id: 'item-1',

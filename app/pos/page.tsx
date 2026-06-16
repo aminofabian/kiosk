@@ -129,7 +129,7 @@ export default function POSPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
-  const { itemTypeKeys } = useItemTypes();
+  const { itemTypeKeys, allowSellOutOfStock } = useItemTypes();
   const [shopType, setShopType] = useState<string>(() => getShopType());
 
   useEffect(() => {
@@ -2302,6 +2302,7 @@ export default function POSPage() {
                     stockListFilter="all"
                     canManageItemImages={isOwnerOrAdmin}
                     onItemImageUpdated={handleItemImageUpdated}
+                    allowSellOutOfStock={allowSellOutOfStock}
                   />
                 ) : (
                   <div className="py-12 text-center text-sm text-slate-500">
@@ -2373,6 +2374,7 @@ export default function POSPage() {
                       stockListFilter="all"
                       canManageItemImages={isOwnerOrAdmin}
                       onItemImageUpdated={handleItemImageUpdated}
+                      allowSellOutOfStock={allowSellOutOfStock}
                     />
                   </div>
                 ) : (
@@ -2402,6 +2404,7 @@ export default function POSPage() {
                         showLowStockStrip={isOwnerOrAdmin}
                         canManageItemImages={isOwnerOrAdmin}
                         onItemImageUpdated={handleItemImageUpdated}
+                        allowSellOutOfStock={allowSellOutOfStock}
                       />
                     </div>
                   </>
@@ -2477,6 +2480,7 @@ export default function POSPage() {
                     stockListFilter="all"
                     canManageItemImages={isOwnerOrAdmin}
                     onItemImageUpdated={handleItemImageUpdated}
+                    allowSellOutOfStock={allowSellOutOfStock}
                   />
                 ) : itemsLoading ? (
                   <div className="flex items-center justify-center h-64">
@@ -2795,6 +2799,7 @@ export default function POSPage() {
                         showLowStockStrip={isOwnerOrAdmin}
                         canManageItemImages={isOwnerOrAdmin}
                         onItemImageUpdated={handleItemImageUpdated}
+                        allowSellOutOfStock={allowSellOutOfStock}
                       />
                     </div>
                   )}
@@ -2817,6 +2822,7 @@ export default function POSPage() {
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           allowStockEdit={isOwnerOrAdmin}
+          allowSellOutOfStock={allowSellOutOfStock}
           onItemStockUpdated={(itemId, newStock) => {
             setSelectedItem((prev) =>
               prev && prev.id === itemId

@@ -80,9 +80,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { productTypes, loyaltyPointsPerKes } = body as {
+    const { productTypes, loyaltyPointsPerKes, allowSellOutOfStock } = body as {
       productTypes?: ProductTypeConfig[];
       loyaltyPointsPerKes?: unknown;
+      allowSellOutOfStock?: unknown;
     };
 
     let didUpdate = false;
@@ -146,9 +147,31 @@ export async function PATCH(request: NextRequest) {
       didUpdate = true;
     }
 
+    if (allowSellOutOfStock !== undefined) {
+      if (typeof allowSellOutOfStock !== 'boolean') {
+        return jsonResponse(
+          { success: false, message: 'allowSellOutOfStock must be a boolean' },
+          400
+        );
+      }
+      const updated = mergeSettingsAllowSellOutOfStock(
+        business.settings,
+        allowSellOutOfStock
+      );
+      await execute(`UPDATE businesses SET settings = ? WHERE id = ?`, [
+        updated,
+        auth.businessId,
+      ]);
+      didUpdate = true;
+    }
+
     if (!didUpdate) {
       return jsonResponse(
-        { success: false, message: 'Provide productTypes and/or loyaltyPointsPerKes to update' },
+        {
+          success: false,
+          message:
+            'Provide productTypes, loyaltyPointsPerKes, and/or allowSellOutOfStock to update',
+        },
         400
       );
     }
@@ -160,6 +183,9 @@ export async function PATCH(request: NextRequest) {
       [auth.businessId]
     );
     const productTypesOut = parseProductTypes(updatedBusiness?.settings ?? null);
+    const allowSellOutOfStockOut = parseAllowSellOutOfStock(
+      updatedBusiness?.settings ?? null
+    );
 
     return jsonResponse({
       success: true,
@@ -167,6 +193,7 @@ export async function PATCH(request: NextRequest) {
       data: {
         productTypes: productTypesOut,
         loyaltyPointsPerKes: Number(updatedBusiness?.loyalty_points_per_kes ?? 0),
+        allowSellOutOfStock: allowSellOutOfStockOut,
       },
     });
   } catch (error) {

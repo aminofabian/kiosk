@@ -40,6 +40,8 @@ interface AddToCartDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Owner/admin only: set true to show stock adjustment (cashiers use approvals elsewhere). */
   allowStockEdit?: boolean;
+  /** Business setting: no stock cap when selling zero/negative stock items */
+  allowSellOutOfStock?: boolean;
   onItemStockUpdated?: (itemId: string, newStock: number) => void;
 }
 
@@ -48,6 +50,7 @@ export function AddToCartDialog({
   open,
   onOpenChange,
   allowStockEdit = false,
+  allowSellOutOfStock = false,
   onItemStockUpdated,
 }: AddToCartDialogProps) {
   const [quantity, setQuantity] = useState(1);
@@ -267,8 +270,9 @@ export function AddToCartDialog({
   
   // Remaining on hand after cart lines for this item (regular units, not bundles)
   const rawRemaining = item.current_stock - quantityInCart;
-  const maxQuantity =
-    purchaseMode === 'bundle' && hasBundle && item.bundle_quantity
+  const maxQuantity = allowSellOutOfStock
+    ? null
+    : purchaseMode === 'bundle' && hasBundle && item.bundle_quantity
       ? Math.max(0, Math.floor(rawRemaining / item.bundle_quantity))
       : Math.max(0, rawRemaining);
   const hasNegativeStock = item.current_stock < 0 || rawRemaining < 0;
@@ -277,7 +281,12 @@ export function AddToCartDialog({
 
   const handleIncrement = () => {
     const newValue = quantity + step;
-    if (purchaseMode !== 'bundle' && maxQuantity > 0 && newValue > maxQuantity + STOCK_EPS) {
+    if (
+      !allowSellOutOfStock &&
+      purchaseMode !== 'bundle' &&
+      maxQuantity !== null &&
+      newValue > maxQuantity + STOCK_EPS
+    ) {
       toast.error(`Only ${maxQuantity.toFixed(isWeight ? 2 : 0)} available in stock`);
       return;
     }
@@ -312,7 +321,12 @@ export function AddToCartDialog({
     // Preserve fractional quantities for all items - portion buttons (½, ¼, etc.) allow
     // selling portions of piece/bunch items (e.g. half cabbage), so we must not floor.
     const fixedValue = parseFloat(numValue.toFixed(2));
-    if (purchaseMode !== 'bundle' && maxQuantity > 0 && fixedValue > maxQuantity + STOCK_EPS) {
+    if (
+      !allowSellOutOfStock &&
+      purchaseMode !== 'bundle' &&
+      maxQuantity !== null &&
+      fixedValue > maxQuantity + STOCK_EPS
+    ) {
       toast.error(`Only ${maxQuantity.toFixed(isWeight ? 2 : 0)} available in stock`);
       setQuantity(maxQuantity);
       setPortion('custom');

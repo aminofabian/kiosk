@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { apiGet, apiPatch } from '@/lib/utils/api-client';
 import { toast } from 'sonner';
-import { Settings, Loader2, Plus, Trash2, GripVertical, Tag, Palette, Gift } from 'lucide-react';
+import { Settings, Loader2, Plus, Trash2, GripVertical, Tag, Palette, Gift, Package } from 'lucide-react';
 import type { ProductTypeConfig } from '@/lib/types/product-types';
 
 type ProductType = ProductTypeConfig;
@@ -37,6 +37,8 @@ export default function AdminSettingsPage() {
   const [newType, setNewType] = useState<ProductTypeConfig>(DEFAULT_NEW_TYPE);
   const [loyaltyPointsPerKesInput, setLoyaltyPointsPerKesInput] = useState('0');
   const [loyaltySaving, setLoyaltySaving] = useState(false);
+  const [allowSellOutOfStock, setAllowSellOutOfStock] = useState(false);
+  const [stockSaving, setStockSaving] = useState(false);
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -44,12 +46,14 @@ export default function AdminSettingsPage() {
       const res = await apiGet<{
         productTypes: ProductType[];
         loyaltyPointsPerKes?: number;
+        allowSellOutOfStock?: boolean;
       }>('/api/settings');
       if (res.success && res.data) {
         if (res.data.productTypes) setProductTypes(res.data.productTypes);
         if (res.data.loyaltyPointsPerKes !== undefined) {
           setLoyaltyPointsPerKesInput(String(res.data.loyaltyPointsPerKes));
         }
+        setAllowSellOutOfStock(res.data.allowSellOutOfStock === true);
       }
     } catch (e) {
       console.error(e);
@@ -158,6 +162,30 @@ export default function AdminSettingsPage() {
     }
   };
 
+  const handleSaveStockSetting = async (nextAllowSellOutOfStock: boolean) => {
+    setStockSaving(true);
+    try {
+      const res = await apiPatch<{ allowSellOutOfStock: boolean }>('/api/settings', {
+        allowSellOutOfStock: nextAllowSellOutOfStock,
+      });
+      if (res.success && res.data) {
+        setAllowSellOutOfStock(res.data.allowSellOutOfStock === true);
+        toast.success(
+          res.data.allowSellOutOfStock
+            ? 'Cashiers can sell out-of-stock items'
+            : 'Out-of-stock items cannot be sold by cashiers'
+        );
+      } else {
+        toast.error(res.message || 'Failed to save stock setting');
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error('Failed to save stock setting');
+    } finally {
+      setStockSaving(false);
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="min-h-screen px-3 py-4 sm:px-4 md:px-6 lg:px-8">
@@ -230,6 +258,44 @@ export default function AdminSettingsPage() {
                     )}
                   </Button>
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="mb-6 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <CardHeader className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Package className="w-4 h-4 text-[#1c6a1e]" />
+                Stock &amp; POS
+              </CardTitle>
+              <CardDescription>
+                Control whether cashiers can sell products that are out of stock (zero or negative
+                on-hand quantity). When disabled, those items are blocked on the POS and checkout
+                requires manager approval to oversell.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6">
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-7 h-7 animate-spin text-[#1c6a1e]" />
+                </div>
+              ) : (
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-1 h-4 w-4 rounded border-slate-300 text-[#1c6a1e] focus:ring-[#1c6a1e] disabled:opacity-50"
+                    checked={allowSellOutOfStock}
+                    disabled={stockSaving}
+                    onChange={(e) => void handleSaveStockSetting(e.target.checked)}
+                  />
+                  <span className="text-sm text-slate-700 dark:text-slate-300">
+                    <span className="font-medium text-slate-900 dark:text-white block mb-1">
+                      Allow cashiers to sell out-of-stock items
+                    </span>
+                    Stock will go negative when you sell more than is on hand. Out-of-stock items
+                    stay visible on the POS with an &quot;Out of stock&quot; badge.
+                  </span>
+                </label>
               )}
             </CardContent>
           </Card>
