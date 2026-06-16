@@ -656,23 +656,24 @@ export default function POSPage() {
 
   // Fetch search suggestions: offline = cached search, online = /api/items/suggest
   useEffect(() => {
+    const suggestionQuery = quickDebouncedSearchQuery.trim();
     if (suggestionsAbortRef.current) {
       suggestionsAbortRef.current.abort();
     }
 
-    if (!searchQuery || searchQuery.length < 1) {
+    if (!suggestionQuery || suggestionQuery.length < 1) {
       setSearchSuggestions([]);
       setShowSuggestions(false);
       return;
     }
 
-    if (isValidBarcode(searchQuery)) {
+    if (isValidBarcode(suggestionQuery)) {
       setSearchSuggestions([]);
       setShowSuggestions(false);
       return;
     }
 
-    const cacheKey = searchQuery.toLowerCase().trim();
+    const cacheKey = suggestionQuery.toLowerCase();
     const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
 
     const applySuggestions = (suggestions: typeof searchSuggestions) => {
@@ -684,7 +685,7 @@ export default function POSPage() {
     // Offline: search cached items
     if (isOffline) {
       setLoadingSuggestions(true);
-      searchItemsOffline(searchQuery, 10)
+      searchItemsOffline(suggestionQuery, 10)
         .then((suggestions) => {
           applySuggestions(suggestions);
         })
@@ -716,7 +717,7 @@ export default function POSPage() {
       try {
         if (!warmCache) setLoadingSuggestions(true);
         const response = await fetch(
-          `/api/items/suggest?q=${encodeURIComponent(searchQuery)}&limit=10`,
+          `/api/items/suggest?q=${encodeURIComponent(suggestionQuery)}&limit=10`,
           { signal: controller.signal, cache: "no-store" },
         );
 
@@ -753,7 +754,6 @@ export default function POSPage() {
       controller.abort();
     };
   }, [
-    searchQuery,
     quickDebouncedSearchQuery,
     mapSuggestItem,
     filterSuggestionsForQuery,
