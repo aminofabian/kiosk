@@ -628,11 +628,12 @@ export function ItemGrid({
               setError(result.message || "Failed to search items");
             }
           } catch (err) {
+            if (cancelled) return;
             if (err instanceof Error && err.name === "AbortError") return;
             setError("Failed to search items");
             console.error("Error searching items:", err);
           } finally {
-            if (!controller.signal.aborted) {
+            if (!cancelled) {
               setLoading(false);
             }
           }
@@ -640,6 +641,7 @@ export function ItemGrid({
       }, ITEM_SEARCH_DEBOUNCE_MS);
 
       return () => {
+        cancelled = true;
         window.clearTimeout(tid);
         controller.abort();
       };
