@@ -1089,26 +1089,28 @@ export async function POST(request: NextRequest) {
       performedBy: auth.userId,
     });
 
-    // Emit SSE event if this was a department-staff-originated sale
-    if (pendingSaleId && originatedByUserId) {
+    // Notify clients when a pending/forwarded invoice is completed
+    if (pendingSaleId) {
       try {
-        eventBus.publish(`staff:${originatedByUserId}`, {
-          type: "order:completed",
-          data: {
-            saleId,
-            pendingSaleId,
-            totalAmount,
-            itemCount: items.length,
-            cashierName: auth.name,
-            cashierId: auth.userId,
-          },
-          timestamp: Date.now(),
-        });
         eventBus.publish(`business:${auth.businessId}`, {
           type: "queue:update",
-          data: {},
+          data: { pendingSaleId, action: "completed" },
           timestamp: Date.now(),
         });
+        if (originatedByUserId) {
+          eventBus.publish(`staff:${originatedByUserId}`, {
+            type: "order:completed",
+            data: {
+              saleId,
+              pendingSaleId,
+              totalAmount,
+              itemCount: items.length,
+              cashierName: auth.name,
+              cashierId: auth.userId,
+            },
+            timestamp: Date.now(),
+          });
+        }
       } catch {
         /* non-critical */
       }

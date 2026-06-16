@@ -6,12 +6,14 @@ interface PosMobileCartTabProps {
   cartItemCount: number;
   onClearCart: () => void;
   onCheckout: () => void;
+  refreshTrigger?: number;
 }
 
 export function PosMobileCartTab({
   cartItemCount,
   onClearCart,
   onCheckout,
+  refreshTrigger,
 }: PosMobileCartTabProps) {
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -30,7 +32,11 @@ export function PosMobileCartTab({
         </div>
       </header>
       <main className="flex flex-col flex-1 min-h-0 overflow-hidden pb-[calc(3.25rem+env(safe-area-inset-bottom,0px))]">
-        <CartView layout="column" onCheckout={onCheckout} />
+        <CartView
+          layout="column"
+          onCheckout={onCheckout}
+          refreshTrigger={refreshTrigger}
+        />
       </main>
     </div>
   );

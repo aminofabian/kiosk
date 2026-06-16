@@ -1,13 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useCartStore } from '@/lib/stores/cart-store';
+import { usePendingSalesStore } from '@/lib/stores/pending-sales-store';
 import { useOnlineStatus } from '@/lib/hooks/use-online-status';
-import {
-  fetchPendingSales,
-  type PendingSale,
-} from '@/lib/pos/pending-sales';
 
 export function usePendingSales() {
   const isOnline = useOnlineStatus();
@@ -19,30 +16,23 @@ export function usePendingSales() {
     ),
   );
 
-  const [sales, setSales] = useState<PendingSale[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { sales, loading, error, refresh, removeSale } = usePendingSalesStore(
+    useShallow((s) => ({
+      sales: s.sales,
+      loading: s.loading,
+      error: s.error,
+      refresh: s.refresh,
+      removeSale: s.removeSale,
+    })),
+  );
 
-  const refresh = useCallback(async () => {
-    if (!isOnline) {
-      setSales([]);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchPendingSales();
-      setSales(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load saved sales');
-    } finally {
-      setLoading(false);
-    }
-  }, [isOnline]);
+  const doRefresh = useCallback(async () => {
+    await refresh(isOnline);
+  }, [refresh, isOnline]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void doRefresh();
+  }, [doRefresh]);
 
   const linkedSet = useMemo(() => new Set(linkedIds), [linkedIds]);
   const orphaned = useMemo(
@@ -57,6 +47,7 @@ export function usePendingSales() {
     orphaned,
     orphanedCount: orphaned.length,
     totalCount: sales.length,
-    refresh,
+    refresh: doRefresh,
+    removeSale,
   };
 }

@@ -222,9 +222,16 @@ export default function POSPage() {
   const flatSuggestionsRef = useRef<typeof searchSuggestions>([]);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const desktopSearchContainerRef = useRef<HTMLDivElement>(null);
-  const { clearCart, carts, activeCartId, switchCart, createCart } =
-    useCartStore();
-  const { orphanedCount, refresh: refreshPendingSales } = usePendingSales();
+  const {
+    clearCart,
+    carts,
+    activeCartId,
+    switchCart,
+    createCart,
+    clearCartByPendingSaleId,
+  } = useCartStore();
+  const { orphanedCount, refresh: refreshPendingSales, removeSale } =
+    usePendingSales();
   const { user } = useCurrentUser();
 
   // Refresh trigger for PosPendingSalesPanel (incremented on SSE events)
@@ -253,11 +260,25 @@ export default function POSPage() {
     userId: user?.id,
     businessId: user?.businessId,
     onForwarded: () => {
-      refreshPendingSales();
+      void refreshPendingSales();
       setCartRefreshTrigger((k) => k + 1);
     },
-    onQueueUpdate: () => {
-      refreshPendingSales();
+    onCompleted: (event) => {
+      const pendingSaleId = event.data.pendingSaleId;
+      if (typeof pendingSaleId === "string") {
+        removeSale(pendingSaleId);
+        clearCartByPendingSaleId(pendingSaleId);
+      }
+      void refreshPendingSales();
+      setCartRefreshTrigger((k) => k + 1);
+    },
+    onQueueUpdate: (event) => {
+      const pendingSaleId = event.data.pendingSaleId;
+      if (event.data.action === "completed" && typeof pendingSaleId === "string") {
+        removeSale(pendingSaleId);
+        clearCartByPendingSaleId(pendingSaleId);
+      }
+      void refreshPendingSales();
       setCartRefreshTrigger((k) => k + 1);
     },
   });
@@ -2225,6 +2246,7 @@ export default function POSPage() {
               cartItemCount={cartItemCount}
               onClearCart={handleClearCart}
               onCheckout={() => setCheckoutDrawerOpen(true)}
+              refreshTrigger={cartRefreshTrigger}
             />
           ) : mobileTab === "search" ? (
             <>
@@ -3334,6 +3356,10 @@ export default function POSPage() {
           receiptError={receiptError}
           receiptData={receiptData}
           onSaleComplete={(saleId) => {
+            removeSale(saleId);
+            clearCartByPendingSaleId(saleId);
+            void refreshPendingSales();
+            setCartRefreshTrigger((k) => k + 1);
             setCheckoutDrawerOpen(false);
             setReceiptSaleId(saleId);
             setReceiptDrawerOpen(true);
