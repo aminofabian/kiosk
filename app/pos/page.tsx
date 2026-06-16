@@ -702,8 +702,6 @@ export default function POSPage() {
     const cached = suggestCacheRef.current.get(cacheKey);
     if (cached && Date.now() - cached.ts < SUGGEST_CACHE_TTL) {
       applySuggestions(cached.data);
-      setLoadingSuggestions(false);
-      return;
     }
 
     const controller = new AbortController();
@@ -713,7 +711,7 @@ export default function POSPage() {
     async function fetchSuggestions() {
       if (cancelled) return;
       try {
-        if (!warmCache) setLoadingSuggestions(true);
+        if (!warmCache && !cached) setLoadingSuggestions(true);
         const response = await fetch(
           `/api/items/suggest?q=${encodeURIComponent(suggestionQuery)}&limit=10`,
           { signal: controller.signal, cache: "no-store" },

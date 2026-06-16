@@ -431,9 +431,8 @@ export function ItemGrid({
   // Use prop categories if available, otherwise use local state
   const categories = propCategories || localCategories;
 
-  // Track last search to prevent duplicate requests
-  const lastSearchRef = useRef<string>("");
   const abortControllerRef = useRef<AbortController | null>(null);
+  const searchRequestIdRef = useRef(0);
 
   // Only fetch categories if not provided via props
   useEffect(() => {
@@ -548,16 +547,13 @@ export function ItemGrid({
     if (searchQuery) {
       const controller = new AbortController();
       abortControllerRef.current = controller;
+      const requestId = ++searchRequestIdRef.current;
       let cancelled = false;
 
       const q = searchQuery;
       const tid = window.setTimeout(() => {
         void (async () => {
-          if (cancelled) return;
-
-          const searchKey = `${q}\0${shopType}`;
-          if (lastSearchRef.current === searchKey) return;
-          lastSearchRef.current = searchKey;
+          if (cancelled || requestId !== searchRequestIdRef.current) return;
 
           try {
             setLoading(true);
@@ -568,9 +564,11 @@ export function ItemGrid({
               { signal: controller.signal, cache: "no-store" },
             );
 
-            if (cancelled) return;
+            if (cancelled || requestId !== searchRequestIdRef.current) return;
 
             const result = await response.json();
+
+            if (cancelled || requestId !== searchRequestIdRef.current) return;
 
             if (result.success) {
               const allItems: Item[] = result.data;
@@ -628,12 +626,14 @@ export function ItemGrid({
               setError(result.message || "Failed to search items");
             }
           } catch (err) {
-            if (cancelled) return;
+            if (cancelled || requestId !== searchRequestIdRef.current) return;
             if (err instanceof Error && err.name === "AbortError") return;
             setError("Failed to search items");
             console.error("Error searching items:", err);
           } finally {
-            setLoading(false);
+            if (requestId === searchRequestIdRef.current) {
+              setLoading(false);
+            }
           }
         })();
       }, ITEM_SEARCH_DEBOUNCE_MS);
@@ -645,8 +645,6 @@ export function ItemGrid({
       };
     }
 
-    // Reset last search when query is cleared
-    lastSearchRef.current = "";
     setShowingOtherShopType(false);
 
     if (!searchQuery && !categoryId && showShopTypeCatalog) {
