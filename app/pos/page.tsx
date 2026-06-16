@@ -1379,6 +1379,16 @@ export default function POSPage() {
     ],
   );
 
+  // Pre-compute the JSX so child components don't re-create it on every keystroke
+  const suggestionsDesktop = useMemo(
+    () => renderSuggestionsDropdown(true),
+    [renderSuggestionsDropdown],
+  );
+  const suggestionsMobile = useMemo(
+    () => renderSuggestionsDropdown(false),
+    [renderSuggestionsDropdown],
+  );
+
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const cartTotal = cartItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -2330,7 +2340,7 @@ export default function POSPage() {
                 isPending={isSearchPending}
                 isScanning={barcodeScanStatus.scanning}
                 isLoadingSuggestions={loadingSuggestions}
-                suggestions={renderSuggestionsDropdown(false)}
+                suggestions={suggestionsMobile}
               />
               <main className="flex-1 min-h-0 overflow-y-auto no-scrollbar pb-[calc(3.25rem+env(safe-area-inset-bottom,0px))] px-3">
                 {searchQuery && isSearchPending ? (
@@ -2409,7 +2419,7 @@ export default function POSPage() {
                 isPending={isSearchPending}
                 isScanning={barcodeScanStatus.scanning}
                 isLoadingSuggestions={loadingSuggestions}
-                suggestions={renderSuggestionsDropdown(false)}
+                suggestions={suggestionsMobile}
               />
 
               <main className="flex-1 overflow-y-auto no-scrollbar pb-[calc(3.25rem+env(safe-area-inset-bottom,0px))] px-3 flex flex-col min-h-0">
@@ -2501,7 +2511,7 @@ export default function POSPage() {
                 isPending={isSearchPending}
                 isScanning={barcodeScanStatus.scanning}
                 isLoadingSuggestions={loadingSuggestions}
-                suggestions={renderSuggestionsDropdown(false)}
+                suggestions={suggestionsMobile}
               />
 
               {!debouncedSearchQuery && (
@@ -2769,7 +2779,7 @@ export default function POSPage() {
                   isValidBarcode={isValidBarcode}
                   showSuggestions={showSuggestions}
                   loadingSuggestions={loadingSuggestions}
-                  suggestions={renderSuggestionsDropdown(true)}
+                  suggestions={suggestionsDesktop}
                   isOwnerOrAdmin={isOwnerOrAdmin}
                   statsMenuOpen={statsMenuOpen}
                   onStatsMenuToggle={() => setStatsMenuOpen((o) => !o)}
