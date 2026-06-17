@@ -1,22 +1,37 @@
-'use client';
+"use client";
 
-import { ReactNode, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useCurrentUser } from '@/lib/hooks/use-current-user';
-import { DepartmentAppProvider } from '@/components/department/DepartmentAppProvider';
-import { DepartmentBottomNav } from '@/components/department/DepartmentBottomNav';
+import { ReactNode, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useCurrentUser } from "@/lib/hooks/use-current-user";
+import { DepartmentAppProvider } from "@/components/department/DepartmentAppProvider";
+import { DepartmentBottomNav } from "@/components/department/DepartmentBottomNav";
 
-export default function DepartmentLayout({ children }: { children: ReactNode }) {
+/** Roles allowed to open the department workspace (staff + oversight). */
+function canAccessDepartmentWorkspace(role?: string | null): boolean {
+  return (
+    role === "department_staff" ||
+    role === "department_stock_manager" ||
+    role === "owner" ||
+    role === "admin" ||
+    role === "superadmin"
+  );
+}
+
+export default function DepartmentLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const router = useRouter();
   const { user, isLoading } = useCurrentUser();
 
   useEffect(() => {
-    if (!isLoading && user?.role !== 'department_staff') {
-      router.replace('/admin');
+    if (!isLoading && user && !canAccessDepartmentWorkspace(user.role)) {
+      router.replace(user.role === "cashier" ? "/pos" : "/admin");
     }
   }, [user, isLoading, router]);
 
-  if (isLoading || !user || user.role !== 'department_staff') {
+  if (isLoading || !user || !canAccessDepartmentWorkspace(user.role)) {
     return (
       <div className="flex h-[100dvh] items-center justify-center bg-[#f6f8f6] dark:bg-[#0f1a0d]">
         <div className="w-8 h-8 border-4 border-[#1c6a1e]/20 border-t-[#1c6a1e] rounded-full animate-spin" />

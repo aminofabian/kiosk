@@ -1,15 +1,21 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { ClipboardList, LogOut, PackageMinus } from 'lucide-react';
-import { ShopTypeSelector } from '@/components/pos/ShopTypeSelector';
+import Link from "next/link";
+import {
+  ClipboardCheck,
+  ClipboardList,
+  LogOut,
+  PackageMinus,
+  Truck,
+} from "lucide-react";
+import { ShopTypeSelector } from "@/components/pos/ShopTypeSelector";
 import {
   Drawer,
   DrawerContent,
   DrawerDescription,
   DrawerHeader,
   DrawerTitle,
-} from '@/components/ui/drawer';
+} from "@/components/ui/drawer";
 
 interface DepartmentMobileMoreSheetProps {
   open: boolean;
@@ -38,15 +44,17 @@ function ActionRow({
 }) {
   const className = `w-full flex items-center gap-3 px-4 py-3.5 text-left rounded-xl transition-colors active:scale-[0.99] ${
     danger
-      ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30'
-      : 'text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/80'
+      ? "text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+      : "text-slate-800 dark:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/80"
   }`;
 
   const content = (
     <>
       <div
         className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-          danger ? 'bg-red-100 dark:bg-red-950/40' : 'bg-slate-100 dark:bg-slate-800'
+          danger
+            ? "bg-red-100 dark:bg-red-950/40"
+            : "bg-slate-100 dark:bg-slate-800"
         }`}
       >
         {icon}
@@ -54,7 +62,9 @@ function ActionRow({
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold">{label}</p>
         {description && (
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{description}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            {description}
+          </p>
         )}
       </div>
     </>
@@ -88,10 +98,12 @@ export function DepartmentMobileMoreSheet({
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="max-h-[85vh]">
         <DrawerHeader className="text-left border-b border-slate-100 dark:border-slate-800 pb-4">
-          <DrawerTitle className="text-lg">{businessName || 'Department'}</DrawerTitle>
+          <DrawerTitle className="text-lg">
+            {businessName || "Department"}
+          </DrawerTitle>
           <DrawerDescription>
             {userName}
-            {deptTypes.length > 0 ? ` · ${deptTypes.join(', ')}` : ''}
+            {deptTypes.length > 0 ? ` · ${deptTypes.join(", ")}` : ""}
           </DrawerDescription>
         </DrawerHeader>
         <div className="p-3 space-y-1 pb-8">
@@ -121,6 +133,20 @@ export function DepartmentMobileMoreSheet({
             label="Stock ledger"
             description="Edit stock, prices, and counts"
             href="/department/stock"
+            onClick={() => onOpenChange(false)}
+          />
+          <ActionRow
+            icon={<ClipboardCheck className="w-5 h-5 text-[#1c6a1e]" />}
+            label="Count shift"
+            description="Morning & evening stock counts"
+            href="/department/count"
+            onClick={() => onOpenChange(false)}
+          />
+          <ActionRow
+            icon={<Truck className="w-5 h-5 text-[#1c6a1e]" />}
+            label="Supply orders"
+            description="Purchase orders & deliveries"
+            href="/department/supply"
             onClick={() => onOpenChange(false)}
           />
           <ActionRow

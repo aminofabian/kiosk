@@ -18,6 +18,7 @@ import { useDepartmentApp } from "@/components/department/DepartmentAppProvider"
 import { useCartStore } from "@/lib/stores/cart-store";
 import { useDebounce } from "@/lib/hooks/use-debounce";
 import { useItemTypes } from "@/lib/hooks/use-item-types";
+import { useCurrentUser } from "@/lib/hooks/use-current-user";
 import { apiGet } from "@/lib/utils/api-client";
 import {
   categoryMatchesAssignedTypes,
@@ -40,6 +41,8 @@ export default function DepartmentPage() {
   } = useDepartmentApp();
   const { carts, activeCartId, switchCart, addItem } = useCartStore();
   const { itemTypeKeys, allowSellOutOfStock } = useItemTypes();
+  const { user } = useCurrentUser();
+  const isOwnerOrAdmin = user?.role === "owner" || user?.role === "admin";
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
@@ -168,6 +171,15 @@ export default function DepartmentPage() {
     }
   }, [fetchCategories, loadDepartmentInsights]);
 
+  const handleItemImageUpdated = useCallback(
+    (itemId: string, imageUrl: string | null) => {
+      setFeaturedItems((list) =>
+        list.map((i) => (i.id === itemId ? { ...i, image_url: imageUrl } : i)),
+      );
+    },
+    [],
+  );
+
   const itemGridProps = {
     onSelectItem: handleSelectItem,
     onSelectParent: handleSelectParent,
@@ -179,6 +191,8 @@ export default function DepartmentPage() {
     itemTypesFilter: assignedTypes.length > 0 ? assignedTypes : undefined,
     stockListFilter: "all" as const,
     allowSellOutOfStock,
+    canManageItemImages: isOwnerOrAdmin,
+    onItemImageUpdated: handleItemImageUpdated,
   };
 
   const noTypesBanner = assignedTypes.length === 0 && (

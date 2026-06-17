@@ -484,6 +484,69 @@ export interface PasswordResetToken {
 }
 
 // ============================================
+// Count Shift Types (Department Stock Manager)
+// ============================================
+
+export type CountShiftStatus =
+  | "open"
+  | "counting"
+  | "morning_complete"
+  | "closed";
+export type CountItemStatus = "pending" | "counted" | "not_located";
+export type CountBatchStatus =
+  | "pending"
+  | "matched"
+  | "escalated"
+  | "acknowledged";
+
+export interface CountShift {
+  id: string;
+  business_id: string;
+  user_id: string;
+  department: string;
+  status: CountShiftStatus;
+  opened_at: number;
+  closed_at: number | null;
+  created_at: number;
+}
+
+export interface CountBatch {
+  id: string;
+  count_shift_id: string;
+  item_id: string;
+  /** Morning count — submitted when opening the shift */
+  morning_count: number | null;
+  morning_count_status: CountItemStatus;
+  morning_counted_at: number | null;
+  /** System stock snapshot taken at shift open */
+  system_stock_morning: number;
+  /** Evening count — submitted when closing the shift */
+  evening_count: number | null;
+  evening_count_status: CountItemStatus;
+  evening_counted_at: number | null;
+  /** System stock snapshot taken at shift close */
+  system_stock_evening: number | null;
+  /** Variance analysis after shift close */
+  variance_morning: number | null;
+  variance_evening: number | null;
+  variance_intraday: number | null;
+  status: CountBatchStatus;
+  escalation_notes: string | null;
+  created_at: number;
+}
+
+export interface CountItemPool {
+  id: string;
+  business_id: string;
+  item_id: string;
+  department: string | null;
+  pinned: number; // 1 = always included
+  excluded: number; // 1 = never selected
+  last_selected_at: number | null;
+  created_at: number;
+}
+
+// ============================================
 // Helper Types
 // ============================================
 
@@ -509,3 +572,9 @@ export type InsertCreditTransaction = Omit<CreditTransaction, "created_at">;
 export type InsertStockAdjustment = Omit<StockAdjustment, "created_at">;
 export type InsertExpense = Omit<Expense, "created_at">;
 export type InsertPasswordResetToken = Omit<PasswordResetToken, "created_at">;
+export type InsertCountShift = Omit<CountShift, "created_at" | "opened_at">;
+export type InsertCountBatch = Omit<CountBatch, "created_at">;
+export type InsertCountItemPool = Omit<
+  CountItemPool,
+  "created_at" | "last_selected_at"
+>;

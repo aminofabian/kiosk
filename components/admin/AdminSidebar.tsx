@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useState, useEffect, useMemo } from 'react';
-import { useCurrentUser } from '@/lib/hooks/use-current-user';
-import { useItemTypes } from '@/lib/hooks/use-item-types';
-import { apiGet } from '@/lib/utils/api-client';
-import type { UserRole } from '@/lib/constants';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState, useEffect, useMemo } from "react";
+import { useCurrentUser } from "@/lib/hooks/use-current-user";
+import { useItemTypes } from "@/lib/hooks/use-item-types";
+import { apiGet } from "@/lib/utils/api-client";
+import type { UserRole } from "@/lib/constants";
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -34,7 +34,8 @@ import {
   RotateCcw,
   ScrollText,
   Cloud,
-} from 'lucide-react';
+  ClipboardCheck,
+} from "lucide-react";
 
 interface SubItem {
   href: string;
@@ -59,68 +60,113 @@ interface MenuSection {
 const BASE_SECTIONS: MenuSection[] = [
   {
     label: null,
-    items: [
-      { href: '/pos', label: 'Dashboard', icon: LayoutDashboard },
-    ],
+    items: [{ href: "/pos", label: "Dashboard", icon: LayoutDashboard }],
   },
   {
-    label: 'Analytics',
+    label: "Analytics",
     items: [
-      { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+      { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
       {
-        href: '/admin/sales',
-        label: 'Sales',
+        href: "/admin/sales",
+        label: "Sales",
         icon: BarChart3,
         subItems: [], // filled from product types
       },
-      { href: '/admin/transactions', label: 'Transactions', icon: ListOrdered },
+      { href: "/admin/transactions", label: "Transactions", icon: ListOrdered },
       {
-        href: '/admin/pending-carts',
-        label: 'Open Carts',
+        href: "/admin/pending-carts",
+        label: "Open Carts",
         icon: Cloud,
       },
-      { href: '/admin/returns', label: 'Returns', icon: RotateCcw, roles: ['owner', 'admin'] },
       {
-        href: '/admin/profit',
-        label: 'Profit',
+        href: "/admin/returns",
+        label: "Returns",
+        icon: RotateCcw,
+        roles: ["owner", "admin"],
+      },
+      {
+        href: "/admin/profit",
+        label: "Profit",
         icon: TrendingUp,
         subItems: [], // filled from product types
       },
-      { href: '/admin/customers', label: 'Customers', icon: UserCheck },
+      { href: "/admin/customers", label: "Customers", icon: UserCheck },
     ],
   },
   {
-    label: 'Inventory',
+    label: "Inventory",
     items: [
-      { href: '/admin/purchases', label: 'Purchases', icon: ShoppingBag },
-      { href: '/admin/categories', label: 'Categories', icon: FolderTree },
-      { href: '/admin/aisles', label: 'Aisles', icon: MapPin },
-      { href: '/admin/items', label: 'Items', icon: Package },
-      { href: '/admin/items/no-barcode', label: 'Barcode Audit', icon: ScanBarcode },
-      { href: '/admin/items/price-stickers', label: 'Price Stickers', icon: LayoutGrid },
-      { href: '/admin/stock', label: 'Stock', icon: PackageCheck },
-      { href: '/admin/batches', label: 'Stock Lots', icon: Layers },
-      { href: '/admin/out-of-stock-requests', label: 'Requested (Not Sold)', icon: PackageX },
-      { href: '/admin/stock/approvals', label: 'Approvals', icon: Scale, roles: ['admin', 'owner'] },
+      { href: "/admin/purchases", label: "Purchases", icon: ShoppingBag },
+      { href: "/admin/categories", label: "Categories", icon: FolderTree },
+      { href: "/admin/aisles", label: "Aisles", icon: MapPin },
+      { href: "/admin/items", label: "Items", icon: Package },
+      {
+        href: "/admin/items/no-barcode",
+        label: "Barcode Audit",
+        icon: ScanBarcode,
+      },
+      {
+        href: "/admin/items/price-stickers",
+        label: "Price Stickers",
+        icon: LayoutGrid,
+      },
+      { href: "/admin/stock", label: "Stock", icon: PackageCheck },
+      { href: "/admin/batches", label: "Stock Lots", icon: Layers },
+      {
+        href: "/admin/out-of-stock-requests",
+        label: "Requested (Not Sold)",
+        icon: PackageX,
+      },
+      {
+        href: "/admin/stock/approvals",
+        label: "Approvals",
+        icon: Scale,
+        roles: ["admin", "owner"],
+      },
+      {
+        href: "/admin/stock-counts",
+        label: "Stock Counts",
+        icon: ClipboardCheck,
+        roles: ["admin", "owner"],
+      },
     ],
   },
   {
-    label: 'Finance',
+    label: "Finance",
     items: [
-      { href: '/admin/expenses', label: 'Expenses', icon: Receipt },
-      { href: '/admin/supplier-bills', label: 'Supplier Bills', icon: Receipt },
-      { href: '/admin/supplier-price-comparison', label: 'Compare Supplier Prices', icon: TrendingDown },
-      { href: '/admin/credits', label: 'Credits', icon: CreditCard },
+      { href: "/admin/expenses", label: "Expenses", icon: Receipt },
+      { href: "/admin/supplier-bills", label: "Supplier Bills", icon: Receipt },
+      {
+        href: "/admin/supplier-price-comparison",
+        label: "Compare Supplier Prices",
+        icon: TrendingDown,
+      },
+      { href: "/admin/credits", label: "Credits", icon: CreditCard },
     ],
   },
   {
-    label: 'System',
+    label: "System",
     items: [
-      { href: '/admin/settings', label: 'Settings', icon: Settings, roles: ['owner', 'admin'] },
-      { href: '/admin/shifts', label: 'Shifts', icon: Clock },
-      { href: '/admin/logs', label: 'Activity Log', icon: ScrollText, roles: ['owner', 'admin'] },
-      { href: '/admin/reports/daily', label: 'Daily Report', icon: FileText, matchPath: '/admin/reports' },
-      { href: '/admin/users', label: 'Users', icon: Users, roles: ['owner'] },
+      {
+        href: "/admin/settings",
+        label: "Settings",
+        icon: Settings,
+        roles: ["owner", "admin"],
+      },
+      { href: "/admin/shifts", label: "Shifts", icon: Clock },
+      {
+        href: "/admin/logs",
+        label: "Activity Log",
+        icon: ScrollText,
+        roles: ["owner", "admin"],
+      },
+      {
+        href: "/admin/reports/daily",
+        label: "Daily Report",
+        icon: FileText,
+        matchPath: "/admin/reports",
+      },
+      { href: "/admin/users", label: "Users", icon: Users, roles: ["owner"] },
     ],
   },
 ];
@@ -147,8 +193,10 @@ export function AdminSidebar() {
     return BASE_SECTIONS.map((section) => ({
       ...section,
       items: section.items.map((item) => {
-        if (item.href === '/admin/sales') return { ...item, subItems: subItemsFromTypes };
-        if (item.href === '/admin/profit') return { ...item, subItems: profitSubItems };
+        if (item.href === "/admin/sales")
+          return { ...item, subItems: subItemsFromTypes };
+        if (item.href === "/admin/profit")
+          return { ...item, subItems: profitSubItems };
         return item;
       }),
     }));
@@ -156,23 +204,27 @@ export function AdminSidebar() {
 
   // Fetch bill notifications for admin/owner
   useEffect(() => {
-    if (user && (user.role === 'admin' || user.role === 'owner')) {
+    if (user && (user.role === "admin" || user.role === "owner")) {
       apiGet<{
         pending: { count: number; total: number; bills: unknown[] };
         overdue: { count: number; total: number; bills: unknown[] };
         upcoming: { count: number; total: number; bills: unknown[] };
-      }>('/api/supplier-bills/notifications')
+      }>("/api/supplier-bills/notifications")
         .then((result) => {
           if (result.success && result.data) {
-            const count = (result.data.overdue?.count || 0) + (result.data.upcoming?.count || 0);
+            const count =
+              (result.data.overdue?.count || 0) +
+              (result.data.upcoming?.count || 0);
             setBillNotificationCount(count);
           }
         })
         .catch(() => {});
 
-      apiGet<{ expired: unknown[]; expiringSoon: unknown[]; totalCount: number }>(
-        '/api/batches/expiring'
-      )
+      apiGet<{
+        expired: unknown[];
+        expiringSoon: unknown[];
+        totalCount: number;
+      }>("/api/batches/expiring")
         .then((result) => {
           if (result.success && result.data) {
             setExpiryNotificationCount(result.data.totalCount || 0);
@@ -185,7 +237,7 @@ export function AdminSidebar() {
   useEffect(() => {
     if (!user) return;
     const loadPending = () => {
-      apiGet<unknown[]>('/api/sales/pending')
+      apiGet<unknown[]>("/api/sales/pending")
         .then((result) => {
           if (result.success && Array.isArray(result.data)) {
             setPendingCartCount(result.data.length);
@@ -200,12 +252,12 @@ export function AdminSidebar() {
 
   const isActive = (href: string, matchPath?: string) => {
     const pathToMatch = matchPath || href;
-    if (pathToMatch === '/admin') return pathname === '/admin';
+    if (pathToMatch === "/admin") return pathname === "/admin";
     return pathname.startsWith(pathToMatch);
   };
 
   const isSubActive = (href: string) =>
-    pathname === href || pathname.startsWith(href + '/');
+    pathname === href || pathname.startsWith(href + "/");
 
   const isExpanded = (href: string) => pathname.startsWith(href);
 
@@ -214,20 +266,20 @@ export function AdminSidebar() {
     ...section,
     items: section.items.filter((item) => {
       if (item.roles) return user && item.roles.includes(user.role);
-      if (user?.role === 'cashier') {
+      if (user?.role === "cashier") {
         const allowed = [
-          '/admin',
-          '/admin/aisles',
-          '/admin/categories',
-          '/admin/items',
-          '/admin/items/no-barcode',
-          '/admin/items/price-stickers',
-          '/admin/credits',
-          '/admin/expenses',
-          '/admin/supplier-bills',
-          '/admin/supplier-price-comparison',
-          '/admin/out-of-stock-requests',
-          '/admin/pending-carts',
+          "/admin",
+          "/admin/aisles",
+          "/admin/categories",
+          "/admin/items",
+          "/admin/items/no-barcode",
+          "/admin/items/price-stickers",
+          "/admin/credits",
+          "/admin/expenses",
+          "/admin/supplier-bills",
+          "/admin/supplier-price-comparison",
+          "/admin/out-of-stock-requests",
+          "/admin/pending-carts",
         ];
         return (
           allowed.includes(item.href) ||
@@ -241,7 +293,7 @@ export function AdminSidebar() {
   return (
     <nav className="px-3 select-none" aria-label="Admin navigation">
       {visibleSections.map((section, sIdx) => (
-        <div key={sIdx} className={sIdx > 0 ? 'mt-8' : ''}>
+        <div key={sIdx} className={sIdx > 0 ? "mt-8" : ""}>
           {/* Section label — uppercase, bold (Agentic structure) */}
           {section.label && (
             <div className="flex items-center gap-2 px-3 mb-3">
@@ -259,11 +311,12 @@ export function AdminSidebar() {
               const hasSubItems = item.subItems && item.subItems.length > 0;
               const expanded = hasSubItems && isExpanded(item.href);
               const showBadge =
-                item.href === '/admin/supplier-bills' && billNotificationCount > 0;
+                item.href === "/admin/supplier-bills" &&
+                billNotificationCount > 0;
               const showExpiryBadge =
-                item.href === '/admin/batches' && expiryNotificationCount > 0;
+                item.href === "/admin/batches" && expiryNotificationCount > 0;
               const showPendingCartBadge =
-                item.href === '/admin/pending-carts' && pendingCartCount > 0;
+                item.href === "/admin/pending-carts" && pendingCartCount > 0;
 
               return (
                 <div key={item.href}>
@@ -276,16 +329,16 @@ export function AdminSidebar() {
                       <Icon
                         className={`w-4 h-4 shrink-0 ${
                           active
-                            ? 'text-[#1c6a1e] dark:text-[#2a8a30]'
-                            : 'text-slate-500 dark:text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'
+                            ? "text-[#1c6a1e] dark:text-[#2a8a30]"
+                            : "text-slate-500 dark:text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300"
                         }`}
                         strokeWidth={1.5}
                       />
                       <span
                         className={`flex-1 text-[12px] truncate font-medium ${
                           active
-                            ? 'text-[#1c6a1e] dark:text-[#2a8a30]'
-                            : 'text-slate-600 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200'
+                            ? "text-[#1c6a1e] dark:text-[#2a8a30]"
+                            : "text-slate-600 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"
                         }`}
                       >
                         {item.label}
@@ -293,24 +346,28 @@ export function AdminSidebar() {
 
                       {showBadge && (
                         <span className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center shrink-0">
-                          {billNotificationCount > 99 ? '99+' : billNotificationCount}
+                          {billNotificationCount > 99
+                            ? "99+"
+                            : billNotificationCount}
                         </span>
                       )}
                       {showExpiryBadge && (
                         <span className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center justify-center shrink-0">
-                          {expiryNotificationCount > 99 ? '99+' : expiryNotificationCount}
+                          {expiryNotificationCount > 99
+                            ? "99+"
+                            : expiryNotificationCount}
                         </span>
                       )}
                       {showPendingCartBadge && (
                         <span className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center justify-center shrink-0">
-                          {pendingCartCount > 99 ? '99+' : pendingCartCount}
+                          {pendingCartCount > 99 ? "99+" : pendingCartCount}
                         </span>
                       )}
 
                       {hasSubItems && (
                         <ChevronDown
                           className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${
-                            expanded ? 'rotate-0' : '-rotate-90'
+                            expanded ? "rotate-0" : "-rotate-90"
                           } text-slate-400 dark:text-slate-500`}
                           strokeWidth={1.5}
                         />
@@ -322,7 +379,7 @@ export function AdminSidebar() {
                   {hasSubItems && (
                     <div
                       className={`grid transition-[grid-template-rows] duration-200 ease-out ${
-                        expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                        expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
                       }`}
                     >
                       <div className="overflow-hidden">
@@ -340,16 +397,16 @@ export function AdminSidebar() {
                                   <SubIcon
                                     className={`w-3.5 h-3.5 shrink-0 ${
                                       subActive
-                                        ? 'text-[#1c6a1e] dark:text-[#2a8a30]'
-                                        : 'text-slate-500 dark:text-slate-400'
+                                        ? "text-[#1c6a1e] dark:text-[#2a8a30]"
+                                        : "text-slate-500 dark:text-slate-400"
                                     }`}
                                     strokeWidth={1.5}
                                   />
                                   <span
                                     className={`text-[11px] truncate font-medium ${
                                       subActive
-                                        ? 'text-[#1c6a1e] dark:text-[#2a8a30]'
-                                        : 'text-slate-500 dark:text-slate-400'
+                                        ? "text-[#1c6a1e] dark:text-[#2a8a30]"
+                                        : "text-slate-500 dark:text-slate-400"
                                     }`}
                                   >
                                     {sub.label}

@@ -1,32 +1,60 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { AdminLayout } from '@/components/layouts/admin-layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { apiGet, apiPatch } from '@/lib/utils/api-client';
-import { toast } from 'sonner';
-import { Settings, Loader2, Plus, Trash2, GripVertical, Tag, Palette, Gift, Package } from 'lucide-react';
-import type { ProductTypeConfig } from '@/lib/types/product-types';
+import { useState, useEffect } from "react";
+import { AdminLayout } from "@/components/layouts/admin-layout";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { apiGet, apiPatch } from "@/lib/utils/api-client";
+import { toast } from "sonner";
+import {
+  Settings,
+  Loader2,
+  Plus,
+  Trash2,
+  GripVertical,
+  Tag,
+  Palette,
+  Gift,
+  Package,
+  ClipboardCheck,
+} from "lucide-react";
+import type { ProductTypeConfig } from "@/lib/types/product-types";
 
 type ProductType = ProductTypeConfig;
 
 const DEFAULT_NEW_TYPE: ProductTypeConfig = {
-  key: '',
-  label: '',
-  emoji: '📦',
-  color: '#64748b',
+  key: "",
+  label: "",
+  emoji: "📦",
+  color: "#64748b",
 };
 
-const EMOJI_OPTIONS = ['🥬', '🏪', '🌾', '📦', '🥤', '🧹', '🍎', '🧴', '⚡', '🛒'];
+const EMOJI_OPTIONS = [
+  "🥬",
+  "🏪",
+  "🌾",
+  "📦",
+  "🥤",
+  "🧹",
+  "🍎",
+  "🧴",
+  "⚡",
+  "🛒",
+];
 
 function slugify(s: string): string {
   return s
     .toLowerCase()
-    .replace(/\s+/g, '_')
-    .replace(/[^a-z0-9_]/g, '');
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z0-9_]/g, "");
 }
 
 export default function AdminSettingsPage() {
@@ -35,10 +63,13 @@ export default function AdminSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState(false);
   const [newType, setNewType] = useState<ProductTypeConfig>(DEFAULT_NEW_TYPE);
-  const [loyaltyPointsPerKesInput, setLoyaltyPointsPerKesInput] = useState('0');
+  const [loyaltyPointsPerKesInput, setLoyaltyPointsPerKesInput] = useState("0");
   const [loyaltySaving, setLoyaltySaving] = useState(false);
   const [allowSellOutOfStock, setAllowSellOutOfStock] = useState(false);
   const [stockSaving, setStockSaving] = useState(false);
+  const [tolerancePercent, setTolerancePercent] = useState("5");
+  const [toleranceAbsolute, setToleranceAbsolute] = useState("2");
+  const [toleranceSaving, setToleranceSaving] = useState(false);
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -47,17 +78,29 @@ export default function AdminSettingsPage() {
         productTypes: ProductType[];
         loyaltyPointsPerKes?: number;
         allowSellOutOfStock?: boolean;
-      }>('/api/settings');
+        countSettings?: {
+          tolerancePercent?: number;
+          toleranceAbsolute?: number;
+        };
+      }>("/api/settings");
       if (res.success && res.data) {
         if (res.data.productTypes) setProductTypes(res.data.productTypes);
         if (res.data.loyaltyPointsPerKes !== undefined) {
           setLoyaltyPointsPerKesInput(String(res.data.loyaltyPointsPerKes));
         }
         setAllowSellOutOfStock(res.data.allowSellOutOfStock === true);
+        if (res.data.countSettings?.tolerancePercent !== undefined) {
+          setTolerancePercent(String(res.data.countSettings.tolerancePercent));
+        }
+        if (res.data.countSettings?.toleranceAbsolute !== undefined) {
+          setToleranceAbsolute(
+            String(res.data.countSettings.toleranceAbsolute),
+          );
+        }
       }
     } catch (e) {
       console.error(e);
-      toast.error('Failed to load settings');
+      toast.error("Failed to load settings");
     } finally {
       setLoading(false);
     }
@@ -70,18 +113,21 @@ export default function AdminSettingsPage() {
   const handleSave = async (types: ProductType[]) => {
     setSaving(true);
     try {
-      const res = await apiPatch<{ productTypes: ProductType[] }>('/api/settings', {
-        productTypes: types,
-      });
+      const res = await apiPatch<{ productTypes: ProductType[] }>(
+        "/api/settings",
+        {
+          productTypes: types,
+        },
+      );
       if (res.success && res.data?.productTypes) {
         setProductTypes(res.data.productTypes);
-        toast.success('Settings saved');
+        toast.success("Settings saved");
       } else {
-        toast.error(res.message || 'Failed to save');
+        toast.error(res.message || "Failed to save");
       }
     } catch (e) {
       console.error(e);
-      toast.error('Failed to save settings');
+      toast.error("Failed to save settings");
     } finally {
       setSaving(false);
     }
@@ -89,45 +135,48 @@ export default function AdminSettingsPage() {
 
   const handleUpdateType = (index: number, updates: Partial<ProductType>) => {
     const next = productTypes.map((t, i) =>
-      i === index ? { ...t, ...updates } : t
+      i === index ? { ...t, ...updates } : t,
     );
     setProductTypes(next);
   };
 
   const handleRemoveType = (index: number) => {
     const t = productTypes[index];
-    toast(`Remove "${t.label}"? Items using this type will keep it until you change them.`, {
-      action: {
-        label: 'Remove',
-        onClick: () => {
-          const next = productTypes.filter((_, i) => i !== index);
-          setProductTypes(next);
-          handleSave(next);
+    toast(
+      `Remove "${t.label}"? Items using this type will keep it until you change them.`,
+      {
+        action: {
+          label: "Remove",
+          onClick: () => {
+            const next = productTypes.filter((_, i) => i !== index);
+            setProductTypes(next);
+            handleSave(next);
+          },
         },
+        cancel: { label: "Cancel", onClick: () => {} },
       },
-      cancel: { label: 'Cancel', onClick: () => {} },
-    });
+    );
   };
 
   const handleAddType = () => {
     const key = newType.key.trim() || slugify(newType.label.trim());
     if (!key) {
-      toast.error('Enter a label or key');
+      toast.error("Enter a label or key");
       return;
     }
     if (!/^[a-z0-9_]+$/.test(key)) {
-      toast.error('Key must be lowercase letters, numbers, or underscore');
+      toast.error("Key must be lowercase letters, numbers, or underscore");
       return;
     }
     if (productTypes.some((t) => t.key === key)) {
-      toast.error('A type with this key already exists');
+      toast.error("A type with this key already exists");
       return;
     }
     const toAdd: ProductType = {
       key,
       label: newType.label.trim() || key,
-      emoji: newType.emoji || '📦',
-      color: newType.color || '#64748b',
+      emoji: newType.emoji || "📦",
+      color: newType.color || "#64748b",
     };
     const next = [...productTypes, toAdd];
     setProductTypes(next);
@@ -137,26 +186,29 @@ export default function AdminSettingsPage() {
   };
 
   const handleSaveLoyalty = async () => {
-    const raw = loyaltyPointsPerKesInput.trim().replace(',', '.');
+    const raw = loyaltyPointsPerKesInput.trim().replace(",", ".");
     const n = Number(raw);
     if (!Number.isFinite(n) || n < 0 || n > 5) {
-      toast.error('Rate must be a number from 0 (off) up to 5 points per KES');
+      toast.error("Rate must be a number from 0 (off) up to 5 points per KES");
       return;
     }
     setLoyaltySaving(true);
     try {
-      const res = await apiPatch<{ loyaltyPointsPerKes: number }>('/api/settings', {
-        loyaltyPointsPerKes: n,
-      });
+      const res = await apiPatch<{ loyaltyPointsPerKes: number }>(
+        "/api/settings",
+        {
+          loyaltyPointsPerKes: n,
+        },
+      );
       if (res.success && res.data?.loyaltyPointsPerKes !== undefined) {
         setLoyaltyPointsPerKesInput(String(res.data.loyaltyPointsPerKes));
-        toast.success('Loyalty rate saved');
+        toast.success("Loyalty rate saved");
       } else {
-        toast.error(res.message || 'Failed to save');
+        toast.error(res.message || "Failed to save");
       }
     } catch (e) {
       console.error(e);
-      toast.error('Failed to save loyalty rate');
+      toast.error("Failed to save loyalty rate");
     } finally {
       setLoyaltySaving(false);
     }
@@ -165,24 +217,60 @@ export default function AdminSettingsPage() {
   const handleSaveStockSetting = async (nextAllowSellOutOfStock: boolean) => {
     setStockSaving(true);
     try {
-      const res = await apiPatch<{ allowSellOutOfStock: boolean }>('/api/settings', {
-        allowSellOutOfStock: nextAllowSellOutOfStock,
-      });
+      const res = await apiPatch<{ allowSellOutOfStock: boolean }>(
+        "/api/settings",
+        {
+          allowSellOutOfStock: nextAllowSellOutOfStock,
+        },
+      );
       if (res.success && res.data) {
         setAllowSellOutOfStock(res.data.allowSellOutOfStock === true);
         toast.success(
           res.data.allowSellOutOfStock
-            ? 'Cashiers can sell out-of-stock items'
-            : 'Out-of-stock items cannot be sold by cashiers'
+            ? "Cashiers can sell out-of-stock items"
+            : "Out-of-stock items cannot be sold by cashiers",
         );
       } else {
-        toast.error(res.message || 'Failed to save stock setting');
+        toast.error(res.message || "Failed to save stock setting");
       }
     } catch (e) {
       console.error(e);
-      toast.error('Failed to save stock setting');
+      toast.error("Failed to save stock setting");
     } finally {
       setStockSaving(false);
+    }
+  };
+
+  const handleSaveCountSettings = async () => {
+    const tp = Number(tolerancePercent);
+    const ta = Number(toleranceAbsolute);
+    if (!Number.isFinite(tp) || tp < 0 || tp > 100) {
+      toast.error("Tolerance % must be a number from 0 to 100");
+      return;
+    }
+    if (!Number.isFinite(ta) || ta < 0) {
+      toast.error("Tolerance absolute must be a non-negative number");
+      return;
+    }
+    setToleranceSaving(true);
+    try {
+      const res = await apiPatch<{
+        countSettings: { tolerancePercent: number; toleranceAbsolute: number };
+      }>("/api/settings", {
+        countSettings: { tolerancePercent: tp, toleranceAbsolute: ta },
+      });
+      if (res.success && res.data?.countSettings) {
+        setTolerancePercent(String(res.data.countSettings.tolerancePercent));
+        setToleranceAbsolute(String(res.data.countSettings.toleranceAbsolute));
+        toast.success("Count tolerance settings saved");
+      } else {
+        toast.error(res.message || "Failed to save count settings");
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to save count settings");
+    } finally {
+      setToleranceSaving(false);
     }
   };
 
@@ -211,10 +299,14 @@ export default function AdminSettingsPage() {
                 Loyalty points
               </CardTitle>
               <CardDescription>
-                When a sale is linked to a customer (credit tab, split credit, or wallet-linked phone),
-                they earn points: <span className="font-mono text-slate-700 dark:text-slate-300">floor(sale total × rate)</span>.
-                Example: rate <span className="font-mono">0.01</span> → 100 KES = 1 point. Set to{' '}
-                <span className="font-mono">0</span> to turn earning off.
+                When a sale is linked to a customer (credit tab, split credit,
+                or wallet-linked phone), they earn points:{" "}
+                <span className="font-mono text-slate-700 dark:text-slate-300">
+                  floor(sale total × rate)
+                </span>
+                . Example: rate <span className="font-mono">0.01</span> → 100
+                KES = 1 point. Set to <span className="font-mono">0</span> to
+                turn earning off.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4 sm:p-6">
@@ -234,12 +326,15 @@ export default function AdminSettingsPage() {
                       max={5}
                       step="0.0001"
                       value={loyaltyPointsPerKesInput}
-                      onChange={(e) => setLoyaltyPointsPerKesInput(e.target.value)}
+                      onChange={(e) =>
+                        setLoyaltyPointsPerKesInput(e.target.value)
+                      }
                       className="h-10 max-w-xs font-mono text-sm"
                       placeholder="0.01"
                     />
                     <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Allowed range: 0–5. Customers see their balance on the public credit status page.
+                      Allowed range: 0–5. Customers see their balance on the
+                      public credit status page.
                     </p>
                   </div>
                   <Button
@@ -254,7 +349,7 @@ export default function AdminSettingsPage() {
                         Saving…
                       </>
                     ) : (
-                      'Save rate'
+                      "Save rate"
                     )}
                   </Button>
                 </div>
@@ -269,9 +364,10 @@ export default function AdminSettingsPage() {
                 Stock &amp; POS
               </CardTitle>
               <CardDescription>
-                Control whether cashiers can sell products that are out of stock (zero or negative
-                on-hand quantity). When disabled, those items are blocked on the POS and checkout
-                requires manager approval to oversell.
+                Control whether cashiers can sell products that are out of stock
+                (zero or negative on-hand quantity). When disabled, those items
+                are blocked on the POS and checkout requires manager approval to
+                oversell.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4 sm:p-6">
@@ -286,16 +382,99 @@ export default function AdminSettingsPage() {
                     className="mt-1 h-4 w-4 rounded border-slate-300 text-[#1c6a1e] focus:ring-[#1c6a1e] disabled:opacity-50"
                     checked={allowSellOutOfStock}
                     disabled={stockSaving}
-                    onChange={(e) => void handleSaveStockSetting(e.target.checked)}
+                    onChange={(e) =>
+                      void handleSaveStockSetting(e.target.checked)
+                    }
                   />
                   <span className="text-sm text-slate-700 dark:text-slate-300">
                     <span className="font-medium text-slate-900 dark:text-white block mb-1">
                       Allow cashiers to sell out-of-stock items
                     </span>
-                    Stock will go negative when you sell more than is on hand. Out-of-stock items
-                    stay visible on the POS with an &quot;Out of stock&quot; badge.
+                    Stock will go negative when you sell more than is on hand.
+                    Out-of-stock items stay visible on the POS with an &quot;Out
+                    of stock&quot; badge.
                   </span>
                 </label>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="mb-6 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
+            <CardHeader className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
+              <CardTitle className="text-base flex items-center gap-2">
+                <ClipboardCheck className="w-4 h-4 text-[#1c6a1e]" />
+                Count Shift Tolerance
+              </CardTitle>
+              <CardDescription>
+                Set thresholds for stock count variance escalation. An item is
+                escalated only when BOTH the absolute difference AND the
+                percentage difference exceed these values. Defaults: 2 units and
+                5%.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 sm:p-6">
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-7 h-7 animate-spin text-[#1c6a1e]" />
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        Tolerance % (0-100)
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={0.1}
+                          value={tolerancePercent}
+                          onChange={(e) => setTolerancePercent(e.target.value)}
+                          className="h-10 max-w-[120px] font-mono text-sm"
+                          placeholder="5"
+                        />
+                        <span className="text-xs text-slate-500">%</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400">
+                        Variance as a percentage of the larger stock value.
+                      </p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        Absolute Tolerance (units)
+                      </Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        value={toleranceAbsolute}
+                        onChange={(e) => setToleranceAbsolute(e.target.value)}
+                        className="h-10 max-w-[120px] font-mono text-sm"
+                        placeholder="2"
+                      />
+                      <p className="text-[11px] text-slate-400">
+                        Minimum unit difference before escalation.
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveCountSettings}
+                    disabled={toleranceSaving}
+                    className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
+                  >
+                    {toleranceSaving ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save tolerance"
+                    )}
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -307,8 +486,9 @@ export default function AdminSettingsPage() {
                 Product Types
               </CardTitle>
               <CardDescription>
-                These types are used for items, POS departments, and sales/profit reports. Add or
-                remove types (e.g. Grocery, Retail, Cereals). Defaults: Grocery, Retail.
+                These types are used for items, POS departments, and
+                sales/profit reports. Add or remove types (e.g. Grocery, Retail,
+                Cereals). Defaults: Grocery, Retail.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4 sm:p-6">
@@ -331,20 +511,30 @@ export default function AdminSettingsPage() {
                       </span>
                       <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <div>
-                          <Label className="text-xs text-slate-500">Label</Label>
+                          <Label className="text-xs text-slate-500">
+                            Label
+                          </Label>
                           <Input
                             value={t.label}
-                            onChange={(e) => handleUpdateType(index, { label: e.target.value })}
+                            onChange={(e) =>
+                              handleUpdateType(index, { label: e.target.value })
+                            }
                             className="h-9 text-sm"
                             placeholder="e.g. Grocery"
                           />
                         </div>
                         <div>
-                          <Label className="text-xs text-slate-500">Key (used in data)</Label>
+                          <Label className="text-xs text-slate-500">
+                            Key (used in data)
+                          </Label>
                           <Input
                             value={t.key}
                             onChange={(e) =>
-                              handleUpdateType(index, { key: e.target.value.toLowerCase().replace(/\s/g, '_') })
+                              handleUpdateType(index, {
+                                key: e.target.value
+                                  .toLowerCase()
+                                  .replace(/\s/g, "_"),
+                              })
                             }
                             className="h-9 text-sm font-mono"
                             placeholder="grocery"
@@ -359,8 +549,10 @@ export default function AdminSettingsPage() {
                             handleUpdateType(index, { color: e.target.value });
                             handleSave(
                               productTypes.map((x, i) =>
-                                i === index ? { ...x, color: e.target.value } : x
-                              )
+                                i === index
+                                  ? { ...x, color: e.target.value }
+                                  : x,
+                              ),
                             );
                           }}
                           className="w-9 h-9 rounded border border-slate-300 dark:border-slate-600 cursor-pointer"
@@ -390,8 +582,8 @@ export default function AdminSettingsPage() {
                             onClick={() => setNewType((p) => ({ ...p, emoji }))}
                             className={`text-2xl p-1 rounded ${
                               newType.emoji === emoji
-                                ? 'ring-2 ring-[#1c6a1e] bg-emerald-50 dark:bg-emerald-900/20'
-                                : 'hover:bg-slate-200 dark:hover:bg-slate-700'
+                                ? "ring-2 ring-[#1c6a1e] bg-emerald-50 dark:bg-emerald-900/20"
+                                : "hover:bg-slate-200 dark:hover:bg-slate-700"
                             }`}
                           >
                             {emoji}
@@ -419,7 +611,12 @@ export default function AdminSettingsPage() {
                           <Input
                             value={newType.key}
                             onChange={(e) =>
-                              setNewType((p) => ({ ...p, key: e.target.value.toLowerCase().replace(/\s/g, '_') }))
+                              setNewType((p) => ({
+                                ...p,
+                                key: e.target.value
+                                  .toLowerCase()
+                                  .replace(/\s/g, "_"),
+                              }))
                             }
                             placeholder="cereals"
                             className="h-9 w-28 font-mono"
@@ -432,7 +629,12 @@ export default function AdminSettingsPage() {
                           <input
                             type="color"
                             value={newType.color}
-                            onChange={(e) => setNewType((p) => ({ ...p, color: e.target.value }))}
+                            onChange={(e) =>
+                              setNewType((p) => ({
+                                ...p,
+                                color: e.target.value,
+                              }))
+                            }
                             className="w-9 h-9 rounded border border-slate-300 dark:border-slate-600 cursor-pointer"
                           />
                         </div>
@@ -484,7 +686,7 @@ export default function AdminSettingsPage() {
                             Saving...
                           </>
                         ) : (
-                          'Save changes'
+                          "Save changes"
                         )}
                       </Button>
                     </div>

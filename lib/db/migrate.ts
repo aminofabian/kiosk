@@ -617,6 +617,21 @@ export async function runMigrations() {
       console.error("⚠ user_department migration skipped:", error);
     }
 
+    try {
+      const { migrateCountShifts } = await import("./migrate-count-shifts");
+      await migrateCountShifts();
+    } catch (error) {
+      console.error("⚠ count_shifts migration skipped:", error);
+    }
+
+    try {
+      const { migrateDepartmentStockManagerRole } =
+        await import("./migrate-department-stock-manager");
+      await migrateDepartmentStockManagerRole();
+    } catch (error) {
+      console.error("⚠ department_stock_manager migration skipped:", error);
+    }
+
     console.log("✅ Migration completed successfully!");
     return true;
   } catch (error) {

@@ -363,11 +363,15 @@ const ItemCard = memo(function ItemCard({
   onSelect,
   onQuickAdd,
   allowSellOutOfStock = false,
+  canManageItemImages = false,
+  onImageUrlChange,
 }: {
   item: Item;
   onSelect: (item: Item) => void;
   onQuickAdd?: (item: Item, quantity: number) => void;
   allowSellOutOfStock?: boolean;
+  canManageItemImages?: boolean;
+  onImageUrlChange?: (itemId: string, imageUrl: string | null) => void;
 }) {
   const stockStatus = getStockStatus(item.current_stock);
   const isOutOfStock =
@@ -375,13 +379,26 @@ const ItemCard = memo(function ItemCard({
     (stockStatus === "out" || stockStatus === "negative");
   const imageUrl = resolveItemImageUrl(item);
 
+  const imageContent = canManageItemImages ? (
+    <PosQuickSellPhoto
+      itemId={item.id}
+      itemName={item.name}
+      imageUrl={item.image_url}
+      variantName={item.variant_name}
+      onImageUrlChange={(url) => onImageUrlChange?.(item.id, url)}
+      fill
+    />
+  ) : (
+    renderItemImageContent(item, imageUrl)
+  );
+
   return (
     <PosProductTile
       item={item}
       isOutOfStock={isOutOfStock}
       onSelect={() => onSelect(item)}
       onQuickAdd={onQuickAdd ? (qty) => onQuickAdd(item, qty) : undefined}
-      imageContent={renderItemImageContent(item, imageUrl)}
+      imageContent={imageContent}
       showDealBadge
     />
   );
@@ -768,9 +785,7 @@ export function ItemGrid({
                     itemName={item.name}
                     imageUrl={item.image_url}
                     variantName={item.variant_name}
-                    onImageUrlChange={(url) =>
-                      onItemImageUpdated?.(item.id, url)
-                    }
+                    onImageUrlChange={(url) => handleImageUpdated(item.id, url)}
                     fill
                   />
                 ) : (
@@ -804,6 +819,37 @@ export function ItemGrid({
       onSelectItem(item);
     },
     [onSelectItem],
+  );
+
+  const handleImageUpdated = useCallback(
+    (itemId: string, imageUrl: string | null) => {
+      setItems((prev) =>
+        prev.map((i) => (i.id === itemId ? { ...i, image_url: imageUrl } : i)),
+      );
+      setGroupedItems((prev) =>
+        prev.map((g) => {
+          if (g.type === "standalone" && g.item?.id === itemId) {
+            return { ...g, item: { ...g.item, image_url: imageUrl } };
+          }
+          if (g.type === "parent") {
+            if (g.parent?.id === itemId) {
+              return { ...g, parent: { ...g.parent, image_url: imageUrl } };
+            }
+            if (g.children?.some((c) => c.id === itemId)) {
+              return {
+                ...g,
+                children: g.children.map((c) =>
+                  c.id === itemId ? { ...c, image_url: imageUrl } : c,
+                ),
+              };
+            }
+          }
+          return g;
+        }),
+      );
+      onItemImageUpdated?.(itemId, imageUrl);
+    },
+    [onItemImageUpdated],
   );
 
   useEffect(() => {
@@ -1369,6 +1415,8 @@ export function ItemGrid({
                           onSelect={handleItemClick}
                           onQuickAdd={onQuickAdd}
                           allowSellOutOfStock={allowSellOutOfStock}
+                          canManageItemImages={canManageItemImages}
+                          onImageUrlChange={handleImageUpdated}
                         />
                       ))}
                     </div>
@@ -1404,6 +1452,8 @@ export function ItemGrid({
                           onSelect={handleItemClick}
                           onQuickAdd={onQuickAdd}
                           allowSellOutOfStock={allowSellOutOfStock}
+                          canManageItemImages={canManageItemImages}
+                          onImageUrlChange={handleImageUpdated}
                         />
                       ),
                   )}

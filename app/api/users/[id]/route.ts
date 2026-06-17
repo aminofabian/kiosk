@@ -1,11 +1,11 @@
-import { NextRequest } from 'next/server';
-import bcrypt from 'bcryptjs';
-import { execute, queryOne } from '@/lib/db';
-import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
-import { getSession } from '@/lib/auth';
-import { migrateDepartmentStaffRole } from '@/lib/db/migrate-department-staff-role';
-import { migrateUserDepartment } from '@/lib/db/migrate-user-department';
-import type { User } from '@/lib/db/types';
+import { NextRequest } from "next/server";
+import bcrypt from "bcryptjs";
+import { execute, queryOne } from "@/lib/db";
+import { jsonResponse, optionsResponse } from "@/lib/utils/api-response";
+import { getSession } from "@/lib/auth";
+import { migrateDepartmentStaffRole } from "@/lib/db/migrate-department-staff-role";
+import { migrateUserDepartment } from "@/lib/db/migrate-user-department";
+import type { User } from "@/lib/db/types";
 
 const SALT_ROUNDS = 12;
 
@@ -15,29 +15,29 @@ export async function OPTIONS() {
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getSession();
     const { id: userId } = await params;
 
     if (!session?.user) {
-      return jsonResponse({ success: false, message: 'Unauthorized' }, 401);
+      return jsonResponse({ success: false, message: "Unauthorized" }, 401);
     }
 
-    if (session.user.role !== 'owner') {
-      return jsonResponse({ success: false, message: 'Forbidden' }, 403);
+    if (session.user.role !== "owner") {
+      return jsonResponse({ success: false, message: "Forbidden" }, 403);
     }
 
-    const user = await queryOne<Omit<User, 'password_hash'>>(
+    const user = await queryOne<Omit<User, "password_hash">>(
       `SELECT id, business_id, name, email, role, pin, active, department, created_at
-       FROM users 
+       FROM users
        WHERE id = ? AND business_id = ?`,
-      [userId, session.user.businessId]
+      [userId, session.user.businessId],
     );
 
     if (!user) {
-      return jsonResponse({ success: false, message: 'User not found' }, 404);
+      return jsonResponse({ success: false, message: "User not found" }, 404);
     }
 
     return jsonResponse({
@@ -45,32 +45,32 @@ export async function GET(
       data: user,
     });
   } catch (error) {
-    console.error('Error fetching user:', error);
+    console.error("Error fetching user:", error);
     return jsonResponse(
       {
         success: false,
-        message: 'Failed to fetch user',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        message: "Failed to fetch user",
+        error: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getSession();
     const { id: userId } = await params;
 
     if (!session?.user) {
-      return jsonResponse({ success: false, message: 'Unauthorized' }, 401);
+      return jsonResponse({ success: false, message: "Unauthorized" }, 401);
     }
 
-    if (session.user.role !== 'owner') {
-      return jsonResponse({ success: false, message: 'Forbidden' }, 403);
+    if (session.user.role !== "owner") {
+      return jsonResponse({ success: false, message: "Forbidden" }, 403);
     }
 
     try {
@@ -85,19 +85,19 @@ export async function PUT(
 
     // Verify user exists and belongs to business
     const existingUser = await queryOne<User>(
-      'SELECT * FROM users WHERE id = ? AND business_id = ?',
-      [userId, session.user.businessId]
+      "SELECT * FROM users WHERE id = ? AND business_id = ?",
+      [userId, session.user.businessId],
     );
 
     if (!existingUser) {
-      return jsonResponse({ success: false, message: 'User not found' }, 404);
+      return jsonResponse({ success: false, message: "User not found" }, 404);
     }
 
     // Prevent owner from demoting themselves
-    if (existingUser.id === session.user.id && role && role !== 'owner') {
+    if (existingUser.id === session.user.id && role && role !== "owner") {
       return jsonResponse(
-        { success: false, message: 'You cannot change your own role' },
-        400
+        { success: false, message: "You cannot change your own role" },
+        400,
       );
     }
 
@@ -105,20 +105,20 @@ export async function PUT(
     if (pin && pin !== existingUser.pin) {
       if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
         return jsonResponse(
-          { success: false, message: 'PIN must be exactly 4 digits' },
-          400
+          { success: false, message: "PIN must be exactly 4 digits" },
+          400,
         );
       }
 
       const existingPin = await queryOne<{ id: string }>(
-        'SELECT id FROM users WHERE business_id = ? AND pin = ? AND id != ?',
-        [session.user.businessId, pin, userId]
+        "SELECT id FROM users WHERE business_id = ? AND pin = ? AND id != ?",
+        [session.user.businessId, pin, userId],
       );
 
       if (existingPin) {
         return jsonResponse(
-          { success: false, message: 'This PIN is already in use' },
-          409
+          { success: false, message: "This PIN is already in use" },
+          409,
         );
       }
     }
@@ -126,14 +126,14 @@ export async function PUT(
     // Check email uniqueness if changed
     if (email && email !== existingUser.email) {
       const existingEmail = await queryOne<{ id: string }>(
-        'SELECT id FROM users WHERE business_id = ? AND email = ? AND id != ?',
-        [session.user.businessId, email, userId]
+        "SELECT id FROM users WHERE business_id = ? AND email = ? AND id != ?",
+        [session.user.businessId, email, userId],
       );
 
       if (existingEmail) {
         return jsonResponse(
-          { success: false, message: 'A user with this email already exists' },
-          409
+          { success: false, message: "A user with this email already exists" },
+          409,
         );
       }
     }
@@ -143,124 +143,127 @@ export async function PUT(
     const values: (string | number | null)[] = [];
 
     if (name !== undefined) {
-      updates.push('name = ?');
+      updates.push("name = ?");
       values.push(name);
     }
     if (email !== undefined) {
-      updates.push('email = ?');
+      updates.push("email = ?");
       values.push(email);
     }
     if (password) {
-      updates.push('password_hash = ?');
+      updates.push("password_hash = ?");
       values.push(await bcrypt.hash(password, SALT_ROUNDS));
     }
-    if (role !== undefined && existingUser.role !== 'owner') {
-      updates.push('role = ?');
+    if (role !== undefined && existingUser.role !== "owner") {
+      updates.push("role = ?");
       values.push(role);
     }
     if (pin !== undefined) {
-      updates.push('pin = ?');
+      updates.push("pin = ?");
       values.push(pin || null);
     }
     if (active !== undefined) {
-      updates.push('active = ?');
+      updates.push("active = ?");
       values.push(active ? 1 : 0);
     }
 
     const effectiveRole = role !== undefined ? role : existingUser.role;
-    if (department !== undefined || (role !== undefined && effectiveRole !== 'department_staff')) {
+    if (
+      department !== undefined ||
+      (role !== undefined &&
+        effectiveRole !== "department_staff" &&
+        effectiveRole !== "department_stock_manager")
+    ) {
       const deptValue =
-        effectiveRole === 'department_staff'
+        effectiveRole === "department_staff" ||
+        effectiveRole === "department_stock_manager"
           ? department || null
           : null;
-      updates.push('department = ?');
+      updates.push("department = ?");
       values.push(deptValue);
     }
 
     if (updates.length === 0) {
       return jsonResponse(
-        { success: false, message: 'No fields to update' },
-        400
+        { success: false, message: "No fields to update" },
+        400,
       );
     }
 
     values.push(userId);
 
     await execute(
-      `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
-      values
+      `UPDATE users SET ${updates.join(", ")} WHERE id = ?`,
+      values,
     );
 
     return jsonResponse({
       success: true,
-      message: 'User updated successfully',
+      message: "User updated successfully",
     });
   } catch (error) {
-    console.error('Error updating user:', error);
+    console.error("Error updating user:", error);
     return jsonResponse(
       {
         success: false,
-        message: 'Failed to update user',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        message: "Failed to update user",
+        error: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 }
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await getSession();
     const { id: userId } = await params;
 
     if (!session?.user) {
-      return jsonResponse({ success: false, message: 'Unauthorized' }, 401);
+      return jsonResponse({ success: false, message: "Unauthorized" }, 401);
     }
 
-    if (session.user.role !== 'owner') {
-      return jsonResponse({ success: false, message: 'Forbidden' }, 403);
+    if (session.user.role !== "owner") {
+      return jsonResponse({ success: false, message: "Forbidden" }, 403);
     }
 
     // Prevent owner from deleting themselves
     if (userId === session.user.id) {
       return jsonResponse(
-        { success: false, message: 'You cannot delete your own account' },
-        400
+        { success: false, message: "You cannot delete your own account" },
+        400,
       );
     }
 
     // Verify user exists and belongs to business
     const existingUser = await queryOne<{ id: string; role: string }>(
-      'SELECT id, role FROM users WHERE id = ? AND business_id = ?',
-      [userId, session.user.businessId]
+      "SELECT id, role FROM users WHERE id = ? AND business_id = ?",
+      [userId, session.user.businessId],
     );
 
     if (!existingUser) {
-      return jsonResponse({ success: false, message: 'User not found' }, 404);
+      return jsonResponse({ success: false, message: "User not found" }, 404);
     }
 
     // Soft delete (set active = 0)
-    await execute(
-      'UPDATE users SET active = 0 WHERE id = ?',
-      [userId]
-    );
+    await execute("UPDATE users SET active = 0 WHERE id = ?", [userId]);
 
     return jsonResponse({
       success: true,
-      message: 'User deactivated successfully',
+      message: "User deactivated successfully",
     });
   } catch (error) {
-    console.error('Error deleting user:', error);
+    console.error("Error deleting user:", error);
     return jsonResponse(
       {
         success: false,
-        message: 'Failed to delete user',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        message: "Failed to delete user",
+        error: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 }

@@ -1,10 +1,11 @@
-import { NextRequest } from 'next/server';
-import { query, execute } from '@/lib/db';
-import { generateUUID } from '@/lib/utils/uuid';
-import type { Purchase } from '@/lib/db/types';
-import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
-import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
-import { logActivity } from '@/lib/db/activity-log';
+import { NextRequest } from "next/server";
+import { query, execute } from "@/lib/db";
+import { migrateDepartmentSuppliers } from "@/lib/db/migrate-department-suppliers";
+import { generateUUID } from "@/lib/utils/uuid";
+import type { Purchase } from "@/lib/db/types";
+import { jsonResponse, optionsResponse } from "@/lib/utils/api-response";
+import { requirePermission, isAuthResponse } from "@/lib/auth/api-auth";
+import { logActivity } from "@/lib/db/activity-log";
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -12,14 +13,14 @@ export async function OPTIONS() {
 
 export async function GET() {
   try {
-    const auth = await requirePermission('record_purchase');
+    const auth = await requirePermission("record_purchase");
     if (isAuthResponse(auth)) return auth;
 
     const purchases = await query<Purchase>(
-      `SELECT * FROM purchases 
-       WHERE business_id = ? 
+      `SELECT * FROM purchases
+       WHERE business_id = ?
        ORDER BY purchase_date DESC, created_at DESC`,
-      [auth.businessId]
+      [auth.businessId],
     );
 
     return jsonResponse({
@@ -27,21 +28,23 @@ export async function GET() {
       data: purchases,
     });
   } catch (error) {
-    console.error('Error fetching purchases:', error);
+    console.error("Error fetching purchases:", error);
     return jsonResponse(
       {
         success: false,
-        message: 'Failed to fetch purchases',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        message: "Failed to fetch purchases",
+        error: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requirePermission('record_purchase');
+    await migrateDepartmentSuppliers();
+
+    const auth = await requirePermission("record_purchase");
     if (isAuthResponse(auth)) return auth;
 
     const body = await request.json();
@@ -56,8 +59,8 @@ export async function POST(request: NextRequest) {
 
     if (!purchaseDate || !totalAmount || !items || items.length === 0) {
       return jsonResponse(
-        { success: false, message: 'Missing required fields' },
-        400
+        { success: false, message: "Missing required fields" },
+        400,
       );
     }
 
@@ -67,8 +70,8 @@ export async function POST(request: NextRequest) {
     await execute(
       `INSERT INTO purchases (
         id, business_id, recorded_by, supplier_name, purchase_date,
-        total_amount, extra_costs, notes, status, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        total_amount, extra_costs, notes, status, approval_status, department, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         purchaseId,
         auth.businessId,
@@ -78,9 +81,11 @@ export async function POST(request: NextRequest) {
         totalAmount,
         extraCosts || 0,
         notes || null,
-        'pending',
+        "pending",
+        "approved",
+        body.department || null,
         now,
-      ]
+      ],
     );
 
     for (const item of items) {
@@ -98,16 +103,16 @@ export async function POST(request: NextRequest) {
           item.quantityNote,
           item.amount,
           item.notes || null,
-          'pending',
+          "pending",
           now,
-        ]
+        ],
       );
     }
 
     logActivity({
       businessId: auth.businessId,
-      action: 'create',
-      entityType: 'purchase',
+      action: "create",
+      entityType: "purchase",
       entityId: purchaseId,
       entityNameSnapshot: supplierName || `Purchase ${purchaseId.slice(0, 8)}`,
       details: { totalAmount, itemCount: items.length },
@@ -116,21 +121,20 @@ export async function POST(request: NextRequest) {
 
     return jsonResponse({
       success: true,
-      message: 'Purchase created successfully',
+      message: "Purchase created successfully",
       data: {
         purchaseId,
       },
     });
   } catch (error) {
-    console.error('Error creating purchase:', error);
+    console.error("Error creating purchase:", error);
     return jsonResponse(
       {
         success: false,
-        message: 'Failed to create purchase',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        message: "Failed to create purchase",
+        error: error instanceof Error ? error.message : "Unknown error",
       },
-      500
+      500,
     );
   }
 }
-

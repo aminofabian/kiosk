@@ -1,24 +1,29 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   BarChart3,
+  ClipboardCheck,
   LayoutGrid,
   MoreHorizontal,
   PackageMinus,
   Receipt,
   ShoppingCart,
-} from 'lucide-react';
-import { useDepartmentApp } from '@/components/department/DepartmentAppProvider';
+  Truck,
+} from "lucide-react";
+import { useDepartmentApp } from "@/components/department/DepartmentAppProvider";
+import { useCurrentUser } from "@/lib/hooks/use-current-user";
 
 type NavRoute =
-  | '/department'
-  | '/department/cart'
-  | '/department/stock'
-  | '/department/records'
-  | '/department/analysis';
+  | "/department"
+  | "/department/cart"
+  | "/department/stock"
+  | "/department/records"
+  | "/department/supply"
+  | "/department/analysis"
+  | "/department/count";
 
 const ROUTES: {
   href: NavRoute;
@@ -28,47 +33,59 @@ const ROUTES: {
   match: (path: string, isDesktop: boolean) => boolean;
 }[] = [
   {
-    href: '/department',
-    label: 'Sell',
+    href: "/department",
+    label: "Sell",
     icon: LayoutGrid,
-    match: (path) => path === '/department',
+    match: (path) => path === "/department",
   },
   {
-    href: '/department/cart',
-    desktopHref: '/department',
-    label: 'Cart',
+    href: "/department/cart",
+    desktopHref: "/department",
+    label: "Cart",
     icon: ShoppingCart,
     match: (path, isDesktop) =>
-      isDesktop ? false : path === '/department/cart',
+      isDesktop ? false : path === "/department/cart",
   },
   {
-    href: '/department/stock',
-    label: 'Stock',
+    href: "/department/stock",
+    label: "Stock",
     icon: PackageMinus,
-    match: (path) => path.startsWith('/department/stock'),
+    match: (path) => path.startsWith("/department/stock"),
   },
   {
-    href: '/department/records',
-    label: 'Records',
+    href: "/department/records",
+    label: "Records",
     icon: Receipt,
-    match: (path) => path.startsWith('/department/records'),
+    match: (path) => path.startsWith("/department/records"),
   },
   {
-    href: '/department/analysis',
-    label: 'Analysis',
+    href: "/department/count",
+    label: "Count",
+    icon: ClipboardCheck,
+    match: (path) => path.startsWith("/department/count"),
+  },
+  {
+    href: "/department/supply",
+    label: "Supply",
+    icon: Truck,
+    match: (path) => path.startsWith("/department/supply"),
+  },
+  {
+    href: "/department/analysis",
+    label: "Analysis",
     icon: BarChart3,
-    match: (path) => path.startsWith('/department/analysis'),
+    match: (path) => path.startsWith("/department/analysis"),
   },
 ];
 
 function useIsDesktop() {
   const [isDesktop, setIsDesktop] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia('(min-width: 768px)');
+    const mq = window.matchMedia("(min-width: 768px)");
     const update = () => setIsDesktop(mq.matches);
     update();
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
   }, []);
   return isDesktop;
 }
@@ -77,6 +94,13 @@ export function DepartmentBottomNav() {
   const pathname = usePathname();
   const { cartItemCount, setMoreSheetOpen } = useDepartmentApp();
   const isDesktop = useIsDesktop();
+  const { user } = useCurrentUser();
+
+  // Department Stock Manager only sees Count; others see standard tabs (Count hidden for staff)
+  const visibleRoutes =
+    user?.role === "department_stock_manager"
+      ? ROUTES.filter((r) => r.href === "/department/count")
+      : ROUTES.filter((r) => r.href !== "/department/count");
 
   return (
     <nav
@@ -84,41 +108,47 @@ export function DepartmentBottomNav() {
       aria-label="Department navigation"
     >
       <div className="flex h-[3.25rem] items-stretch px-0.5 max-w-3xl mx-auto">
-        {ROUTES.map((tab) => {
+        {visibleRoutes.map((tab) => {
           const Icon = tab.icon;
-          const href = isDesktop && tab.desktopHref ? tab.desktopHref : tab.href;
+          const href =
+            isDesktop && tab.desktopHref ? tab.desktopHref : tab.href;
           const active = tab.match(pathname, isDesktop);
-          const showCartBadge = tab.href === '/department/cart' && cartItemCount > 0;
+          const showCartBadge =
+            tab.href === "/department/cart" && cartItemCount > 0;
 
           return (
             <Link
               key={tab.href}
               href={href}
               className="flex-1 flex flex-col items-center justify-center gap-0.5 relative touch-manipulation active:scale-[0.97] transition-transform"
-              aria-current={active ? 'page' : undefined}
+              aria-current={active ? "page" : undefined}
             >
               {active && (
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-0.5 bg-[#1c6a1e] rounded-b-full" />
               )}
               <div
                 className={`relative flex items-center justify-center w-10 h-8 rounded-xl transition-colors ${
-                  active ? 'bg-[#1c6a1e]/12' : ''
+                  active ? "bg-[#1c6a1e]/12" : ""
                 }`}
               >
                 <Icon
                   className={`w-[22px] h-[22px] transition-colors ${
-                    active ? 'text-[#1c6a1e]' : 'text-slate-400 dark:text-slate-500'
+                    active
+                      ? "text-[#1c6a1e]"
+                      : "text-slate-400 dark:text-slate-500"
                   }`}
                 />
                 {showCartBadge && (
                   <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-[#1c6a1e] text-white text-[9px] font-bold rounded-full flex items-center justify-center shadow-sm">
-                    {cartItemCount > 99 ? '99+' : cartItemCount}
+                    {cartItemCount > 99 ? "99+" : cartItemCount}
                   </span>
                 )}
               </div>
               <span
                 className={`text-[9px] sm:text-[10px] font-semibold leading-none ${
-                  active ? 'text-[#1c6a1e]' : 'text-slate-400 dark:text-slate-500'
+                  active
+                    ? "text-[#1c6a1e]"
+                    : "text-slate-400 dark:text-slate-500"
                 }`}
               >
                 {tab.label}

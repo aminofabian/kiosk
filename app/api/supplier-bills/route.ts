@@ -124,6 +124,16 @@ export async function POST(request: NextRequest) {
     const auth = await requirePermission('record_supplier_bill');
     if (isAuthResponse(auth)) return auth;
 
+    if (auth.role === 'department_staff') {
+      return jsonResponse(
+        {
+          success: false,
+          message: 'Department staff must use purchase orders for supplies',
+        },
+        403,
+      );
+    }
+
     await ensureSupplierBillsPaymentColumns();
     await migrateSupplierBillsIntegrity();
 

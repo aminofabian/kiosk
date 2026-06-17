@@ -28,6 +28,7 @@ export async function requireRole(
     | "admin"
     | "cashier"
     | "department_staff"
+    | "department_stock_manager"
     | "superadmin"
   )[],
 ) {

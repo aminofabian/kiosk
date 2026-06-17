@@ -89,7 +89,11 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
 
   // Fetch available product types
   useEffect(() => {
-    if (formData.role === "department_staff" && productTypes.length === 0) {
+    if (
+      (formData.role === "department_staff" ||
+        formData.role === "department_stock_manager") &&
+      productTypes.length === 0
+    ) {
       setTypesLoading(true);
       fetch("/api/settings")
         .then((r) => r.json())
@@ -132,7 +136,11 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
     setError(null);
 
     try {
-      if (formData.role === "department_staff" && (formData.selectedTypes || []).length === 0) {
+      if (
+        (formData.role === "department_staff" ||
+          formData.role === "department_stock_manager") &&
+        (formData.selectedTypes || []).length === 0
+      ) {
         setError("Select at least one product type for department staff");
         setIsLoading(false);
         return;
@@ -142,7 +150,9 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
       const method = isEditing ? "PUT" : "POST";
 
       const departmentValue =
-        formData.role === "department_staff" && formData.selectedTypes.length > 0
+        (formData.role === "department_staff" ||
+          formData.role === "department_stock_manager") &&
+        formData.selectedTypes.length > 0
           ? JSON.stringify(formData.selectedTypes)
           : null;
 
@@ -244,7 +254,8 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
               setFormData((prev) => ({
                 ...prev,
                 role: value as UserRole,
-                ...(value !== "department_staff"
+                ...(value !== "department_staff" &&
+                value !== "department_stock_manager"
                   ? { selectedTypes: [], department: "" }
                   : {}),
               }))
@@ -258,6 +269,9 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
               <SelectItem value="admin">Admin</SelectItem>
               <SelectItem value="cashier">Cashier</SelectItem>
               <SelectItem value="department_staff">Department Staff</SelectItem>
+              <SelectItem value="department_stock_manager">
+                Dept Stock Manager
+              </SelectItem>
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
@@ -301,7 +315,8 @@ export function UserForm({ user, onClose, onSuccess }: UserFormProps) {
           </div>
         )}
 
-        {formData.role === "department_staff" && (
+        {(formData.role === "department_staff" ||
+          formData.role === "department_stock_manager") && (
           <div className="space-y-2">
             <Label>Product Types (Departments)</Label>
             <p className="text-xs text-muted-foreground">

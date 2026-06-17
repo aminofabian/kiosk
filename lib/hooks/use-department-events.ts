@@ -18,6 +18,9 @@ interface UseDepartmentEventsOptions {
   onCompleted?: (event: DeptEvent) => void;
   onLoaded?: (event: DeptEvent) => void;
   onQueueUpdate?: (event: DeptEvent) => void;
+  onPurchaseApproved?: (event: DeptEvent) => void;
+  onPurchaseRejected?: (event: DeptEvent) => void;
+  onPurchaseSubmitted?: (event: DeptEvent) => void;
 }
 
 /**
@@ -33,18 +36,27 @@ export function useDepartmentEvents(options: UseDepartmentEventsOptions) {
     onCompleted,
     onLoaded,
     onQueueUpdate,
+    onPurchaseApproved,
+    onPurchaseRejected,
+    onPurchaseSubmitted,
   } = options;
 
   const onForwardedRef = useRef(onForwarded);
   const onCompletedRef = useRef(onCompleted);
   const onLoadedRef = useRef(onLoaded);
   const onQueueUpdateRef = useRef(onQueueUpdate);
+  const onPurchaseApprovedRef = useRef(onPurchaseApproved);
+  const onPurchaseRejectedRef = useRef(onPurchaseRejected);
+  const onPurchaseSubmittedRef = useRef(onPurchaseSubmitted);
 
   useEffect(() => {
     onForwardedRef.current = onForwarded;
     onCompletedRef.current = onCompleted;
     onLoadedRef.current = onLoaded;
     onQueueUpdateRef.current = onQueueUpdate;
+    onPurchaseApprovedRef.current = onPurchaseApproved;
+    onPurchaseRejectedRef.current = onPurchaseRejected;
+    onPurchaseSubmittedRef.current = onPurchaseSubmitted;
   });
 
   const handleEvent = useCallback(
@@ -94,6 +106,44 @@ export function useDepartmentEvents(options: UseDepartmentEventsOptions) {
 
       if (event.type === "queue:update") {
         onQueueUpdateRef.current?.(event);
+      }
+
+      if (event.type === "purchase:approved") {
+        if (role === "department_staff") {
+          const amount =
+            typeof event.data.totalAmount === "number"
+              ? event.data.totalAmount
+              : 0;
+          toast.success(
+            `PO approved by ${event.data.adminName} · KES ${amount.toLocaleString()}`,
+            {
+              duration: 5000,
+            },
+          );
+        }
+        onPurchaseApprovedRef.current?.(event);
+        return;
+      }
+
+      if (event.type === "purchase:rejected") {
+        if (role === "department_staff") {
+          const reason = event.data.reason || "No reason given";
+          toast.error(`PO rejected: ${reason}`, { duration: 5000 });
+        }
+        onPurchaseRejectedRef.current?.(event);
+        return;
+      }
+
+      if (event.type === "purchase:submitted") {
+        if (role === "admin" || role === "owner") {
+          const staffName =
+            typeof event.data.staffName === "string"
+              ? event.data.staffName
+              : "Staff";
+          toast.info(`New PO submitted by ${staffName}`, { duration: 5000 });
+        }
+        onPurchaseSubmittedRef.current?.(event);
+        return;
       }
     },
     [role],

@@ -68,6 +68,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     "record_theft_loss",
     "record_expired_writeoff",
   ],
+  department_stock_manager: ["view_own_sales"],
 };
 
 export function hasPermission(role: UserRole, permission: Permission): boolean {

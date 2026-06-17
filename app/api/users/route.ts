@@ -6,6 +6,7 @@ import { jsonResponse, optionsResponse } from "@/lib/utils/api-response";
 import { getSession } from "@/lib/auth";
 import { migrateDepartmentStaffRole } from "@/lib/db/migrate-department-staff-role";
 import { migrateUserDepartment } from "@/lib/db/migrate-user-department";
+import { migrateDepartmentStockManagerRole } from "@/lib/db/migrate-department-stock-manager";
 import type { User } from "@/lib/db/types";
 
 const SALT_ROUNDS = 12;
@@ -71,6 +72,7 @@ export async function POST(request: NextRequest) {
     try {
       await migrateDepartmentStaffRole();
       await migrateUserDepartment();
+      await migrateDepartmentStockManagerRole();
     } catch {
       // Non-fatal - the schema constraint will catch it if migration fails
     }
@@ -88,11 +90,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!["admin", "cashier", "department_staff"].includes(role)) {
+    if (
+      ![
+        "admin",
+        "cashier",
+        "department_staff",
+        "department_stock_manager",
+      ].includes(role)
+    ) {
       return jsonResponse(
         {
           success: false,
-          message: "Invalid role. Must be admin, cashier, or department_staff",
+          message:
+            "Invalid role. Must be admin, cashier, department_staff, or department_stock_manager",
         },
         400,
       );

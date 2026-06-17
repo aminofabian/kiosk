@@ -29,6 +29,7 @@ export const USER_ROLES = [
   "admin",
   "cashier",
   "department_staff",
+  "department_stock_manager",
   "superadmin",
 ] as const;
 export type UserRole = (typeof USER_ROLES)[number];
@@ -41,9 +42,7 @@ export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 export const PENDING_SALE_PAYMENT_METHOD = "unpaid" as const;
 export type PendingSalePaymentMethod = typeof PENDING_SALE_PAYMENT_METHOD;
 
-export type SaleRecordPaymentMethod =
-  | PaymentMethod
-  | PendingSalePaymentMethod;
+export type SaleRecordPaymentMethod = PaymentMethod | PendingSalePaymentMethod;
 
 export const SALE_SOURCES = [
   "department_forward",

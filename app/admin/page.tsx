@@ -60,6 +60,7 @@ import {
   CalendarClock,
   Bell,
   BellRing,
+  Truck,
 } from "lucide-react";
 
 type ButtonTheme = "brand" | "blue" | "amber" | "rose" | "violet" | "slate";
@@ -298,7 +299,17 @@ const ACTION_BUTTONS: ActionButton[] = [
     roles: ["admin", "owner"],
     theme: "slate",
     group: "navigate",
-    section: "reports",
+    section: "inventory",
+  },
+  {
+    href: "/admin/department-supply",
+    label: "Department Suppliers",
+    description: "Assign suppliers to departments",
+    icon: Truck,
+    roles: ["admin", "owner"],
+    theme: "blue",
+    group: "navigate",
+    section: "catalog",
   },
   {
     href: "/admin/users",

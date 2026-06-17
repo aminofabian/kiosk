@@ -104,6 +104,8 @@ export function UserList({ onAddUser, onEditUser }: UserListProps) {
         return "secondary";
       case "department_staff":
         return "secondary";
+      case "department_stock_manager":
+        return "secondary";
       case "cashier":
         return "outline";
       default:
@@ -179,7 +181,8 @@ export function UserList({ onAddUser, onEditUser }: UserListProps) {
                     {user.email}
                     {user.pin && <span className="ml-2">• PIN: ****</span>}
                   </div>
-                  {user.role === "department_staff" && (
+                  {(user.role === "department_staff" ||
+                    user.role === "department_stock_manager") && (
                     <div className="flex flex-wrap gap-1 mt-2">
                       {parseDeptTypes(user.department).length > 0 ? (
                         parseDeptTypes(user.department).map((type) => (

@@ -38,6 +38,7 @@ interface DepartmentAppContextValue {
   userName?: string;
   userId?: string;
   requestsRefreshKey: number;
+  supplyRefreshKey: number;
 }
 
 const DepartmentAppContext = createContext<DepartmentAppContextValue | null>(
@@ -140,10 +141,11 @@ export function DepartmentAppProvider({ children }: { children: ReactNode }) {
   );
 
   const [requestsRefreshKey, setRequestsRefreshKey] = useState(0);
+  const [supplyRefreshKey, setSupplyRefreshKey] = useState(0);
 
   // SSE connection for real-time events
   useDepartmentEvents({
-    role: "department_staff",
+    role: user?.role || "department_staff",
     userId: user?.id,
     businessId: user?.businessId,
     onLoaded: () => {
@@ -151,6 +153,12 @@ export function DepartmentAppProvider({ children }: { children: ReactNode }) {
     },
     onCompleted: () => {
       setRequestsRefreshKey((k) => k + 1);
+    },
+    onPurchaseApproved: () => {
+      setSupplyRefreshKey((k) => k + 1);
+    },
+    onPurchaseRejected: () => {
+      setSupplyRefreshKey((k) => k + 1);
     },
   });
 
@@ -170,6 +178,7 @@ export function DepartmentAppProvider({ children }: { children: ReactNode }) {
       userName: user?.name,
       userId: user?.id,
       requestsRefreshKey,
+      supplyRefreshKey,
     }),
     [
       assignedTypes,
@@ -184,6 +193,7 @@ export function DepartmentAppProvider({ children }: { children: ReactNode }) {
       user?.name,
       user?.id,
       requestsRefreshKey,
+      supplyRefreshKey,
     ],
   );
 

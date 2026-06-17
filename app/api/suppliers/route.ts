@@ -142,16 +142,23 @@ export async function POST(request: NextRequest) {
     const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
 
-    // Admin, owner, cashier, and department staff with record_supplier_bill can create suppliers
+    // Admin, owner, and cashier can create suppliers (not department staff)
     if (
-      auth.role !== 'admin' &&
-      auth.role !== 'owner' &&
-      auth.role !== 'cashier' &&
-      !hasPermission(auth.role, 'record_supplier_bill')
+      auth.role === "department_staff" ||
+      (auth.role !== "admin" &&
+        auth.role !== "owner" &&
+        auth.role !== "cashier" &&
+        !hasPermission(auth.role, "record_supplier_bill"))
     ) {
       return jsonResponse(
-        { success: false, message: 'Forbidden' },
-        403
+        {
+          success: false,
+          message:
+            auth.role === "department_staff"
+              ? "Department staff cannot create suppliers"
+              : "Forbidden",
+        },
+        403,
       );
     }
 

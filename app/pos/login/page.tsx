@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { Suspense, useEffect, useState } from 'react';
-import { PINLogin } from '@/components/pos/PINLogin';
-import { Loader2 } from 'lucide-react';
+import { Suspense, useEffect, useState } from "react";
+import { PINLogin } from "@/components/pos/PINLogin";
+import { Loader2 } from "lucide-react";
 
-const DEFAULT_DOMAIN = 'kiosk.co.ke';
-const LOCALHOST_DOMAINS = ['localhost', '127.0.0.1', '0.0.0.0'];
+const DEFAULT_DOMAIN = "kiosk.co.ke";
+const LOCALHOST_DOMAINS = ["localhost", "127.0.0.1", "0.0.0.0"];
 
 function isPublicDomain(hostname: string): boolean {
   const lower = hostname.toLowerCase();
@@ -25,7 +25,7 @@ function LoadingSpinner() {
   );
 }
 
-import { getUserRole } from '@/lib/utils/user-role-storage';
+import { getUserRole } from "@/lib/utils/user-role-storage";
 
 function POSLoginContent() {
   const [business, setBusiness] = useState<BusinessInfo | null>(null);
@@ -46,27 +46,32 @@ function POSLoginContent() {
         // If this is a public domain, redirect to regular login
         // PIN login should only be shown on kiosk/business-specific domains
         if (publicDomain) {
-          window.location.href = '/login';
+          window.location.href = "/login";
           return;
         }
 
         // Check if user role is stored and if they're not a cashier, redirect to regular login
         // PIN login should only be shown to cashiers
         const storedRole = getUserRole();
-        if (storedRole && storedRole !== 'cashier') {
+        if (storedRole && storedRole !== "cashier") {
           window.location.href =
-            storedRole === 'department_staff' ? '/department' : '/login';
+            storedRole === "department_staff" ||
+            storedRole === "department_stock_manager"
+              ? "/department"
+              : "/login";
           return;
         }
 
         let domainToResolve = hostname;
 
-        const portIndex = domainToResolve.indexOf(':');
+        const portIndex = domainToResolve.indexOf(":");
         if (portIndex > -1) {
           domainToResolve = domainToResolve.substring(0, portIndex);
         }
 
-        const response = await fetch(`/api/domain/resolve?domain=${encodeURIComponent(domainToResolve)}`);
+        const response = await fetch(
+          `/api/domain/resolve?domain=${encodeURIComponent(domainToResolve)}`,
+        );
         const result = await response.json();
 
         if (result.success && result.data) {
@@ -75,10 +80,10 @@ function POSLoginContent() {
             name: result.data.businessName,
           });
         } else {
-          setError('Business not found for this domain');
+          setError("Business not found for this domain");
         }
       } catch {
-        setError('Failed to load business');
+        setError("Failed to load business");
       } finally {
         setIsLoading(false);
       }
@@ -96,7 +101,7 @@ function POSLoginContent() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
         <div className="text-center">
           <h1 className="text-xl font-semibold text-slate-900 mb-2">
-            {error || 'Business not found'}
+            {error || "Business not found"}
           </h1>
           <p className="text-slate-600 mb-4">
             Please sign in with your email to continue.

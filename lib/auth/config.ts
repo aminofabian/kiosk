@@ -10,7 +10,13 @@ declare module "next-auth" {
       id: string;
       email: string;
       name: string;
-      role: "owner" | "admin" | "cashier" | "department_staff" | "superadmin";
+      role:
+        | "owner"
+        | "admin"
+        | "cashier"
+        | "department_staff"
+        | "department_stock_manager"
+        | "superadmin";
       businessId: string | null;
       businessName: string | null;
       isSuperAdmin: boolean;
@@ -22,7 +28,13 @@ declare module "next-auth" {
     id: string;
     email: string;
     name: string;
-    role: "owner" | "admin" | "cashier" | "department_staff" | "superadmin";
+    role:
+      | "owner"
+      | "admin"
+      | "cashier"
+      | "department_staff"
+      | "department_stock_manager"
+      | "superadmin";
     businessId: string | null;
     businessName: string | null;
     isSuperAdmin: boolean;
@@ -35,7 +47,13 @@ declare module "next-auth/jwt" {
     id: string;
     email: string;
     name: string;
-    role: "owner" | "admin" | "cashier" | "department_staff" | "superadmin";
+    role:
+      | "owner"
+      | "admin"
+      | "cashier"
+      | "department_staff"
+      | "department_stock_manager"
+      | "superadmin";
     businessId: string | null;
     businessName: string | null;
     isSuperAdmin: boolean;

@@ -158,6 +158,25 @@ CREATE INDEX IF NOT EXISTS idx_suppliers_business_id ON suppliers(business_id);
 CREATE INDEX IF NOT EXISTS idx_suppliers_active ON suppliers(business_id, active);
 
 -- ============================================
+-- 6.1. department_suppliers (Supplier ↔ Department assignment)
+-- ============================================
+CREATE TABLE IF NOT EXISTS department_suppliers (
+  id TEXT PRIMARY KEY,
+  business_id TEXT NOT NULL,
+  department_key TEXT NOT NULL,   -- product type key, e.g. 'grocery', 'bakery'
+  supplier_id TEXT NOT NULL,
+  assigned_by TEXT NOT NULL,
+  created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
+  FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE CASCADE,
+  FOREIGN KEY (assigned_by) REFERENCES users(id) ON DELETE RESTRICT,
+  UNIQUE(business_id, department_key, supplier_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_dept_suppliers_business_dept ON department_suppliers(business_id, department_key);
+CREATE INDEX IF NOT EXISTS idx_dept_suppliers_supplier ON department_suppliers(supplier_id);
+
+-- ============================================
 -- 6.5. buying_prices (Cost Price History)
 -- ============================================
 CREATE TABLE IF NOT EXISTS buying_prices (
@@ -191,7 +210,11 @@ CREATE TABLE IF NOT EXISTS purchases (
   extra_costs REAL NOT NULL DEFAULT 0, -- transport, tips, etc.
   notes TEXT,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'partial', 'complete')),
+  department TEXT, -- department_key for staff-raised POs
+  approval_status TEXT NOT NULL DEFAULT 'approved' CHECK (approval_status IN ('draft', 'pending_approval', 'approved', 'rejected')),
+  rejection_reason TEXT,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+  updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
   FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
   FOREIGN KEY (recorded_by) REFERENCES users(id) ON DELETE RESTRICT,
   FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE SET NULL
@@ -214,6 +237,9 @@ CREATE TABLE IF NOT EXISTS purchase_items (
   amount REAL NOT NULL,
   notes TEXT,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'broken_down')),
+  qty_ordered REAL, -- department PO: quantity ordered
+  qty_received REAL NOT NULL DEFAULT 0, -- department PO: quantity delivered so far
+  unit_cost_estimated REAL, -- department PO: estimated cost per unit
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   FOREIGN KEY (purchase_id) REFERENCES purchases(id) ON DELETE CASCADE,
   FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE SET NULL
