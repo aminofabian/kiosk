@@ -16,8 +16,32 @@ export default withAuth(
       return NextResponse.next();
     }
 
-    // ── Global: department_staff are restricted to /department only ──
     const role = token?.role;
+
+    // ── department_stock_manager → count workspace only ──
+    if (role === "department_stock_manager") {
+      if (token && pathname === "/login") {
+        return NextResponse.redirect(new URL("/department/count", req.url));
+      }
+      if (pathname === "/department" || pathname === "/department/") {
+        return NextResponse.redirect(new URL("/department/count", req.url));
+      }
+      if (
+        pathname.startsWith("/department/count") ||
+        pathname.startsWith("/api/") ||
+        pathname === "/login"
+      ) {
+        return NextResponse.next();
+      }
+      if (pathname.startsWith("/department/")) {
+        return NextResponse.redirect(new URL("/department/count", req.url));
+      }
+      if (token) {
+        return NextResponse.redirect(new URL("/department/count", req.url));
+      }
+    }
+
+    // ── Global: department_staff are restricted to /department only ──
     if (role === "department_staff") {
       if (token && pathname === "/login") {
         return NextResponse.redirect(new URL("/department", req.url));

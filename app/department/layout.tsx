@@ -1,7 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useCurrentUser } from "@/lib/hooks/use-current-user";
 import { DepartmentAppProvider } from "@/components/department/DepartmentAppProvider";
 import { DepartmentBottomNav } from "@/components/department/DepartmentBottomNav";
@@ -23,13 +23,25 @@ export default function DepartmentLayout({
   children: ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isLoading } = useCurrentUser();
 
   useEffect(() => {
-    if (!isLoading && user && !canAccessDepartmentWorkspace(user.role)) {
+    if (isLoading || !user) return;
+    if (!canAccessDepartmentWorkspace(user.role)) {
       router.replace(user.role === "cashier" ? "/pos" : "/admin");
     }
   }, [user, isLoading, router]);
+
+  useEffect(() => {
+    if (isLoading || !user) return;
+    if (
+      user.role === "department_stock_manager" &&
+      !pathname.startsWith("/department/count")
+    ) {
+      router.replace("/department/count");
+    }
+  }, [user, isLoading, pathname, router]);
 
   if (isLoading || !user || !canAccessDepartmentWorkspace(user.role)) {
     return (

@@ -3,6 +3,7 @@ import { queryOne, query } from "@/lib/db";
 import { migrateCountShifts } from "@/lib/db/migrate-count-shifts";
 import { jsonResponse, optionsResponse } from "@/lib/utils/api-response";
 import { requireAuth, isAuthResponse } from "@/lib/auth/api-auth";
+import { startOfLocalDay } from "@/lib/department/count-shift-utils";
 import type { CountShift, CountBatch, Item } from "@/lib/db/types";
 
 export async function OPTIONS() {
@@ -11,7 +12,7 @@ export async function OPTIONS() {
 
 /**
  * GET /api/count-shifts/current
- * Returns the current open count shift with all batches and item details.
+ * Returns the active count shift, or today's closed shift if the day is done.
  */
 export async function GET(_request: NextRequest) {
   try {
@@ -20,7 +21,11 @@ export async function GET(_request: NextRequest) {
     const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
 
-    const shift = await queryOne<CountShift>(
+    const now = Math.floor(Date.now() / 1000);
+    const todayStart = startOfLocalDay(now);
+    const tomorrowStart = todayStart + 86400;
+
+    let shift = await queryOne<CountShift>(
       `SELECT * FROM count_shifts
        WHERE business_id = ? AND user_id = ? AND status IN ('open', 'counting', 'morning_complete')
        ORDER BY opened_at DESC LIMIT 1`,
@@ -28,10 +33,20 @@ export async function GET(_request: NextRequest) {
     );
 
     if (!shift) {
+      shift = await queryOne<CountShift>(
+        `SELECT * FROM count_shifts
+         WHERE business_id = ? AND user_id = ?
+           AND status = 'closed'
+           AND opened_at >= ? AND opened_at < ?
+         ORDER BY closed_at DESC LIMIT 1`,
+        [auth.businessId, auth.userId, todayStart, tomorrowStart],
+      );
+    }
+
+    if (!shift) {
       return jsonResponse({ success: true, data: null });
     }
 
-    // Get batches with item details
     const batches = await query<
       CountBatch &
         Item & {
@@ -53,9 +68,19 @@ export async function GET(_request: NextRequest) {
       [shift.id],
     );
 
+    const matchedCount = batches.filter((b) => b.status === "matched").length;
+    const escalatedCount = batches.filter(
+      (b) => b.status === "escalated" || b.status === "acknowledged",
+    ).length;
+
     return jsonResponse({
       success: true,
-      data: { shift, batches },
+      data: {
+        shift,
+        batches,
+        matchedCount,
+        escalatedCount,
+      },
     });
   } catch (error) {
     console.error("Error fetching current count shift:", error);

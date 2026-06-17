@@ -4,6 +4,7 @@ import { execute, queryOne } from "@/lib/db";
 import { jsonResponse, optionsResponse } from "@/lib/utils/api-response";
 import { getSession } from "@/lib/auth";
 import { migrateDepartmentStaffRole } from "@/lib/db/migrate-department-staff-role";
+import { migrateDepartmentStockManagerRole } from "@/lib/db/migrate-department-stock-manager";
 import { migrateUserDepartment } from "@/lib/db/migrate-user-department";
 import type { User } from "@/lib/db/types";
 
@@ -75,6 +76,7 @@ export async function PUT(
 
     try {
       await migrateDepartmentStaffRole();
+      await migrateDepartmentStockManagerRole();
       await migrateUserDepartment();
     } catch {
       // Non-fatal

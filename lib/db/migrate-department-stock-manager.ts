@@ -2,7 +2,7 @@ import { execute, query } from "./index";
 
 /**
  * Migration: Add department_stock_manager role to users table CHECK constraint.
- * Follows the same pattern as migrate-department-staff-role.ts
+ * Preserves the department column when recreating the table.
  */
 export async function migrateDepartmentStockManagerRole(): Promise<void> {
   console.log("🔄 Starting department_stock_manager role migration...");
@@ -22,16 +22,15 @@ export async function migrateDepartmentStockManagerRole(): Promise<void> {
     return;
   }
 
+  const columns = await query<{ name: string }>(`PRAGMA table_info(users)`);
+  const hasDepartment = columns.some((c) => c.name === "department");
+
   console.log(
     "🔄 Migrating users table to add department_stock_manager role...",
   );
 
-  // Build the new DDL with the expanded CHECK constraint
-  // (newDdl is used by the inline table creation below)
-
   await execute("PRAGMA foreign_keys = OFF");
   try {
-    // Create new table with updated constraint
     await execute(`
       CREATE TABLE users_new (
         id TEXT PRIMARY KEY,
@@ -43,6 +42,7 @@ export async function migrateDepartmentStockManagerRole(): Promise<void> {
         pin TEXT,
         active INTEGER NOT NULL DEFAULT 1,
         can_give_credit INTEGER NOT NULL DEFAULT 0,
+        department TEXT,
         created_by TEXT,
         created_at INTEGER NOT NULL DEFAULT (unixepoch()),
         FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
@@ -51,22 +51,33 @@ export async function migrateDepartmentStockManagerRole(): Promise<void> {
       )
     `);
 
-    // Copy data
-    await execute(`
-      INSERT INTO users_new (
-        id, business_id, name, email, password_hash, role, pin,
-        active, can_give_credit, created_by, created_at
-      )
-      SELECT
-        id, business_id, name, email, password_hash, role, pin,
-        active, can_give_credit, created_by, created_at
-      FROM users
-    `);
+    if (hasDepartment) {
+      await execute(`
+        INSERT INTO users_new (
+          id, business_id, name, email, password_hash, role, pin,
+          active, can_give_credit, department, created_by, created_at
+        )
+        SELECT
+          id, business_id, name, email, password_hash, role, pin,
+          active, can_give_credit, department, created_by, created_at
+        FROM users
+      `);
+    } else {
+      await execute(`
+        INSERT INTO users_new (
+          id, business_id, name, email, password_hash, role, pin,
+          active, can_give_credit, created_by, created_at
+        )
+        SELECT
+          id, business_id, name, email, password_hash, role, pin,
+          active, can_give_credit, created_by, created_at
+        FROM users
+      `);
+    }
 
     await execute("DROP TABLE users");
     await execute("ALTER TABLE users_new RENAME TO users");
 
-    // Recreate indexes
     await execute(
       `CREATE INDEX IF NOT EXISTS idx_users_business_id ON users(business_id)`,
     );

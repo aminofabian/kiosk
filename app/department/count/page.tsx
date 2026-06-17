@@ -17,6 +17,7 @@ import { BarcodeCameraScannerDialog } from "@/components/pos/BarcodeCameraScanne
 import { PosNumericKeypad } from "@/components/pos/PosNumericKeypad";
 import { isDiscreteUnitType, type UnitType } from "@/lib/constants";
 import { useDepartmentTypes } from "@/lib/hooks/use-department-types";
+import { useBarcodeScanner } from "@/lib/hooks/use-barcode-scanner";
 import { toast } from "sonner";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -62,6 +63,8 @@ interface CountBatchWithItem extends CountBatch {
 interface CurrentShiftData {
   shift: CountShift;
   batches: CountBatchWithItem[];
+  matchedCount?: number;
+  escalatedCount?: number;
 }
 
 interface ItemCountEntry {
@@ -125,18 +128,16 @@ export default function DepartmentCountPage() {
   const [submitting, setSubmitting] = useState(false);
   const [closingShift, setClosingShift] = useState(false);
 
-  // ── Summary state ───────────────────────────────────────
-
-  const [summary, setSummary] = useState<{
-    matchedCount: number;
-    escalatedCount: number;
-  } | null>(null);
-
   // ── Error state ─────────────────────────────────────────
 
   const [error, setError] = useState<string | null>(null);
 
   // ── Fetch current shift ─────────────────────────────────
+
+  const [closedStats, setClosedStats] = useState<{
+    matchedCount: number;
+    escalatedCount: number;
+  } | null>(null);
 
   const fetchShift = useCallback(async () => {
     setLoading(true);
@@ -148,9 +149,23 @@ export default function DepartmentCountPage() {
       if (res.success && res.data) {
         setShift(res.data.shift);
         setBatches(res.data.batches);
+        if (res.data.shift.status === "closed") {
+          const matched =
+            res.data.matchedCount ??
+            res.data.batches.filter((b) => b.status === "matched").length;
+          const escalated =
+            res.data.escalatedCount ??
+            res.data.batches.filter(
+              (b) => b.status === "escalated" || b.status === "acknowledged",
+            ).length;
+          setClosedStats({ matchedCount: matched, escalatedCount: escalated });
+        } else {
+          setClosedStats(null);
+        }
       } else {
         setShift(null);
         setBatches(null);
+        setClosedStats(null);
       }
     } catch {
       setError("Failed to load shift data.");
@@ -166,7 +181,7 @@ export default function DepartmentCountPage() {
   // ── Initialize counts from existing batch data ──────────
 
   useEffect(() => {
-    if (!shift || !batches) return;
+    if (!shift || !batches || shift.status === "closed") return;
     const phase = getPhase(shift, batches);
     if (!phase) return;
     const initial: Record<string, ItemCountEntry> = {};
@@ -181,7 +196,10 @@ export default function DepartmentCountPage() {
       }
     }
     setCounts(initial);
-    setCurrentIndex(0);
+    const firstPending = batches.findIndex(
+      (b) => getItemStatus(b, phase) === "pending",
+    );
+    setCurrentIndex(firstPending >= 0 ? firstPending : 0);
     setVerifiedBarcodes({});
   }, [shift, batches]);
 
@@ -224,12 +242,6 @@ export default function DepartmentCountPage() {
   const barcodeVerified = currentBatch
     ? !needsBarcodeVerify || verifiedBarcodes[currentBatch.item_id]
     : true;
-
-  const canConfirmCurrent =
-    currentEntry != null &&
-    barcodeVerified &&
-    (currentEntry.status === "not_located" ||
-      (currentEntry.status === "counted" && currentEntry.count.length > 0));
 
   // ── Handlers ────────────────────────────────────────────
 
@@ -290,6 +302,11 @@ export default function DepartmentCountPage() {
     [batches, currentBatch],
   );
 
+  useBarcodeScanner({
+    enabled: Boolean(currentBatch && needsBarcodeVerify && !barcodeVerified),
+    onScan: handleBarcodeScan,
+  });
+
   const handleCountChange = (itemId: string, count: string) => {
     setCounts((prev) => ({
       ...prev,
@@ -317,12 +334,50 @@ export default function DepartmentCountPage() {
   };
 
   const handleConfirmItem = useCallback(() => {
-    if (!canConfirmCurrent) return;
-    // Move to next item if available
+    if (!currentBatch) return;
+
+    if (!currentEntry) {
+      toast.error("Enter a quantity first");
+      return;
+    }
+
+    if (
+      currentEntry.status === "counted" &&
+      currentEntry.count.trim().length === 0
+    ) {
+      toast.error("Enter a quantity first");
+      return;
+    }
+
+    if (needsBarcodeVerify && !barcodeVerified) {
+      toast.error("Scan the barcode to verify this item first");
+      setScannerOpen(true);
+      return;
+    }
+
     if (currentIndex < totalItems - 1) {
       setCurrentIndex((i) => i + 1);
+      toast.success("Item confirmed — next item");
+    } else {
+      toast.success("All items entered — tap Submit to save");
     }
-  }, [canConfirmCurrent, currentIndex, totalItems]);
+  }, [
+    currentBatch,
+    currentEntry,
+    needsBarcodeVerify,
+    barcodeVerified,
+    currentIndex,
+    totalItems,
+  ]);
+
+  const handleManualVerify = () => {
+    if (!currentBatch) return;
+    setVerifiedBarcodes((prev) => ({
+      ...prev,
+      [currentBatch.item_id]: true,
+    }));
+    toast.success("Item visually confirmed");
+  };
 
   const handleSubmitCounts = async () => {
     if (!shift || !batches || !phase) return;
@@ -361,6 +416,9 @@ export default function DepartmentCountPage() {
       });
       const data = await res.json();
       if (data.success) {
+        toast.success(
+          `${phaseLabel} saved — ${items.length} of ${totalItems} items`,
+        );
         await fetchShift();
       } else {
         setError(data.message || "Failed to submit counts.");
@@ -384,11 +442,7 @@ export default function DepartmentCountPage() {
       });
       const data = await res.json();
       if (data.success) {
-        setSummary({
-          matchedCount: data.data.matchedCount,
-          escalatedCount: data.data.escalatedCount,
-        });
-        setShift((prev) => (prev ? { ...prev, status: "closed" } : null));
+        await fetchShift();
       } else {
         setError(data.message || "Failed to close shift.");
       }
@@ -399,14 +453,8 @@ export default function DepartmentCountPage() {
     }
   };
 
-  const handleReset = () => {
-    setShift(null);
-    setBatches(null);
-    setCounts({});
-    setCurrentIndex(0);
-    setSummary(null);
-    setError(null);
-  };
+  const isClosedToday = shift?.status === "closed";
+  const summary = isClosedToday ? closedStats : null;
 
   // ═══════════════════════════════════════════════════════════
   //  Render: Loading
@@ -424,12 +472,11 @@ export default function DepartmentCountPage() {
   //  Render: Summary (after close)
   // ═══════════════════════════════════════════════════════════
 
-  if (summary) {
+  if (summary && isClosedToday) {
     return (
       <div className="h-full overflow-y-auto bg-[#f6f8f6] dark:bg-[#0f1a0d]">
         <div className="max-w-lg mx-auto p-4 pt-6">
           <div className="bg-white dark:bg-[#1a2c17] rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800/60 p-6">
-            {/* Icon */}
             <div className="flex items-center justify-center mb-4">
               <div className="w-16 h-16 rounded-full bg-[#1c6a1e]/10 flex items-center justify-center">
                 <ClipboardCheck className="w-8 h-8 text-[#1c6a1e]" />
@@ -437,13 +484,18 @@ export default function DepartmentCountPage() {
             </div>
 
             <h2 className="text-xl font-bold text-center text-slate-900 dark:text-white mb-2">
-              Count Shift Closed
+              Today&apos;s Count Complete
             </h2>
             <p className="text-sm text-slate-500 dark:text-slate-400 text-center mb-6">
-              All items have been compared. Here are the results.
+              {shift?.department
+                ? `${shift.department} — `
+                : ""}
+              Your count shift for today is finished.
+              {summary.escalatedCount > 0
+                ? " Some items were escalated for admin review."
+                : " All items matched."}
             </p>
 
-            {/* Results grid */}
             <div className="grid grid-cols-2 gap-3 mb-6">
               <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-xl p-4 text-center">
                 <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
@@ -463,13 +515,9 @@ export default function DepartmentCountPage() {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={handleReset}
-              className="w-full h-12 min-h-[48px] rounded-xl bg-[#1c6a1e] text-white font-semibold text-sm active:scale-[0.98] transition-transform"
-            >
-              Done
-            </button>
+            <p className="text-xs text-center text-slate-400 dark:text-slate-500">
+              A new count shift will be available tomorrow.
+            </p>
           </div>
         </div>
       </div>
@@ -676,10 +724,14 @@ export default function DepartmentCountPage() {
               </button>
             )}
 
-            {/* Barcode verification */}
             {needsBarcodeVerify && (
-              <div
-                className={`mb-4 flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium ${
+              <button
+                type="button"
+                onClick={() => {
+                  if (!barcodeVerified) setScannerOpen(true);
+                }}
+                disabled={barcodeVerified}
+                className={`mb-2 w-full flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-left active:scale-[0.99] transition-transform ${
                   barcodeVerified
                     ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
                     : "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
@@ -688,8 +740,17 @@ export default function DepartmentCountPage() {
                 <Scan className="w-4 h-4 shrink-0" />
                 {barcodeVerified
                   ? "Barcode verified"
-                  : "Scan barcode to verify this item"}
-              </div>
+                  : "Tap to scan barcode and verify this item"}
+              </button>
+            )}
+            {needsBarcodeVerify && !barcodeVerified && (
+              <button
+                type="button"
+                onClick={handleManualVerify}
+                className="mb-4 w-full text-xs text-slate-500 dark:text-slate-400 underline"
+              >
+                Can&apos;t scan? I&apos;ve visually confirmed this item
+              </button>
             )}
 
             {/* Numeric keypad */}
@@ -703,9 +764,21 @@ export default function DepartmentCountPage() {
               allowDecimal={
                 !isDiscreteUnitType(currentBatch.unit_type as UnitType)
               }
-              onDone={handleConfirmItem}
-              className="mb-4"
+              className="mb-3"
             />
+
+            <button
+              type="button"
+              onClick={handleConfirmItem}
+              disabled={!currentEntry}
+              className="w-full h-12 min-h-[48px] rounded-xl bg-[#1c6a1e] text-white font-semibold text-sm active:scale-[0.98] transition-transform disabled:opacity-40 mb-4"
+            >
+              {needsBarcodeVerify && !barcodeVerified
+                ? "Scan barcode to confirm"
+                : currentIndex < totalItems - 1
+                  ? "Confirm & next item"
+                  : "Confirm last item"}
+            </button>
 
             {/* Action buttons */}
             <div className="flex gap-2">

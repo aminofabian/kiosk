@@ -27,6 +27,8 @@ export async function GET() {
       return jsonResponse({ success: false, message: "Forbidden" }, 403);
     }
 
+    await migrateUserDepartment();
+
     const users = await query<
       Omit<User, "password_hash"> & { created_by_name: string | null }
     >(
@@ -68,13 +70,21 @@ export async function POST(request: NextRequest) {
       return jsonResponse({ success: false, message: "Forbidden" }, 403);
     }
 
-    // Ensure migrations have run before creating a department_staff user
+    // Ensure schema is up to date (order matters: role migrations before department column)
     try {
       await migrateDepartmentStaffRole();
-      await migrateUserDepartment();
       await migrateDepartmentStockManagerRole();
-    } catch {
-      // Non-fatal - the schema constraint will catch it if migration fails
+      await migrateUserDepartment();
+    } catch (migrationError) {
+      console.error("User schema migration failed:", migrationError);
+      return jsonResponse(
+        {
+          success: false,
+          message:
+            "Database schema update failed. Try /api/db/migrate or contact support.",
+        },
+        500,
+      );
     }
 
     const body = await request.json();

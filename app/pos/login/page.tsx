@@ -55,10 +55,11 @@ function POSLoginContent() {
         const storedRole = getUserRole();
         if (storedRole && storedRole !== "cashier") {
           window.location.href =
-            storedRole === "department_staff" ||
-            storedRole === "department_stock_manager"
+            storedRole === "department_staff"
               ? "/department"
-              : "/login";
+              : storedRole === "department_stock_manager"
+                ? "/department/count"
+                : "/login";
           return;
         }
 
