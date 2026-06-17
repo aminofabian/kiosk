@@ -597,6 +597,198 @@ export function ItemGrid({
     }
   }, [adminStockView, primaryHomeItems, featuredForType, quickSellStockFilter]);
 
+  const isHomeView = !categoryId && !searchQuery;
+  const hasLowStock =
+    showLowStockStrip && !adminStockView && lowStockForType.length > 0;
+
+  const renderQuickSellSection = () => {
+    if (!hasHomePool) return null;
+    return (
+      <section className="min-h-0 flex flex-col flex-1 rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-sm pt-3 px-1 sm:px-1.5 pb-1 overflow-visible justify-start">
+        <div className="flex items-center gap-1.5 mb-0.5 flex-shrink-0">
+          <div
+            className={`w-6 h-6 rounded-none flex items-center justify-center shadow-sm ${
+              adminStockView
+                ? stockListFilter === "out"
+                  ? "bg-red-600"
+                  : "bg-amber-500"
+                : "bg-[#1c6a1e]"
+            }`}
+          >
+            {adminStockView ? (
+              stockListFilter === "out" ? (
+                <PackageX className="w-3 h-3 text-white" />
+              ) : (
+                <AlertTriangle className="w-3 h-3 text-white" />
+              )
+            ) : (
+              <Flame className="w-3 h-3 text-white" />
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-xs font-bold text-gray-800 dark:text-gray-100 tracking-tight leading-none">
+              {adminStockView
+                ? stockListFilter === "out"
+                  ? "Out of stock"
+                  : "Low stock · under 10"
+                : "Quick Sell"}
+            </h2>
+            <p className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">
+              {adminStockView ? (
+                <>Tap a product to open details</>
+              ) : (
+                <>
+                  Tap{" "}
+                  <span className="text-[#1c6a1e] font-semibold">⚡</span> to
+                  add
+                </>
+              )}
+            </p>
+          </div>
+          {!adminStockView && (
+            <div className="flex items-center gap-1 flex-wrap justify-end">
+              <button
+                type="button"
+                aria-pressed={quickSellStockFilter === "all"}
+                onClick={() => setQuickSellStockFilter("all")}
+                className={`text-[10px] font-semibold px-2 py-1 rounded-none border shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
+                  quickSellStockFilter === "all"
+                    ? "text-[#1c6a1e] dark:text-[#2a8a30] bg-[#1c6a1e]/15 dark:bg-[#1c6a1e]/20 border-[#1c6a1e]/40 dark:border-[#1c6a1e]/35 ring-2 ring-[#1c6a1e]/35 ring-offset-1 ring-offset-white dark:ring-offset-slate-900"
+                    : "text-[#1c6a1e] dark:text-[#2a8a30] bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/15 border-[#1c6a1e]/20 dark:border-[#1c6a1e]/25 hover:bg-[#1c6a1e]/14"
+                }`}
+              >
+                {featuredStockCounts.popular} popular
+              </button>
+              <button
+                type="button"
+                aria-pressed={quickSellStockFilter === "out"}
+                onClick={() => setQuickSellStockFilter("out")}
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px] font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
+                  quickSellStockFilter === "out"
+                    ? "bg-red-100/90 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700 ring-2 ring-red-400/50 ring-offset-1 ring-offset-white dark:ring-offset-slate-900"
+                    : "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200/60 dark:border-red-800/50 hover:bg-red-100/70 dark:hover:bg-red-950/55"
+                }`}
+              >
+                <span className="w-1 h-1 rounded-none bg-red-500" />
+                {featuredStockCounts.out} out
+              </button>
+              <button
+                type="button"
+                aria-pressed={quickSellStockFilter === "low"}
+                onClick={() => setQuickSellStockFilter("low")}
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px] font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
+                  quickSellStockFilter === "low"
+                    ? "bg-amber-100/90 dark:bg-amber-950/45 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/50 ring-offset-1 ring-offset-white dark:ring-offset-slate-900"
+                    : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200/60 dark:border-amber-800/50 hover:bg-amber-100/70 dark:hover:bg-amber-950/50"
+                }`}
+              >
+                <span className="w-1 h-1 rounded-none bg-amber-500" />
+                {featuredStockCounts.low} low
+              </button>
+              <button
+                type="button"
+                aria-pressed={quickSellStockFilter === "ok"}
+                onClick={() => setQuickSellStockFilter("ok")}
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px] font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
+                  quickSellStockFilter === "ok"
+                    ? "bg-emerald-100/90 dark:bg-emerald-950/45 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700 ring-2 ring-emerald-400/45 ring-offset-1 ring-offset-white dark:ring-offset-slate-900"
+                    : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-800/50 hover:bg-emerald-100/70 dark:hover:bg-emerald-950/50"
+                }`}
+              >
+                <span className="w-1 h-1 rounded-none bg-emerald-500" />
+                {featuredStockCounts.ok} in stock
+              </button>
+            </div>
+          )}
+          {adminStockView && (
+            <span className="text-[10px] font-semibold tabular-nums text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-none border border-slate-200 dark:border-slate-600">
+              {primaryHomeItems.length} items
+            </span>
+          )}
+        </div>
+
+        <div
+          className={`${CATALOG_ITEM_GRID_CLASS} pt-3 flex-1 min-h-0 content-start overflow-y-auto overscroll-contain`}
+        >
+          {(() => {
+            if (!adminStockView && displayedHomeItems.length === 0) {
+              return (
+                <div className="col-span-full py-10 px-4 text-center text-sm text-slate-500 dark:text-slate-400">
+                  No Quick Sell products match this filter.
+                </div>
+              );
+            }
+            const top3Ranks = adminStockView
+              ? new Map<string, number>()
+              : new Map(
+                  [...featuredForType]
+                    .filter(
+                      (i) =>
+                        ((i as { quantity_sold?: number }).quantity_sold ?? 0) >
+                        0,
+                    )
+                    .sort(
+                      (a, b) =>
+                        ((b as { quantity_sold?: number }).quantity_sold ?? 0) -
+                        ((a as { quantity_sold?: number }).quantity_sold ?? 0),
+                    )
+                    .slice(0, 3)
+                    .map((i, idx) => [i.id, idx + 1]),
+                );
+            return [...displayedHomeItems]
+              .sort((a, b) => {
+                const nameA = `${a.name} ${a.variant_name || ""}`
+                  .trim()
+                  .toLowerCase();
+                const nameB = `${b.name} ${b.variant_name || ""}`
+                  .trim()
+                  .toLowerCase();
+                return nameA.localeCompare(nameB);
+              })
+              .map((item) => {
+                const rank = top3Ranks.get(item.id);
+                const stock = getStockStatus(item.current_stock);
+                const isOut =
+                  !allowSellOutOfStock &&
+                  (stock === "out" || stock === "negative");
+                const imageUrl = resolveItemImageUrl(item);
+
+                const imageContent = canManageItemImages ? (
+                  <PosQuickSellPhoto
+                    itemId={item.id}
+                    itemName={item.name}
+                    imageUrl={item.image_url}
+                    variantName={item.variant_name}
+                    onImageUrlChange={(url) =>
+                      onItemImageUpdated?.(item.id, url)
+                    }
+                    fill
+                  />
+                ) : (
+                  renderItemImageContent(item, imageUrl)
+                );
+
+                return (
+                  <PosProductTile
+                    key={item.id}
+                    item={item}
+                    isOutOfStock={isOut}
+                    onSelect={() => onSelectItem(item)}
+                    onQuickAdd={
+                      onQuickAdd ? (qty) => onQuickAdd(item, qty) : undefined
+                    }
+                    imageContent={imageContent}
+                    rank={rank}
+                    showDealBadge
+                  />
+                );
+              });
+          })()}
+        </div>
+      </section>
+    );
+  };
+
   // Memoized item click handler
   const handleItemClick = useCallback(
     (item: ItemWithVariants) => {
@@ -839,9 +1031,7 @@ export function ItemGrid({
     prefetchedSearchItems,
   ]);
 
-  if (!categoryId && !searchQuery && !showShopTypeCatalog) {
-    const hasLowStock =
-      showLowStockStrip && !adminStockView && lowStockForType.length > 0;
+  if (isHomeView && !showShopTypeCatalog) {
     const hasContent = hasHomePool || hasLowStock;
     const formatPrice = (price: number) => `KES ${price.toFixed(0)}`;
 
@@ -897,197 +1087,7 @@ export function ItemGrid({
 
     return (
       <div className="min-h-full flex flex-col mx-2 sm:mx-4 lg:mx-6 px-2 sm:px-3 py-1 animate-in fade-in duration-300">
-        {/* ── Quick Sell / admin stock views ── */}
-        {hasHomePool && (
-          <section className="min-h-0 flex flex-col flex-1 rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 shadow-sm pt-3 px-1 sm:px-1.5 pb-1 overflow-visible justify-start">
-            {/* Section header - compact */}
-            <div className="flex items-center gap-1.5 mb-0.5 flex-shrink-0">
-              <div
-                className={`w-6 h-6 rounded-none flex items-center justify-center shadow-sm ${
-                  adminStockView
-                    ? stockListFilter === "out"
-                      ? "bg-red-600"
-                      : "bg-amber-500"
-                    : "bg-[#1c6a1e]"
-                }`}
-              >
-                {adminStockView ? (
-                  stockListFilter === "out" ? (
-                    <PackageX className="w-3 h-3 text-white" />
-                  ) : (
-                    <AlertTriangle className="w-3 h-3 text-white" />
-                  )
-                ) : (
-                  <Flame className="w-3 h-3 text-white" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <h2 className="text-xs font-bold text-gray-800 dark:text-gray-100 tracking-tight leading-none">
-                  {adminStockView
-                    ? stockListFilter === "out"
-                      ? "Out of stock"
-                      : "Low stock · under 10"
-                    : "Quick Sell"}
-                </h2>
-                <p className="text-[9px] text-gray-400 dark:text-gray-500 mt-0.5">
-                  {adminStockView ? (
-                    <>Tap a product to open details</>
-                  ) : (
-                    <>
-                      Tap{" "}
-                      <span className="text-[#1c6a1e] font-semibold">⚡</span>{" "}
-                      to add
-                    </>
-                  )}
-                </p>
-              </div>
-              {!adminStockView && (
-                <div className="flex items-center gap-1 flex-wrap justify-end">
-                  <button
-                    type="button"
-                    aria-pressed={quickSellStockFilter === "all"}
-                    onClick={() => setQuickSellStockFilter("all")}
-                    className={`text-[10px] font-semibold px-2 py-1 rounded-none border shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1c6a1e] focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
-                      quickSellStockFilter === "all"
-                        ? "text-[#1c6a1e] dark:text-[#2a8a30] bg-[#1c6a1e]/15 dark:bg-[#1c6a1e]/20 border-[#1c6a1e]/40 dark:border-[#1c6a1e]/35 ring-2 ring-[#1c6a1e]/35 ring-offset-1 ring-offset-white dark:ring-offset-slate-900"
-                        : "text-[#1c6a1e] dark:text-[#2a8a30] bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/15 border-[#1c6a1e]/20 dark:border-[#1c6a1e]/25 hover:bg-[#1c6a1e]/14"
-                    }`}
-                  >
-                    {featuredStockCounts.popular} popular
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={quickSellStockFilter === "out"}
-                    onClick={() => setQuickSellStockFilter("out")}
-                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px] font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
-                      quickSellStockFilter === "out"
-                        ? "bg-red-100/90 dark:bg-red-950/50 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700 ring-2 ring-red-400/50 ring-offset-1 ring-offset-white dark:ring-offset-slate-900"
-                        : "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200/60 dark:border-red-800/50 hover:bg-red-100/70 dark:hover:bg-red-950/55"
-                    }`}
-                  >
-                    <span className="w-1 h-1 rounded-none bg-red-500" />
-                    {featuredStockCounts.out} out
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={quickSellStockFilter === "low"}
-                    onClick={() => setQuickSellStockFilter("low")}
-                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px] font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
-                      quickSellStockFilter === "low"
-                        ? "bg-amber-100/90 dark:bg-amber-950/45 text-amber-900 dark:text-amber-200 border-amber-300 dark:border-amber-700 ring-2 ring-amber-400/50 ring-offset-1 ring-offset-white dark:ring-offset-slate-900"
-                        : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200/60 dark:border-amber-800/50 hover:bg-amber-100/70 dark:hover:bg-amber-950/50"
-                    }`}
-                  >
-                    <span className="w-1 h-1 rounded-none bg-amber-500" />
-                    {featuredStockCounts.low} low
-                  </button>
-                  <button
-                    type="button"
-                    aria-pressed={quickSellStockFilter === "ok"}
-                    onClick={() => setQuickSellStockFilter("ok")}
-                    className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-none text-[9px] font-semibold border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-slate-900 ${
-                      quickSellStockFilter === "ok"
-                        ? "bg-emerald-100/90 dark:bg-emerald-950/45 text-emerald-900 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700 ring-2 ring-emerald-400/45 ring-offset-1 ring-offset-white dark:ring-offset-slate-900"
-                        : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-800/50 hover:bg-emerald-100/70 dark:hover:bg-emerald-950/50"
-                    }`}
-                  >
-                    <span className="w-1 h-1 rounded-none bg-emerald-500" />
-                    {featuredStockCounts.ok} in stock
-                  </button>
-                </div>
-              )}
-              {adminStockView && (
-                <span className="text-[10px] font-semibold tabular-nums text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-none border border-slate-200 dark:border-slate-600">
-                  {primaryHomeItems.length} items
-                </span>
-              )}
-            </div>
-
-            {/* Products grid – dense square tiles */}
-            <div
-              className={`${CATALOG_ITEM_GRID_CLASS} pt-3 flex-1 min-h-0 content-start overflow-y-auto overscroll-contain`}
-            >
-              {(() => {
-                if (!adminStockView && displayedHomeItems.length === 0) {
-                  return (
-                    <div className="col-span-full py-10 px-4 text-center text-sm text-slate-500 dark:text-slate-400">
-                      No Quick Sell products match this filter.
-                    </div>
-                  );
-                }
-                const top3Ranks = adminStockView
-                  ? new Map<string, number>()
-                  : new Map(
-                      [...featuredForType]
-                        .filter(
-                          (i) =>
-                            ((i as { quantity_sold?: number }).quantity_sold ??
-                              0) > 0,
-                        )
-                        .sort(
-                          (a, b) =>
-                            ((b as { quantity_sold?: number }).quantity_sold ??
-                              0) -
-                            ((a as { quantity_sold?: number }).quantity_sold ??
-                              0),
-                        )
-                        .slice(0, 3)
-                        .map((i, idx) => [i.id, idx + 1]),
-                    );
-                return [...displayedHomeItems]
-                  .sort((a, b) => {
-                    const nameA = `${a.name} ${a.variant_name || ""}`
-                      .trim()
-                      .toLowerCase();
-                    const nameB = `${b.name} ${b.variant_name || ""}`
-                      .trim()
-                      .toLowerCase();
-                    return nameA.localeCompare(nameB);
-                  })
-                  .map((item) => {
-                    const rank = top3Ranks.get(item.id);
-                    const stock = getStockStatus(item.current_stock);
-                    const isOut =
-                      !allowSellOutOfStock &&
-                      (stock === "out" || stock === "negative");
-                    const imageUrl = resolveItemImageUrl(item);
-
-                    const imageContent = canManageItemImages ? (
-                      <PosQuickSellPhoto
-                        itemId={item.id}
-                        itemName={item.name}
-                        imageUrl={item.image_url}
-                        variantName={item.variant_name}
-                        onImageUrlChange={(url) =>
-                          onItemImageUpdated?.(item.id, url)
-                        }
-                        fill
-                      />
-                    ) : (
-                      renderItemImageContent(item, imageUrl)
-                    );
-
-                    return (
-                      <PosProductTile
-                        key={item.id}
-                        item={item}
-                        isOutOfStock={isOut}
-                        onSelect={() => onSelectItem(item)}
-                        onQuickAdd={
-                          onQuickAdd
-                            ? (qty) => onQuickAdd(item, qty)
-                            : undefined
-                        }
-                        imageContent={imageContent}
-                        rank={rank}
-                        showDealBadge
-                      />
-                    );
-                  });
-              })()}
-            </div>
-          </section>
-        )}
+        {renderQuickSellSection()}
 
         {/* ── ⚠️ Low Stock – Below fold, scroll to see ── */}
         {hasLowStock && (
@@ -1270,6 +1270,9 @@ export function ItemGrid({
           : "mx-4 sm:mx-6 lg:mx-8 px-4 sm:px-6 py-4 sm:py-6 flex items-start justify-center min-h-full"
       }
     >
+      {isHomeView && showShopTypeCatalog && (
+        <div className="mb-4">{renderQuickSellSection()}</div>
+      )}
       <div
         className={
           showShopTypeCatalog

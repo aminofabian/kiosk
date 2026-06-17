@@ -247,9 +247,10 @@ export default function DepartmentPage() {
                 <div className="flex-1 min-h-0 flex flex-col -mx-1 pt-1">
                   <ItemGrid
                     key={`msearch-${debouncedSearchQuery}`}
+                    {...itemGridProps}
                     categoryId={null}
                     searchQuery={debouncedSearchQuery}
-                    {...itemGridProps}
+                    showShopTypeCatalog={false}
                   />
                 </div>
               ) : (
@@ -261,8 +262,9 @@ export default function DepartmentPage() {
                   <div className="flex-1 min-h-0 flex flex-col mt-1 -mx-1">
                     <ItemGrid
                       key="mhome"
-                      categoryId={null}
                       {...itemGridProps}
+                      categoryId={null}
+                      showShopTypeCatalog={false}
                     />
                   </div>
                 </>
@@ -398,11 +400,16 @@ export default function DepartmentPage() {
                 <div className="min-h-full flex flex-col px-3 sm:px-4 lg:px-6">
                   <ItemGrid
                     key={`grid-${refreshKey}`}
+                    {...itemGridProps}
                     categoryId={
                       debouncedSearchQuery ? null : selectedCategoryId
                     }
                     searchQuery={debouncedSearchQuery || undefined}
-                    {...itemGridProps}
+                    showShopTypeCatalog={
+                      !!selectedCategoryId &&
+                      !debouncedSearchQuery &&
+                      assignedTypes.length > 0
+                    }
                   />
                 </div>
               </div>
