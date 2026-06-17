@@ -70,9 +70,13 @@ export async function GET(request: NextRequest) {
       [auth.businessId],
     );
     const validSet = new Set(validIds.map((r) => r.id));
-    const topForwardedItems = rawTopForwarded.filter((item: { id: string }) =>
-      validSet.has(item.id),
-    );
+    const topForwardedItems = rawTopForwarded
+      .filter((item: { id: string }) => validSet.has(item.id))
+      .map((item: { times_forwarded?: number }) => ({
+        ...item,
+        // ItemGrid ranks/sorts by quantity_sold (same field POS insights uses)
+        quantity_sold: item.times_forwarded ?? 0,
+      }));
 
     return jsonResponse({
       success: true,

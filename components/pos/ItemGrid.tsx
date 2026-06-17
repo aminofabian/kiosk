@@ -737,6 +737,15 @@ export function ItemGrid({
                 );
             return [...displayedHomeItems]
               .sort((a, b) => {
+                const popA =
+                  (a as { quantity_sold?: number }).quantity_sold ??
+                  (a as { times_forwarded?: number }).times_forwarded ??
+                  0;
+                const popB =
+                  (b as { quantity_sold?: number }).quantity_sold ??
+                  (b as { times_forwarded?: number }).times_forwarded ??
+                  0;
+                if (popB !== popA) return popB - popA;
                 const nameA = `${a.name} ${a.variant_name || ""}`
                   .trim()
                   .toLowerCase();

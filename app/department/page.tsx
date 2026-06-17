@@ -178,7 +178,6 @@ export default function DepartmentPage() {
     featuredItems,
     itemTypesFilter: assignedTypes.length > 0 ? assignedTypes : undefined,
     stockListFilter: "all" as const,
-    showShopTypeCatalog: assignedTypes.length > 0,
     allowSellOutOfStock,
   };
 
@@ -317,6 +316,9 @@ export default function DepartmentPage() {
                 categoryId={debouncedSearchQuery ? null : selectedCategoryId}
                 searchQuery={debouncedSearchQuery || undefined}
                 {...itemGridProps}
+                showShopTypeCatalog={
+                  !debouncedSearchQuery && assignedTypes.length > 0
+                }
               />
             </main>
           </>
