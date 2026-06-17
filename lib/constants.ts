@@ -45,6 +45,13 @@ export type SaleRecordPaymentMethod =
   | PaymentMethod
   | PendingSalePaymentMethod;
 
+export const SALE_SOURCES = [
+  "department_forward",
+  "cashier_draft",
+  "direct_sale",
+] as const;
+export type SaleSource = (typeof SALE_SOURCES)[number];
+
 // Sale status
 export const SALE_STATUS = ["completed", "voided"] as const;
 export type SaleStatus = (typeof SALE_STATUS)[number];

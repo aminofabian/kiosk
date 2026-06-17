@@ -4,11 +4,12 @@ import type { UnitType } from "@/lib/constants";
 import {
   syncPendingSaleToApi,
   abandonPendingSaleOnApi,
-  notifyOrderLoaded,
+  claimDepartmentOrderLoad,
   isOnline,
 } from "./cart-sync";
-import type { PendingSale } from "@/lib/pos/pending-sales";
-import { fetchPendingSales } from "@/lib/pos/pending-sales";
+import type { PendingSale, PendingSaleLoadResult } from "@/lib/pos/pending-sales";
+import { fetchPendingSales, isDepartmentOrder } from "@/lib/pos/pending-sales";
+import { confirmDiscardLinkedPendingSale } from "@/lib/pos/pending-sale-confirm";
 
 export interface CartItem {
   itemId: string;
@@ -31,6 +32,7 @@ export interface Cart {
   total: number;
   createdAt: number;
   pendingSaleId?: string;
+  pendingSaleIsDepartment?: boolean;
   syncStatus: "synced" | "syncing" | "error";
 }
 
@@ -75,6 +77,13 @@ function pendingSaleCartName(pending: PendingSale): string {
   return pending.customer_name
     ? `Saved: ${pending.customer_name}`
     : `Saved ${formatSavedSaleTime(pending.updated_at)}`;
+}
+
+function pendingLinkMeta(pending: PendingSale) {
+  return {
+    pendingSaleId: pending.id,
+    pendingSaleIsDepartment: isDepartmentOrder(pending),
+  };
 }
 
 function pendingItemsToCartItems(pending: PendingSale): CartItem[] {
@@ -125,6 +134,7 @@ function detachPendingFromOtherCarts(
           items: [],
           total: 0,
           pendingSaleId: undefined,
+          pendingSaleIsDepartment: undefined,
           syncStatus: "synced" as const,
         }
       : c,
@@ -208,7 +218,7 @@ interface CartStore {
   // Cart management
   createCart: () => string;
   switchCart: (cartId: string) => void;
-  deleteCart: (cartId: string) => void;
+  deleteCart: (cartId: string, options?: { confirmed?: boolean }) => void;
   renameCart: (cartId: string, name: string) => void;
 
   // Item operations (operate on active cart)
@@ -224,7 +234,7 @@ interface CartStore {
     isBundle?: boolean,
     inventoryBatchId?: string,
   ) => void;
-  clearCart: (options?: { skipAbandon?: boolean }) => void;
+  clearCart: (options?: { skipAbandon?: boolean; confirmed?: boolean }) => void;
 
   // Pending sale sync
   syncPendingSale: (cartId: string) => Promise<void>;
@@ -235,9 +245,18 @@ interface CartStore {
   getActiveCartPendingSaleId: () => string | undefined;
   clearActiveCartPendingSaleId: () => void;
   getLinkedPendingSaleIds: () => string[];
-  restorePendingSale: (pending: PendingSale) => string;
-  mergePendingSaleIntoActiveCart: (pending: PendingSale) => string;
-  mergeActiveCartIntoPendingSale: (pending: PendingSale) => string;
+  restorePendingSale: (
+    pending: PendingSale,
+    currentUserId?: string,
+  ) => Promise<PendingSaleLoadResult>;
+  mergePendingSaleIntoActiveCart: (
+    pending: PendingSale,
+    currentUserId?: string,
+  ) => Promise<PendingSaleLoadResult>;
+  mergeActiveCartIntoPendingSale: (
+    pending: PendingSale,
+    currentUserId?: string,
+  ) => Promise<PendingSaleLoadResult>;
   clearCartByPendingSaleId: (pendingSaleId: string) => void;
 }
 
@@ -274,9 +293,21 @@ export const useCartStore = create<CartStore>()(
         }
       },
 
-      deleteCart: (cartId) => {
+      deleteCart: (cartId, options) => {
         const state = get();
         const cart = state.carts.find((c) => c.id === cartId);
+
+        if (cart?.pendingSaleId && !options?.confirmed) {
+          const isDept = cart.pendingSaleIsDepartment ?? false;
+          if (
+            !confirmDiscardLinkedPendingSale(
+              isDept,
+              "Closing this cart tab",
+            )
+          ) {
+            return;
+          }
+        }
 
         if (cart?.pendingSaleId) {
           abandonPendingSaleOnApi(cart.pendingSaleId);
@@ -458,27 +489,35 @@ export const useCartStore = create<CartStore>()(
       },
 
       clearCart: (options) => {
-        set((state) => {
-          const activeCartId = state.activeCartId || state.carts[0]?.id;
-          if (!activeCartId) return state;
+        const state = get();
+        const activeCartId = state.activeCartId || state.carts[0]?.id;
+        if (!activeCartId) return;
 
-          const cart = state.carts.find((c) => c.id === activeCartId);
-          if (!options?.skipAbandon && cart?.pendingSaleId) {
-            abandonPendingSaleOnApi(cart.pendingSaleId);
+        const cart = state.carts.find((c) => c.id === activeCartId);
+        if (!options?.skipAbandon && cart?.pendingSaleId) {
+          if (!options?.confirmed) {
+            const isDept = cart.pendingSaleIsDepartment ?? false;
+            if (
+              !confirmDiscardLinkedPendingSale(isDept, "Clearing the cart")
+            ) {
+              return;
+            }
           }
+          abandonPendingSaleOnApi(cart.pendingSaleId);
+        }
 
-          const updatedCarts = state.carts.map((cart) => {
+        set({
+          carts: state.carts.map((cart) => {
             if (cart.id !== activeCartId) return cart;
             return {
               ...cart,
               items: [],
               total: 0,
               pendingSaleId: undefined,
+              pendingSaleIsDepartment: undefined,
               syncStatus: "synced" as const,
             };
-          });
-
-          return { carts: updatedCarts };
+          }),
         });
       },
 
@@ -571,19 +610,19 @@ export const useCartStore = create<CartStore>()(
           .filter((id): id is string => Boolean(id));
       },
 
-      restorePendingSale: (pending) => {
+      restorePendingSale: async (pending, currentUserId) => {
         const state = get();
         const existing = state.carts.find(
           (c) => c.pendingSaleId === pending.id,
         );
         if (existing) {
           set({ activeCartId: existing.id });
-          return existing.id;
+          return { cartId: existing.id };
         }
 
-        // Notify server when cashier loads a forwarded department order
-        if (pending.originated_by_user_id) {
-          notifyOrderLoaded(pending.id);
+        const claim = await claimDepartmentOrderLoad(pending, currentUserId);
+        if (!claim.allowed) {
+          return { cartId: null, error: claim.message };
         }
 
         // Refresh from server before restoring, in case pending sale changed
@@ -622,6 +661,7 @@ export const useCartStore = create<CartStore>()(
         const items = pendingItemsToCartItems(pending);
         const total = calculateTotal(items);
         const cartName = pendingSaleCartName(pending);
+        const link = pendingLinkMeta(pending);
 
         const emptyCart = state.carts.find(
           (c) => c.items.length === 0 && !c.pendingSaleId,
@@ -637,13 +677,13 @@ export const useCartStore = create<CartStore>()(
                     name: cartName,
                     items,
                     total,
-                    pendingSaleId: pending.id,
+                    ...link,
                     syncStatus: "synced" as const,
                   }
                 : c,
             ),
           });
-          return emptyCart.id;
+          return { cartId: emptyCart.id };
         }
 
         const newCart: Cart = {
@@ -651,35 +691,35 @@ export const useCartStore = create<CartStore>()(
           name: cartName,
           items,
           total,
-          pendingSaleId: pending.id,
+          ...link,
           syncStatus: "synced",
         };
         set({
           carts: [...state.carts, newCart],
           activeCartId: newCart.id,
         });
-        return newCart.id;
+        return { cartId: newCart.id };
       },
 
-      mergePendingSaleIntoActiveCart: (pending) => {
+      mergePendingSaleIntoActiveCart: async (pending, currentUserId) => {
         const state = get();
         let activeCartId = state.activeCartId || state.carts[0]?.id;
         if (!activeCartId) {
-          return get().restorePendingSale(pending);
+          return get().restorePendingSale(pending, currentUserId);
         }
 
         const activeCart = state.carts.find((c) => c.id === activeCartId);
         if (!activeCart) {
-          return get().restorePendingSale(pending);
+          return get().restorePendingSale(pending, currentUserId);
         }
 
         if (activeCart.pendingSaleId === pending.id) {
-          return activeCartId;
+          return { cartId: activeCartId };
         }
 
-        // Notify server when cashier loads a forwarded department order
-        if (pending.originated_by_user_id) {
-          notifyOrderLoaded(pending.id);
+        const claim = await claimDepartmentOrderLoad(pending, currentUserId);
+        if (!claim.allowed) {
+          return { cartId: null, error: claim.message };
         }
 
         const invoiceItems = pendingItemsToCartItems(pending);
@@ -689,6 +729,20 @@ export const useCartStore = create<CartStore>()(
           activeCart.items.length === 0
             ? pendingSaleCartName(pending)
             : activeCart.name;
+
+        if (oldPendingId && oldPendingId !== pending.id) {
+          const isDept = activeCart.pendingSaleIsDepartment ?? false;
+          if (
+            !confirmDiscardLinkedPendingSale(
+              isDept,
+              "Your active cart is linked to another saved sale. Adding this order will replace it",
+            )
+          ) {
+            return { cartId: null };
+          }
+        }
+
+        const link = pendingLinkMeta(pending);
 
         set({
           activeCartId,
@@ -700,7 +754,7 @@ export const useCartStore = create<CartStore>()(
                     name: cartName,
                     items: mergedItems,
                     total: calculateTotal(mergedItems),
-                    pendingSaleId: pending.id,
+                    ...link,
                     syncStatus: "syncing" as const,
                   }
                 : c,
@@ -717,19 +771,19 @@ export const useCartStore = create<CartStore>()(
         scheduleCartSync(activeCartId, () =>
           get().syncPendingSale(activeCartId!),
         );
-        return activeCartId;
+        return { cartId: activeCartId };
       },
 
-      mergeActiveCartIntoPendingSale: (pending) => {
+      mergeActiveCartIntoPendingSale: async (pending, currentUserId) => {
         const state = get();
         const activeCartId = state.activeCartId || state.carts[0]?.id;
         if (!activeCartId) {
-          return get().restorePendingSale(pending);
+          return get().restorePendingSale(pending, currentUserId);
         }
 
         const activeCart = state.carts.find((c) => c.id === activeCartId);
         if (!activeCart) {
-          return get().restorePendingSale(pending);
+          return get().restorePendingSale(pending, currentUserId);
         }
 
         const linkedCart = state.carts.find(
@@ -737,14 +791,16 @@ export const useCartStore = create<CartStore>()(
         );
         const invoiceItems = pendingItemsToCartItems(pending);
         const cartName = pendingSaleCartName(pending);
+        const link = pendingLinkMeta(pending);
 
         if (linkedCart) {
           if (linkedCart.id === activeCartId) {
-            return activeCartId;
+            return { cartId: activeCartId };
           }
 
-          if (pending.originated_by_user_id) {
-            notifyOrderLoaded(pending.id);
+          const claim = await claimDepartmentOrderLoad(pending, currentUserId);
+          if (!claim.allowed) {
+            return { cartId: null, error: claim.message };
           }
 
           const mergedItems = mergeCartItems(
@@ -752,6 +808,18 @@ export const useCartStore = create<CartStore>()(
             activeCart.items,
           );
           const activeOldPending = activeCart.pendingSaleId;
+
+          if (activeOldPending && activeOldPending !== pending.id) {
+            const isDept = activeCart.pendingSaleIsDepartment ?? false;
+            if (
+              !confirmDiscardLinkedPendingSale(
+                isDept,
+                "Merging will discard the saved sale linked to your active cart",
+              )
+            ) {
+              return { cartId: null };
+            }
+          }
 
           set({
             activeCartId: linkedCart.id,
@@ -763,7 +831,7 @@ export const useCartStore = create<CartStore>()(
                     name: cartName,
                     items: mergedItems,
                     total: calculateTotal(mergedItems),
-                    pendingSaleId: pending.id,
+                    ...link,
                     syncStatus: "syncing" as const,
                   };
                 }
@@ -773,6 +841,7 @@ export const useCartStore = create<CartStore>()(
                     items: [],
                     total: 0,
                     pendingSaleId: undefined,
+                    pendingSaleIsDepartment: undefined,
                     syncStatus: "synced" as const,
                   };
                 }
@@ -790,19 +859,32 @@ export const useCartStore = create<CartStore>()(
           scheduleCartSync(linkedCart.id, () =>
             get().syncPendingSale(linkedCart.id),
           );
-          return linkedCart.id;
+          return { cartId: linkedCart.id };
         }
 
         if (activeCart.items.length === 0) {
-          return get().restorePendingSale(pending);
+          return get().restorePendingSale(pending, currentUserId);
         }
 
-        if (pending.originated_by_user_id) {
-          notifyOrderLoaded(pending.id);
+        const claim = await claimDepartmentOrderLoad(pending, currentUserId);
+        if (!claim.allowed) {
+          return { cartId: null, error: claim.message };
         }
 
         const mergedItems = mergeCartItems(invoiceItems, activeCart.items);
         const oldPendingId = activeCart.pendingSaleId;
+
+        if (oldPendingId && oldPendingId !== pending.id) {
+          const isDept = activeCart.pendingSaleIsDepartment ?? false;
+          if (
+            !confirmDiscardLinkedPendingSale(
+              isDept,
+              "Your active cart is linked to another saved sale. Merging will replace it",
+            )
+          ) {
+            return { cartId: null };
+          }
+        }
 
         set({
           activeCartId,
@@ -813,7 +895,7 @@ export const useCartStore = create<CartStore>()(
                   name: cartName,
                   items: mergedItems,
                   total: calculateTotal(mergedItems),
-                  pendingSaleId: pending.id,
+                  ...link,
                   syncStatus: "syncing" as const,
                 }
               : c,
@@ -827,7 +909,7 @@ export const useCartStore = create<CartStore>()(
         scheduleCartSync(activeCartId, () =>
           get().syncPendingSale(activeCartId),
         );
-        return activeCartId;
+        return { cartId: activeCartId };
       },
 
       clearCartByPendingSaleId: (pendingSaleId) => {
@@ -844,6 +926,7 @@ export const useCartStore = create<CartStore>()(
                   items: [],
                   total: 0,
                   pendingSaleId: undefined,
+                  pendingSaleIsDepartment: undefined,
                   syncStatus: "synced" as const,
                 }
               : c,

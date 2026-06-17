@@ -28,12 +28,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Look up the originating user
+    // Look up the originating user and current load state
     const sale = await queryOne<{
       originated_by_user_id: string | null;
       status: string;
+      loaded_by_user_id: string | null;
+      source: string | null;
     }>(
-      `SELECT originated_by_user_id, status FROM sales WHERE id = ? AND business_id = ?`,
+      `SELECT originated_by_user_id, status, loaded_by_user_id, source
+       FROM sales WHERE id = ? AND business_id = ?`,
       [pendingSaleId, auth.businessId],
     );
 
@@ -43,6 +46,29 @@ export async function POST(request: NextRequest) {
 
     if (sale.status !== "pending") {
       return jsonResponse({ success: true, message: "Sale is not pending" });
+    }
+
+    const isDeptForward =
+      sale.source === "department_forward" ||
+      Boolean(sale.originated_by_user_id);
+
+    if (
+      isDeptForward &&
+      sale.loaded_by_user_id &&
+      sale.loaded_by_user_id !== auth.userId
+    ) {
+      const loader = await queryOne<{ name: string }>(
+        `SELECT name FROM users WHERE id = ?`,
+        [sale.loaded_by_user_id],
+      );
+      return jsonResponse(
+        {
+          success: false,
+          message: `This order is already open with ${loader?.name ?? "another cashier"}.`,
+          loadedByUserId: sale.loaded_by_user_id,
+        },
+        409,
+      );
     }
 
     // Record who loaded and when

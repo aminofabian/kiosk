@@ -45,6 +45,7 @@ interface PendingSaleRow {
   loaded_by_user_id?: string | null;
   loaded_by_name?: string | null;
   loaded_at?: number | null;
+  source?: string | null;
 }
 
 interface PendingItemRow {
@@ -319,7 +320,8 @@ export async function GET(request: NextRequest) {
               s.customer_name, s.customer_phone, s.created_at, s.updated_at,
               du.name AS discarded_by_name,
               s.originated_by_user_id, ou.name AS originated_by_name,
-              s.loaded_by_user_id, lu.name AS loaded_by_name, s.loaded_at
+              s.loaded_by_user_id, lu.name AS loaded_by_name, s.loaded_at,
+              s.source
        FROM sales s
        JOIN users u ON u.id = s.user_id
        LEFT JOIN users ou ON ou.id = s.originated_by_user_id

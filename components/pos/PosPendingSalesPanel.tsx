@@ -26,6 +26,7 @@ import {
 import { useCurrentUser } from "@/lib/hooks/use-current-user";
 import { usePendingSales } from "@/lib/hooks/use-pending-sales";
 import { useOnlineStatus } from "@/lib/hooks/use-online-status";
+import { toast } from "sonner";
 
 interface PosPendingSalesPanelProps {
   onResume?: () => void;
@@ -127,19 +128,82 @@ export function PosPendingSalesPanel({
     return null;
   }
 
-  const handleResume = (sale: (typeof sales)[number]) => {
-    restorePendingSale(sale);
-    onResume?.();
+  const handleResume = async (sale: (typeof sales)[number]) => {
+    if (
+      sale.loaded_by_user_id &&
+      user?.id &&
+      sale.loaded_by_user_id !== user.id
+    ) {
+      toast.error(
+        `This order is already open with ${sale.loaded_by_name ?? "another cashier"}.`,
+      );
+      return;
+    }
+
+    setActionId(sale.id);
+    try {
+      const result = await restorePendingSale(sale, user?.id);
+      if (result.cartId) {
+        onResume?.();
+        await refresh();
+      } else if (result.error) {
+        toast.error(result.error);
+      }
+    } finally {
+      setActionId(null);
+    }
   };
 
-  const handleAddToActiveCart = (sale: (typeof sales)[number]) => {
-    mergePendingSaleIntoActiveCart(sale);
-    onResume?.();
+  const handleAddToActiveCart = async (sale: (typeof sales)[number]) => {
+    if (
+      sale.loaded_by_user_id &&
+      user?.id &&
+      sale.loaded_by_user_id !== user.id
+    ) {
+      toast.error(
+        `This order is already open with ${sale.loaded_by_name ?? "another cashier"}.`,
+      );
+      return;
+    }
+
+    setActionId(sale.id);
+    try {
+      const result = await mergePendingSaleIntoActiveCart(sale, user?.id);
+      if (result.cartId) {
+        onResume?.();
+        await refresh();
+      } else if (result.error) {
+        toast.error(result.error);
+      }
+    } finally {
+      setActionId(null);
+    }
   };
 
-  const handleMergeActiveIntoSale = (sale: (typeof sales)[number]) => {
-    mergeActiveCartIntoPendingSale(sale);
-    onResume?.();
+  const handleMergeActiveIntoSale = async (sale: (typeof sales)[number]) => {
+    if (
+      sale.loaded_by_user_id &&
+      user?.id &&
+      sale.loaded_by_user_id !== user.id
+    ) {
+      toast.error(
+        `This order is already open with ${sale.loaded_by_name ?? "another cashier"}.`,
+      );
+      return;
+    }
+
+    setActionId(sale.id);
+    try {
+      const result = await mergeActiveCartIntoPendingSale(sale, user?.id);
+      if (result.cartId) {
+        onResume?.();
+        await refresh();
+      } else if (result.error) {
+        toast.error(result.error);
+      }
+    } finally {
+      setActionId(null);
+    }
   };
 
   const handleAbandon = async (sale: (typeof sales)[number]) => {

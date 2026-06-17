@@ -1,26 +1,29 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import Link from 'next/link';
-import { signOut } from 'next-auth/react';
-import { ArrowLeft, Menu, ShoppingCart } from 'lucide-react';
-import { POSLayout } from '@/components/layouts/pos-layout';
-import { CategoryList } from '@/components/pos/CategoryList';
-import { ItemGrid } from '@/components/pos/ItemGrid';
-import { AddToCartDialog } from '@/components/pos/AddToCartDialog';
-import { VariantSelector } from '@/components/pos/VariantSelector';
-import { PosCategoryChips } from '@/components/pos/PosCategoryChips';
-import { PosMobileSearchBar } from '@/components/pos/PosMobileSearchBar';
-import { PosDepartmentRail } from '@/components/pos/PosDepartmentRail';
-import { DepartmentDesktopHeader } from '@/components/department/DepartmentDesktopHeader';
-import { DepartmentCartColumn } from '@/components/department/DepartmentCartColumn';
-import { useDepartmentApp } from '@/components/department/DepartmentAppProvider';
-import { useCartStore } from '@/lib/stores/cart-store';
-import { useDebounce } from '@/lib/hooks/use-debounce';
-import { useItemTypes } from '@/lib/hooks/use-item-types';
-import { apiGet } from '@/lib/utils/api-client';
-import { categoryMatchesAssignedTypes, SHOP_TYPE_ALL } from '@/lib/utils/shop-type';
-import type { Category, Item } from '@/lib/db/types';
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import Link from "next/link";
+import { signOut } from "next-auth/react";
+import { ArrowLeft, Menu, ShoppingCart } from "lucide-react";
+import { POSLayout } from "@/components/layouts/pos-layout";
+import { CategoryList } from "@/components/pos/CategoryList";
+import { ItemGrid } from "@/components/pos/ItemGrid";
+import { AddToCartDialog } from "@/components/pos/AddToCartDialog";
+import { VariantSelector } from "@/components/pos/VariantSelector";
+import { PosCategoryChips } from "@/components/pos/PosCategoryChips";
+import { PosMobileSearchBar } from "@/components/pos/PosMobileSearchBar";
+import { PosDepartmentRail } from "@/components/pos/PosDepartmentRail";
+import { DepartmentDesktopHeader } from "@/components/department/DepartmentDesktopHeader";
+import { DepartmentCartColumn } from "@/components/department/DepartmentCartColumn";
+import { useDepartmentApp } from "@/components/department/DepartmentAppProvider";
+import { useCartStore } from "@/lib/stores/cart-store";
+import { useDebounce } from "@/lib/hooks/use-debounce";
+import { useItemTypes } from "@/lib/hooks/use-item-types";
+import { apiGet } from "@/lib/utils/api-client";
+import {
+  categoryMatchesAssignedTypes,
+  SHOP_TYPE_ALL,
+} from "@/lib/utils/shop-type";
+import type { Category, Item } from "@/lib/db/types";
 
 export default function DepartmentPage() {
   const {
@@ -39,7 +42,9 @@ export default function DepartmentPage() {
   const { itemTypeKeys, allowSellOutOfStock } = useItemTypes();
 
   const [categories, setCategories] = useState<Category[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
+    null,
+  );
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedParentItem, setSelectedParentItem] = useState<{
@@ -48,10 +53,11 @@ export default function DepartmentPage() {
     variants?: Item[];
   } | null>(null);
   const [variantSelectorOpen, setVariantSelectorOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
+  const [featuredItems, setFeaturedItems] = useState<Item[]>([]);
 
   const debouncedSearchQuery = useDebounce(searchQuery, 280);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -65,7 +71,7 @@ export default function DepartmentPage() {
 
   const fetchCategories = useCallback(async () => {
     try {
-      const result = await apiGet<Category[]>('/api/categories');
+      const result = await apiGet<Category[]>("/api/categories");
       if (result.success && result.data) {
         setCategories(result.data);
       }
@@ -77,6 +83,24 @@ export default function DepartmentPage() {
   useEffect(() => {
     void fetchCategories();
   }, [fetchCategories]);
+
+  // Load most-forwarded items for Quick Forward section
+  const loadDepartmentInsights = useCallback(async () => {
+    try {
+      const result = await apiGet<{ topForwardedItems: Item[] }>(
+        `/api/department/insights?days=30&_=${Date.now()}`,
+      );
+      if (result.success && result.data) {
+        setFeaturedItems(result.data.topForwardedItems || []);
+      }
+    } catch {
+      // non-critical — home screen still works without insights
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadDepartmentInsights();
+  }, [loadDepartmentInsights]);
 
   const filteredCategories = useMemo(
     () =>
@@ -137,12 +161,12 @@ export default function DepartmentPage() {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await fetchCategories();
+      await Promise.all([loadDepartmentInsights(), fetchCategories()]);
       setRefreshKey((k) => k + 1);
     } finally {
       setRefreshing(false);
     }
-  }, [fetchCategories]);
+  }, [fetchCategories, loadDepartmentInsights]);
 
   const itemGridProps = {
     onSelectItem: handleSelectItem,
@@ -151,17 +175,19 @@ export default function DepartmentPage() {
     shopType,
     itemTypeKeys,
     categories,
+    featuredItems,
     itemTypesFilter: assignedTypes.length > 0 ? assignedTypes : undefined,
-    stockListFilter: 'all' as const,
+    stockListFilter: "all" as const,
     showShopTypeCatalog: assignedTypes.length > 0,
     allowSellOutOfStock,
   };
 
   const noTypesBanner = assignedTypes.length === 0 && (
     <div className="shrink-0 border-b border-amber-200 bg-amber-50 dark:bg-amber-950/30 px-4 py-2 text-sm text-amber-800 dark:text-amber-200">
-      No product types assigned to your account. Ask an admin to edit your user and select
-      departments under <strong>Department Staff → Product Types</strong>, then sign out and
-      back in.
+      No product types assigned to your account. Ask an admin to edit your user
+      and select departments under{" "}
+      <strong>Department Staff → Product Types</strong>, then sign out and back
+      in.
     </div>
   );
 
@@ -181,7 +207,7 @@ export default function DepartmentPage() {
                   <Menu className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                 </button>
                 <h1 className="text-[17px] font-bold text-[#1c6a1e] leading-none tracking-tight truncate max-w-[45%]">
-                  {businessName || 'Department'}
+                  {businessName || "Department"}
                 </h1>
                 <Link
                   href="/department/cart"
@@ -191,7 +217,7 @@ export default function DepartmentPage() {
                   <ShoppingCart className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                   {cartItemCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-[#1c6a1e] text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                      {cartItemCount > 99 ? '99+' : cartItemCount}
+                      {cartItemCount > 99 ? "99+" : cartItemCount}
                     </span>
                   )}
                 </Link>
@@ -203,7 +229,7 @@ export default function DepartmentPage() {
               onSearchChange={setSearchQuery}
               onSearchSubmit={(e) => e.preventDefault()}
               onSearchKeyDown={() => {}}
-              onClear={() => setSearchQuery('')}
+              onClear={() => setSearchQuery("")}
               onOpenCamera={() => {}}
               inputRef={mobileSearchInputRef}
               placeholder="Search products..."
@@ -212,8 +238,8 @@ export default function DepartmentPage() {
             <main className="flex-1 overflow-y-auto no-scrollbar px-3 flex flex-col min-h-0 w-full">
               {assignedTypes.length === 0 && (
                 <div className="shrink-0 mt-2 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 text-sm text-amber-800 dark:text-amber-200">
-                  No product types assigned. Ask an admin to set your departments, then sign out
-                  and back in.
+                  No product types assigned. Ask an admin to set your
+                  departments, then sign out and back in.
                 </div>
               )}
 
@@ -233,7 +259,11 @@ export default function DepartmentPage() {
                     onSelect={(id) => setSelectedCategoryId(id)}
                   />
                   <div className="flex-1 min-h-0 flex flex-col mt-1 -mx-1">
-                    <ItemGrid key="mhome" categoryId={null} {...itemGridProps} />
+                    <ItemGrid
+                      key="mhome"
+                      categoryId={null}
+                      {...itemGridProps}
+                    />
                   </div>
                 </>
               )}
@@ -251,13 +281,17 @@ export default function DepartmentPage() {
                   <ArrowLeft className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                 </button>
                 <h1 className="flex-1 min-w-0 text-[17px] font-bold text-slate-800 dark:text-white truncate leading-none">
-                  {selectedCategory?.name || 'Category'}
+                  {selectedCategory?.name || "Category"}
                 </h1>
-                <Link href="/department/cart" className="pos-icon-btn relative" aria-label="View cart">
+                <Link
+                  href="/department/cart"
+                  className="pos-icon-btn relative"
+                  aria-label="View cart"
+                >
                   <ShoppingCart className="w-5 h-5 text-slate-600 dark:text-slate-400" />
                   {cartItemCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-[#1c6a1e] text-white text-[9px] font-bold rounded-full flex items-center justify-center">
-                      {cartItemCount > 99 ? '99+' : cartItemCount}
+                      {cartItemCount > 99 ? "99+" : cartItemCount}
                     </span>
                   )}
                 </Link>
@@ -269,7 +303,7 @@ export default function DepartmentPage() {
               onSearchChange={setSearchQuery}
               onSearchSubmit={(e) => e.preventDefault()}
               onSearchKeyDown={() => {}}
-              onClear={() => setSearchQuery('')}
+              onClear={() => setSearchQuery("")}
               onOpenCamera={() => {}}
               inputRef={mobileSearchInputRef}
               placeholder="Search products..."
@@ -296,7 +330,9 @@ export default function DepartmentPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="p-4 border-b border-slate-200 dark:border-slate-700">
-                <h2 className="text-sm font-bold text-slate-900 dark:text-white">Categories</h2>
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Categories
+                </h2>
               </div>
               <div className="p-2 pb-8">
                 {filteredCategories.map((cat) => (
@@ -330,12 +366,14 @@ export default function DepartmentPage() {
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               onSearchSubmit={(e) => e.preventDefault()}
-              onClearSearch={() => setSearchQuery('')}
+              onClearSearch={() => setSearchQuery("")}
               searchInputRef={searchInputRef}
-              isSearchPending={!!searchQuery && searchQuery !== debouncedSearchQuery}
+              isSearchPending={
+                !!searchQuery && searchQuery !== debouncedSearchQuery
+              }
               onRefresh={handleRefresh}
               refreshing={refreshing}
-              onLogout={() => signOut({ callbackUrl: '/login' })}
+              onLogout={() => signOut({ callbackUrl: "/login" })}
             />
           }
         >
@@ -360,7 +398,9 @@ export default function DepartmentPage() {
                 <div className="min-h-full flex flex-col px-3 sm:px-4 lg:px-6">
                   <ItemGrid
                     key={`grid-${refreshKey}`}
-                    categoryId={debouncedSearchQuery ? null : selectedCategoryId}
+                    categoryId={
+                      debouncedSearchQuery ? null : selectedCategoryId
+                    }
                     searchQuery={debouncedSearchQuery || undefined}
                     {...itemGridProps}
                   />

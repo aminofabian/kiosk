@@ -703,7 +703,7 @@ export default function POSPage() {
   }, [cartItemCount]);
 
   const confirmClearCart = useCallback(() => {
-    clearCart();
+    clearCart({ confirmed: true });
     setShowClearCartToast(false);
   }, [clearCart]);
 
@@ -1587,11 +1587,38 @@ export default function POSPage() {
                         Clear Cart?
                       </h3>
                       <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                        Remove all{" "}
-                        <span className="font-medium text-gray-900 dark:text-gray-200">
-                          {cartItemCount}
-                        </span>{" "}
-                        {cartItemCount === 1 ? "item" : "items"} from your cart?
+                        {activeCart?.pendingSaleId ? (
+                          activeCart.pendingSaleIsDepartment ? (
+                            <>
+                              This cart is linked to a department order.
+                              Clearing removes all{" "}
+                              <span className="font-medium text-gray-900 dark:text-gray-200">
+                                {cartItemCount}
+                              </span>{" "}
+                              {cartItemCount === 1 ? "item" : "items"} and
+                              discards the order on the server.
+                            </>
+                          ) : (
+                            <>
+                              This cart is linked to a saved sale. Clearing
+                              removes all{" "}
+                              <span className="font-medium text-gray-900 dark:text-gray-200">
+                                {cartItemCount}
+                              </span>{" "}
+                              {cartItemCount === 1 ? "item" : "items"} and
+                              discards it on the server.
+                            </>
+                          )
+                        ) : (
+                          <>
+                            Remove all{" "}
+                            <span className="font-medium text-gray-900 dark:text-gray-200">
+                              {cartItemCount}
+                            </span>{" "}
+                            {cartItemCount === 1 ? "item" : "items"} from your
+                            cart?
+                          </>
+                        )}
                       </p>
                     </div>
 

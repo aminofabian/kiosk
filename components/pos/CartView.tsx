@@ -96,7 +96,7 @@ export function CartView({
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
 
   const handleClearCart = () => {
-    clearCart();
+    clearCart({ confirmed: true });
     setClearConfirmOpen(false);
   };
 
@@ -559,9 +559,29 @@ export function CartView({
           <DialogHeader>
             <DialogTitle>Clear cart?</DialogTitle>
             <DialogDescription>
-              This removes all {cartItems.length} item
-              {cartItems.length !== 1 ? "s" : ""} from the current cart. This
-              cannot be undone.
+              {activeCart?.pendingSaleId ? (
+                activeCart.pendingSaleIsDepartment ? (
+                  <>
+                    This cart is linked to a department order. Clearing removes
+                    all {cartItems.length} item
+                    {cartItems.length !== 1 ? "s" : ""} and discards the order
+                    on the server.
+                  </>
+                ) : (
+                  <>
+                    This cart is linked to a saved sale. Clearing removes all{" "}
+                    {cartItems.length} item
+                    {cartItems.length !== 1 ? "s" : ""} and discards it on the
+                    server.
+                  </>
+                )
+              ) : (
+                <>
+                  This removes all {cartItems.length} item
+                  {cartItems.length !== 1 ? "s" : ""} from the current cart.
+                  This cannot be undone.
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

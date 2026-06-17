@@ -1,4 +1,6 @@
 import type { CartItem } from "./cart-store";
+import type { PendingSale } from "@/lib/pos/pending-sales";
+import { isDepartmentOrder } from "@/lib/pos/pending-sales";
 
 interface PendingSyncPayload {
   pendingSaleId?: string;
@@ -68,16 +70,63 @@ export async function abandonPendingSaleOnApi(
   }
 }
 
-export async function notifyOrderLoaded(pendingSaleId: string): Promise<void> {
+export interface OrderLoadedResult {
+  ok: boolean;
+  blocked?: boolean;
+  message?: string;
+}
+
+export async function notifyOrderLoaded(
+  pendingSaleId: string,
+): Promise<OrderLoadedResult> {
   try {
-    await fetch("/api/department/loaded", {
+    const response = await fetch("/api/department/loaded", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ pendingSaleId }),
     });
+    const data = (await response.json().catch(() => ({}))) as {
+      success?: boolean;
+      message?: string;
+    };
+    if (response.status === 409) {
+      return {
+        ok: false,
+        blocked: true,
+        message: data.message || "This order is already open with another cashier.",
+      };
+    }
+    return {
+      ok: response.ok && data.success !== false,
+      message: data.message,
+    };
   } catch {
-    /* non-critical — department notification only */
+    return { ok: false, message: "Network error" };
   }
+}
+
+export async function claimDepartmentOrderLoad(
+  pending: PendingSale,
+  currentUserId?: string,
+): Promise<{ allowed: boolean; message?: string }> {
+  const isDeptForward =
+    pending.source === "department_forward" || isDepartmentOrder(pending);
+  if (!isDeptForward) return { allowed: true };
+
+  if (
+    pending.loaded_by_user_id &&
+    currentUserId &&
+    pending.loaded_by_user_id !== currentUserId
+  ) {
+    const who = pending.loaded_by_name ?? "another cashier";
+    return { allowed: false, message: `This order is already open with ${who}.` };
+  }
+
+  const result = await notifyOrderLoaded(pending.id);
+  if (result.blocked) {
+    return { allowed: false, message: result.message };
+  }
+  return { allowed: true };
 }
 
 export function isOnline(): boolean {

@@ -1,4 +1,5 @@
 import { apiGet, apiDelete } from "@/lib/utils/api-client";
+import type { SaleSource } from "@/lib/constants";
 
 export interface PendingSaleItem {
   id: string;
@@ -30,11 +31,19 @@ export interface PendingSale {
   loaded_by_user_id?: string | null;
   loaded_by_name?: string | null;
   loaded_at?: number | null;
+  source?: SaleSource | null;
   items: PendingSaleItem[];
+}
+
+export interface PendingSaleLoadResult {
+  cartId: string | null;
+  error?: string;
 }
 
 /** Pending sale created by department staff (forwarded order or dept draft). */
 export function isDepartmentOrder(sale: PendingSale): boolean {
+  if (sale.source === "department_forward") return true;
+  if (sale.source === "cashier_draft") return false;
   return (
     sale.user_role === "department_staff" || Boolean(sale.originated_by_user_id)
   );
