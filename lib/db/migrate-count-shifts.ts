@@ -60,6 +60,7 @@ export async function migrateCountShifts(): Promise<void> {
         variance_intraday REAL,
         status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'matched', 'escalated', 'acknowledged')),
         escalation_notes TEXT,
+        selection_source TEXT,
         created_at INTEGER NOT NULL DEFAULT (unixepoch()),
         FOREIGN KEY (count_shift_id) REFERENCES count_shifts(id) ON DELETE CASCADE,
         FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE
@@ -71,6 +72,7 @@ export async function migrateCountShifts(): Promise<void> {
     console.log('✅ count_batches table created');
   } else {
     console.log('✓ count_batches table already exists');
+    await upgradeCountBatchesSelectionSource();
   }
 
   // 3. Create count_item_pool table
@@ -143,4 +145,26 @@ async function upgradeCountShiftsStatusConstraint(): Promise<void> {
     `CREATE INDEX IF NOT EXISTS idx_count_shifts_department ON count_shifts(business_id, department, status)`,
   );
   console.log('✅ count_shifts status constraint upgraded');
+}
+
+async function upgradeCountBatchesSelectionSource(): Promise<void> {
+  const columns = await query<{ name: string }>(`PRAGMA table_info(count_batches)`);
+  if (columns.some((c) => c.name === 'selection_source')) {
+    return;
+  }
+  console.log('🔄 Adding selection_source to count_batches...');
+  try {
+    await execute(`ALTER TABLE count_batches ADD COLUMN selection_source TEXT`);
+    console.log('✅ count_batches.selection_source added');
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? `${error.message} ${(error as Error & { cause?: Error }).cause?.message ?? ''}`
+        : String(error);
+    if (message.includes('duplicate column')) {
+      console.log('✓ count_batches.selection_source already exists');
+      return;
+    }
+    throw error;
+  }
 }

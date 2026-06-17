@@ -6,18 +6,14 @@ import { jsonResponse, optionsResponse } from "@/lib/utils/api-response";
 import { requireAuth, isAuthResponse } from "@/lib/auth/api-auth";
 import { logActivity } from "@/lib/db/activity-log";
 import {
-  buildItemTypeFilter,
   resolveCountDepartmentKey,
   startOfLocalDay,
-  yesterdaySaleRange,
 } from "@/lib/department/count-shift-utils";
+import { buildCountShiftItemPool } from "@/lib/department/cycle-count-pool";
 import { getStaffDepartmentKeys } from "@/lib/department/purchase-order-access";
 import type { CountShift } from "@/lib/db/types";
 
 const DEFAULT_BATCH_SIZE = 10;
-const SELLABLE_ITEM_FILTER = ` AND (i.parent_item_id IS NOT NULL OR NOT EXISTS (
-  SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1
-))`;
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -164,106 +160,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const typeFilter = buildItemTypeFilter([departmentKey], "i");
-    const { start: yesterdayStart, end: yesterdayEnd } = yesterdaySaleRange(now);
-
-    const pinnedItems = await query<{ item_id: string }>(
-      `SELECT cip.item_id
-       FROM count_item_pool cip
-       JOIN items i ON i.id = cip.item_id
-       WHERE cip.business_id = ? AND cip.pinned = 1 AND cip.excluded = 0
-         AND i.active = 1 AND i.business_id = ?
-         ${typeFilter.sql}`,
-      [auth.businessId, auth.businessId, ...typeFilter.params],
-    );
-
-    let selectedItems: Array<{ item_id: string; current_stock: number }> = [];
-
-    if (pinnedItems.length > 0) {
-      const pinnedWithStock = await query<{
-        item_id: string;
-        current_stock: number;
-      }>(
-        `SELECT i.id AS item_id, i.current_stock
-         FROM items i
-         WHERE i.id IN (${pinnedItems.map(() => "?").join(",")})
-           AND i.business_id = ? AND i.active = 1
-           ${SELLABLE_ITEM_FILTER}
-         LIMIT ?`,
-        [
-          ...pinnedItems.map((p) => p.item_id),
-          auth.businessId,
-          DEFAULT_BATCH_SIZE,
-        ],
-      );
-      selectedItems = pinnedWithStock;
-    }
-
-    const remaining = DEFAULT_BATCH_SIZE - selectedItems.length;
-
-    if (remaining > 0) {
-      const alreadySelected = new Set(selectedItems.map((i) => i.item_id));
-      const excludeIds = await query<{ item_id: string }>(
-        `SELECT item_id FROM count_item_pool WHERE business_id = ? AND excluded = 1`,
-        [auth.businessId],
-      );
-      const excludeSet = new Set([
-        ...alreadySelected,
-        ...excludeIds.map((e) => e.item_id),
-      ]);
-
-      const yesterdaySold = await query<{
-        item_id: string;
-        current_stock: number;
-      }>(
-        `SELECT si.item_id, i.current_stock
-         FROM sale_items si
-         JOIN sales s ON si.sale_id = s.id
-         JOIN items i ON si.item_id = i.id
-         WHERE s.business_id = ?
-           AND s.status = 'completed'
-           AND COALESCE(s.sale_date, s.created_at) >= ?
-           AND COALESCE(s.sale_date, s.created_at) < ?
-           AND i.business_id = ? AND i.active = 1
-           ${SELLABLE_ITEM_FILTER}
-           ${typeFilter.sql}
-         GROUP BY si.item_id
-         ORDER BY COUNT(si.id) DESC
-         LIMIT 100`,
-        [
-          auth.businessId,
-          yesterdayStart,
-          yesterdayEnd,
-          auth.businessId,
-          ...typeFilter.params,
-        ],
-      );
-
-      const shuffled = yesterdaySold
-        .filter((i) => !excludeSet.has(i.item_id))
-        .sort(() => Math.random() - 0.5);
-      selectedItems.push(...shuffled.slice(0, remaining));
-
-      if (selectedItems.length < DEFAULT_BATCH_SIZE) {
-        const alreadySet = new Set(selectedItems.map((i) => i.item_id));
-        const moreNeeded = DEFAULT_BATCH_SIZE - selectedItems.length;
-        const fallbackItems = await query<{
-          item_id: string;
-          current_stock: number;
-        }>(
-          `SELECT i.id AS item_id, i.current_stock
-           FROM items i
-           WHERE i.business_id = ? AND i.active = 1
-             ${SELLABLE_ITEM_FILTER}
-             ${typeFilter.sql}
-           ORDER BY RANDOM()
-           LIMIT ?`,
-          [auth.businessId, ...typeFilter.params, moreNeeded * 3],
-        );
-        const extra = fallbackItems.filter((i) => !alreadySet.has(i.item_id));
-        selectedItems.push(...extra.slice(0, moreNeeded));
-      }
-    }
+    const selectedItems = await buildCountShiftItemPool({
+      businessId: auth.businessId,
+      departmentKey,
+      batchSize: DEFAULT_BATCH_SIZE,
+      now,
+    });
 
     if (selectedItems.length === 0) {
       return jsonResponse(
@@ -287,9 +189,16 @@ export async function POST(request: NextRequest) {
       const batchId = generateUUID();
       await execute(
         `INSERT INTO count_batches (
-          id, count_shift_id, item_id, system_stock_morning, status, created_at
-        ) VALUES (?, ?, ?, ?, 'pending', ?)`,
-        [batchId, shiftId, item.item_id, item.current_stock ?? 0, now],
+          id, count_shift_id, item_id, system_stock_morning, selection_source, status, created_at
+        ) VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
+        [
+          batchId,
+          shiftId,
+          item.item_id,
+          item.current_stock ?? 0,
+          item.source,
+          now,
+        ],
       );
     }
 

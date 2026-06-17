@@ -19,6 +19,10 @@ import { isDiscreteUnitType, type UnitType } from "@/lib/constants";
 import { useDepartmentTypes } from "@/lib/hooks/use-department-types";
 import { useBarcodeScanner } from "@/lib/hooks/use-barcode-scanner";
 import { toast } from "sonner";
+import {
+  POOL_SOURCE_LABELS,
+  type PoolSource,
+} from "@/lib/department/cycle-count-constants";
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -51,6 +55,7 @@ interface CountBatch {
   variance_evening: number | null;
   variance_intraday: number | null;
   status: CountBatchStatus;
+  selection_source: string | null;
 }
 
 interface CountBatchWithItem extends CountBatch {
@@ -102,6 +107,14 @@ function getSystemStock(batch: CountBatchWithItem, phase: Phase): number {
   return phase === "morning"
     ? batch.system_stock_morning
     : (batch.system_stock_evening ?? batch.system_stock_morning);
+}
+
+function getSelectionLabel(source: string | null | undefined): string | null {
+  if (!source) return null;
+  if (source in POOL_SOURCE_LABELS) {
+    return POOL_SOURCE_LABELS[source as PoolSource];
+  }
+  return null;
 }
 
 // ── Page Component ─────────────────────────────────────────────
@@ -649,6 +662,17 @@ export default function DepartmentCountPage() {
             <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">
               {currentBatch.item_name}
             </h2>
+
+            {(() => {
+              const selectionLabel = getSelectionLabel(
+                currentBatch.selection_source,
+              );
+              return selectionLabel ? (
+                <span className="inline-flex items-center rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">
+                  {selectionLabel}
+                </span>
+              ) : null;
+            })()}
 
             {/* Barcode */}
             {currentBatch.barcode && (

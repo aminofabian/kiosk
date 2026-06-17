@@ -532,6 +532,7 @@ export interface CountBatch {
   variance_intraday: number | null;
   status: CountBatchStatus;
   escalation_notes: string | null;
+  selection_source: string | null;
   created_at: number;
 }
 
