@@ -352,64 +352,65 @@ export function PosPendingSalesPanel({
 
   return (
     <div className="border-b border-amber-200/80 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/20">
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className={`w-full flex items-center justify-between gap-2 text-left hover:bg-amber-100/60 dark:hover:bg-amber-950/30 transition-colors ${
+      <div
+        className={`w-full flex items-center gap-1 ${
           compact ? "px-2 py-1.5" : "px-3 py-2.5"
         }`}
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <Cloud
-            className={`text-amber-700 dark:text-amber-400 shrink-0 ${compact ? "w-3.5 h-3.5" : "w-4 h-4"}`}
-          />
-          <div className="min-w-0">
-            <p
-              className={`font-semibold text-amber-900 dark:text-amber-200 ${compact ? "text-[11px]" : "text-xs"}`}
-            >
-              {departmentOrdersOnly
-                ? "Department orders"
-                : isAdmin
-                  ? "Open carts"
-                  : "Saved & orders"}
-              {visibleSales.length > 0 && (
-                <span className="ml-1 font-normal text-amber-700 dark:text-amber-400">
-                  ({visibleSales.length})
-                </span>
-              )}
-            </p>
-            {!expanded && collapsedSubtitle && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className={`flex-1 flex items-center justify-between gap-2 min-w-0 text-left hover:bg-amber-100/60 dark:hover:bg-amber-950/30 transition-colors rounded ${
+            compact ? "-ml-0.5 pl-0.5" : "-ml-1 pl-1"
+          }`}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <Cloud
+              className={`text-amber-700 dark:text-amber-400 shrink-0 ${compact ? "w-3.5 h-3.5" : "w-4 h-4"}`}
+            />
+            <div className="min-w-0">
               <p
-                className={`text-amber-700/90 dark:text-amber-400/90 truncate ${compact ? "text-[10px]" : "text-[11px]"}`}
+                className={`font-semibold text-amber-900 dark:text-amber-200 ${compact ? "text-[11px]" : "text-xs"}`}
               >
-                {collapsedSubtitle}
+                {departmentOrdersOnly
+                  ? "Department orders"
+                  : isAdmin
+                    ? "Open carts"
+                    : "Saved & orders"}
+                {visibleSales.length > 0 && (
+                  <span className="ml-1 font-normal text-amber-700 dark:text-amber-400">
+                    ({visibleSales.length})
+                  </span>
+                )}
               </p>
-            )}
+              {!expanded && collapsedSubtitle && (
+                <p
+                  className={`text-amber-700/90 dark:text-amber-400/90 truncate ${compact ? "text-[10px]" : "text-[11px]"}`}
+                >
+                  {collapsedSubtitle}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              void refresh();
-            }}
-            className="p-1 rounded hover:bg-amber-200/60 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-400"
-            aria-label="Refresh saved sales"
-          >
-            {loading ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="w-3.5 h-3.5" />
-            )}
-          </button>
           {expanded ? (
-            <ChevronUp className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+            <ChevronUp className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0" />
           ) : (
-            <ChevronDown className="w-4 h-4 text-amber-700 dark:text-amber-400" />
+            <ChevronDown className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0" />
           )}
-        </div>
-      </button>
+        </button>
+        <button
+          type="button"
+          onClick={() => void refresh()}
+          className="p-1 rounded hover:bg-amber-200/60 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-400 shrink-0"
+          aria-label="Refresh saved sales"
+        >
+          {loading ? (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="w-3.5 h-3.5" />
+          )}
+        </button>
+      </div>
 
       {expanded && (
         <div

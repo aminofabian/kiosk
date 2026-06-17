@@ -1,4 +1,4 @@
-import type { CartItem } from './cart-store';
+import type { CartItem } from "./cart-store";
 
 interface PendingSyncPayload {
   pendingSaleId?: string;
@@ -17,9 +17,9 @@ export async function syncPendingSaleToApi(
   payload: PendingSyncPayload,
 ): Promise<SyncResult> {
   try {
-    const response = await fetch('/api/sales/pending', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const response = await fetch("/api/sales/pending", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         pendingSaleId: payload.pendingSaleId,
         customerName: payload.customerName,
@@ -50,15 +50,17 @@ export async function syncPendingSaleToApi(
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Network error',
+      error: error instanceof Error ? error.message : "Network error",
     };
   }
 }
 
-export async function abandonPendingSaleOnApi(pendingSaleId: string): Promise<boolean> {
+export async function abandonPendingSaleOnApi(
+  pendingSaleId: string,
+): Promise<boolean> {
   try {
     const response = await fetch(`/api/sales/${pendingSaleId}/pending`, {
-      method: 'DELETE',
+      method: "DELETE",
     });
     return response.ok;
   } catch {
@@ -66,7 +68,19 @@ export async function abandonPendingSaleOnApi(pendingSaleId: string): Promise<bo
   }
 }
 
+export async function notifyOrderLoaded(pendingSaleId: string): Promise<void> {
+  try {
+    await fetch("/api/department/loaded", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pendingSaleId }),
+    });
+  } catch {
+    /* non-critical — department notification only */
+  }
+}
+
 export function isOnline(): boolean {
-  if (typeof navigator === 'undefined') return true;
+  if (typeof navigator === "undefined") return true;
   return navigator.onLine;
 }

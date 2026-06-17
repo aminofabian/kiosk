@@ -3,6 +3,7 @@ import type {
   UnitType,
   ItemType,
   PaymentMethod,
+  SaleRecordPaymentMethod,
   SaleStatus,
   PurchaseStatus,
   PurchaseItemStatus,
@@ -218,13 +219,13 @@ export interface Sale {
   user_id: string;
   shift_id: string | null;
   total_amount: number;
-  payment_method: PaymentMethod;
+  payment_method: SaleRecordPaymentMethod;
   status: SaleStatus;
   voided_reason: string | null;
   voided_by: string | null;
   customer_name: string | null;
   customer_phone: string | null;
-  sale_date: number;
+  sale_date: number | null;
   created_at: number;
 }
 

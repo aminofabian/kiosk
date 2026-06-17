@@ -1,10 +1,11 @@
-import { NextRequest } from 'next/server';
-import { execute, queryOne } from '@/lib/db';
-import { migratePendingSales } from '@/lib/db/migrate-pending-sales';
-import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
-import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
-import { hasPermission } from '@/lib/auth/permissions';
-import { canAccessOthersPendingSale } from '@/lib/pos/pending-sale-access';
+import { NextRequest } from "next/server";
+import { execute, queryOne } from "@/lib/db";
+import { migratePendingSales } from "@/lib/db/migrate-pending-sales";
+import { jsonResponse, optionsResponse } from "@/lib/utils/api-response";
+import { requireAuth, isAuthResponse } from "@/lib/auth/api-auth";
+import { hasPermission } from "@/lib/auth/permissions";
+import { canAccessOthersPendingSale } from "@/lib/pos/pending-sale-access";
+import { PENDING_SALE_PAYMENT_METHOD } from "@/lib/constants";
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -17,7 +18,7 @@ export async function OPTIONS() {
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     await migratePendingSales();
@@ -26,9 +27,13 @@ export async function DELETE(
     if (isAuthResponse(auth)) return auth;
 
     const { id: saleId } = await params;
-    const canViewAll = hasPermission(auth.role, 'view_all_sales');
+    const canViewAll = hasPermission(auth.role, "view_all_sales");
 
-    const existing = await queryOne<{ id: string; user_id: string; status: string }>(
+    const existing = await queryOne<{
+      id: string;
+      user_id: string;
+      status: string;
+    }>(
       `SELECT id, user_id, status FROM sales
        WHERE id = ? AND business_id = ?`,
       [saleId, auth.businessId],
@@ -36,14 +41,14 @@ export async function DELETE(
 
     if (!existing) {
       return jsonResponse(
-        { success: false, message: 'Pending sale not found' },
+        { success: false, message: "Pending sale not found" },
         404,
       );
     }
 
-    if (existing.status !== 'pending') {
+    if (existing.status !== "pending") {
       return jsonResponse(
-        { success: false, message: 'Sale is not pending' },
+        { success: false, message: "Sale is not pending" },
         400,
       );
     }
@@ -56,7 +61,10 @@ export async function DELETE(
       );
       if (!canDiscard) {
         return jsonResponse(
-          { success: false, message: 'Cannot abandon another cashier pending sale' },
+          {
+            success: false,
+            message: "Cannot abandon another cashier pending sale",
+          },
           403,
         );
       }
@@ -65,22 +73,28 @@ export async function DELETE(
     const now = Math.floor(Date.now() / 1000);
     await execute(
       `UPDATE sales
-       SET status = 'discarded', voided_reason = ?, voided_by = ?, updated_at = ?
+       SET status = 'discarded', payment_method = ?, voided_reason = ?, voided_by = ?, updated_at = ?
        WHERE id = ?`,
-      ['Cart discarded', auth.userId, now, saleId],
+      [
+        PENDING_SALE_PAYMENT_METHOD,
+        "Cart discarded",
+        auth.userId,
+        now,
+        saleId,
+      ],
     );
 
     return jsonResponse({
       success: true,
-      message: 'Pending sale discarded',
+      message: "Pending sale discarded",
     });
   } catch (error) {
-    console.error('Error abandoning pending sale:', error);
+    console.error("Error abandoning pending sale:", error);
     return jsonResponse(
       {
         success: false,
-        message: 'Failed to abandon pending sale',
-        error: error instanceof Error ? error.message : 'Unknown error',
+        message: "Failed to abandon pending sale",
+        error: error instanceof Error ? error.message : "Unknown error",
       },
       500,
     );

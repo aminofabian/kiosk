@@ -80,7 +80,7 @@ export function PosQuickSellPhoto({
 
   return (
     <div
-      className={`relative w-full ${fill ? 'absolute inset-0 h-full min-h-0' : 'mx-1 mt-2'}`}
+      className={`relative w-full ${fill ? 'h-full min-h-0' : 'mx-1 mt-2'}`}
       onClick={(e) => e.stopPropagation()}
     >
       <input
@@ -128,7 +128,7 @@ export function PosQuickSellPhoto({
           onClick={openPicker}
           disabled={uploading}
           className={`w-full flex flex-col items-center justify-center gap-1 border border-dashed border-slate-300 bg-slate-50/90 text-[9px] font-medium text-slate-500 transition-colors hover:border-[#1c6a1e] hover:text-[#1c6a1e] disabled:opacity-60 dark:border-slate-600 dark:bg-slate-800/60 dark:text-slate-400 dark:hover:text-[#3cb043] ${
-            fill ? 'absolute inset-0 h-full rounded-none' : 'min-h-[44px] rounded-sm'
+            fill ? 'h-full rounded-none' : 'min-h-[44px] rounded-sm'
           }`}
           title="Upload product photo"
         >

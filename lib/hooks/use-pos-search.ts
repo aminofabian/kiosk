@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDebounce } from "@/lib/hooks/use-debounce";
 import { isValidBarcode } from "@/lib/hooks/use-barcode-scanner";
-import { searchItemsOffline } from "@/lib/offline/search";
+import { searchItemsOffline, searchItemsGridOffline } from "@/lib/offline/search";
+import type { Item } from "@/lib/db/types";
 import {
   addRecentSearch,
   getRecentSearches,
@@ -41,6 +42,8 @@ export function usePosSearch() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
+  const [searchGridItems, setSearchGridItems] = useState<Item[]>([]);
+  const [searchGridQuery, setSearchGridQuery] = useState("");
 
   const suggestionsAbortRef = useRef<AbortController | null>(null);
   const flatSuggestionsRef = useRef<PosSearchSuggestion[]>([]);
@@ -125,6 +128,8 @@ export function usePosSearch() {
 
     if (!suggestionQuery || suggestionQuery.length < 1) {
       setSearchSuggestions([]);
+      setSearchGridItems([]);
+      setSearchGridQuery("");
       if (!searchFocused) {
         setShowSuggestions(false);
       }
@@ -133,6 +138,8 @@ export function usePosSearch() {
 
     if (isValidBarcode(suggestionQuery)) {
       setSearchSuggestions([]);
+      setSearchGridItems([]);
+      setSearchGridQuery("");
       setShowSuggestions(false);
       return;
     }
@@ -150,9 +157,14 @@ export function usePosSearch() {
 
     if (isOffline) {
       setLoadingSuggestions(true);
-      searchItemsOffline(suggestionQuery, 10)
-        .then((suggestions) => {
+      Promise.all([
+        searchItemsOffline(suggestionQuery, 10),
+        searchItemsGridOffline(suggestionQuery, 50),
+      ])
+        .then(([suggestions, gridItems]) => {
           applySuggestions(suggestions);
+          setSearchGridItems(gridItems);
+          setSearchGridQuery(suggestionQuery);
         })
         .catch((err) => console.error("Offline search error:", err))
         .finally(() => setLoadingSuggestions(false));
@@ -178,7 +190,7 @@ export function usePosSearch() {
       try {
         if (!warmCache && !cached) setLoadingSuggestions(true);
         const response = await fetch(
-          `/api/items/suggest?q=${encodeURIComponent(suggestionQuery)}&limit=10`,
+          `/api/items/search?q=${encodeURIComponent(suggestionQuery)}&suggestLimit=10&gridLimit=50`,
           { signal: controller.signal, cache: "no-store" },
         );
 
@@ -188,7 +200,7 @@ export function usePosSearch() {
 
         if (cancelled) return;
         if (result.success && result.data) {
-          const suggestions = result.data.map(mapSuggestItem);
+          const suggestions = (result.data.suggestions ?? []).map(mapSuggestItem);
           if (suggestions.length > 0) {
             suggestCacheRef.current.set(cacheKey, {
               data: suggestions,
@@ -202,6 +214,8 @@ export function usePosSearch() {
             }
           }
           applySuggestions(suggestions);
+          setSearchGridItems(result.data.items ?? []);
+          setSearchGridQuery(suggestionQuery);
         }
       } catch (err) {
         if (cancelled) return;
@@ -248,6 +262,8 @@ export function usePosSearch() {
   const resetSearch = useCallback(() => {
     setSearchQuery("");
     setSearchSuggestions([]);
+    setSearchGridItems([]);
+    setSearchGridQuery("");
     setShowSuggestions(false);
     setSearchFocused(false);
     setSelectedSuggestionIndex(-1);
@@ -296,6 +312,8 @@ export function usePosSearch() {
     loadingSuggestions,
     selectedSuggestionIndex,
     setSelectedSuggestionIndex,
+    searchGridItems,
+    searchGridQuery,
     flatSuggestionsRef,
     handleSearchFocus,
     handleRecentSearchClick,

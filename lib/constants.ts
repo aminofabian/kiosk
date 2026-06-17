@@ -33,9 +33,17 @@ export const USER_ROLES = [
 ] as const;
 export type UserRole = (typeof USER_ROLES)[number];
 
-// Payment methods
+// Checkout payment methods (POS — not stored on pending/discarded sales)
 export const PAYMENT_METHODS = ["cash", "mpesa", "credit", "split"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+/** DB placeholder for pending/discarded sales — not selectable at checkout */
+export const PENDING_SALE_PAYMENT_METHOD = "unpaid" as const;
+export type PendingSalePaymentMethod = typeof PENDING_SALE_PAYMENT_METHOD;
+
+export type SaleRecordPaymentMethod =
+  | PaymentMethod
+  | PendingSalePaymentMethod;
 
 // Sale status
 export const SALE_STATUS = ["completed", "voided"] as const;

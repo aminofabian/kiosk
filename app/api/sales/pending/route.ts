@@ -3,12 +3,15 @@ import { execute, query, queryOne, transaction } from "@/lib/db";
 import { migratePendingSales } from "@/lib/db/migrate-pending-sales";
 import { migrateDepartmentStaffRole } from "@/lib/db/migrate-department-staff-role";
 import { migrateOriginatedBy } from "@/lib/db/migrate-originated-by";
+import { migrateLoadedByColumns } from "@/lib/db/migrate-loaded-by";
+import { migrateSourceColumn } from "@/lib/db/migrate-source-column";
 import { migrateUserDepartment } from "@/lib/db/migrate-user-department";
 import { generateUUID } from "@/lib/utils/uuid";
 import { jsonResponse, optionsResponse } from "@/lib/utils/api-response";
 import { requireAuth, isAuthResponse } from "@/lib/auth/api-auth";
 import { hasPermission } from "@/lib/auth/permissions";
 import { canAccessOthersPendingSale } from "@/lib/pos/pending-sale-access";
+import { PENDING_SALE_PAYMENT_METHOD } from "@/lib/constants";
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -39,6 +42,9 @@ interface PendingSaleRow {
   originated_by_user_id?: string | null;
   originated_by_name?: string | null;
   user_role?: string | null;
+  loaded_by_user_id?: string | null;
+  loaded_by_name?: string | null;
+  loaded_at?: number | null;
 }
 
 interface PendingItemRow {
@@ -66,6 +72,8 @@ export async function POST(request: NextRequest) {
     await migratePendingSales();
     await migrateDepartmentStaffRole();
     await migrateOriginatedBy();
+    await migrateLoadedByColumns();
+    await migrateSourceColumn();
     await migrateUserDepartment();
 
     const auth = await requireAuth();
@@ -158,25 +166,59 @@ export async function POST(request: NextRequest) {
           ],
         );
       } else {
+        // G-22: Prevent orphan syncs — if a cashier is syncing without pendingSaleId,
+        // check if these items match a recent department-forwarded order and reject.
+        if (auth.role === "cashier") {
+          const freshItemIds = [...new Set(items.map((i) => i.itemId))];
+          if (freshItemIds.length > 0) {
+            const oneHourAgo = now - 3600;
+            const deptPlaceholders = freshItemIds.map(() => "?").join(",");
+            const existingDeptOrder = await tx.queryOne<{ id: string }>(
+              `SELECT s.id FROM sales s
+               JOIN sale_items si ON si.sale_id = s.id
+               WHERE s.business_id = ?
+                 AND s.status = 'pending'
+                 AND s.source = 'department_forward'
+                 AND s.created_at >= ?
+                 AND si.item_id IN (${deptPlaceholders})
+               GROUP BY s.id
+               HAVING COUNT(DISTINCT si.item_id) = ?
+               LIMIT 1`,
+              [
+                auth.businessId,
+                oneHourAgo,
+                ...freshItemIds,
+                freshItemIds.length,
+              ],
+            );
+            if (existingDeptOrder) {
+              throw new Error(
+                `This cart matches a forwarded order (${existingDeptOrder.id}). Resume it from the pending panel instead.`,
+              );
+            }
+          }
+        }
+
         saleId = generateUUID();
         await tx.execute(
           `INSERT INTO sales (
             id, business_id, user_id, shift_id, total_amount, payment_method,
-            status, customer_name, customer_phone, originated_by_user_id,
+            status, source, customer_name, customer_phone, originated_by_user_id,
             sale_date, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             saleId,
             auth.businessId,
             auth.userId,
             null,
             totalAmount,
-            "cash",
+            PENDING_SALE_PAYMENT_METHOD,
             "pending",
+            "cashier_draft",
             body.customerName || null,
             body.customerPhone || null,
             body.originatedByUserId || null,
-            now,
+            null,
             now,
             now,
           ],
@@ -243,6 +285,8 @@ export async function GET(request: NextRequest) {
     await migratePendingSales();
     await migrateDepartmentStaffRole();
     await migrateOriginatedBy();
+    await migrateLoadedByColumns();
+    await migrateSourceColumn();
     await migrateUserDepartment();
 
     const auth = await requireAuth();
@@ -274,10 +318,12 @@ export async function GET(request: NextRequest) {
               s.status, s.total_amount,
               s.customer_name, s.customer_phone, s.created_at, s.updated_at,
               du.name AS discarded_by_name,
-              s.originated_by_user_id, ou.name AS originated_by_name
+              s.originated_by_user_id, ou.name AS originated_by_name,
+              s.loaded_by_user_id, lu.name AS loaded_by_name, s.loaded_at
        FROM sales s
        JOIN users u ON u.id = s.user_id
        LEFT JOIN users ou ON ou.id = s.originated_by_user_id
+       LEFT JOIN users lu ON lu.id = s.loaded_by_user_id
        LEFT JOIN users du ON du.id = s.voided_by
        WHERE s.business_id = ? AND s.status IN (${placeholders})
        ${deptStaffFilter}

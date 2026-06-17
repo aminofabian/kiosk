@@ -3,10 +3,13 @@ import { query, transaction } from "@/lib/db";
 import { migratePendingSales } from "@/lib/db/migrate-pending-sales";
 import { migrateDepartmentStaffRole } from "@/lib/db/migrate-department-staff-role";
 import { migrateOriginatedBy } from "@/lib/db/migrate-originated-by";
+import { migrateLoadedByColumns } from "@/lib/db/migrate-loaded-by";
+import { migrateSourceColumn } from "@/lib/db/migrate-source-column";
 import { migrateUserDepartment } from "@/lib/db/migrate-user-department";
 import { generateUUID } from "@/lib/utils/uuid";
 import { jsonResponse } from "@/lib/utils/api-response";
 import { requireAuth, isAuthResponse } from "@/lib/auth/api-auth";
+import { PENDING_SALE_PAYMENT_METHOD } from "@/lib/constants";
 import { logActivity } from "@/lib/db/activity-log";
 import { eventBus } from "@/lib/sse/event-bus";
 
@@ -33,6 +36,8 @@ export async function POST(request: NextRequest) {
     await migratePendingSales();
     await migrateDepartmentStaffRole();
     await migrateOriginatedBy();
+    await migrateLoadedByColumns();
+    await migrateSourceColumn();
     await migrateUserDepartment();
 
     const auth = await requireAuth();
@@ -90,21 +95,22 @@ export async function POST(request: NextRequest) {
       await tx.execute(
         `INSERT INTO sales (
           id, business_id, user_id, shift_id, total_amount, payment_method,
-          status, customer_name, customer_phone, originated_by_user_id,
+          status, source, customer_name, customer_phone, originated_by_user_id,
           sale_date, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           saleId,
           auth.businessId,
           auth.userId,
           null,
           totalAmount,
-          "cash",
+          PENDING_SALE_PAYMENT_METHOD,
           "pending",
+          "department_forward",
           body.customerName || null,
           body.customerPhone || null,
           auth.userId,
-          now,
+          null,
           now,
           now,
         ],

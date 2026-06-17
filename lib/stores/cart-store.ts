@@ -1,19 +1,21 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import type { UnitType } from '@/lib/constants';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import type { UnitType } from "@/lib/constants";
 import {
   syncPendingSaleToApi,
   abandonPendingSaleOnApi,
+  notifyOrderLoaded,
   isOnline,
-} from './cart-sync';
-import type { PendingSale } from '@/lib/pos/pending-sales';
+} from "./cart-sync";
+import type { PendingSale } from "@/lib/pos/pending-sales";
+import { fetchPendingSales } from "@/lib/pos/pending-sales";
 
 export interface CartItem {
   itemId: string;
   name: string;
   price: number;
   quantity: number;
-  unitType: UnitType | 'bundle';
+  unitType: UnitType | "bundle";
   // Bundle-specific fields
   isBundle?: boolean;
   bundleQuantity?: number; // Number of items in each bundle
@@ -29,13 +31,18 @@ export interface Cart {
   total: number;
   createdAt: number;
   pendingSaleId?: string;
-  syncStatus: 'synced' | 'syncing' | 'error';
+  syncStatus: "synced" | "syncing" | "error";
 }
 
 // Generate a unique cart key for an item (differentiates bundles, regular, and batch-specific)
-const getCartKey = (item: { itemId: string; isBundle?: boolean; inventoryBatchId?: string }): string => {
+const getCartKey = (item: {
+  itemId: string;
+  isBundle?: boolean;
+  inventoryBatchId?: string;
+}): string => {
   if (item.isBundle) return `${item.itemId}:bundle`;
-  if (item.inventoryBatchId) return `${item.itemId}:batch:${item.inventoryBatchId}`;
+  if (item.inventoryBatchId)
+    return `${item.itemId}:batch:${item.inventoryBatchId}`;
   return item.itemId;
 };
 
@@ -49,11 +56,11 @@ const generateCartId = (): string => {
 
 const generateCartName = (carts: Cart[]): string => {
   const cartNumbers = carts
-    .map(c => {
+    .map((c) => {
       const match = c.name.match(/^Cart (\d+)$/);
       return match ? parseInt(match[1], 10) : 0;
     })
-    .filter(n => n > 0);
+    .filter((n) => n > 0);
 
   const maxNumber = cartNumbers.length > 0 ? Math.max(...cartNumbers) : 0;
   return `Cart ${maxNumber + 1}`;
@@ -61,7 +68,7 @@ const generateCartName = (carts: Cart[]): string => {
 
 function formatSavedSaleTime(updatedAt: number): string {
   const d = new Date(updatedAt * 1000);
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 function pendingSaleCartName(pending: PendingSale): string {
@@ -76,13 +83,16 @@ function pendingItemsToCartItems(pending: PendingSale): CartItem[] {
     name: pi.name,
     price: pi.sell_price_per_unit,
     quantity: pi.quantity_sold,
-    unitType: 'piece',
+    unitType: "piece",
     inventoryBatchId: pi.inventory_batch_id || undefined,
     batchNumber: pi.batch_number || undefined,
   }));
 }
 
-function mergeCartItems(existing: CartItem[], incoming: CartItem[]): CartItem[] {
+function mergeCartItems(
+  existing: CartItem[],
+  incoming: CartItem[],
+): CartItem[] {
   const result = existing.map((item) => ({ ...item }));
   for (const item of incoming) {
     const idx = result.findIndex(
@@ -115,7 +125,7 @@ function detachPendingFromOtherCarts(
           items: [],
           total: 0,
           pendingSaleId: undefined,
-          syncStatus: 'synced' as const,
+          syncStatus: "synced" as const,
         }
       : c,
   );
@@ -127,12 +137,15 @@ const createEmptyCart = (name: string): Cart => ({
   items: [],
   total: 0,
   createdAt: Date.now(),
-  syncStatus: 'synced',
+  syncStatus: "synced",
 });
 
 // Helper to get active cart items
-const getActiveCartItems = (state: { carts: Cart[]; activeCartId: string | null }): CartItem[] => {
-  const activeCart = state.carts.find(c => c.id === state.activeCartId);
+const getActiveCartItems = (state: {
+  carts: Cart[];
+  activeCartId: string | null;
+}): CartItem[] => {
+  const activeCart = state.carts.find((c) => c.id === state.activeCartId);
   if (!activeCart && state.carts.length > 0) {
     return state.carts[0].items;
   }
@@ -140,8 +153,11 @@ const getActiveCartItems = (state: { carts: Cart[]; activeCartId: string | null 
 };
 
 // Helper to get active cart total
-const getActiveCartTotal = (state: { carts: Cart[]; activeCartId: string | null }): number => {
-  const activeCart = state.carts.find(c => c.id === state.activeCartId);
+const getActiveCartTotal = (state: {
+  carts: Cart[];
+  activeCartId: string | null;
+}): number => {
+  const activeCart = state.carts.find((c) => c.id === state.activeCartId);
   if (!activeCart && state.carts.length > 0) {
     return state.carts[0].total;
   }
@@ -176,7 +192,7 @@ function scheduleCartSync(cartId: string, syncFn: () => Promise<void>) {
 
 function markCartForSync(get: () => CartStore, cartId: string) {
   const state = get();
-  state.setCartSyncStatus(cartId, 'error');
+  state.setCartSyncStatus(cartId, "error");
   offlineSyncQueue.add(cartId);
 }
 
@@ -196,14 +212,23 @@ interface CartStore {
   renameCart: (cartId: string, name: string) => void;
 
   // Item operations (operate on active cart)
-  addItem: (item: Omit<CartItem, 'quantity'>, quantity: number) => void;
-  updateQuantity: (itemId: string, quantity: number, isBundle?: boolean, inventoryBatchId?: string) => void;
-  removeItem: (itemId: string, isBundle?: boolean, inventoryBatchId?: string) => void;
+  addItem: (item: Omit<CartItem, "quantity">, quantity: number) => void;
+  updateQuantity: (
+    itemId: string,
+    quantity: number,
+    isBundle?: boolean,
+    inventoryBatchId?: string,
+  ) => void;
+  removeItem: (
+    itemId: string,
+    isBundle?: boolean,
+    inventoryBatchId?: string,
+  ) => void;
   clearCart: (options?: { skipAbandon?: boolean }) => void;
 
   // Pending sale sync
   syncPendingSale: (cartId: string) => Promise<void>;
-  setCartSyncStatus: (cartId: string, status: Cart['syncStatus']) => void;
+  setCartSyncStatus: (cartId: string, status: Cart["syncStatus"]) => void;
   processOfflineSyncQueue: () => void;
 
   // For checkout completion
@@ -219,7 +244,7 @@ interface CartStore {
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
-      carts: [createEmptyCart('Cart 1')],
+      carts: [createEmptyCart("Cart 1")],
       activeCartId: null, // Will be set on first access
 
       // Computed items - returns active cart's items (reactive)
@@ -244,24 +269,24 @@ export const useCartStore = create<CartStore>()(
 
       switchCart: (cartId) => {
         const state = get();
-        if (state.carts.some(c => c.id === cartId)) {
+        if (state.carts.some((c) => c.id === cartId)) {
           set({ activeCartId: cartId });
         }
       },
 
       deleteCart: (cartId) => {
         const state = get();
-        const cart = state.carts.find(c => c.id === cartId);
+        const cart = state.carts.find((c) => c.id === cartId);
 
         if (cart?.pendingSaleId) {
           abandonPendingSaleOnApi(cart.pendingSaleId);
         }
 
-        const remainingCarts = state.carts.filter(c => c.id !== cartId);
+        const remainingCarts = state.carts.filter((c) => c.id !== cartId);
 
         // Ensure at least one cart exists
         if (remainingCarts.length === 0) {
-          const newCart = createEmptyCart('Cart 1');
+          const newCart = createEmptyCart("Cart 1");
           set({
             carts: [newCart],
             activeCartId: newCart.id,
@@ -283,9 +308,7 @@ export const useCartStore = create<CartStore>()(
 
       renameCart: (cartId, name) => {
         set((state) => ({
-          carts: state.carts.map(c =>
-            c.id === cartId ? { ...c, name } : c
-          ),
+          carts: state.carts.map((c) => (c.id === cartId ? { ...c, name } : c)),
         }));
       },
 
@@ -300,7 +323,7 @@ export const useCartStore = create<CartStore>()(
 
           if (!activeCartId) {
             // Create a new cart if none exists
-            const newCart = createEmptyCart('Cart 1');
+            const newCart = createEmptyCart("Cart 1");
             activeCartId = newCart.id;
             return {
               carts: [
@@ -308,14 +331,14 @@ export const useCartStore = create<CartStore>()(
                   ...newCart,
                   items: [{ ...item, quantity }],
                   total: item.price * quantity,
-                  syncStatus: 'syncing' as const,
+                  syncStatus: "syncing" as const,
                 },
               ],
               activeCartId,
             };
           }
 
-          const updatedCarts = state.carts.map(cart => {
+          const updatedCarts = state.carts.map((cart) => {
             if (cart.id !== activeCartId) return cart;
 
             // Find existing item with same itemId, type (bundle vs regular), and batch
@@ -323,7 +346,8 @@ export const useCartStore = create<CartStore>()(
               (i) =>
                 i.itemId === item.itemId &&
                 Boolean(i.isBundle) === Boolean(item.isBundle) &&
-                (i.inventoryBatchId || null) === (item.inventoryBatchId || null)
+                (i.inventoryBatchId || null) ===
+                  (item.inventoryBatchId || null),
             );
 
             let newItems: CartItem[];
@@ -332,7 +356,7 @@ export const useCartStore = create<CartStore>()(
               newItems = cart.items.map((i, idx) =>
                 idx === existingItemIndex
                   ? { ...i, quantity: i.quantity + quantity }
-                  : i
+                  : i,
               );
             } else {
               // Add new item
@@ -343,7 +367,7 @@ export const useCartStore = create<CartStore>()(
               ...cart,
               items: newItems,
               total: calculateTotal(newItems),
-              syncStatus: 'syncing' as const,
+              syncStatus: "syncing" as const,
             };
           });
 
@@ -351,11 +375,16 @@ export const useCartStore = create<CartStore>()(
         });
 
         scheduleCartSync(get().activeCartId || get().carts[0].id, () =>
-          get().syncPendingSale(get().activeCartId || get().carts[0].id)
+          get().syncPendingSale(get().activeCartId || get().carts[0].id),
         );
       },
 
-      updateQuantity: (itemId, quantity, isBundle = false, inventoryBatchId?: string) => {
+      updateQuantity: (
+        itemId,
+        quantity,
+        isBundle = false,
+        inventoryBatchId?: string,
+      ) => {
         set((state) => {
           const activeCartId = state.activeCartId || state.carts[0]?.id;
           if (!activeCartId) return state;
@@ -365,7 +394,7 @@ export const useCartStore = create<CartStore>()(
             Boolean(i.isBundle) === isBundle &&
             (i.inventoryBatchId || null) === (inventoryBatchId || null);
 
-          const updatedCarts = state.carts.map(cart => {
+          const updatedCarts = state.carts.map((cart) => {
             if (cart.id !== activeCartId) return cart;
 
             if (quantity <= 0) {
@@ -374,19 +403,19 @@ export const useCartStore = create<CartStore>()(
                 ...cart,
                 items: newItems,
                 total: calculateTotal(newItems),
-                syncStatus: 'syncing' as const,
+                syncStatus: "syncing" as const,
               };
             }
 
             const newItems = cart.items.map((i) =>
-              matchesItem(i) ? { ...i, quantity } : i
+              matchesItem(i) ? { ...i, quantity } : i,
             );
 
             return {
               ...cart,
               items: newItems,
               total: calculateTotal(newItems),
-              syncStatus: 'syncing' as const,
+              syncStatus: "syncing" as const,
             };
           });
 
@@ -394,7 +423,7 @@ export const useCartStore = create<CartStore>()(
         });
 
         scheduleCartSync(get().activeCartId || get().carts[0].id, () =>
-          get().syncPendingSale(get().activeCartId || get().carts[0].id)
+          get().syncPendingSale(get().activeCartId || get().carts[0].id),
         );
       },
 
@@ -408,7 +437,7 @@ export const useCartStore = create<CartStore>()(
             Boolean(i.isBundle) === isBundle &&
             (i.inventoryBatchId || null) === (inventoryBatchId || null);
 
-          const updatedCarts = state.carts.map(cart => {
+          const updatedCarts = state.carts.map((cart) => {
             if (cart.id !== activeCartId) return cart;
 
             const newItems = cart.items.filter((i) => !matchesItem(i));
@@ -416,7 +445,7 @@ export const useCartStore = create<CartStore>()(
               ...cart,
               items: newItems,
               total: calculateTotal(newItems),
-              syncStatus: 'syncing' as const,
+              syncStatus: "syncing" as const,
             };
           });
 
@@ -424,7 +453,7 @@ export const useCartStore = create<CartStore>()(
         });
 
         scheduleCartSync(get().activeCartId || get().carts[0].id, () =>
-          get().syncPendingSale(get().activeCartId || get().carts[0].id)
+          get().syncPendingSale(get().activeCartId || get().carts[0].id),
         );
       },
 
@@ -433,19 +462,19 @@ export const useCartStore = create<CartStore>()(
           const activeCartId = state.activeCartId || state.carts[0]?.id;
           if (!activeCartId) return state;
 
-          const cart = state.carts.find(c => c.id === activeCartId);
+          const cart = state.carts.find((c) => c.id === activeCartId);
           if (!options?.skipAbandon && cart?.pendingSaleId) {
             abandonPendingSaleOnApi(cart.pendingSaleId);
           }
 
-          const updatedCarts = state.carts.map(cart => {
+          const updatedCarts = state.carts.map((cart) => {
             if (cart.id !== activeCartId) return cart;
             return {
               ...cart,
               items: [],
               total: 0,
               pendingSaleId: undefined,
-              syncStatus: 'synced' as const,
+              syncStatus: "synced" as const,
             };
           });
 
@@ -455,7 +484,7 @@ export const useCartStore = create<CartStore>()(
 
       syncPendingSale: async (cartId) => {
         const state = get();
-        const cart = state.carts.find(c => c.id === cartId);
+        const cart = state.carts.find((c) => c.id === cartId);
         if (!cart) return;
 
         // Nothing to sync if cart is empty.
@@ -463,15 +492,17 @@ export const useCartStore = create<CartStore>()(
           if (cart.pendingSaleId) {
             await abandonPendingSaleOnApi(cart.pendingSaleId);
             set((state) => ({
-              carts: state.carts.map(c =>
-                c.id === cartId ? { ...c, pendingSaleId: undefined, syncStatus: 'synced' } : c
+              carts: state.carts.map((c) =>
+                c.id === cartId
+                  ? { ...c, pendingSaleId: undefined, syncStatus: "synced" }
+                  : c,
               ),
             }));
           }
           return;
         }
 
-        state.setCartSyncStatus(cartId, 'syncing');
+        state.setCartSyncStatus(cartId, "syncing");
 
         const result = await syncPendingSaleToApi({
           pendingSaleId: cart.pendingSaleId,
@@ -480,23 +511,27 @@ export const useCartStore = create<CartStore>()(
 
         if (result.success) {
           set((state) => ({
-            carts: state.carts.map(c =>
+            carts: state.carts.map((c) =>
               c.id === cartId
-                ? { ...c, pendingSaleId: result.pendingSaleId, syncStatus: 'synced' }
-                : c
+                ? {
+                    ...c,
+                    pendingSaleId: result.pendingSaleId,
+                    syncStatus: "synced",
+                  }
+                : c,
             ),
           }));
           offlineSyncQueue.delete(cartId);
         } else {
-          state.setCartSyncStatus(cartId, 'error');
+          state.setCartSyncStatus(cartId, "error");
           offlineSyncQueue.add(cartId);
         }
       },
 
       setCartSyncStatus: (cartId, status) => {
         set((state) => ({
-          carts: state.carts.map(c =>
-            c.id === cartId ? { ...c, syncStatus: status } : c
+          carts: state.carts.map((c) =>
+            c.id === cartId ? { ...c, syncStatus: status } : c,
           ),
         }));
       },
@@ -510,7 +545,9 @@ export const useCartStore = create<CartStore>()(
 
       getActiveCartPendingSaleId: () => {
         const state = get();
-        const activeCart = state.carts.find(c => c.id === state.activeCartId) || state.carts[0];
+        const activeCart =
+          state.carts.find((c) => c.id === state.activeCartId) ||
+          state.carts[0];
         return activeCart?.pendingSaleId;
       },
 
@@ -519,8 +556,10 @@ export const useCartStore = create<CartStore>()(
           const activeCartId = state.activeCartId || state.carts[0]?.id;
           if (!activeCartId) return state;
           return {
-            carts: state.carts.map(c =>
-              c.id === activeCartId ? { ...c, pendingSaleId: undefined, syncStatus: 'synced' } : c
+            carts: state.carts.map((c) =>
+              c.id === activeCartId
+                ? { ...c, pendingSaleId: undefined, syncStatus: "synced" }
+                : c,
             ),
           };
         });
@@ -534,11 +573,51 @@ export const useCartStore = create<CartStore>()(
 
       restorePendingSale: (pending) => {
         const state = get();
-        const existing = state.carts.find((c) => c.pendingSaleId === pending.id);
+        const existing = state.carts.find(
+          (c) => c.pendingSaleId === pending.id,
+        );
         if (existing) {
           set({ activeCartId: existing.id });
           return existing.id;
         }
+
+        // Notify server when cashier loads a forwarded department order
+        if (pending.originated_by_user_id) {
+          notifyOrderLoaded(pending.id);
+        }
+
+        // Refresh from server before restoring, in case pending sale changed
+        fetchPendingSales()
+          .then((latest) => {
+            const fresh = latest.find((s) => s.id === pending.id);
+            if (fresh && fresh.status === "pending") {
+              const freshItems = pendingItemsToCartItems(fresh);
+              const freshTotal = calculateTotal(freshItems);
+              const freshName = pendingSaleCartName(fresh);
+              set((state) => {
+                const target = state.carts.find(
+                  (c) => c.pendingSaleId === pending.id,
+                );
+                if (!target) return state;
+                return {
+                  carts: state.carts.map((c) =>
+                    c.id === target.id
+                      ? {
+                          ...c,
+                          name: freshName,
+                          items: freshItems,
+                          total: freshTotal,
+                          syncStatus: "synced" as const,
+                        }
+                      : c,
+                  ),
+                };
+              });
+            }
+          })
+          .catch(() => {
+            /* non-critical — use local data if refresh fails */
+          });
 
         const items = pendingItemsToCartItems(pending);
         const total = calculateTotal(items);
@@ -559,7 +638,7 @@ export const useCartStore = create<CartStore>()(
                     items,
                     total,
                     pendingSaleId: pending.id,
-                    syncStatus: 'synced' as const,
+                    syncStatus: "synced" as const,
                   }
                 : c,
             ),
@@ -573,7 +652,7 @@ export const useCartStore = create<CartStore>()(
           items,
           total,
           pendingSaleId: pending.id,
-          syncStatus: 'synced',
+          syncStatus: "synced",
         };
         set({
           carts: [...state.carts, newCart],
@@ -598,6 +677,11 @@ export const useCartStore = create<CartStore>()(
           return activeCartId;
         }
 
+        // Notify server when cashier loads a forwarded department order
+        if (pending.originated_by_user_id) {
+          notifyOrderLoaded(pending.id);
+        }
+
         const invoiceItems = pendingItemsToCartItems(pending);
         const mergedItems = mergeCartItems(activeCart.items, invoiceItems);
         const oldPendingId = activeCart.pendingSaleId;
@@ -617,7 +701,7 @@ export const useCartStore = create<CartStore>()(
                     items: mergedItems,
                     total: calculateTotal(mergedItems),
                     pendingSaleId: pending.id,
-                    syncStatus: 'syncing' as const,
+                    syncStatus: "syncing" as const,
                   }
                 : c,
             ),
@@ -648,13 +732,19 @@ export const useCartStore = create<CartStore>()(
           return get().restorePendingSale(pending);
         }
 
-        const linkedCart = state.carts.find((c) => c.pendingSaleId === pending.id);
+        const linkedCart = state.carts.find(
+          (c) => c.pendingSaleId === pending.id,
+        );
         const invoiceItems = pendingItemsToCartItems(pending);
         const cartName = pendingSaleCartName(pending);
 
         if (linkedCart) {
           if (linkedCart.id === activeCartId) {
             return activeCartId;
+          }
+
+          if (pending.originated_by_user_id) {
+            notifyOrderLoaded(pending.id);
           }
 
           const mergedItems = mergeCartItems(
@@ -674,7 +764,7 @@ export const useCartStore = create<CartStore>()(
                     items: mergedItems,
                     total: calculateTotal(mergedItems),
                     pendingSaleId: pending.id,
-                    syncStatus: 'syncing' as const,
+                    syncStatus: "syncing" as const,
                   };
                 }
                 if (c.id === activeCartId) {
@@ -683,7 +773,7 @@ export const useCartStore = create<CartStore>()(
                     items: [],
                     total: 0,
                     pendingSaleId: undefined,
-                    syncStatus: 'synced' as const,
+                    syncStatus: "synced" as const,
                   };
                 }
                 return c;
@@ -707,6 +797,10 @@ export const useCartStore = create<CartStore>()(
           return get().restorePendingSale(pending);
         }
 
+        if (pending.originated_by_user_id) {
+          notifyOrderLoaded(pending.id);
+        }
+
         const mergedItems = mergeCartItems(invoiceItems, activeCart.items);
         const oldPendingId = activeCart.pendingSaleId;
 
@@ -720,7 +814,7 @@ export const useCartStore = create<CartStore>()(
                   items: mergedItems,
                   total: calculateTotal(mergedItems),
                   pendingSaleId: pending.id,
-                  syncStatus: 'syncing' as const,
+                  syncStatus: "syncing" as const,
                 }
               : c,
           ),
@@ -738,7 +832,9 @@ export const useCartStore = create<CartStore>()(
 
       clearCartByPendingSaleId: (pendingSaleId) => {
         set((state) => {
-          const cart = state.carts.find((c) => c.pendingSaleId === pendingSaleId);
+          const cart = state.carts.find(
+            (c) => c.pendingSaleId === pendingSaleId,
+          );
           if (!cart) return state;
 
           const updatedCarts = state.carts.map((c) =>
@@ -748,7 +844,7 @@ export const useCartStore = create<CartStore>()(
                   items: [],
                   total: 0,
                   pendingSaleId: undefined,
-                  syncStatus: 'synced' as const,
+                  syncStatus: "synced" as const,
                 }
               : c,
           );
@@ -758,7 +854,7 @@ export const useCartStore = create<CartStore>()(
       },
     }),
     {
-      name: 'cart-storage',
+      name: "cart-storage",
       // Migration to handle existing single-cart data and add syncStatus/pendingSaleId
       migrate: (persistedState: any, version: number) => {
         if (persistedState && !persistedState.carts) {
@@ -767,11 +863,11 @@ export const useCartStore = create<CartStore>()(
           const oldTotal = persistedState.total || 0;
           const newCart: Cart = {
             id: generateCartId(),
-            name: 'Cart 1',
+            name: "Cart 1",
             items: oldItems,
             total: oldTotal,
             createdAt: Date.now(),
-            syncStatus: 'synced',
+            syncStatus: "synced",
           };
           return {
             carts: [newCart],
@@ -782,45 +878,56 @@ export const useCartStore = create<CartStore>()(
         if (persistedState?.carts) {
           persistedState.carts = persistedState.carts.map((c: Cart) => ({
             ...c,
-            syncStatus: c.syncStatus || 'synced',
+            syncStatus: c.syncStatus || "synced",
           }));
         }
 
         return persistedState;
       },
       version: 2,
-    }
-  )
+    },
+  ),
 );
 
 // Set up online/offline listeners in browser environments.
-if (typeof window !== 'undefined') {
-  window.addEventListener('online', () => {
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => {
     useCartStore.getState().processOfflineSyncQueue();
   });
 }
 
 // Selector hooks for reactive access to computed values
-export const useCartItems = () => useCartStore((state) => {
-  const activeCart = state.carts.find(c => c.id === state.activeCartId) || state.carts[0];
-  return activeCart?.items || [];
-});
+export const useCartItems = () =>
+  useCartStore((state) => {
+    const activeCart =
+      state.carts.find((c) => c.id === state.activeCartId) || state.carts[0];
+    return activeCart?.items || [];
+  });
 
-export const useCartTotal = () => useCartStore((state) => {
-  const activeCart = state.carts.find(c => c.id === state.activeCartId) || state.carts[0];
-  return activeCart?.total || 0;
-});
+export const useCartTotal = () =>
+  useCartStore((state) => {
+    const activeCart =
+      state.carts.find((c) => c.id === state.activeCartId) || state.carts[0];
+    return activeCart?.total || 0;
+  });
 
-export const useActiveCart = () => useCartStore((state) => {
-  return state.carts.find(c => c.id === state.activeCartId) || state.carts[0];
-});
+export const useActiveCart = () =>
+  useCartStore((state) => {
+    return (
+      state.carts.find((c) => c.id === state.activeCartId) || state.carts[0]
+    );
+  });
 
-export const useActiveCartPendingSaleId = () => useCartStore((state) => {
-  const activeCart = state.carts.find(c => c.id === state.activeCartId) || state.carts[0];
-  return activeCart?.pendingSaleId;
-});
+export const useActiveCartPendingSaleId = () =>
+  useCartStore((state) => {
+    const activeCart =
+      state.carts.find((c) => c.id === state.activeCartId) || state.carts[0];
+    return activeCart?.pendingSaleId;
+  });
 
-export const useCartSyncStatus = () => useCartStore((state) => {
-  const activeCart = state.carts.find(c => c.id === state.activeCartId) || state.carts[0];
-  return activeCart?.syncStatus || 'synced';
-});
+export const useCartSyncStatus = () =>
+  useCartStore((state) => {
+    const activeCart =
+      state.carts.find((c) => c.id === state.activeCartId) || state.carts[0];
+    return activeCart?.syncStatus || "synced";
+  });

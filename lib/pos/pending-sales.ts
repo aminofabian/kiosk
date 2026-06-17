@@ -27,6 +27,9 @@ export interface PendingSale {
   discarded_by_name?: string | null;
   originated_by_user_id?: string | null;
   originated_by_name?: string | null;
+  loaded_by_user_id?: string | null;
+  loaded_by_name?: string | null;
+  loaded_at?: number | null;
   items: PendingSaleItem[];
 }
 

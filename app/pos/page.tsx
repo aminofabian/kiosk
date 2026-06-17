@@ -18,6 +18,7 @@ import { PosReturnsDialog } from "@/components/pos/PosReturnsDialog";
 import { PosMobileCartTab } from "@/components/pos/PosMobileCartTab";
 import { PosMobileSearchBar } from "@/components/pos/PosMobileSearchBar";
 import { PosSearchSuggestionsDropdown } from "@/components/pos/PosSearchSuggestionsDropdown";
+import { PosCategoryDrawer } from "@/components/pos/PosCategoryDrawer";
 import {
   PosCashierOperationsProvider,
   PosShiftStatusBar,
@@ -104,10 +105,11 @@ import { BarcodeCameraScannerDialog } from "@/components/pos/BarcodeCameraScanne
 import { storeUserRole, clearUserRole } from "@/lib/utils/user-role-storage";
 import { Clock, Command } from "lucide-react";
 import {
-  CATEGORY_COLOR_MAP,
-  CATEGORY_ICON_MAP,
-  CATEGORY_IMAGE_MAP,
-} from "@/lib/pos/category-maps";
+  groupItemsByParent,
+  filterGroupedItems,
+  type GroupedItem,
+  type ItemWithVariants,
+} from "@/lib/pos/item-groups";
 import { usePosKeyboardShortcuts } from "@/lib/hooks/use-pos-keyboard-shortcuts";
 import { usePendingSales } from "@/lib/hooks/use-pending-sales";
 import { isDepartmentOrder } from "@/lib/pos/pending-sales";
@@ -133,6 +135,8 @@ export default function POSPage() {
     loadingSuggestions,
     selectedSuggestionIndex,
     setSelectedSuggestionIndex,
+    searchGridItems,
+    searchGridQuery,
     flatSuggestionsRef,
     handleSearchFocus,
     handleRecentSearchClick,
@@ -152,14 +156,6 @@ export default function POSPage() {
 
   const [categoryDrawerOpen, setCategoryDrawerOpen] = useState(false);
   const [drawerCategoryId, setDrawerCategoryId] = useState<string | null>(null);
-  const [drawerCategoryItems, setDrawerCategoryItems] = useState<
-    ItemWithVariants[]
-  >([]);
-  const [drawerGroupedItems, setDrawerGroupedItems] = useState<GroupedItem[]>(
-    [],
-  );
-  const [drawerItemsLoading, setDrawerItemsLoading] = useState(false);
-  const [drawerSearchQuery, setDrawerSearchQuery] = useState("");
   const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
   const [checkoutDrawerOpen, setCheckoutDrawerOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<PosMobileTab>("sell");
@@ -771,355 +767,6 @@ export default function POSPage() {
     cartHasItems: cartItemCount > 0,
   });
 
-  const getCategoryImage = (categoryName: string) => {
-    if (!categoryName) return null;
-
-    const normalizedName = categoryName.trim();
-
-    // Direct match first
-    if (CATEGORY_IMAGE_MAP[normalizedName]) {
-      return CATEGORY_IMAGE_MAP[normalizedName];
-    }
-
-    // Try case-insensitive match
-    for (const [key, value] of Object.entries(CATEGORY_IMAGE_MAP)) {
-      if (key.toLowerCase() === normalizedName.toLowerCase()) {
-        return value;
-      }
-    }
-
-    const normalized = normalizedName
-      .toLowerCase()
-      .replace(/&/g, "and")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    const variations: Record<string, string> = {
-      vegetables: "/category/vegetables.jpeg",
-      vegetable: "/category/vegetables.jpeg",
-      fruits: "/category/fruits.jpeg",
-      fruit: "/category/fruits.jpeg",
-      "grains and cereals": "/category/grains&cereals.jpg",
-      "grains & cereals": "/category/grains&cereals.jpg",
-      "cereals and grains": "/category/grains&cereals.jpg",
-      "cereals & grains": "/category/grains&cereals.jpg",
-      "grain and cereal": "/category/grains&cereals.jpg",
-      "grain & cereal": "/category/grains&cereals.jpg",
-      "grains&cereals": "/category/grains&cereals.jpg",
-      spices: "/category/spices.webp",
-      spice: "/category/spices.webp",
-      beverages:
-        shopType === "retail"
-          ? "/retail/beverages.jpg"
-          : "/category/beverages.jpeg",
-      beverage:
-        shopType === "retail"
-          ? "/retail/beverages.jpg"
-          : "/category/beverages.jpeg",
-      drinks:
-        shopType === "retail"
-          ? "/retail/beverages.jpg"
-          : "/category/beverages.jpeg",
-      snacks: "/category/snacks.jpg",
-      snack: "/category/snacks.jpg",
-      "green grocery": "/category/green-grocery.jpeg",
-      "green-grocery": "/category/green-grocery.jpeg",
-      dairy: "/category/Dairy.jpeg",
-      meat: "/category/meat.jpg",
-      bakery: "/category/bakery.webp",
-      "baked goods": "/category/bakery.webp",
-      "frozen foods": "/category/frozen-foods.jpg",
-      "frozen food": "/category/frozen-foods.jpg",
-      frozen: "/category/frozen-foods.jpg",
-      "canned goods": "/category/canned-goods.jpeg",
-      "canned good": "/category/canned-goods.jpeg",
-      canned: "/category/canned-goods.jpeg",
-      // Retail variations
-      "food essentials": "/retail/food%20essentials.jpeg",
-      "food essential": "/retail/food%20essentials.jpeg",
-      "snacks & confectionery": "/retail/Snacks-Confectionary.jpg",
-      "snacks and confectionery": "/retail/Snacks-Confectionary.jpg",
-      confectionery: "/retail/Snacks-Confectionary.jpg",
-      "cleaning products": "/retail/cleaning%20products.webp",
-      "cleaning product": "/retail/cleaning%20products.webp",
-      "personal care": "/retail/beverages.jpg", // Using beverages as placeholder
-      "household items": "/retail/beverages.jpg", // Using beverages as placeholder
-      "household item": "/retail/beverages.jpg",
-      "paper products": "/retail/paper%20products.jpeg",
-      "paper product": "/retail/paper%20products.jpeg",
-      "general merchandise": "/retail/general%20merchandize.jpeg",
-      "general merchandize": "/retail/general%20merchandize.jpeg", // Note: filename has typo
-      merchandise: "/retail/general%20merchandize.jpeg",
-      merchandize: "/retail/general%20merchandize.jpeg",
-    };
-
-    if (variations[normalized]) {
-      return variations[normalized];
-    }
-
-    for (const [key, value] of Object.entries(variations)) {
-      if (normalized.includes(key) || key.includes(normalized)) {
-        return value;
-      }
-    }
-
-    return null;
-  };
-
-  const getCategoryIcon = (categoryName: string) => {
-    if (!categoryName) return <Package className="w-7 h-7" />;
-
-    const normalizedName = categoryName.trim();
-    const lowerName = normalizedName.toLowerCase();
-
-    // Direct match first
-    if (CATEGORY_ICON_MAP[normalizedName]) {
-      return CATEGORY_ICON_MAP[normalizedName];
-    }
-
-    // Try case-insensitive match
-    for (const [key, value] of Object.entries(CATEGORY_ICON_MAP)) {
-      if (key.toLowerCase() === lowerName) {
-        return value;
-      }
-    }
-
-    // Try normalized variations
-    const normalized = lowerName
-      .replace(/&/g, "and")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    const variations: Record<string, string> = {
-      vegetables: "Vegetables",
-      vegetable: "Vegetables",
-      fruits: "Fruits",
-      fruit: "Fruits",
-      "grains and cereals": "Grains & Cereals",
-      "grains & cereals": "Grains & Cereals",
-      "cereals and grains": "Grains & Cereals",
-      "cereals & grains": "Grains & Cereals",
-      "grain and cereal": "Grains & Cereals",
-      "grain & cereal": "Grains & Cereals",
-      "grains&cereals": "Grains & Cereals",
-      spices: "Spices",
-      spice: "Spices",
-      beverages: "Beverages",
-      beverage: "Beverages",
-      drinks: "Beverages",
-      snacks: "Snacks",
-      snack: "Snacks",
-      "green grocery": "Green Grocery",
-      "green-grocery": "Green Grocery",
-      dairy: "Dairy",
-      meat: "Meat",
-      bakery: "Bakery",
-      "baked goods": "Bakery",
-      "frozen foods": "Frozen Foods",
-      "frozen food": "Frozen Foods",
-      frozen: "Frozen Foods",
-      "canned goods": "Canned Goods",
-      "canned good": "Canned Goods",
-      canned: "Canned Goods",
-      "food essentials": "Food Essentials",
-      "food essential": "Food Essentials",
-      "snacks & confectionery": "Snacks & Confectionery",
-      "snacks and confectionery": "Snacks & Confectionery",
-      confectionery: "Snacks & Confectionery",
-      "cleaning products": "Cleaning Products",
-      "cleaning product": "Cleaning Products",
-      "personal care": "Personal Care",
-      "household items": "Household Items",
-      "household item": "Household Items",
-      "household goods": "Household Items",
-      "paper products": "Paper Products",
-      "paper product": "Paper Products",
-      "general merchandise": "General Merchandise",
-      "general merchandize": "General Merchandise",
-      merchandise: "General Merchandise",
-      merchandize: "General Merchandise",
-    };
-
-    if (variations[normalized] && CATEGORY_ICON_MAP[variations[normalized]]) {
-      return CATEGORY_ICON_MAP[variations[normalized]];
-    }
-
-    // Keyword-based matching for custom categories - all icons use consistent size w-7 h-7
-    if (
-      lowerName.includes("medicine") ||
-      lowerName.includes("meds") ||
-      lowerName.includes("pill") ||
-      lowerName.includes("drug")
-    ) {
-      return <Pill className="w-7 h-7" />;
-    }
-    if (lowerName.includes("coffee") || lowerName.includes("tea")) {
-      return <CoffeeIcon className="w-7 h-7" />;
-    }
-    if (
-      lowerName.includes("cake") ||
-      lowerName.includes("pastry") ||
-      lowerName.includes("baked")
-    ) {
-      return <Cake className="w-7 h-7" />;
-    }
-    if (
-      lowerName.includes("beauty") ||
-      lowerName.includes("cosmetic") ||
-      lowerName.includes("makeup")
-    ) {
-      return <HeartIcon className="w-7 h-7" />;
-    }
-    if (
-      lowerName.includes("juice") ||
-      lowerName.includes("drink") ||
-      lowerName.includes("soda")
-    ) {
-      return <Droplets className="w-7 h-7" />;
-    }
-    if (
-      lowerName.includes("detergent") ||
-      lowerName.includes("soap") ||
-      lowerName.includes("cleaner")
-    ) {
-      return <Sparkles className="w-7 h-7" />;
-    }
-    if (
-      lowerName.includes("stationery") ||
-      lowerName.includes("pen") ||
-      lowerName.includes("paper") ||
-      lowerName.includes("notebook")
-    ) {
-      return <BookOpen className="w-7 h-7" />;
-    }
-    if (lowerName.includes("match") || lowerName.includes("lighter")) {
-      return <Flame className="w-7 h-7" />;
-    }
-    if (
-      lowerName.includes("shoe") ||
-      lowerName.includes("polish") ||
-      lowerName.includes("suede")
-    ) {
-      return <Shirt className="w-7 h-7" />;
-    }
-    if (
-      lowerName.includes("lotion") ||
-      lowerName.includes("cream") ||
-      lowerName.includes("body")
-    ) {
-      return <HeartIcon className="w-7 h-7" />;
-    }
-    if (
-      lowerName.includes("sauce") ||
-      lowerName.includes("condiment") ||
-      lowerName.includes("ketchup") ||
-      lowerName.includes("tomato")
-    ) {
-      return <UtensilsCrossed className="w-7 h-7" />;
-    }
-    if (
-      lowerName.includes("flour") ||
-      lowerName.includes("wheat") ||
-      lowerName.includes("maize") ||
-      lowerName.includes("grain") ||
-      lowerName.includes("cereal") ||
-      lowerName.includes("weetabix")
-    ) {
-      return <Wheat className="w-7 h-7" />;
-    }
-    if (lowerName.includes("oil") || lowerName.includes("cooking")) {
-      return <Droplets className="w-7 h-7" />;
-    }
-    if (lowerName.includes("sugar") || lowerName.includes("sweet")) {
-      return <Candy className="w-7 h-7" />;
-    }
-    if (lowerName.includes("household") || lowerName.includes("goods")) {
-      return <HomeIcon className="w-7 h-7" />;
-    }
-
-    // Default fallback - always return an icon
-    return <Package className="w-7 h-7" />;
-  };
-
-  const getCategoryColor = (categoryName: string) => {
-    if (!categoryName) return "text-gray-600 dark:text-gray-400";
-
-    const normalizedName = categoryName.trim();
-
-    // Direct match first
-    if (CATEGORY_COLOR_MAP[normalizedName]) {
-      return CATEGORY_COLOR_MAP[normalizedName];
-    }
-
-    // Try case-insensitive match
-    for (const [key, value] of Object.entries(CATEGORY_COLOR_MAP)) {
-      if (key.toLowerCase() === normalizedName.toLowerCase()) {
-        return value;
-      }
-    }
-
-    // Try normalized variations
-    const normalized = normalizedName
-      .toLowerCase()
-      .replace(/&/g, "and")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    const variations: Record<string, string> = {
-      vegetables: "Vegetables",
-      vegetable: "Vegetables",
-      fruits: "Fruits",
-      fruit: "Fruits",
-      "grains and cereals": "Grains & Cereals",
-      "grains & cereals": "Grains & Cereals",
-      "cereals and grains": "Grains & Cereals",
-      "cereals & grains": "Grains & Cereals",
-      "grain and cereal": "Grains & Cereals",
-      "grain & cereal": "Grains & Cereals",
-      "grains&cereals": "Grains & Cereals",
-      spices: "Spices",
-      spice: "Spices",
-      beverages: "Beverages",
-      beverage: "Beverages",
-      drinks: "Beverages",
-      snacks: "Snacks",
-      snack: "Snacks",
-      "green grocery": "Green Grocery",
-      "green-grocery": "Green Grocery",
-      dairy: "Dairy",
-      meat: "Meat",
-      bakery: "Bakery",
-      "baked goods": "Bakery",
-      "frozen foods": "Frozen Foods",
-      "frozen food": "Frozen Foods",
-      frozen: "Frozen Foods",
-      "canned goods": "Canned Goods",
-      "canned good": "Canned Goods",
-      canned: "Canned Goods",
-      "food essentials": "Food Essentials",
-      "food essential": "Food Essentials",
-      "snacks & confectionery": "Snacks & Confectionery",
-      "snacks and confectionery": "Snacks & Confectionery",
-      confectionery: "Snacks & Confectionery",
-      "cleaning products": "Cleaning Products",
-      "cleaning product": "Cleaning Products",
-      "personal care": "Personal Care",
-      "household items": "Household Items",
-      "household item": "Household Items",
-      "paper products": "Paper Products",
-      "paper product": "Paper Products",
-      "general merchandise": "General Merchandise",
-      "general merchandize": "General Merchandise",
-      merchandise: "General Merchandise",
-      merchandize: "General Merchandise",
-    };
-
-    if (variations[normalized] && CATEGORY_COLOR_MAP[variations[normalized]]) {
-      return CATEGORY_COLOR_MAP[variations[normalized]];
-    }
-
-    return "text-gray-600 dark:text-gray-400";
-  };
 
   // Show all categories in a uniform grid
 
@@ -1143,174 +790,6 @@ export default function POSPage() {
       setCategoryDrawerOpen(true);
     }
   }, []);
-
-  // Fetch items for drawer category
-  useEffect(() => {
-    if (!drawerCategoryId || !categoryDrawerOpen) {
-      setDrawerCategoryItems([]);
-      setDrawerGroupedItems([]);
-      return;
-    }
-
-    async function fetchDrawerCategoryItems() {
-      try {
-        setDrawerItemsLoading(true);
-        const result = await apiGetOffline<Item[]>(
-          `/api/items?categoryId=${drawerCategoryId}`,
-        );
-        if (result.success) {
-          const rawItems: Item[] = result.data ?? [];
-          const allItems = rawItems.filter((item) =>
-            itemMatchesShopType(item, shopType),
-          );
-
-          // Build parent name map and identify which items have variants
-          const parentNames = new Map<string, string>();
-          const parentIds = new Set<string>();
-          const parentItems = new Map<string, Item>();
-
-          for (const item of allItems) {
-            if (!item.parent_item_id) {
-              parentNames.set(item.id, item.name);
-              parentItems.set(item.id, item);
-            }
-          }
-
-          for (const item of allItems) {
-            if (item.parent_item_id) {
-              parentIds.add(item.parent_item_id);
-            }
-          }
-
-          // Group items by parent
-          const grouped: GroupedItem[] = [];
-          const childrenByParent = new Map<string, Item[]>();
-          const standaloneItems: Item[] = [];
-
-          // Group children by parent
-          for (const item of allItems) {
-            if (item.parent_item_id) {
-              if (!childrenByParent.has(item.parent_item_id)) {
-                childrenByParent.set(item.parent_item_id, []);
-              }
-              childrenByParent.get(item.parent_item_id)!.push(item);
-            } else if (!parentIds.has(item.id)) {
-              // Standalone item (not a parent with children)
-              standaloneItems.push(item);
-            }
-          }
-
-          // Add parent groups
-          for (const [parentId, children] of childrenByParent.entries()) {
-            const parent = parentItems.get(parentId);
-            if (parent) {
-              grouped.push({
-                type: "parent",
-                parent,
-                children: children.sort((a, b) =>
-                  (a.variant_name || a.name).localeCompare(
-                    b.variant_name || b.name,
-                  ),
-                ),
-              });
-            }
-          }
-
-          // Add standalone items
-          for (const item of standaloneItems) {
-            grouped.push({
-              type: "standalone",
-              item,
-            });
-          }
-
-          // Sort grouped items: parents alphabetically, then standalone items
-          grouped.sort((a, b) => {
-            if (a.type === "parent" && b.type === "parent") {
-              return (a.parent?.name || "").localeCompare(b.parent?.name || "");
-            }
-            if (a.type === "standalone" && b.type === "standalone") {
-              return (a.item?.name || "").localeCompare(b.item?.name || "");
-            }
-            // Parents come before standalone
-            return a.type === "parent" ? -1 : 1;
-          });
-
-          setDrawerGroupedItems(grouped);
-
-          // Also keep flat list for backward compatibility
-          const processedItems: ItemWithVariants[] = [];
-          for (const group of grouped) {
-            if (group.type === "parent" && group.children) {
-              for (const child of group.children) {
-                processedItems.push({
-                  ...child,
-                  parentName: group.parent?.name,
-                });
-              }
-            } else if (group.type === "standalone" && group.item) {
-              processedItems.push(group.item);
-            }
-          }
-          setDrawerCategoryItems(processedItems);
-        }
-      } catch (err) {
-        console.error("Error fetching drawer category items:", err);
-      } finally {
-        setDrawerItemsLoading(false);
-      }
-    }
-
-    fetchDrawerCategoryItems();
-  }, [drawerCategoryId, categoryDrawerOpen, refreshKey, shopType]);
-
-  const drawerCategory = drawerCategoryId
-    ? filteredCategories.find((c) => c.id === drawerCategoryId)
-    : null;
-
-  const filteredDrawerGroupedItems = drawerSearchQuery
-    ? drawerGroupedItems
-        .filter((group) => {
-          if (group.type === "parent") {
-            const matchesParent = group.parent?.name
-              .toLowerCase()
-              .includes(drawerSearchQuery.toLowerCase());
-            const matchesChildren = group.children?.some(
-              (child) =>
-                child.name
-                  .toLowerCase()
-                  .includes(drawerSearchQuery.toLowerCase()) ||
-                child.variant_name
-                  ?.toLowerCase()
-                  .includes(drawerSearchQuery.toLowerCase()),
-            );
-            return matchesParent || matchesChildren;
-          } else {
-            return group.item?.name
-              .toLowerCase()
-              .includes(drawerSearchQuery.toLowerCase());
-          }
-        })
-        .map((group) => {
-          if (group.type === "parent" && group.children) {
-            // Filter children if search query doesn't match parent
-            const filteredChildren = group.children.filter(
-              (child) =>
-                child.name
-                  .toLowerCase()
-                  .includes(drawerSearchQuery.toLowerCase()) ||
-                child.variant_name
-                  ?.toLowerCase()
-                  .includes(drawerSearchQuery.toLowerCase()) ||
-                group.parent?.name
-                  .toLowerCase()
-                  .includes(drawerSearchQuery.toLowerCase()),
-            );
-            return { ...group, children: filteredChildren };
-          }
-          return group;
-        })
-    : drawerGroupedItems;
 
   // Fetch receipt data when drawer opens
   useEffect(() => {
@@ -1404,21 +883,6 @@ export default function POSPage() {
     }
   }, [receiptDrawerOpen, receiptData, receiptSaleId]);
 
-  interface ItemWithVariants extends Item {
-    isParent?: boolean;
-    variantCount?: number;
-    variants?: Item[];
-    parentName?: string; // Parent name for variants
-  }
-
-  interface GroupedItem {
-    type: "parent" | "standalone";
-    parent?: Item;
-    children?: Item[];
-    item?: Item;
-  }
-
-  const [categoryItems, setCategoryItems] = useState<ItemWithVariants[]>([]);
   const [groupedCategoryItems, setGroupedCategoryItems] = useState<
     GroupedItem[]
   >([]);
@@ -1427,7 +891,6 @@ export default function POSPage() {
 
   useEffect(() => {
     if (!selectedCategoryId) {
-      setCategoryItems([]);
       setGroupedCategoryItems([]);
       setCategorySearchQuery("");
       return;
@@ -1440,100 +903,11 @@ export default function POSPage() {
           `/api/items?categoryId=${selectedCategoryId}`,
         );
         if (result.success) {
-          const rawItems: Item[] = result.data ?? [];
-          const allItems = rawItems.filter((item) =>
+          const allItems = (result.data ?? []).filter((item) =>
             itemMatchesShopType(item, shopType),
           );
-
-          // Build parent name map and identify which items have variants
-          const parentNames = new Map<string, string>();
-          const parentIds = new Set<string>();
-          const parentItems = new Map<string, Item>();
-
-          for (const item of allItems) {
-            if (!item.parent_item_id) {
-              parentNames.set(item.id, item.name);
-              parentItems.set(item.id, item);
-            }
-          }
-
-          for (const item of allItems) {
-            if (item.parent_item_id) {
-              parentIds.add(item.parent_item_id);
-            }
-          }
-
-          // Group items by parent
-          const grouped: GroupedItem[] = [];
-          const childrenByParent = new Map<string, Item[]>();
-          const standaloneItems: Item[] = [];
-
-          // Group children by parent
-          for (const item of allItems) {
-            if (item.parent_item_id) {
-              if (!childrenByParent.has(item.parent_item_id)) {
-                childrenByParent.set(item.parent_item_id, []);
-              }
-              childrenByParent.get(item.parent_item_id)!.push(item);
-            } else if (!parentIds.has(item.id)) {
-              // Standalone item (not a parent with children)
-              standaloneItems.push(item);
-            }
-          }
-
-          // Add parent groups
-          for (const [parentId, children] of childrenByParent.entries()) {
-            const parent = parentItems.get(parentId);
-            if (parent) {
-              grouped.push({
-                type: "parent",
-                parent,
-                children: children.sort((a, b) =>
-                  (a.variant_name || a.name).localeCompare(
-                    b.variant_name || b.name,
-                  ),
-                ),
-              });
-            }
-          }
-
-          // Add standalone items
-          for (const item of standaloneItems) {
-            grouped.push({
-              type: "standalone",
-              item,
-            });
-          }
-
-          // Sort grouped items: parents alphabetically, then standalone items
-          grouped.sort((a, b) => {
-            if (a.type === "parent" && b.type === "parent") {
-              return (a.parent?.name || "").localeCompare(b.parent?.name || "");
-            }
-            if (a.type === "standalone" && b.type === "standalone") {
-              return (a.item?.name || "").localeCompare(b.item?.name || "");
-            }
-            // Parents come before standalone
-            return a.type === "parent" ? -1 : 1;
-          });
-
+          const grouped = groupItemsByParent(allItems);
           setGroupedCategoryItems(grouped);
-
-          // Also keep flat list for backward compatibility
-          const processedItems: ItemWithVariants[] = [];
-          for (const group of grouped) {
-            if (group.type === "parent" && group.children) {
-              for (const child of group.children) {
-                processedItems.push({
-                  ...child,
-                  parentName: group.parent?.name,
-                });
-              }
-            } else if (group.type === "standalone" && group.item) {
-              processedItems.push(group.item);
-            }
-          }
-          setCategoryItems(processedItems);
         }
       } catch (err) {
         console.error("Error fetching category items:", err);
@@ -1545,49 +919,10 @@ export default function POSPage() {
     fetchCategoryItems();
   }, [selectedCategoryId, refreshKey, shopType]);
 
-  const filteredGroupedCategoryItems = categorySearchQuery
-    ? groupedCategoryItems
-        .filter((group) => {
-          if (group.type === "parent") {
-            const matchesParent = group.parent?.name
-              .toLowerCase()
-              .includes(categorySearchQuery.toLowerCase());
-            const matchesChildren = group.children?.some(
-              (child) =>
-                child.name
-                  .toLowerCase()
-                  .includes(categorySearchQuery.toLowerCase()) ||
-                child.variant_name
-                  ?.toLowerCase()
-                  .includes(categorySearchQuery.toLowerCase()),
-            );
-            return matchesParent || matchesChildren;
-          } else {
-            return group.item?.name
-              .toLowerCase()
-              .includes(categorySearchQuery.toLowerCase());
-          }
-        })
-        .map((group) => {
-          if (group.type === "parent" && group.children) {
-            // Filter children if search query doesn't match parent
-            const filteredChildren = group.children.filter(
-              (child) =>
-                child.name
-                  .toLowerCase()
-                  .includes(categorySearchQuery.toLowerCase()) ||
-                child.variant_name
-                  ?.toLowerCase()
-                  .includes(categorySearchQuery.toLowerCase()) ||
-                group.parent?.name
-                  .toLowerCase()
-                  .includes(categorySearchQuery.toLowerCase()),
-            );
-            return { ...group, children: filteredChildren };
-          }
-          return group;
-        })
-    : groupedCategoryItems;
+  const filteredGroupedCategoryItems = filterGroupedItems(
+    groupedCategoryItems,
+    categorySearchQuery,
+  );
 
   const handleMobileItemClick = (item: ItemWithVariants) => {
     // All items are now directly selectable (variants or standalone)
@@ -1652,6 +987,16 @@ export default function POSPage() {
                     categoryId={null}
                     searchQuery={debouncedSearchQuery}
                     searchDebounceMs={0}
+                    prefetchedSearchItems={
+                      searchGridQuery === debouncedSearchQuery
+                        ? searchGridItems
+                        : null
+                    }
+                    prefetchedSearchQuery={
+                      searchGridQuery === debouncedSearchQuery
+                        ? searchGridQuery
+                        : undefined
+                    }
                     onSelectItem={handleSelectItem}
                     onSelectParent={handleSelectParent}
                     onQuickAdd={handleQuickAdd}
@@ -1723,6 +1068,16 @@ export default function POSPage() {
                       categoryId={null}
                       searchQuery={debouncedSearchQuery}
                     searchDebounceMs={0}
+                    prefetchedSearchItems={
+                      searchGridQuery === debouncedSearchQuery
+                        ? searchGridItems
+                        : null
+                    }
+                    prefetchedSearchQuery={
+                      searchGridQuery === debouncedSearchQuery
+                        ? searchGridQuery
+                        : undefined
+                    }
                       onSelectItem={handleSelectItem}
                       onSelectParent={handleSelectParent}
                       onQuickAdd={handleQuickAdd}
@@ -1828,6 +1183,16 @@ export default function POSPage() {
                     categoryId={null}
                     searchQuery={debouncedSearchQuery}
                     searchDebounceMs={0}
+                    prefetchedSearchItems={
+                      searchGridQuery === debouncedSearchQuery
+                        ? searchGridItems
+                        : null
+                    }
+                    prefetchedSearchQuery={
+                      searchGridQuery === debouncedSearchQuery
+                        ? searchGridQuery
+                        : undefined
+                    }
                     onSelectItem={handleSelectItem}
                     onSelectParent={handleSelectParent}
                     onQuickAdd={handleQuickAdd}
@@ -2123,6 +1488,18 @@ export default function POSPage() {
                         }
                         searchQuery={debouncedSearchQuery || undefined}
                         searchDebounceMs={debouncedSearchQuery ? 0 : undefined}
+                        prefetchedSearchItems={
+                          debouncedSearchQuery &&
+                          searchGridQuery === debouncedSearchQuery
+                            ? searchGridItems
+                            : null
+                        }
+                        prefetchedSearchQuery={
+                          debouncedSearchQuery &&
+                          searchGridQuery === debouncedSearchQuery
+                            ? searchGridQuery
+                            : undefined
+                        }
                         onSelectItem={handleSelectItem}
                         onSelectParent={handleSelectParent}
                         onQuickAdd={handleQuickAdd}
@@ -2314,380 +1691,22 @@ export default function POSPage() {
           </div>
         )}
 
-        {/* Category Products Drawer */}
-        <Drawer
+        <PosCategoryDrawer
           open={categoryDrawerOpen}
           onOpenChange={setCategoryDrawerOpen}
-          direction="right"
-        >
-          <DrawerContent className="!w-full sm:!w-[600px] md:!w-[700px] !max-w-none h-full max-h-screen bg-white dark:bg-slate-900 print:hidden">
-            <DrawerHeader className="border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-slate-900 px-4 sm:px-5 py-4">
-              <div className="flex items-center justify-between pr-8">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-none bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-sm shadow-[#1c6a1e]/20 flex-shrink-0 [&>svg]:w-5 [&>svg]:h-5 [&>svg]:text-white">
-                    {drawerCategory && getCategoryIcon(drawerCategory.name)}
-                  </div>
-                  <div className="min-w-0">
-                    <DrawerTitle className="text-base sm:text-lg font-bold text-gray-900 dark:text-white truncate">
-                      {drawerCategory?.name || "Category"}
-                    </DrawerTitle>
-                    <DrawerDescription className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
-                      {drawerItemsLoading
-                        ? "Loading..."
-                        : `${drawerCategoryItems.length} product${drawerCategoryItems.length !== 1 ? "s" : ""}`}
-                    </DrawerDescription>
-                  </div>
-                </div>
-                <DrawerClose asChild>
-                  <button
-                    type="button"
-                    className="w-8 h-8 flex items-center justify-center rounded-none bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 active:scale-95 transition-all"
-                    aria-label="Close drawer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </DrawerClose>
-              </div>
-              {/* Drawer search */}
-              <div className="mt-3 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  type="text"
-                  placeholder={`Search ${drawerCategory?.name.toLowerCase() || "products"}...`}
-                  value={drawerSearchQuery}
-                  onChange={(e) => setDrawerSearchQuery(e.target.value)}
-                  className="pl-10 pr-10 h-10 bg-gray-50 dark:bg-slate-800 rounded-none border-gray-200/80 dark:border-gray-700/60 focus:border-[#1c6a1e] focus:ring-2 focus:ring-[#1c6a1e]/20 text-sm"
-                />
-                {drawerSearchQuery && (
-                  <button
-                    onClick={() => setDrawerSearchQuery("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-none bg-gray-200 dark:bg-gray-700 text-gray-500 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-            </DrawerHeader>
+          categoryId={drawerCategoryId}
+          categoryName={
+            drawerCategoryId
+              ? filteredCategories.find((c) => c.id === drawerCategoryId)?.name ??
+                null
+              : null
+          }
+          shopType={shopType}
+          refreshKey={refreshKey}
+          onSelectItem={handleSelectItem}
+        />
 
-            <div className="overflow-y-auto flex-1 bg-gray-50/50 dark:bg-slate-900/50 px-4 sm:px-5 py-4">
-              {drawerItemsLoading ? (
-                /* Skeleton loading grid */
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {Array.from({ length: 6 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800/50 overflow-hidden animate-pulse"
-                    >
-                      <div className="aspect-[4/3] bg-gray-100 dark:bg-gray-800" />
-                      <div className="p-3 space-y-2">
-                        <div className="h-3.5 bg-gray-100 dark:bg-gray-800 rounded w-3/4" />
-                        <div className="h-5 bg-gray-100 dark:bg-gray-800 rounded w-2/5" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : filteredDrawerGroupedItems.length === 0 ? (
-                /* Empty state */
-                <div className="flex flex-col items-center justify-center h-64 gap-3">
-                  <div className="w-16 h-16 rounded-none bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-                    <Package className="w-7 h-7 text-gray-300 dark:text-gray-600" />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      {drawerSearchQuery
-                        ? `No results for "${drawerSearchQuery}"`
-                        : "No products yet"}
-                    </p>
-                    {drawerSearchQuery && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                        Try a different search term
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-5">
-                  {/* Parent groups */}
-                  {filteredDrawerGroupedItems
-                    .filter((g) => g.type === "parent")
-                    .map((group) => {
-                      if (
-                        !group.parent ||
-                        !group.children ||
-                        group.children.length === 0
-                      )
-                        return null;
-                      return (
-                        <div
-                          key={group.parent.id}
-                          className="rounded-none border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800/40 overflow-hidden"
-                        >
-                          {/* Parent header */}
-                          <div className="flex items-center gap-2.5 px-3.5 py-2.5 border-b border-gray-100 dark:border-gray-700/40 bg-gray-50/80 dark:bg-gray-800/30">
-                            <div className="w-7 h-7 rounded-none bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center flex-shrink-0">
-                              <Package className="w-3.5 h-3.5 text-white" />
-                            </div>
-                            <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate flex-1">
-                              {group.parent.name}
-                            </h2>
-                            <span className="text-[11px] text-gray-400 dark:text-gray-500 font-medium flex-shrink-0">
-                              {group.children.length} variant
-                              {group.children.length !== 1 ? "s" : ""}
-                            </span>
-                          </div>
-                          {/* Children grid */}
-                          <div className="p-2.5">
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                              {group.children.map((item) => (
-                                <button
-                                  key={item.id}
-                                  onClick={() => {
-                                    handleSelectItem(item);
-                                    setCategoryDrawerOpen(false);
-                                  }}
-                                  className="pos-grid-btn group bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-800/95 dark:to-slate-800/70 rounded-none border-2 border-slate-300 dark:border-slate-500 overflow-hidden text-left"
-                                >
-                                  {/* Image */}
-                                  <div className="aspect-[4/3] bg-gray-50 dark:bg-gray-800/50 overflow-hidden relative">
-                                    {group.parent &&
-                                    resolveItemImageUrl(group.parent) ? (
-                                      <img
-                                        src={resolveItemImageUrl(group.parent)!}
-                                        alt={item.name}
-                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                        loading="lazy"
-                                        onError={(e) => {
-                                          const target =
-                                            e.target as HTMLImageElement;
-                                          const parentEl = target.parentElement;
-                                          if (parentEl) {
-                                            parentEl.innerHTML =
-                                              '<div class="w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-800/50"><svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></div>';
-                                          }
-                                        }}
-                                      />
-                                    ) : (
-                                      <div className="w-full h-full flex items-center justify-center">
-                                        <Package className="w-8 h-8 text-gray-300 dark:text-gray-600" />
-                                      </div>
-                                    )}
-                                    {/* Stock overlay when zero or negative */}
-                                    {item.current_stock <= 0 && (
-                                      <div className="absolute inset-0 bg-white/60 dark:bg-black/40 flex items-center justify-center">
-                                        <span
-                                          className={`text-[10px] font-bold px-2 py-0.5 rounded-none ${
-                                            item.current_stock < 0
-                                              ? "text-red-600 dark:text-red-400 bg-red-50/95 dark:bg-red-950/80"
-                                              : "text-gray-500 dark:text-gray-400 bg-white/90 dark:bg-black/60"
-                                          }`}
-                                        >
-                                          {item.current_stock < 0
-                                            ? `${item.current_stock.toFixed(item.unit_type === "kg" || item.unit_type === "g" ? 2 : 0)} ${item.unit_type}`
-                                            : "Out of stock"}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                  {/* Info */}
-                                  <div className="p-2">
-                                    <h3 className="font-semibold text-[11px] sm:text-[12px] text-gray-800 dark:text-gray-100 leading-tight group-hover:text-[#1c6a1e] dark:group-hover:text-[#2a8a30] transition-colors uppercase tracking-tight break-words">
-                                      {item.name}
-                                    </h3>
-                                    <div className="flex items-baseline gap-1 mt-1">
-                                      <span className="text-sm font-bold text-[#1c6a1e]">
-                                        KES {item.current_sell_price.toFixed(0)}
-                                      </span>
-                                      <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
-                                        /{item.unit_type}
-                                      </span>
-                                    </div>
-                                    {/* Stock indicator */}
-                                    <div className="flex items-center gap-1 mt-1.5">
-                                      <span
-                                        className={`w-1.5 h-1.5 rounded-none flex-shrink-0 ${
-                                          item.current_stock < 0
-                                            ? "bg-red-500"
-                                            : item.current_stock <= 0
-                                              ? "bg-gray-300 dark:bg-gray-600"
-                                              : item.current_stock < 10
-                                                ? "bg-amber-400 animate-pulse"
-                                                : "bg-emerald-400"
-                                        }`}
-                                      />
-                                      <span
-                                        className={`text-[10px] font-medium ${
-                                          item.current_stock < 0
-                                            ? "text-red-600 dark:text-red-400 font-semibold"
-                                            : item.current_stock <= 0
-                                              ? "text-gray-400"
-                                              : item.current_stock < 10
-                                                ? "text-amber-500"
-                                                : "text-gray-400"
-                                        }`}
-                                      >
-                                        {item.current_stock < 0
-                                          ? `${item.current_stock.toFixed(item.unit_type === "kg" || item.unit_type === "g" ? 2 : 0)} ${item.unit_type}`
-                                          : item.current_stock <= 0
-                                            ? "Out of stock"
-                                            : `${item.current_stock} ${item.unit_type}`}
-                                      </span>
-                                    </div>
-                                    {item.bundle_quantity &&
-                                      item.bundle_price &&
-                                      item.bundle_quantity > 0 &&
-                                      item.bundle_price > 0 && (
-                                        <div className="mt-1.5">
-                                          <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-[9px] font-semibold px-1.5 py-0.5 rounded border border-amber-200/60 dark:border-amber-700/40">
-                                            <Tag className="w-2 h-2" />
-                                            {item.bundle_name ||
-                                              `${item.bundle_quantity} for KES ${item.bundle_price.toFixed(0)}`}
-                                          </span>
-                                        </div>
-                                      )}
-                                  </div>
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                  {/* Standalone items grouped */}
-                  {filteredDrawerGroupedItems.filter(
-                    (g) => g.type === "standalone",
-                  ).length > 0 && (
-                    <div>
-                      {filteredDrawerGroupedItems.some(
-                        (g) => g.type === "parent",
-                      ) && (
-                        <div className="flex items-center gap-2 mb-3 px-1">
-                          <h3 className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                            Individual Products
-                          </h3>
-                          <div className="flex-1 h-px bg-gray-100 dark:bg-gray-800" />
-                        </div>
-                      )}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {filteredDrawerGroupedItems
-                          .filter((g) => g.type === "standalone")
-                          .map((group) => {
-                            if (!group.item) return null;
-                            const item = group.item;
-                            return (
-                              <button
-                                key={item.id}
-                                onClick={() => {
-                                  handleSelectItem(item);
-                                  setCategoryDrawerOpen(false);
-                                }}
-                                className="pos-grid-btn group bg-gradient-to-b from-white to-slate-50/50 dark:from-slate-800/95 dark:to-slate-800/70 rounded-none border-2 border-slate-300 dark:border-slate-500 overflow-hidden text-left"
-                              >
-                                <div className="aspect-[4/3] bg-gray-50 dark:bg-gray-800/50 overflow-hidden relative">
-                                  {resolveItemImageUrl(item) ? (
-                                    <img
-                                      src={resolveItemImageUrl(item)!}
-                                      alt={item.name}
-                                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                      loading="lazy"
-                                      onError={(e) => {
-                                        const target =
-                                          e.target as HTMLImageElement;
-                                        const parentEl = target.parentElement;
-                                        if (parentEl) {
-                                          parentEl.innerHTML =
-                                            '<div class="w-full h-full flex items-center justify-center bg-gray-50 dark:bg-gray-800/50"><svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg></div>';
-                                        }
-                                      }}
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center">
-                                      <Package className="w-8 h-8 text-gray-300 dark:text-gray-600" />
-                                    </div>
-                                  )}
-                                  {item.current_stock <= 0 && (
-                                    <div className="absolute inset-0 bg-white/60 dark:bg-black/40 flex items-center justify-center">
-                                      <span
-                                        className={`text-[10px] font-bold px-2 py-0.5 rounded-none ${
-                                          item.current_stock < 0
-                                            ? "text-red-600 dark:text-red-400 bg-red-50/95 dark:bg-red-950/80"
-                                            : "text-gray-500 dark:text-gray-400 bg-white/90 dark:bg-black/60"
-                                        }`}
-                                      >
-                                        {item.current_stock < 0
-                                          ? `${item.current_stock.toFixed(item.unit_type === "kg" || item.unit_type === "g" ? 2 : 0)} ${item.unit_type}`
-                                          : "Out of stock"}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="p-2">
-                                  <h3 className="font-semibold text-[11px] sm:text-[12px] text-gray-800 dark:text-gray-100 leading-tight group-hover:text-[#1c6a1e] dark:group-hover:text-[#2a8a30] transition-colors uppercase tracking-tight break-words">
-                                    {item.name}
-                                  </h3>
-                                  <div className="flex items-baseline gap-1 mt-1">
-                                    <span className="text-sm font-bold text-[#1c6a1e]">
-                                      KES {item.current_sell_price.toFixed(0)}
-                                    </span>
-                                    <span className="text-[10px] text-gray-400 dark:text-gray-500 font-medium">
-                                      /{item.unit_type}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1 mt-1.5">
-                                    <span
-                                      className={`w-1.5 h-1.5 rounded-none flex-shrink-0 ${
-                                        item.current_stock < 0
-                                          ? "bg-red-500"
-                                          : item.current_stock <= 0
-                                            ? "bg-gray-300 dark:bg-gray-600"
-                                            : item.current_stock < 10
-                                              ? "bg-amber-400 animate-pulse"
-                                              : "bg-emerald-400"
-                                      }`}
-                                    />
-                                    <span
-                                      className={`text-[10px] font-medium ${
-                                        item.current_stock < 0
-                                          ? "text-red-600 dark:text-red-400 font-semibold"
-                                          : item.current_stock <= 0
-                                            ? "text-gray-400"
-                                            : item.current_stock < 10
-                                              ? "text-amber-500"
-                                              : "text-gray-400"
-                                      }`}
-                                    >
-                                      {item.current_stock < 0
-                                        ? `${item.current_stock.toFixed(item.unit_type === "kg" || item.unit_type === "g" ? 2 : 0)} ${item.unit_type}`
-                                        : item.current_stock <= 0
-                                          ? "Out of stock"
-                                          : `${item.current_stock} ${item.unit_type}`}
-                                    </span>
-                                  </div>
-                                  {item.bundle_quantity &&
-                                    item.bundle_price &&
-                                    item.bundle_quantity > 0 &&
-                                    item.bundle_price > 0 && (
-                                      <div className="mt-1.5">
-                                        <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-[9px] font-semibold px-1.5 py-0.5 rounded border border-amber-200/60 dark:border-amber-700/40">
-                                          <Tag className="w-2 h-2" />
-                                          {item.bundle_name ||
-                                            `${item.bundle_quantity} for KES ${item.bundle_price.toFixed(0)}`}
-                                        </span>
-                                      </div>
-                                    )}
-                                </div>
-                              </button>
-                            );
-                          })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </DrawerContent>
-        </Drawer>
-
+        
         <PosTransactionDrawers
           checkoutDrawerOpen={checkoutDrawerOpen}
           onCheckoutDrawerOpenChange={setCheckoutDrawerOpen}

@@ -5,6 +5,10 @@ const queryOneMock = vi.fn();
 
 vi.mock('@/lib/db', () => ({
   queryOne: (...args: unknown[]) => queryOneMock(...args),
+  // validateSaleLines batches item lookups via `query()` and expects an array of rows.
+  // We reuse the existing queryOneMock and wrap its result into an array.
+  query: (...args: unknown[]) =>
+    queryOneMock(...args).then((row: unknown) => [row]),
 }));
 
 vi.mock('@/lib/auth/verify-manager-pin', () => ({

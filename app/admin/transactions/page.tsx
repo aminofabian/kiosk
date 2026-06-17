@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { AdminLayout } from '@/components/layouts/admin-layout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { AdminLayout } from "@/components/layouts/admin-layout";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Receipt,
   ChevronLeft,
@@ -19,59 +19,76 @@ import {
   Undo2,
   Pencil,
   Printer,
-} from 'lucide-react';
-import { useCurrentUser } from '@/lib/hooks/use-current-user';
-import { apiPatch } from '@/lib/utils/api-client';
-import { toast } from 'sonner';
-import { TransactionEditDrawer } from '@/components/admin/TransactionEditDrawer';
+  Clock,
+  Trash2,
+  HelpCircle,
+} from "lucide-react";
+import { useCurrentUser } from "@/lib/hooks/use-current-user";
+import { apiPatch } from "@/lib/utils/api-client";
+import { toast } from "sonner";
+import { TransactionEditDrawer } from "@/components/admin/TransactionEditDrawer";
 
 const PAYMENT_ICONS: Record<string, typeof Wallet> = {
   cash: Wallet,
   mpesa: Smartphone,
   credit: CreditCard,
   split: DollarSign,
+  unpaid: HelpCircle,
 };
 
 const PAYMENT_LABELS: Record<string, string> = {
-  cash: 'Cash',
-  mpesa: 'M-Pesa',
-  credit: 'Credit',
-  split: 'Split',
+  cash: "Cash",
+  mpesa: "M-Pesa",
+  credit: "Credit",
+  split: "Split",
+  unpaid: "—",
+};
+
+const STATUS_BADGES: Record<string, { label: string; classes: string }> = {
+  pending: {
+    label: "Pending",
+    classes:
+      "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+  },
+  discarded: {
+    label: "Discarded",
+    classes: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
+  },
 };
 
 const formatPrice = (price: number) =>
-  `KES ${price.toLocaleString('en-KE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
+  `KES ${price.toLocaleString("en-KE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 
 const formatTime = (ts: number) => {
   const d = new Date(ts * 1000);
-  return d.toLocaleTimeString('en-KE', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
+  return d.toLocaleTimeString("en-KE", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
     hour12: false,
   });
 };
 
 const formatDateLabel = (dateStr: string) => {
-  const d = new Date(dateStr + 'T12:00:00');
+  const d = new Date(dateStr + "T12:00:00");
   const today = new Date();
   const isToday =
     d.getDate() === today.getDate() &&
     d.getMonth() === today.getMonth() &&
     d.getFullYear() === today.getFullYear();
-  const formatted = d.toLocaleDateString('en-KE', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
+  const formatted = d.toLocaleDateString("en-KE", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
   });
   return isToday ? `Today · ${formatted}` : formatted;
 };
 
 function toDateStr(d: Date): string {
   const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
 }
 
@@ -86,7 +103,7 @@ interface Sale {
   total_amount: number;
   payment_method: string;
   status: string;
-  sale_date: number;
+  sale_date: number | null;
   created_at: number;
   user_name: string | null;
   items: SaleItem[];
@@ -103,7 +120,7 @@ interface TransactionsData {
 function TransactionsContent() {
   const searchParams = useSearchParams();
   const { user } = useCurrentUser();
-  const canVoid = user?.role === 'admin' || user?.role === 'owner';
+  const canVoid = user?.role === "admin" || user?.role === "owner";
 
   const todayStr = toDateStr(new Date());
   const yesterdayStr = (() => {
@@ -118,31 +135,31 @@ function TransactionsContent() {
   })();
 
   const [date, setDate] = useState(() => {
-    const d = searchParams.get('date');
+    const d = searchParams.get("date");
     if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
     return todayStr;
   });
 
-  type FilterPreset = 'today' | 'yesterday' | 'dayBefore' | 'custom';
+  type FilterPreset = "today" | "yesterday" | "dayBefore" | "custom";
   const [filterMode, setFilterMode] = useState<FilterPreset>(() => {
-    const d = searchParams.get('date');
+    const d = searchParams.get("date");
     if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
-      if (d === todayStr) return 'today';
-      if (d === yesterdayStr) return 'yesterday';
-      if (d === dayBeforeStr) return 'dayBefore';
-      return 'custom';
+      if (d === todayStr) return "today";
+      if (d === yesterdayStr) return "yesterday";
+      if (d === dayBeforeStr) return "dayBefore";
+      return "custom";
     }
-    return 'today';
+    return "today";
   });
 
   useEffect(() => {
-    const d = searchParams.get('date');
+    const d = searchParams.get("date");
     if (d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d !== date) {
       setDate(d);
-      if (d === todayStr) setFilterMode('today');
-      else if (d === yesterdayStr) setFilterMode('yesterday');
-      else if (d === dayBeforeStr) setFilterMode('dayBefore');
-      else setFilterMode('custom');
+      if (d === todayStr) setFilterMode("today");
+      else if (d === yesterdayStr) setFilterMode("yesterday");
+      else if (d === dayBeforeStr) setFilterMode("dayBefore");
+      else setFilterMode("custom");
     }
   }, [searchParams]);
 
@@ -161,10 +178,10 @@ function TransactionsContent() {
       if (result.success && result.data) {
         setData(result.data);
       } else {
-        setError(result.message || 'Failed to load');
+        setError(result.message || "Failed to load");
       }
     } catch {
-      setError('Failed to load transactions');
+      setError("Failed to load transactions");
     } finally {
       setLoading(false);
     }
@@ -172,38 +189,38 @@ function TransactionsContent() {
 
   const handleVoid = useCallback(
     (sale: Sale) => {
-      if (!canVoid || sale.status === 'voided') return;
+      if (!canVoid || sale.status === "voided") return;
       toast(
         `Void this transaction of ${formatPrice(sale.total_amount)}? Stock will be restored and the sale will be marked as voided.`,
         {
           action: {
-            label: 'Void',
+            label: "Void",
             onClick: async () => {
               setVoidingSaleId(sale.id);
               try {
                 const result = await apiPatch<{ saleId: string }>(
                   `/api/sales/${sale.id}`,
-                  { action: 'void', reason: 'Admin void' }
+                  { action: "void", reason: "Admin void" },
                 );
                 if (result.success) {
                   await fetchData();
-                  toast.success('Transaction voided');
+                  toast.success("Transaction voided");
                 } else {
-                  toast.error(result.message || 'Failed to void transaction');
+                  toast.error(result.message || "Failed to void transaction");
                 }
               } catch (err) {
-                console.error('Error voiding sale:', err);
-                toast.error('An error occurred while voiding the transaction.');
+                console.error("Error voiding sale:", err);
+                toast.error("An error occurred while voiding the transaction.");
               } finally {
                 setVoidingSaleId(null);
               }
             },
           },
-          cancel: { label: 'Cancel', onClick: () => {} },
-        }
+          cancel: { label: "Cancel", onClick: () => {} },
+        },
       );
     },
-    [canVoid, fetchData]
+    [canVoid, fetchData],
   );
 
   useEffect(() => {
@@ -212,30 +229,34 @@ function TransactionsContent() {
 
   useEffect(() => {
     const params = new URLSearchParams();
-    params.set('date', date);
-    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+    params.set("date", date);
+    window.history.replaceState(
+      null,
+      "",
+      `${window.location.pathname}?${params.toString()}`,
+    );
   }, [date]);
 
   const goPrevDay = () => {
-    const d = new Date(date + 'T12:00:00');
+    const d = new Date(date + "T12:00:00");
     d.setDate(d.getDate() - 1);
     const newDate = toDateStr(d);
     setDate(newDate);
-    if (newDate === todayStr) setFilterMode('today');
-    else if (newDate === yesterdayStr) setFilterMode('yesterday');
-    else if (newDate === dayBeforeStr) setFilterMode('dayBefore');
-    else setFilterMode('custom');
+    if (newDate === todayStr) setFilterMode("today");
+    else if (newDate === yesterdayStr) setFilterMode("yesterday");
+    else if (newDate === dayBeforeStr) setFilterMode("dayBefore");
+    else setFilterMode("custom");
   };
 
   const goNextDay = () => {
-    const d = new Date(date + 'T12:00:00');
+    const d = new Date(date + "T12:00:00");
     d.setDate(d.getDate() + 1);
     const newDate = toDateStr(d);
     setDate(newDate);
-    if (newDate === todayStr) setFilterMode('today');
-    else if (newDate === yesterdayStr) setFilterMode('yesterday');
-    else if (newDate === dayBeforeStr) setFilterMode('dayBefore');
-    else setFilterMode('custom');
+    if (newDate === todayStr) setFilterMode("today");
+    else if (newDate === yesterdayStr) setFilterMode("yesterday");
+    else if (newDate === dayBeforeStr) setFilterMode("dayBefore");
+    else setFilterMode("custom");
   };
 
   const isToday = date === todayStr;
@@ -243,295 +264,337 @@ function TransactionsContent() {
 
   const setFilter = (preset: FilterPreset) => {
     setFilterMode(preset);
-    if (preset === 'today') setDate(todayStr);
-    else if (preset === 'yesterday') setDate(yesterdayStr);
-    else if (preset === 'dayBefore') setDate(dayBeforeStr);
+    if (preset === "today") setDate(todayStr);
+    else if (preset === "yesterday") setDate(yesterdayStr);
+    else if (preset === "dayBefore") setDate(dayBeforeStr);
     // custom: date picker handles changes
   };
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#0f1a0d]">
-        {/* Header */}
-        <header className="sticky top-0 z-10 bg-white dark:bg-[#0f1a0d] border-b border-slate-200 dark:border-slate-800">
-          <div className="px-4 md:px-8 py-5">
-            <div className="max-w-4xl mx-auto space-y-5">
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
-                  Transactions
-                </h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                  {formatDateLabel(date)}
-                </p>
+      {/* Header */}
+      <header className="sticky top-0 z-10 bg-white dark:bg-[#0f1a0d] border-b border-slate-200 dark:border-slate-800">
+        <div className="px-4 md:px-8 py-5">
+          <div className="max-w-4xl mx-auto space-y-5">
+            <div>
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
+                Transactions
+              </h1>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                {formatDateLabel(date)}
+              </p>
+            </div>
+
+            {/* Date filters */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                <button
+                  onClick={() => setFilter("today")}
+                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    filterMode === "today"
+                      ? "bg-[#1c6a1e] text-white shadow-sm"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  Today
+                </button>
+                <button
+                  onClick={() => setFilter("yesterday")}
+                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    filterMode === "yesterday"
+                      ? "bg-[#1c6a1e] text-white shadow-sm"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  Yesterday
+                </button>
+                <button
+                  onClick={() => setFilter("dayBefore")}
+                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                    filterMode === "dayBefore"
+                      ? "bg-[#1c6a1e] text-white shadow-sm"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  Day before
+                </button>
+                <button
+                  onClick={() => setFilter("custom")}
+                  className={`px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
+                    filterMode === "custom"
+                      ? "bg-[#1c6a1e] text-white shadow-sm"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  <Calendar className="w-4 h-4" />
+                  Custom
+                </button>
               </div>
 
-              {/* Date filters */}
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                  <button
-                    onClick={() => setFilter('today')}
-                    className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                      filterMode === 'today'
-                        ? 'bg-[#1c6a1e] text-white shadow-sm'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    Today
-                  </button>
-                  <button
-                    onClick={() => setFilter('yesterday')}
-                    className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                      filterMode === 'yesterday'
-                        ? 'bg-[#1c6a1e] text-white shadow-sm'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    Yesterday
-                  </button>
-                  <button
-                    onClick={() => setFilter('dayBefore')}
-                    className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
-                      filterMode === 'dayBefore'
-                        ? 'bg-[#1c6a1e] text-white shadow-sm'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    Day before
-                  </button>
-                  <button
-                    onClick={() => setFilter('custom')}
-                    className={`px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 ${
-                      filterMode === 'custom'
-                        ? 'bg-[#1c6a1e] text-white shadow-sm'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    <Calendar className="w-4 h-4" />
-                    Custom
-                  </button>
+              {filterMode === "custom" && (
+                <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5">
+                  <Input
+                    type="date"
+                    value={date}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setDate(v);
+                      if (v === todayStr) setFilterMode("today");
+                      else if (v === yesterdayStr) setFilterMode("yesterday");
+                      else if (v === dayBeforeStr) setFilterMode("dayBefore");
+                    }}
+                    max={maxDate}
+                    className="h-9 border-0 bg-transparent p-0 text-sm font-medium focus-visible:ring-0"
+                  />
                 </div>
+              )}
 
-                {filterMode === 'custom' && (
-                  <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5">
-                    <Input
-                      type="date"
-                      value={date}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setDate(v);
-                        if (v === todayStr) setFilterMode('today');
-                        else if (v === yesterdayStr) setFilterMode('yesterday');
-                        else if (v === dayBeforeStr) setFilterMode('dayBefore');
-                      }}
-                      max={maxDate}
-                      className="h-9 border-0 bg-transparent p-0 text-sm font-medium focus-visible:ring-0"
-                    />
-                  </div>
-                )}
-
-                <div className="flex items-center gap-1 ml-auto">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9 shrink-0"
-                    onClick={goPrevDay}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9 shrink-0"
-                    onClick={goNextDay}
-                    disabled={isToday}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
+              <div className="flex items-center gap-1 ml-auto">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  onClick={goPrevDay}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  onClick={goNextDay}
+                  disabled={isToday}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </div>
-        </header>
+        </div>
+      </header>
 
-        <main className="max-w-4xl mx-auto px-4 md:px-8 py-6 pb-24 md:pb-8">
-          {loading ? (
-            <div className="flex items-center justify-center py-32">
-              <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-            </div>
-          ) : error ? (
-            <div className="text-center py-32 space-y-4">
-              <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto" />
-              <p className="text-slate-600 dark:text-slate-300">{error}</p>
-              <Button onClick={fetchData} variant="outline" size="sm">
-                Retry
-              </Button>
-            </div>
-          ) : data ? (
-            <>
-              {/* Summary */}
-              <div className="mb-8 flex items-baseline justify-between gap-4">
-                <div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    {data.completedCount} sale{data.completedCount !== 1 ? 's' : ''}
-                    {data.sales.filter((s) => s.status === 'voided').length > 0 && (
-                      <span className="text-red-500 dark:text-red-400 ml-2">
-                        · {data.sales.filter((s) => s.status === 'voided').length} voided
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-2xl font-semibold text-slate-900 dark:text-white mt-0.5">
-                    {formatPrice(data.totalAmount)}
-                  </p>
-                </div>
+      <main className="max-w-4xl mx-auto px-4 md:px-8 py-6 pb-24 md:pb-8">
+        {loading ? (
+          <div className="flex items-center justify-center py-32">
+            <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+          </div>
+        ) : error ? (
+          <div className="text-center py-32 space-y-4">
+            <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto" />
+            <p className="text-slate-600 dark:text-slate-300">{error}</p>
+            <Button onClick={fetchData} variant="outline" size="sm">
+              Retry
+            </Button>
+          </div>
+        ) : data ? (
+          <>
+            {/* Summary */}
+            <div className="mb-8 flex items-baseline justify-between gap-4">
+              <div>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {data.completedCount} sale
+                  {data.completedCount !== 1 ? "s" : ""}
+                  {data.sales.filter((s) => s.status === "voided").length >
+                    0 && (
+                    <span className="text-red-500 dark:text-red-400 ml-2">
+                      · {data.sales.filter((s) => s.status === "voided").length}{" "}
+                      voided
+                    </span>
+                  )}
+                </p>
+                <p className="text-2xl font-semibold text-slate-900 dark:text-white mt-0.5">
+                  {formatPrice(data.totalAmount)}
+                </p>
               </div>
+            </div>
 
-              {/* Transaction list — receipt-style cards */}
-              {data.sales.length === 0 ? (
-                <div className="text-center py-24 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl">
-                  <Receipt className="h-12 w-12 mx-auto text-slate-300 dark:text-slate-600 mb-4" />
-                  <p className="text-slate-500 dark:text-slate-400 font-medium">No transactions</p>
-                  <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">Select another date</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {data.sales.map((sale) => {
-                    const PaymentIcon = PAYMENT_ICONS[sale.payment_method] || Wallet;
-                    const isVoided = sale.status === 'voided';
-                    return (
-                      <article
-                        key={sale.id}
-                        className={`rounded-2xl border overflow-hidden transition-shadow hover:shadow-md ${
-                          isVoided
-                            ? 'border-red-200 dark:border-red-900/50 bg-red-50/20 dark:bg-red-950/10'
-                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50'
-                        }`}
-                      >
-                        {/* Row 1: Meta */}
-                        <div className="flex items-center justify-between gap-4 px-5 py-3 border-b border-slate-100 dark:border-slate-700/50">
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-medium text-slate-900 dark:text-white tabular-nums">
-                              {formatTime(sale.sale_date)}
-                            </span>
+            {/* Transaction list — receipt-style cards */}
+            {data.sales.length === 0 ? (
+              <div className="text-center py-24 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl">
+                <Receipt className="h-12 w-12 mx-auto text-slate-300 dark:text-slate-600 mb-4" />
+                <p className="text-slate-500 dark:text-slate-400 font-medium">
+                  No transactions
+                </p>
+                <p className="text-sm text-slate-400 dark:text-slate-500 mt-1">
+                  Select another date
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {data.sales.map((sale) => {
+                  const PaymentIcon =
+                    PAYMENT_ICONS[sale.payment_method] || Wallet;
+                  const isVoided = sale.status === "voided";
+                  const isPending = sale.status === "pending";
+                  const isDiscarded = sale.status === "discarded";
+                  const isComplete = sale.status === "completed";
+                  const isNonFinal = isPending || isDiscarded;
+                  const statusBadge = STATUS_BADGES[sale.status];
+                  const cardClasses = isVoided
+                    ? "border-red-200 dark:border-red-900/50 bg-red-50/20 dark:bg-red-950/10"
+                    : isPending
+                      ? "border-amber-200 dark:border-amber-900/50 bg-amber-50/20 dark:bg-amber-950/10"
+                      : isDiscarded
+                        ? "border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 opacity-60"
+                        : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50";
+                  return (
+                    <article
+                      key={sale.id}
+                      className={`rounded-2xl border overflow-hidden transition-shadow hover:shadow-md ${cardClasses}`}
+                    >
+                      {/* Row 1: Meta */}
+                      <div className="flex items-center justify-between gap-4 px-5 py-3 border-b border-slate-100 dark:border-slate-700/50">
+                        <div className="flex items-center gap-3">
+                          <span className="text-sm font-medium text-slate-900 dark:text-white tabular-nums">
+                            {formatTime(sale.sale_date ?? sale.created_at)}
+                          </span>
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              isVoided
+                                ? "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400"
+                                : isNonFinal
+                                  ? (statusBadge?.classes ??
+                                    "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300")
+                                  : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                            }`}
+                          >
+                            <PaymentIcon className="w-3.5 h-3.5" />
+                            {PAYMENT_LABELS[sale.payment_method] ||
+                              sale.payment_method}
+                          </span>
+                          {statusBadge && !isComplete && (
                             <span
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                isVoided
-                                  ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400'
-                                  : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
-                              }`}
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${statusBadge.classes}`}
                             >
-                              <PaymentIcon className="w-3.5 h-3.5" />
-                              {PAYMENT_LABELS[sale.payment_method] || sale.payment_method}
+                              {statusBadge.label}
                             </span>
-                            {sale.user_name && (
-                              <span className="text-xs text-slate-400 dark:text-slate-500 truncate max-w-[120px]">
-                                {sale.user_name}
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`text-lg font-semibold tabular-nums ${
-                                isVoided ? 'text-red-600 dark:text-red-400 line-through' : 'text-slate-900 dark:text-white'
-                              }`}
-                            >
-                              {formatPrice(sale.total_amount)}
+                          )}
+                          {sale.user_name && (
+                            <span className="text-xs text-slate-400 dark:text-slate-500 truncate max-w-[120px]">
+                              {sale.user_name}
                             </span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 px-2 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                              onClick={() => {
-                                window.open(
-                                  `/pos/receipt/${sale.id}?print=true`,
-                                  '_blank',
-                                  'noopener,noreferrer'
-                                );
-                              }}
-                              title="Reprint receipt"
-                            >
-                              <Printer className="h-4 w-4" />
-                              <span className="sr-only">Reprint receipt</span>
-                            </Button>
-                            {canVoid && !isVoided && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 px-2 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                                  onClick={() => setEditingSaleId(sale.id)}
-                                  disabled={voidingSaleId === sale.id}
-                                  title="Edit transaction"
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 px-2 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
-                                  onClick={() => handleVoid(sale)}
-                                  disabled={voidingSaleId === sale.id}
-                                  title="Void transaction"
-                                >
-                                  {voidingSaleId === sale.id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Undo2 className="h-4 w-4" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-lg font-semibold tabular-nums ${
+                              isVoided
+                                ? "text-red-600 dark:text-red-400 line-through"
+                                : "text-slate-900 dark:text-white"
+                            }`}
+                          >
+                            {formatPrice(sale.total_amount)}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed"
+                            onClick={() => {
+                              window.open(
+                                `/pos/receipt/${sale.id}?print=true`,
+                                "_blank",
+                                "noopener,noreferrer",
+                              );
+                            }}
+                            disabled={isNonFinal}
+                            title={
+                              isNonFinal
+                                ? "Cannot print receipt for pending/discarded orders"
+                                : "Reprint receipt"
+                            }
+                          >
+                            <Printer className="h-4 w-4" />
+                            <span className="sr-only">Reprint receipt</span>
+                          </Button>
+                          {canVoid && !isVoided && isComplete && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 px-2 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                                onClick={() => setEditingSaleId(sale.id)}
+                                disabled={voidingSaleId === sale.id}
+                                title="Edit transaction"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 px-2 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
+                                onClick={() => handleVoid(sale)}
+                                disabled={voidingSaleId === sale.id}
+                                title="Void transaction"
+                              >
+                                {voidingSaleId === sale.id ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Undo2 className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Row 2: Items */}
+                      <div className="px-5 py-4">
+                        <table className="w-full text-sm">
+                          <tbody>
+                            {sale.items.map((item, i) => (
+                              <tr
+                                key={`${sale.id}-${i}`}
+                                className="border-b border-slate-50 dark:border-slate-800/50 last:border-0"
+                              >
+                                <td className="py-2 pr-4 text-slate-600 dark:text-slate-300">
+                                  {item.item_name}
+                                  <span className="text-slate-400 dark:text-slate-500 ml-1.5">
+                                    ×{" "}
+                                    {item.quantity_sold.toFixed(
+                                      item.quantity_sold % 1 === 0 ? 0 : 1,
+                                    )}
+                                  </span>
+                                </td>
+                                <td className="py-2 text-right text-slate-500 dark:text-slate-400 tabular-nums whitespace-nowrap">
+                                  {formatPrice(
+                                    item.quantity_sold *
+                                      item.sell_price_per_unit,
                                   )}
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        ) : null}
+      </main>
 
-                        {/* Row 2: Items */}
-                        <div className="px-5 py-4">
-                          <table className="w-full text-sm">
-                            <tbody>
-                              {sale.items.map((item, i) => (
-                                <tr
-                                  key={`${sale.id}-${i}`}
-                                  className="border-b border-slate-50 dark:border-slate-800/50 last:border-0"
-                                >
-                                  <td className="py-2 pr-4 text-slate-600 dark:text-slate-300">
-                                    {item.item_name}
-                                    <span className="text-slate-400 dark:text-slate-500 ml-1.5">
-                                      × {item.quantity_sold.toFixed(item.quantity_sold % 1 === 0 ? 0 : 1)}
-                                    </span>
-                                  </td>
-                                  <td className="py-2 text-right text-slate-500 dark:text-slate-400 tabular-nums whitespace-nowrap">
-                                    {formatPrice(item.quantity_sold * item.sell_price_per_unit)}
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          ) : null}
-        </main>
-
-        <TransactionEditDrawer
-          saleId={editingSaleId}
-          open={editingSaleId !== null}
-          onOpenChange={(open) => !open && setEditingSaleId(null)}
-          onSuccess={fetchData}
-        />
-      </div>
+      <TransactionEditDrawer
+        saleId={editingSaleId}
+        open={editingSaleId !== null}
+        onOpenChange={(open) => !open && setEditingSaleId(null)}
+        onSuccess={fetchData}
+      />
+    </div>
   );
 }
 
 export default function TransactionsPage() {
   return (
     <AdminLayout>
-      <Suspense fallback={
-        <div className="min-h-screen bg-white dark:bg-[#0f1a0d] flex items-center justify-center py-32">
-          <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
-        </div>
-      }>
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-white dark:bg-[#0f1a0d] flex items-center justify-center py-32">
+            <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+          </div>
+        }
+      >
         <TransactionsContent />
       </Suspense>
     </AdminLayout>

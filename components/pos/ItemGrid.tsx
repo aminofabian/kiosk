@@ -75,6 +75,9 @@ interface ItemGridProps {
   allowSellOutOfStock?: boolean;
   /** Parent debounce already applied (POS page); set 0 to fetch immediately */
   searchDebounceMs?: number;
+  /** Pre-fetched grid results from unified search (skips duplicate API call) */
+  prefetchedSearchItems?: Item[] | null;
+  prefetchedSearchQuery?: string;
 }
 
 function itemTypesQueryParam(itemTypesFilter?: string[]): string {
@@ -304,7 +307,8 @@ function PosProductTile({
       </div>
 
       {/* Name + price — bottom strip */}
-      <div className="flex min-h-[2.65rem] shrink-0 flex-col justify-center bg-white px-1.5 py-1 text-left dark:bg-slate-900">
+      {/* Avoid portrait iPad squish: allow this strip to shrink and clip if needed */}
+      <div className="flex min-h-0 shrink flex-col justify-center overflow-hidden bg-white px-1.5 py-1 text-left dark:bg-slate-900">
         <h3
           className={`line-clamp-2 text-[10px] font-medium leading-tight ${
             isOutOfStock
@@ -472,6 +476,8 @@ export function ItemGrid({
   showShopTypeCatalog = false,
   allowSellOutOfStock = false,
   searchDebounceMs = ITEM_SEARCH_DEBOUNCE_MS,
+  prefetchedSearchItems,
+  prefetchedSearchQuery,
 }: ItemGridProps) {
   const catalogGridClass = showShopTypeCatalog
     ? SQUARE_CATALOG_GRID_CLASS
@@ -609,6 +615,11 @@ export function ItemGrid({
       const timeoutId = window.setTimeout(() => controller.abort(), searchTimeoutMs);
 
       const q = searchQuery;
+      const usePrefetch =
+        prefetchedSearchItems != null &&
+        prefetchedSearchQuery != null &&
+        prefetchedSearchQuery === q;
+
       const runSearch = () => {
         void (async () => {
           if (cancelled) return;
@@ -616,6 +627,20 @@ export function ItemGrid({
           try {
             setLoading(true);
             setError(null);
+
+            if (usePrefetch) {
+              if (cancelled || requestId !== searchRequestIdRef.current) return;
+              applySearchResultsToGrid(
+                prefetchedSearchItems,
+                shopType,
+                itemTypeKeys,
+                categoryMapRef.current,
+                setShowingOtherShopType,
+                setGroupedItems,
+                setItems,
+              );
+              return;
+            }
 
             const isOffline =
               typeof navigator !== "undefined" && !navigator.onLine;
@@ -810,6 +835,8 @@ export function ItemGrid({
     itemTypesFilter,
     showShopTypeCatalog,
     searchDebounceMs,
+    prefetchedSearchQuery,
+    prefetchedSearchItems,
   ]);
 
   if (!categoryId && !searchQuery && !showShopTypeCatalog) {
@@ -978,7 +1005,7 @@ export function ItemGrid({
 
             {/* Products grid – dense square tiles */}
             <div
-              className={`${CATALOG_ITEM_GRID_CLASS} pt-3 flex-1 min-h-0 content-start`}
+              className={`${CATALOG_ITEM_GRID_CLASS} pt-3 flex-1 min-h-0 content-start overflow-y-auto overscroll-contain`}
             >
               {(() => {
                 if (!adminStockView && displayedHomeItems.length === 0) {
@@ -1026,18 +1053,16 @@ export function ItemGrid({
                     const imageUrl = resolveItemImageUrl(item);
 
                     const imageContent = canManageItemImages ? (
-                      <div className="absolute inset-0">
-                        <PosQuickSellPhoto
-                          itemId={item.id}
-                          itemName={item.name}
-                          imageUrl={item.image_url}
-                          variantName={item.variant_name}
-                          onImageUrlChange={(url) =>
-                            onItemImageUpdated?.(item.id, url)
-                          }
-                          fill
-                        />
-                      </div>
+                      <PosQuickSellPhoto
+                        itemId={item.id}
+                        itemName={item.name}
+                        imageUrl={item.image_url}
+                        variantName={item.variant_name}
+                        onImageUrlChange={(url) =>
+                          onItemImageUpdated?.(item.id, url)
+                        }
+                        fill
+                      />
                     ) : (
                       renderItemImageContent(item, imageUrl)
                     );

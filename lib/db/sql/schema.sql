@@ -280,13 +280,13 @@ CREATE TABLE IF NOT EXISTS sales (
   user_id TEXT NOT NULL, -- cashier
   shift_id TEXT, -- nullable
   total_amount REAL NOT NULL,
-  payment_method TEXT NOT NULL CHECK (payment_method IN ('cash', 'mpesa', 'credit', 'split')),
+  payment_method TEXT NOT NULL CHECK (payment_method IN ('cash', 'mpesa', 'credit', 'split', 'unpaid')),
   status TEXT NOT NULL DEFAULT 'completed' CHECK (status IN ('completed', 'voided', 'pending', 'discarded')),
   voided_reason TEXT,
   voided_by TEXT,
   customer_name TEXT, -- for credit sales
   customer_phone TEXT, -- for credit sales
-  sale_date INTEGER NOT NULL DEFAULT (unixepoch()),
+  sale_date INTEGER,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
   FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,

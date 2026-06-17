@@ -1,4 +1,6 @@
-import { execute, query } from './index';
+import { execute, query } from "./index";
+import { migrateLoadedByColumns } from "./migrate-loaded-by";
+import { migrateSourceColumn } from "./migrate-source-column";
 
 const SALES_TABLE_DDL = `
 CREATE TABLE IF NOT EXISTS sales (
@@ -7,13 +9,13 @@ CREATE TABLE IF NOT EXISTS sales (
   user_id TEXT NOT NULL,
   shift_id TEXT,
   total_amount REAL NOT NULL,
-  payment_method TEXT NOT NULL CHECK (payment_method IN ('cash', 'mpesa', 'credit', 'split')),
+  payment_method TEXT NOT NULL CHECK (payment_method IN ('cash', 'mpesa', 'credit', 'split', 'unpaid')),
   status TEXT NOT NULL DEFAULT 'completed' CHECK (status IN ('completed', 'voided', 'pending', 'discarded')),
   voided_reason TEXT,
   voided_by TEXT,
   customer_name TEXT,
   customer_phone TEXT,
-  sale_date INTEGER NOT NULL DEFAULT (unixepoch()),
+  sale_date INTEGER,
   created_at INTEGER NOT NULL DEFAULT (unixepoch()),
   updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
   FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
@@ -40,15 +42,15 @@ async function tableExists(name: string): Promise<boolean> {
 }
 
 async function recreateSalesTable(): Promise<void> {
-  console.log('Recreating missing sales table...');
-  await execute('PRAGMA foreign_keys = OFF');
+  console.log("Recreating missing sales table...");
+  await execute("PRAGMA foreign_keys = OFF");
   try {
     await execute(SALES_TABLE_DDL);
     for (const idx of SALES_INDEXES) {
       await execute(idx);
     }
   } finally {
-    await execute('PRAGMA foreign_keys = ON');
+    await execute("PRAGMA foreign_keys = ON");
   }
 }
 
@@ -56,20 +58,22 @@ async function recreateSalesTable(): Promise<void> {
  * Recover from a failed table-swap migration (sales dropped but sales_new not renamed).
  */
 async function recoverSalesTable(): Promise<void> {
-  const hasSales = await tableExists('sales');
-  const hasSalesNew = await tableExists('sales_new');
+  const hasSales = await tableExists("sales");
+  const hasSalesNew = await tableExists("sales_new");
 
   if (hasSales && hasSalesNew) {
-    console.log('Recovering from incomplete sales migration (both sales and sales_new exist)...');
-    await execute('PRAGMA foreign_keys = OFF');
+    console.log(
+      "Recovering from incomplete sales migration (both sales and sales_new exist)...",
+    );
+    await execute("PRAGMA foreign_keys = OFF");
     try {
-      await execute('DROP TABLE sales');
-      await execute('ALTER TABLE sales_new RENAME TO sales');
+      await execute("DROP TABLE sales");
+      await execute("ALTER TABLE sales_new RENAME TO sales");
       for (const idx of SALES_INDEXES) {
         await execute(idx);
       }
     } finally {
-      await execute('PRAGMA foreign_keys = ON');
+      await execute("PRAGMA foreign_keys = ON");
     }
     return;
   }
@@ -79,15 +83,15 @@ async function recoverSalesTable(): Promise<void> {
   }
 
   if (hasSalesNew) {
-    console.log('Recovering sales table from sales_new...');
-    await execute('PRAGMA foreign_keys = OFF');
+    console.log("Recovering sales table from sales_new...");
+    await execute("PRAGMA foreign_keys = OFF");
     try {
-      await execute('ALTER TABLE sales_new RENAME TO sales');
+      await execute("ALTER TABLE sales_new RENAME TO sales");
       for (const idx of SALES_INDEXES) {
         await execute(idx);
       }
     } finally {
-      await execute('PRAGMA foreign_keys = ON');
+      await execute("PRAGMA foreign_keys = ON");
     }
     return;
   }
@@ -104,30 +108,30 @@ async function migrateSalesStatusConstraint(): Promise<void> {
     return;
   }
 
-  const currentSql = statusInfo[0].sql ?? '';
+  const currentSql = statusInfo[0].sql ?? "";
   const needsPending = !currentSql.includes("'pending'");
   const needsDiscarded = !currentSql.includes("'discarded'");
   if (!needsPending && !needsDiscarded) {
-    console.log('sales status already allows pending and discarded');
+    console.log("sales status already allows pending and discarded");
     return;
   }
 
-  console.log('Updating sales status constraint (pending/discarded)...');
+  console.log("Updating sales status constraint (pending/discarded)...");
   const columns = await query<{ name: string }>(`PRAGMA table_info(sales)`);
   const columnNames = new Set(columns.map((c) => c.name));
-  const hasNewStatus = columnNames.has('new_status');
+  const hasNewStatus = columnNames.has("new_status");
 
-  if (await tableExists('sales_new')) {
-    console.log('Cleaning up leftover sales_new before status migration...');
-    await execute('PRAGMA foreign_keys = OFF');
+  if (await tableExists("sales_new")) {
+    console.log("Cleaning up leftover sales_new before status migration...");
+    await execute("PRAGMA foreign_keys = OFF");
     try {
-      await execute('DROP TABLE sales_new');
+      await execute("DROP TABLE sales_new");
     } finally {
-      await execute('PRAGMA foreign_keys = ON');
+      await execute("PRAGMA foreign_keys = ON");
     }
   }
 
-  await execute('PRAGMA foreign_keys = OFF');
+  await execute("PRAGMA foreign_keys = OFF");
   try {
     if (!hasNewStatus) {
       await execute(
@@ -143,7 +147,7 @@ async function migrateSalesStatusConstraint(): Promise<void> {
         user_id TEXT NOT NULL,
         shift_id TEXT,
         total_amount REAL NOT NULL,
-        payment_method TEXT CHECK (payment_method IN ('cash', 'mpesa', 'credit', 'split')),
+        payment_method TEXT CHECK (payment_method IN ('cash', 'mpesa', 'credit', 'split', 'unpaid')),
         status TEXT NOT NULL DEFAULT 'completed' CHECK (status IN ('completed', 'voided', 'pending', 'discarded')),
         voided_reason TEXT,
         voided_by TEXT,
@@ -167,7 +171,7 @@ async function migrateSalesStatusConstraint(): Promise<void> {
       )
       SELECT
         id, business_id, user_id, shift_id, total_amount, payment_method,
-        ${hasNewStatus ? 'new_status' : 'status'},
+        ${hasNewStatus ? "new_status" : "status"},
         voided_reason, voided_by, customer_name, customer_phone,
         sale_date, created_at, created_at
       FROM sales
@@ -180,50 +184,265 @@ async function migrateSalesStatusConstraint(): Promise<void> {
       await execute(idx);
     }
 
-    console.log('✅ Updated sales status constraint (pending/discarded)');
+    console.log("✅ Updated sales status constraint (pending/discarded)");
   } finally {
-    await execute('PRAGMA foreign_keys = ON');
+    await execute("PRAGMA foreign_keys = ON");
   }
 }
 
 async function ensureSalesUpdatedAt(): Promise<void> {
-  if (!(await tableExists('sales'))) {
+  if (!(await tableExists("sales"))) {
     return;
   }
 
   const columns = await query<{ name: string }>(`PRAGMA table_info(sales)`);
-  const hasUpdatedAt = columns.some((c) => c.name === 'updated_at');
+  const hasUpdatedAt = columns.some((c) => c.name === "updated_at");
   if (!hasUpdatedAt) {
-    console.log('Adding updated_at to sales...');
+    console.log("Adding updated_at to sales...");
     const now = Math.floor(Date.now() / 1000);
     await execute(
       `ALTER TABLE sales ADD COLUMN updated_at INTEGER NOT NULL DEFAULT ${now}`,
     );
-    await execute(`UPDATE sales SET updated_at = created_at WHERE updated_at = 0`);
+    await execute(
+      `UPDATE sales SET updated_at = created_at WHERE updated_at = 0`,
+    );
   } else {
-    console.log('updated_at already exists on sales');
+    console.log("updated_at already exists on sales");
+  }
+}
+
+/**
+ * Ensure pending/discarded rows use unpaid placeholder (idempotent).
+ */
+async function backfillUnpaidPaymentMethods(): Promise<void> {
+  if (!(await tableExists("sales"))) {
+    return;
+  }
+
+  await execute(
+    `UPDATE sales SET payment_method = 'unpaid'
+     WHERE status IN ('pending', 'discarded') AND payment_method = 'cash'`,
+  );
+}
+
+/**
+ * Pending/discarded sales have no transaction date until checkout.
+ */
+async function migrateNullableSaleDateForPending(): Promise<void> {
+  if (!(await tableExists("sales"))) {
+    return;
+  }
+
+  const columns = await query<{ name: string; notnull: number }>(
+    `PRAGMA table_info(sales)`,
+  );
+  const saleDateCol = columns.find((c) => c.name === "sale_date");
+  if (!saleDateCol) {
+    return;
+  }
+
+  const copyCols = columns
+    .map((c) => c.name)
+    .filter((n) => n !== "new_status");
+
+  if (saleDateCol.notnull === 0) {
+    await execute(
+      `UPDATE sales SET sale_date = NULL WHERE status IN ('pending', 'discarded')`,
+    );
+    console.log("✓ Cleared sale_date on pending/discarded sales");
+    return;
+  }
+
+  console.log("🔄 Making sale_date nullable for pending sales...");
+
+  if (await tableExists("sales_new")) {
+    await execute("PRAGMA foreign_keys = OFF");
+    try {
+      await execute("DROP TABLE sales_new");
+    } finally {
+      await execute("PRAGMA foreign_keys = ON");
+    }
+  }
+
+  const hasOriginated = copyCols.includes("originated_by_user_id");
+  const hasLoadedBy = copyCols.includes("loaded_by_user_id");
+  const hasLoadedAt = copyCols.includes("loaded_at");
+
+  await execute("PRAGMA foreign_keys = OFF");
+  try {
+    await execute(`
+      CREATE TABLE sales_new (
+        id TEXT PRIMARY KEY,
+        business_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        shift_id TEXT,
+        total_amount REAL NOT NULL,
+        payment_method TEXT CHECK (payment_method IN ('cash', 'mpesa', 'credit', 'split', 'unpaid')),
+        status TEXT NOT NULL DEFAULT 'completed' CHECK (status IN ('completed', 'voided', 'pending', 'discarded')),
+        voided_reason TEXT,
+        voided_by TEXT,
+        customer_name TEXT,
+        customer_phone TEXT,
+        sale_date INTEGER,
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch())${
+          hasOriginated ? ",\n        originated_by_user_id TEXT" : ""
+        }${hasLoadedBy ? ",\n        loaded_by_user_id TEXT" : ""}${
+          hasLoadedAt ? ",\n        loaded_at INTEGER" : ""
+        },
+        FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
+        FOREIGN KEY (shift_id) REFERENCES shifts(id) ON DELETE SET NULL,
+        FOREIGN KEY (voided_by) REFERENCES users(id) ON DELETE SET NULL
+      )
+    `);
+
+    const insertCols = copyCols.join(", ");
+    const selectExprs = copyCols
+      .map((col) =>
+        col === "sale_date"
+          ? `CASE WHEN status IN ('pending', 'discarded') THEN NULL ELSE sale_date END`
+          : col,
+      )
+      .join(", ");
+
+    await execute(`
+      INSERT INTO sales_new (${insertCols})
+      SELECT ${selectExprs} FROM sales
+    `);
+
+    await execute(`DROP TABLE sales`);
+    await execute(`ALTER TABLE sales_new RENAME TO sales`);
+
+    for (const idx of SALES_INDEXES) {
+      await execute(idx);
+    }
+
+    if (hasOriginated) {
+      await execute(
+        `CREATE INDEX IF NOT EXISTS idx_sales_originated_by ON sales(business_id, originated_by_user_id)`,
+      );
+    }
+
+    console.log("✅ sale_date nullable migration completed");
+  } finally {
+    await execute("PRAGMA foreign_keys = ON");
+  }
+}
+
+/**
+ * Add 'unpaid' to payment_method CHECK constraint.
+ * Update existing pending/discarded rows to use 'unpaid' instead of 'cash'.
+ */
+async function migrateUnpaidPaymentMethod(): Promise<void> {
+  if (!(await tableExists("sales"))) {
+    return;
+  }
+
+  const schemaInfo = await query<{ sql: string }>(
+    `SELECT sql FROM sqlite_master WHERE type='table' AND name='sales'`,
+  );
+
+  if (schemaInfo.length === 0) return;
+
+  const currentSql = schemaInfo[0].sql ?? "";
+  const hasUnpaid = currentSql.includes("'unpaid'");
+
+  if (hasUnpaid) {
+    console.log("payment_method already allows 'unpaid'");
+    await backfillUnpaidPaymentMethods();
+    return;
+  }
+
+  console.log("🔄 Migrating payment_method constraint (adding 'unpaid')...");
+
+  if (await tableExists("sales_new")) {
+    await execute("PRAGMA foreign_keys = OFF");
+    try {
+      await execute("DROP TABLE sales_new");
+    } finally {
+      await execute("PRAGMA foreign_keys = ON");
+    }
+  }
+
+  await execute("PRAGMA foreign_keys = OFF");
+  try {
+    await execute(`
+      CREATE TABLE sales_new (
+        id TEXT PRIMARY KEY,
+        business_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        shift_id TEXT,
+        total_amount REAL NOT NULL,
+        payment_method TEXT CHECK (payment_method IN ('cash', 'mpesa', 'credit', 'split', 'unpaid')),
+        status TEXT NOT NULL DEFAULT 'completed' CHECK (status IN ('completed', 'voided', 'pending', 'discarded')),
+        voided_reason TEXT,
+        voided_by TEXT,
+        customer_name TEXT,
+        customer_phone TEXT,
+        sale_date INTEGER NOT NULL DEFAULT (unixepoch()),
+        created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+        FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
+        FOREIGN KEY (shift_id) REFERENCES shifts(id) ON DELETE SET NULL,
+        FOREIGN KEY (voided_by) REFERENCES users(id) ON DELETE SET NULL
+      )
+    `);
+
+    await execute(`
+      INSERT INTO sales_new (
+        id, business_id, user_id, shift_id, total_amount, payment_method,
+        status, voided_reason, voided_by, customer_name, customer_phone,
+        sale_date, created_at, updated_at
+      )
+      SELECT
+        id, business_id, user_id, shift_id, total_amount,
+        CASE WHEN status IN ('pending', 'discarded') THEN 'unpaid' ELSE payment_method END,
+        status, voided_reason, voided_by, customer_name, customer_phone,
+        sale_date, created_at, COALESCE(updated_at, created_at)
+      FROM sales
+    `);
+
+    await execute("DROP TABLE sales");
+    await execute("ALTER TABLE sales_new RENAME TO sales");
+
+    for (const idx of SALES_INDEXES) {
+      await execute(idx);
+    }
+
+    console.log("✅ Migrated payment_method constraint (added 'unpaid')");
+  } finally {
+    await execute("PRAGMA foreign_keys = ON");
   }
 }
 
 let pendingSalesMigration: Promise<void> | null = null;
 
 async function runPendingSalesMigration(): Promise<void> {
-  console.log('🔄 Starting pending sales migration...');
+  console.log("🔄 Starting pending sales migration...");
 
   await recoverSalesTable();
   await migrateSalesStatusConstraint();
+  await migrateUnpaidPaymentMethod();
+  await migrateNullableSaleDateForPending();
+  await migrateLoadedByColumns();
+  await migrateSourceColumn();
   await ensureSalesUpdatedAt();
+  await backfillUnpaidPaymentMethods();
 
-  if (await tableExists('sales')) {
+  if (await tableExists("sales")) {
     const indices = await query<{ name: string }>(
       `SELECT name FROM sqlite_master WHERE type='index' AND name='idx_sales_user_pending'`,
     );
     if (indices.length === 0) {
-      await execute(`CREATE INDEX idx_sales_user_pending ON sales(user_id, status)`);
+      await execute(
+        `CREATE INDEX idx_sales_user_pending ON sales(user_id, status)`,
+      );
     }
   }
 
-  console.log('✅ Pending sales migration completed');
+  console.log("✅ Pending sales migration completed");
 }
 
 /** Schema checks run once per server process — not on every checkout. */

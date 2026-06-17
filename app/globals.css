@@ -599,6 +599,15 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0, 0, 0, 0.04);
 }
 
+/* Touch devices (iPad) can trigger :hover during interaction; disable lift
+   to prevent visual overlap between grid rows. */
+@media (hover: none) and (pointer: coarse) {
+  .pos-grid-btn:hover {
+    -webkit-transform: none;
+    transform: none;
+  }
+}
+
 .pos-grid-btn:active::before {
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.06);
 }

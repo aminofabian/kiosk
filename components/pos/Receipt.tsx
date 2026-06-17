@@ -47,6 +47,7 @@ function paymentMethodLabel(method: SplitPayment['payment_method']): string {
 
 export function Receipt({ sale, items, splitPayments, receiptSettings }: ReceiptProps) {
   const formatPrice = (price: number) => price.toFixed(0);
+  const displayDate = sale.sale_date ?? sale.created_at;
 
   const walletPaid =
     splitPayments?.filter((p) => p.payment_method === 'wallet').reduce((s, p) => s + p.amount, 0) ?? 0;
@@ -146,15 +147,15 @@ export function Receipt({ sale, items, splitPayments, receiptSettings }: Receipt
             <div className="receipt-meta-row grid grid-cols-[auto_minmax(0,1fr)] gap-x-1.5 print:gap-x-1 items-baseline">
               <span className="text-black shrink-0">Date:</span>
               <span className="receipt-meta-val text-black tabular-nums text-right">
-                <span className="print:hidden">{formatDateShort(sale.sale_date)}</span>
-                <span className="hidden print:inline">{formatDateThermal(sale.sale_date)}</span>
+                <span className="print:hidden">{formatDateShort(displayDate)}</span>
+                <span className="hidden print:inline">{formatDateThermal(displayDate)}</span>
               </span>
             </div>
             <div className="receipt-meta-row grid grid-cols-[auto_minmax(0,1fr)] gap-x-1.5 print:gap-x-1 items-baseline">
               <span className="text-black shrink-0">Time:</span>
               <span className="receipt-meta-val text-black tabular-nums text-right">
-                <span className="print:hidden">{formatTime(sale.sale_date)}</span>
-                <span className="hidden print:inline">{formatTimeThermal(sale.sale_date)}</span>
+                <span className="print:hidden">{formatTime(displayDate)}</span>
+                <span className="hidden print:inline">{formatTimeThermal(displayDate)}</span>
               </span>
             </div>
             <div className="receipt-meta-row grid grid-cols-[auto_minmax(0,1fr)] gap-x-1.5 print:gap-x-1 items-baseline text-[11px] print:text-[9px]">
@@ -329,12 +330,12 @@ export function Receipt({ sale, items, splitPayments, receiptSettings }: Receipt
               {website && <p className="text-black break-words">{website}</p>}
               {phone && <p className="text-black">Tel {phone}</p>}
               {tillNumber && <p className="font-bold text-black">Till {tillNumber}</p>}
-              <p className="text-black mt-1 tabular-nums">{formatDate(sale.sale_date)}</p>
+              <p className="text-black mt-1 tabular-nums">{formatDate(displayDate)}</p>
             </div>
           )}
           {!website && !phone && !tillNumber && (
             <div className="text-center text-[9px] print:text-[7px] mt-2 text-black tabular-nums">
-              {formatDate(sale.sale_date)}
+              {formatDate(displayDate)}
             </div>
           )}
         </div>

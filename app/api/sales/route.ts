@@ -595,11 +595,12 @@ export async function POST(request: NextRequest) {
         if (pendingSaleId) {
           const updated = await tx.execute(
             `UPDATE sales
-             SET shift_id = ?, total_amount = ?, payment_method = ?,
+             SET user_id = ?, shift_id = ?, total_amount = ?, payment_method = ?,
                  status = 'completed', customer_name = ?, customer_phone = ?,
                  sale_date = ?, updated_at = ?
              WHERE id = ? AND business_id = ? AND status = 'pending'`,
             [
+              auth.userId,
               shiftId,
               totalAmount,
               paymentMethod,
@@ -621,8 +622,8 @@ export async function POST(request: NextRequest) {
           await tx.execute(
             `INSERT INTO sales (
               id, business_id, user_id, shift_id, total_amount, payment_method,
-              status, customer_name, customer_phone, sale_date, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              status, source, customer_name, customer_phone, sale_date, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               saleId,
               auth.businessId,
@@ -631,6 +632,7 @@ export async function POST(request: NextRequest) {
               totalAmount,
               paymentMethod,
               "completed",
+              "direct_sale",
               saleCustomerName,
               saleCustomerPhone,
               now,

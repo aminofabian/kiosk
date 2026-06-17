@@ -8,6 +8,7 @@ import {
   Inbox,
   Loader2,
   RefreshCw,
+  ShoppingCart,
   User,
 } from "lucide-react";
 import { useDepartmentApp } from "@/components/department/DepartmentAppProvider";
@@ -23,11 +24,12 @@ const formatPrice = (n: number) =>
 
 const REFRESH_MS = 30_000;
 
-type FilterKey = "all" | "pending" | "paid" | "cancelled";
+type FilterKey = "all" | "pending" | "in_cart" | "paid" | "cancelled";
 
 const FILTER_TABS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "All" },
-  { key: "pending", label: "Pending" },
+  { key: "pending", label: "Waiting" },
+  { key: "in_cart", label: "In cart" },
   { key: "paid", label: "Paid" },
   { key: "cancelled", label: "Cancelled" },
 ];
@@ -40,10 +42,16 @@ interface StatusStyle {
 
 const STATUS_STYLES: Record<string, StatusStyle> = {
   pending: {
-    label: "Pending",
+    label: "Waiting",
     classes:
       "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200",
     dot: "bg-amber-500",
+  },
+  in_cart: {
+    label: "In cart",
+    classes:
+      "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200",
+    dot: "bg-blue-500",
   },
   completed: {
     label: "Paid",
@@ -58,7 +66,16 @@ const STATUS_STYLES: Record<string, StatusStyle> = {
   },
 };
 
+function isInCart(sale: PendingSale): boolean {
+  return sale.status === "pending" && Boolean(sale.loaded_at);
+}
+
+function isWaiting(sale: PendingSale): boolean {
+  return sale.status === "pending" && !sale.loaded_at;
+}
+
 function displayStatus(sale: PendingSale): string {
+  if (isInCart(sale)) return "in_cart";
   return sale.status;
 }
 
@@ -111,16 +128,24 @@ export default function DepartmentRequestsPage() {
 
   const filteredSales = useMemo(() => {
     if (filterStatus === "all") return sales;
-    return sales.filter((s) => s.status === filterStatus);
+    if (filterStatus === "paid")
+      return sales.filter((s) => s.status === "completed");
+    if (filterStatus === "cancelled")
+      return sales.filter((s) => s.status === "discarded");
+    if (filterStatus === "in_cart") return sales.filter(isInCart);
+    if (filterStatus === "pending") return sales.filter(isWaiting);
+    return sales;
   }, [sales, filterStatus]);
 
   const summary = useMemo(() => {
-    const pending = sales.filter((s) => s.status === "pending");
+    const waiting = sales.filter(isWaiting);
+    const inCart = sales.filter(isInCart);
     const paid = sales.filter((s) => s.status === "completed");
     const cancelled = sales.filter((s) => s.status === "discarded");
     return {
       total: sales.length,
-      pendingCount: pending.length,
+      waitingCount: waiting.length,
+      inCartCount: inCart.length,
       paidCount: paid.length,
       cancelledCount: cancelled.length,
     };
@@ -153,7 +178,7 @@ export default function DepartmentRequestsPage() {
 
       <main className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-3 py-4 max-w-3xl mx-auto w-full space-y-4">
         {!loading && sales.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
             {[
               {
                 label: "Total",
@@ -161,9 +186,14 @@ export default function DepartmentRequestsPage() {
                 color: "text-slate-900 dark:text-white",
               },
               {
-                label: "Pending",
-                value: summary.pendingCount,
+                label: "Waiting",
+                value: summary.waitingCount,
                 color: "text-amber-600",
+              },
+              {
+                label: "In cart",
+                value: summary.inCartCount,
+                color: "text-blue-600",
               },
               {
                 label: "Paid",
@@ -232,7 +262,7 @@ export default function DepartmentRequestsPage() {
               <p className="font-semibold text-slate-600 dark:text-slate-300">
                 {filterStatus === "all"
                   ? "No orders yet"
-                  : `No ${filterStatus} orders`}
+                  : `No ${FILTER_TABS.find((t) => t.key === filterStatus)?.label.toLowerCase() ?? filterStatus} orders`}
               </p>
               <p className="text-sm text-slate-400 mt-1">
                 Orders you create and forward will appear here.
@@ -244,14 +274,21 @@ export default function DepartmentRequestsPage() {
                 const expanded = expandedId === sale.id;
                 const status = displayStatus(sale);
                 const style = STATUS_STYLES[status] || STATUS_STYLES.pending;
+                const inCart = isInCart(sale);
                 const stale =
-                  sale.status === "pending" &&
+                  isWaiting(sale) &&
                   Math.floor(Date.now() / 1000) - sale.updated_at >= 3600;
 
                 return (
                   <div
                     key={sale.id}
-                    className={sale.status === "discarded" ? "opacity-70" : ""}
+                    className={
+                      sale.status === "discarded"
+                        ? "opacity-70"
+                        : inCart
+                          ? "bg-blue-50/30 dark:bg-blue-950/10"
+                          : ""
+                    }
                   >
                     <div className="flex items-start gap-3 px-4 py-3.5">
                       <button
@@ -294,6 +331,20 @@ export default function DepartmentRequestsPage() {
                           )}
                         </div>
 
+                        {inCart && (
+                          <p className="mt-1 flex items-center gap-1.5 text-xs text-blue-700 dark:text-blue-300">
+                            <ShoppingCart className="w-3 h-3 shrink-0" />
+                            {sale.loaded_by_name
+                              ? `With ${sale.loaded_by_name}`
+                              : "With cashier"}
+                            {sale.loaded_at != null && (
+                              <span className="text-blue-600/70 dark:text-blue-400/70">
+                                · {formatPendingSaleAge(sale.loaded_at)}
+                              </span>
+                            )}
+                          </p>
+                        )}
+
                         {sale.originated_by_name && (
                           <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
                             <User className="w-3 h-3" />
@@ -309,12 +360,14 @@ export default function DepartmentRequestsPage() {
 
                         <p className="mt-1 text-[10px] text-slate-400 uppercase tracking-wide">
                           {sale.status === "completed"
-                            ? "Paid "
-                            : formatPendingSaleDateTime(
-                                sale.status === "discarded"
-                                  ? sale.updated_at
-                                  : sale.created_at,
-                              )}
+                            ? `Paid ${formatPendingSaleDateTime(sale.updated_at)}`
+                            : inCart && sale.loaded_at
+                              ? `Picked up ${formatPendingSaleDateTime(sale.loaded_at)}`
+                              : formatPendingSaleDateTime(
+                                  sale.status === "discarded"
+                                    ? sale.updated_at
+                                    : sale.created_at,
+                                )}
                         </p>
 
                         {!expanded && (
