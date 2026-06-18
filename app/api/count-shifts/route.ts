@@ -13,7 +13,7 @@ import { buildCountShiftItemPool } from "@/lib/department/cycle-count-pool";
 import { getStaffDepartmentKeys } from "@/lib/department/purchase-order-access";
 import type { CountShift } from "@/lib/db/types";
 
-const DEFAULT_BATCH_SIZE = 10;
+const DEFAULT_BATCH_SIZE = 30;
 
 export async function OPTIONS() {
   return optionsResponse();

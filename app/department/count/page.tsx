@@ -11,6 +11,8 @@ import {
   CheckCircle2,
   PlusCircle,
   AlertTriangle,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { apiGet } from "@/lib/utils/api-client";
 import { BarcodeCameraScannerDialog } from "@/components/pos/BarcodeCameraScannerDialog";
@@ -79,6 +81,10 @@ interface ItemCountEntry {
 
 // ── Helpers ────────────────────────────────────────────────────
 
+function isClosingCountInitialized(batches: CountBatchWithItem[]): boolean {
+  return batches.some((b) => b.system_stock_evening !== null);
+}
+
 function getPhase(
   shift: CountShift,
   batches: CountBatchWithItem[],
@@ -87,7 +93,9 @@ function getPhase(
   const morningDone = batches.every(
     (b) => b.morning_count_status !== "pending",
   );
-  return morningDone ? "evening" : "morning";
+  if (!morningDone) return "morning";
+  if (!isClosingCountInitialized(batches)) return null;
+  return "evening";
 }
 
 function getItemStatus(
@@ -140,6 +148,7 @@ export default function DepartmentCountPage() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [closingShift, setClosingShift] = useState(false);
+  const [startingClosingCount, setStartingClosingCount] = useState(false);
 
   // ── Error state ─────────────────────────────────────────
 
@@ -222,8 +231,15 @@ export default function DepartmentCountPage() {
     shift && batches && shift.status !== "closed"
       ? getPhase(shift, batches)
       : null;
-  const phaseLabel = phase === "morning" ? "Morning Count" : "Evening Count";
+  const phaseLabel =
+    phase === "morning" ? "Opening Count" : "Closing Count";
   const isEvening = phase === "evening";
+  const openingCountComplete =
+    shift !== null &&
+    batches !== null &&
+    shift.status !== "closed" &&
+    batches.every((b) => b.morning_count_status !== "pending") &&
+    !isClosingCountInitialized(batches);
 
   const currentBatch: CountBatchWithItem | null = batches
     ? (batches[currentIndex] ?? null)
@@ -443,6 +459,30 @@ export default function DepartmentCountPage() {
     }
   };
 
+  const handleStartClosingCount = async () => {
+    if (!shift) return;
+    setStartingClosingCount(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/count-shifts/${shift.id}/start-evening`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Closing count ready — count the same items again");
+        await fetchShift();
+      } else {
+        setError(data.message || "Failed to start closing count.");
+      }
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setStartingClosingCount(false);
+    }
+  };
+
   const handleCloseShift = async () => {
     if (!shift) return;
     setClosingShift(true);
@@ -614,7 +654,89 @@ export default function DepartmentCountPage() {
   }
 
   // ═══════════════════════════════════════════════════════════
-  //  Render: Counting (morning or evening)
+  //  Render: Opening count complete — start closing count
+  // ═══════════════════════════════════════════════════════════
+
+  if (openingCountComplete) {
+    const morningCounted = batches.filter(
+      (b) => b.morning_count_status === "counted",
+    ).length;
+    const morningNotFound = batches.filter(
+      (b) => b.morning_count_status === "not_located",
+    ).length;
+
+    return (
+      <div className="h-full overflow-y-auto bg-[#f6f8f6] dark:bg-[#0f1a0d]">
+        <div className="max-w-lg mx-auto p-4 pt-6">
+          <div className="bg-white dark:bg-[#1a2c17] rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800/60 p-6">
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-16 h-16 rounded-full bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center">
+                <Sun className="w-8 h-8 text-amber-500" />
+              </div>
+            </div>
+
+            <h2 className="text-xl font-bold text-center text-slate-900 dark:text-white mb-2">
+              Opening Count Complete
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 text-center mb-6">
+              You counted {totalItems} items this morning. When you&apos;re
+              ready to close the shift, count the same {totalItems} items again.
+            </p>
+
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-xl p-4 text-center">
+                <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
+                  {morningCounted}
+                </p>
+                <p className="text-xs text-emerald-600 dark:text-emerald-500 mt-0.5">
+                  Counted
+                </p>
+              </div>
+              <div className="bg-red-50 dark:bg-red-950/30 rounded-xl p-4 text-center">
+                <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                  {morningNotFound}
+                </p>
+                <p className="text-xs text-red-500 dark:text-red-400 mt-0.5">
+                  Not found
+                </p>
+              </div>
+            </div>
+
+            {error && (
+              <p
+                className="text-sm text-red-600 dark:text-red-400 text-center mb-4"
+                role="alert"
+              >
+                {error}
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={handleStartClosingCount}
+              disabled={startingClosingCount}
+              className="w-full h-12 min-h-[48px] rounded-xl bg-[#1c6a1e] text-white font-semibold text-sm active:scale-[0.98] transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {startingClosingCount ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Preparing closing count…
+                </>
+              ) : (
+                <>
+                  <Moon className="w-5 h-5" />
+                  Start Closing Count
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  Render: Counting (opening or closing)
   // ═══════════════════════════════════════════════════════════
 
   return (
@@ -635,7 +757,7 @@ export default function DepartmentCountPage() {
             </h1>
             {isEvening && (
               <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                Morning counts completed — now counting evening stock
+                Opening count done — count the same items for closing
               </p>
             )}
           </div>
@@ -691,7 +813,7 @@ export default function DepartmentCountPage() {
               </span>
               {isEvening && currentBatch.morning_count !== null && (
                 <span className="text-xs text-slate-400 dark:text-slate-500">
-                  morning: {currentBatch.morning_count}
+                  opening: {currentBatch.morning_count}
                 </span>
               )}
             </div>
@@ -891,7 +1013,7 @@ export default function DepartmentCountPage() {
           )}
         </button>
 
-        {/* Close shift — evening only, when all counted and morning was submitted */}
+        {/* Close shift — closing count only, when all items submitted on server */}
         {isEvening && eveningCompleteOnServer && (
           <button
             type="button"
