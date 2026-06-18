@@ -106,23 +106,22 @@ export function ItemImageUpload({
     }
   };
 
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <ImagePlus className="h-4 w-4 text-muted-foreground" />
-        <Label className="text-base font-semibold">Product photo</Label>
-      </div>
-      <p className="text-sm text-muted-foreground -mt-1">
-        Shown on Quick Sell and the POS catalog. JPEG, PNG, WebP, or AVIF · max 5MB.
-      </p>
+  const previewSize = compact ? 'w-20 h-20' : 'w-full sm:w-40 h-40';
 
-      <div
-        className={`flex gap-4 items-start ${compact ? 'flex-col sm:flex-row' : 'flex-col sm:flex-row'}`}
-      >
+  return (
+    <div className={compact ? 'space-y-1.5' : 'space-y-3'}>
+      <Label className={compact ? 'text-sm font-semibold' : 'text-base font-semibold'}>
+        Product photo
+      </Label>
+      {!compact && (
+        <p className="text-sm text-muted-foreground -mt-1">
+          Shown on Quick Sell and the POS catalog. JPEG, PNG, WebP, or AVIF · max 5MB.
+        </p>
+      )}
+
+      <div className={`flex gap-3 items-center ${compact ? '' : 'items-start'}`}>
         <div
-          className={`relative shrink-0 rounded-xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 overflow-hidden ${
-            compact ? 'w-full sm:w-32 h-32' : 'w-full sm:w-40 h-40'
-          }`}
+          className={`relative shrink-0 rounded-lg border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 overflow-hidden ${previewSize}`}
         >
           {previewUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -132,19 +131,19 @@ export function ItemImageUpload({
               className="absolute inset-0 w-full h-full object-cover"
             />
           ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 gap-1 p-2 text-center">
-              <ImagePlus className="w-8 h-8 opacity-50" />
-              <span className="text-xs">No photo</span>
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 gap-0.5 p-1 text-center">
+              <ImagePlus className={`${compact ? 'w-5 h-5' : 'w-8 h-8'} opacity-50`} />
+              {!compact && <span className="text-xs">No photo</span>}
             </div>
           )}
           {uploading && (
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-              <Loader2 className="w-8 h-8 text-white animate-spin" />
+              <Loader2 className="w-5 h-5 text-white animate-spin" />
             </div>
           )}
         </div>
 
-        <div className="flex flex-col gap-2 flex-1">
+        <div className={`flex ${compact ? 'flex-row flex-wrap gap-1.5' : 'flex-col gap-2'} flex-1`}>
           <input
             ref={inputRef}
             type="file"
@@ -159,30 +158,32 @@ export function ItemImageUpload({
           <Button
             type="button"
             variant="outline"
-            className="justify-start"
+            size={compact ? 'sm' : 'default'}
+            className={compact ? 'h-8 text-xs' : 'justify-start'}
             disabled={uploading}
             onClick={() => inputRef.current?.click()}
           >
             {uploading ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
             ) : (
-              <Upload className="w-4 h-4 mr-2" />
+              <Upload className="w-3.5 h-3.5 mr-1.5" />
             )}
-            {previewUrl ? 'Replace photo' : 'Upload photo'}
+            {previewUrl ? 'Replace' : 'Upload'}
           </Button>
           {(previewUrl || pendingFile) && (
             <Button
               type="button"
               variant="ghost"
-              className="justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+              size={compact ? 'sm' : 'default'}
+              className={`${compact ? 'h-8 text-xs' : 'justify-start'} text-red-600 hover:text-red-700 hover:bg-red-50`}
               disabled={uploading}
               onClick={() => void handleRemove()}
             >
-              <Trash2 className="w-4 h-4 mr-2" />
-              Remove photo
+              <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+              Remove
             </Button>
           )}
-          {!itemId && pendingFile && (
+          {!itemId && pendingFile && !compact && (
             <p className="text-xs text-amber-700 dark:text-amber-300">
               Photo will upload when you save the product.
             </p>

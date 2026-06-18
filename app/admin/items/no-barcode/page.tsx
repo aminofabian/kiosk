@@ -31,6 +31,7 @@ import {
   X,
   Trash2,
   Stamp,
+  Check,
 } from 'lucide-react';
 import type { Item, Category } from '@/lib/db/types';
 import { getItemDisplayName } from '@/lib/utils';
@@ -66,10 +67,12 @@ export default function ItemsWithoutBarcodePage() {
   const [savingBarcode, setSavingBarcode] = useState(false);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
   const [exemptDrawerOpen, setExemptDrawerOpen] = useState(false);
-  const [exemptingItem, setExemptingItem] = useState<ItemWithCategory | null>(null);
   const [selectedExemptReason, setSelectedExemptReason] = useState<BarcodeExemptReasonId>('fresh_produce');
   const [stampingExempt, setStampingExempt] = useState(false);
   const [stampingItemId, setStampingItemId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [exemptingItems, setExemptingItems] = useState<ItemWithCategory[]>([]);
 
   const fetchData = async () => {
     try {
@@ -257,6 +260,47 @@ export default function ItemsWithoutBarcodePage() {
     return n;
   }, [items]);
 
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const visible = new Set(tableRows.map((r) => r.id));
+      const next = new Set([...prev].filter((id) => visible.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [tableRows]);
+
+  const allVisibleSelected =
+    tableRows.length > 0 && tableRows.every((r) => selectedIds.has(r.id));
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (allVisibleSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(tableRows.map((r) => r.id)));
+    }
+  };
+
+  const openExemptDrawer = (itemsToExempt: ItemWithCategory[]) => {
+    const sellable = itemsToExempt.filter((item) => !item.isParent);
+    if (sellable.length === 0) return;
+    setExemptingItems(sellable);
+    setSelectedExemptReason('fresh_produce');
+    setExemptDrawerOpen(true);
+  };
+
+  const openBulkExemptDrawer = () => {
+    const selected = tableRows.filter((r) => selectedIds.has(r.id)).map((r) => r.item);
+    openExemptDrawer(selected);
+  };
+
   const openBarcodeDrawer = (item: ItemWithCategory) => {
     if (item.isParent) return;
     setEditingItem(item);
@@ -264,35 +308,52 @@ export default function ItemsWithoutBarcodePage() {
     setBarcodeDrawerOpen(true);
   };
 
-  const openExemptDrawer = (item: ItemWithCategory) => {
-    if (item.isParent) return;
-    setExemptingItem(item);
-    setSelectedExemptReason('fresh_produce');
-    setExemptDrawerOpen(true);
-  };
-
   const handleStampExempt = async () => {
-    if (!exemptingItem) return;
+    if (exemptingItems.length === 0) return;
     const reason = getBarcodeExemptReason(selectedExemptReason);
     setStampingExempt(true);
-    setStampingItemId(exemptingItem.id);
+    let stamped = 0;
+    let failed = 0;
+
     try {
-      const res = await fetch(`/api/items/${exemptingItem.id}/barcode-exempt`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ exempt: true, reason: selectedExemptReason }),
-      });
-      const result = await res.json();
-      if (result.success) {
-        const name = getItemDisplayName(exemptingItem.name, exemptingItem.variant_name);
-        toast.success(`${reason?.emoji ?? '✨'} Passport stamped`, {
-          description: `${name} — ${reason?.stamp ?? 'scan-free'}. Won't appear here again.`,
-        });
+      for (const item of exemptingItems) {
+        setStampingItemId(item.id);
+        try {
+          const res = await fetch(`/api/items/${item.id}/barcode-exempt`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ exempt: true, reason: selectedExemptReason }),
+          });
+          const result = await res.json();
+          if (result.success) stamped += 1;
+          else failed += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+
+      if (stamped > 0) {
+        const stampLabel = reason?.stamp ?? 'scan-free';
+        if (exemptingItems.length === 1) {
+          const name = getItemDisplayName(exemptingItems[0].name, exemptingItems[0].variant_name);
+          toast.success(`${reason?.emoji ?? '✨'} Passport stamped`, {
+            description: `${name} — ${stampLabel}. Won't appear here again.`,
+          });
+        } else {
+          toast.success(`${reason?.emoji ?? '✨'} ${stamped} passports stamped`, {
+            description: `${stampLabel} · Won't appear here again.`,
+          });
+        }
         setExemptDrawerOpen(false);
-        setExemptingItem(null);
+        setExemptingItems([]);
+        setSelectedIds(new Set());
         await fetchData();
-      } else {
-        toast.error(result.message || 'Failed to stamp passport');
+      }
+
+      if (failed > 0) {
+        toast.error(`Failed to stamp ${failed} item${failed !== 1 ? 's' : ''}`);
+      } else if (stamped === 0) {
+        toast.error('Failed to stamp passport');
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to stamp passport');
@@ -300,6 +361,50 @@ export default function ItemsWithoutBarcodePage() {
       setStampingExempt(false);
       setStampingItemId(null);
     }
+  };
+
+  const handleBulkDelete = () => {
+    const count = selectedIds.size;
+    if (count === 0) return;
+
+    toast(`Delete ${count} item${count !== 1 ? 's' : ''}? This cannot be undone.`, {
+      action: {
+        label: 'Delete all',
+        onClick: async () => {
+          setBulkDeleting(true);
+          const ids = Array.from(selectedIds);
+          let deleted = 0;
+          let failed = 0;
+
+          try {
+            for (const id of ids) {
+              setDeletingItemId(id);
+              try {
+                const response = await fetch(`/api/items/${id}`, { method: 'DELETE' });
+                const result = await response.json();
+                if (result.success) deleted += 1;
+                else failed += 1;
+              } catch {
+                failed += 1;
+              }
+            }
+
+            if (deleted > 0) {
+              toast.success(`Deleted ${deleted} item${deleted !== 1 ? 's' : ''}`);
+              setSelectedIds(new Set());
+              await fetchData();
+            }
+            if (failed > 0) {
+              toast.error(`Failed to delete ${failed} item${failed !== 1 ? 's' : ''}`);
+            }
+          } finally {
+            setBulkDeleting(false);
+            setDeletingItemId(null);
+          }
+        },
+      },
+      cancel: { label: 'Cancel', onClick: () => {} },
+    });
   };
 
   const handleDeleteItem = (item: ItemWithCategory) => {
@@ -549,6 +654,24 @@ export default function ItemsWithoutBarcodePage() {
                       <table className="w-full text-sm">
                         <thead className="sticky top-0 z-[1]">
                           <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80">
+                            <th className="w-10 py-3 pl-4 pr-2">
+                              <button
+                                type="button"
+                                onClick={toggleSelectAll}
+                                className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors hover:border-amber-500 ${
+                                  allVisibleSelected
+                                    ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/40'
+                                    : 'border-slate-300 dark:border-slate-600'
+                                }`}
+                                aria-label={allVisibleSelected ? 'Deselect all' : 'Select all'}
+                              >
+                                {allVisibleSelected ? (
+                                  <Check className="w-3 h-3 text-amber-600" />
+                                ) : selectedIds.size > 0 ? (
+                                  <span className="w-2 h-0.5 bg-amber-600 rounded-full" />
+                                ) : null}
+                              </button>
+                            </th>
                             <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                               Product
                             </th>
@@ -570,8 +693,26 @@ export default function ItemsWithoutBarcodePage() {
                           {tableRows.map((row) => (
                             <tr
                               key={row.id}
-                              className="hover:bg-amber-50/40 dark:hover:bg-amber-950/10 transition-colors"
+                              className={`hover:bg-amber-50/40 dark:hover:bg-amber-950/10 transition-colors ${
+                                selectedIds.has(row.id) ? 'bg-amber-50/60 dark:bg-amber-950/20' : ''
+                              }`}
                             >
+                              <td className="w-10 py-3 pl-4 pr-2">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleSelect(row.id)}
+                                  className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors hover:border-amber-500 ${
+                                    selectedIds.has(row.id)
+                                      ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/40'
+                                      : 'border-slate-300 dark:border-slate-600'
+                                  }`}
+                                  aria-label={selectedIds.has(row.id) ? 'Deselect' : 'Select'}
+                                >
+                                  {selectedIds.has(row.id) ? (
+                                    <Check className="w-3 h-3 text-amber-600" />
+                                  ) : null}
+                                </button>
+                              </td>
                               <td className="py-3 px-4">
                                 <p className="font-medium text-slate-900 dark:text-white truncate max-w-[200px] sm:max-w-none">
                                   {row.productLabel}
@@ -604,7 +745,7 @@ export default function ItemsWithoutBarcodePage() {
                                     variant="outline"
                                     size="sm"
                                     className="h-8 border-violet-200 text-violet-700 hover:bg-violet-50 hover:text-violet-800 dark:border-violet-800 dark:text-violet-300 dark:hover:bg-violet-950/40"
-                                    onClick={() => openExemptDrawer(row.item)}
+                                    onClick={() => openExemptDrawer([row.item])}
                                     disabled={stampingItemId === row.item.id}
                                     title="Mark as scan-free"
                                   >
@@ -660,6 +801,77 @@ export default function ItemsWithoutBarcodePage() {
             </>
           )}
         </div>
+
+        {/* Floating bulk actions */}
+        {selectedIds.size > 0 && (
+          <div className="fixed bottom-20 md:bottom-6 left-4 right-4 md:left-auto md:right-8 md:max-w-xl z-30 animate-in slide-in-from-bottom-4 duration-300">
+            <div className="rounded-2xl border border-amber-200/80 dark:border-amber-700/50 bg-white dark:bg-slate-900 shadow-2xl shadow-amber-500/10 p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center shrink-0">
+                    <ScanBarcode className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-900 dark:text-white">
+                      {selectedIds.size} item{selectedIds.size !== 1 ? 's' : ''} selected
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                      {allVisibleSelected && tableRows.length > 0
+                        ? `All ${tableRows.length} shown selected`
+                        : 'Bulk actions on selected items'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-9 border-violet-200 text-violet-700 hover:bg-violet-50 dark:border-violet-800 dark:text-violet-300"
+                    onClick={openBulkExemptDrawer}
+                    disabled={stampingExempt || bulkDeleting}
+                  >
+                    <Stamp className="w-4 h-4 mr-1.5" />
+                    Skip scan
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-9 border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400"
+                    onClick={handleBulkDelete}
+                    disabled={bulkDeleting || stampingExempt}
+                  >
+                    {bulkDeleting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Trash2 className="w-4 h-4 mr-1.5" />
+                        Delete
+                      </>
+                    )}
+                  </Button>
+                  {!allVisibleSelected && tableRows.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setSelectedIds(new Set(tableRows.map((r) => r.id)))}
+                      className="h-9 text-slate-600"
+                    >
+                      Select all {tableRows.length}
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSelectedIds(new Set())}
+                    className="h-9 text-slate-500 hover:text-slate-700"
+                  >
+                    Deselect all
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Barcode Drawer */}
         <Drawer
@@ -729,7 +941,7 @@ export default function ItemsWithoutBarcodePage() {
           open={exemptDrawerOpen}
           onOpenChange={(o) => {
             setExemptDrawerOpen(o);
-            if (!o) setExemptingItem(null);
+            if (!o) setExemptingItems([]);
           }}
           direction="right"
         >
@@ -740,12 +952,28 @@ export default function ItemsWithoutBarcodePage() {
                 Scan-Free Passport
               </DrawerTitle>
               <DrawerDescription>
-                {exemptingItem
-                  ? `Stamp ${getItemDisplayName(exemptingItem.name, exemptingItem.variant_name)} — it leaves this audit forever.`
-                  : 'Some items live outside the barcode world.'}
+                {exemptingItems.length === 1
+                  ? `Stamp ${getItemDisplayName(exemptingItems[0].name, exemptingItems[0].variant_name)} — it leaves this audit forever.`
+                  : exemptingItems.length > 1
+                    ? `Stamp ${exemptingItems.length} items — they leave this audit forever.`
+                    : 'Some items live outside the barcode world.'}
               </DrawerDescription>
             </DrawerHeader>
             <div className="p-6 space-y-5 overflow-y-auto">
+              {exemptingItems.length > 1 && (
+                <div className="rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-950/20 px-3 py-2">
+                  <p className="text-xs font-medium text-violet-800 dark:text-violet-200">
+                    Applying to {exemptingItems.length} items
+                  </p>
+                  <p className="text-xs text-violet-600/80 dark:text-violet-300/80 mt-1 line-clamp-2">
+                    {exemptingItems
+                      .slice(0, 4)
+                      .map((item) => getItemDisplayName(item.name, item.variant_name))
+                      .join(' · ')}
+                    {exemptingItems.length > 4 ? ` · +${exemptingItems.length - 4} more` : ''}
+                  </p>
+                </div>
+              )}
               <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
                 Pick why this item doesn&apos;t need a barcode. Cashiers can still search by name at checkout.
               </p>
@@ -802,7 +1030,9 @@ export default function ItemsWithoutBarcodePage() {
                   ) : (
                     <>
                       <Stamp className="w-4 h-4 mr-2" />
-                      Stamp passport
+                      {exemptingItems.length > 1
+                        ? `Stamp ${exemptingItems.length} passports`
+                        : 'Stamp passport'}
                     </>
                   )}
                 </Button>

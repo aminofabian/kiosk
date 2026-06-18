@@ -1,14 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, type ReactNode, type RefObject, type Dispatch, type SetStateAction } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Package, Layers, ShoppingCart, DollarSign, Box, AlertCircle, Info, Sparkles, Grid3x3, QrCode, Search, CheckCircle2, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Loader2, Package, Layers, ShoppingCart, Box, AlertCircle, Info, Sparkles, Grid3x3, QrCode, Search, CheckCircle2, ChevronRight, ChevronLeft, ChevronDown } from 'lucide-react';
 import type { Category, Item } from '@/lib/db/types';
 import type { UnitType } from '@/lib/constants';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
@@ -655,6 +654,334 @@ function getUnitTypeFromVariant(variantName: string): UnitType | null {
   return null; // No auto-detection possible
 }
 
+const UNIT_CHIP_OPTIONS: { value: UnitType; label: string }[] = [
+  { value: 'piece', label: 'Piece' },
+  { value: 'kg', label: 'Kg' },
+  { value: 'g', label: 'Gram' },
+  { value: 'bunch', label: 'Bunch' },
+  { value: 'tray', label: 'Tray' },
+  { value: 'litre', label: 'Litre' },
+  { value: 'ml', label: 'ml' },
+];
+
+const STEP_HINTS: Record<string, string> = {
+  type: 'Start with the department this belongs to — it sets units and pricing defaults.',
+  structure: 'Single SKU, a parent with sizes, or add to an existing product?',
+  variant: 'Pick the parent product, then name this size or type.',
+  details: 'Name, price, and stock — the essentials for selling.',
+};
+
+function FormCard({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900/30 overflow-hidden">
+      <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40">
+        <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">{title}</p>
+        {hint ? <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">{hint}</p> : null}
+      </div>
+      <div className="p-3 space-y-2.5">{children}</div>
+    </div>
+  );
+}
+
+function FieldLabel({
+  htmlFor,
+  required,
+  children,
+}: {
+  htmlFor?: string;
+  required?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Label htmlFor={htmlFor} className="text-[10px] font-medium text-muted-foreground">
+      {children}
+      {required ? <span className="text-red-500 ml-0.5">*</span> : null}
+    </Label>
+  );
+}
+
+function BarcodeFieldCompact({
+  barcode,
+  setBarcode,
+  barcodeInputRef,
+  barcodeInputFocused,
+  setBarcodeInputFocused,
+  barcodeScanStatus,
+  barcodeCheckStatus,
+  checkBarcodeExists,
+  setBarcodeCheckStatus,
+  isSubmitting,
+  inputClass,
+}: {
+  barcode: string;
+  setBarcode: (v: string) => void;
+  barcodeInputRef: RefObject<HTMLInputElement | null>;
+  barcodeInputFocused: boolean;
+  setBarcodeInputFocused: (v: boolean) => void;
+  barcodeScanStatus: { scanning: boolean; lastScanned: string | null };
+  barcodeCheckStatus: { checking: boolean; exists: boolean; existingItem: Item | null; error: string | null; checked: boolean };
+  checkBarcodeExists: () => void;
+  setBarcodeCheckStatus: Dispatch<SetStateAction<{ checking: boolean; exists: boolean; existingItem: Item | null; error: string | null; checked: boolean }>>;
+  isSubmitting: boolean;
+  inputClass: string;
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900/40 p-2 space-y-1 shrink-0">
+      <div className="flex items-center justify-between gap-2">
+        <FieldLabel htmlFor="barcode">Barcode</FieldLabel>
+        {barcodeInputFocused ? (
+          <Badge variant="outline" className="text-[9px] h-4 px-1 bg-[#1c6a1e]/10 border-[#1c6a1e]/30 text-[#1c6a1e]">
+            <QrCode className="w-2.5 h-2.5 mr-0.5 inline" />
+            Scan ready
+          </Badge>
+        ) : (
+          <span className="text-[9px] text-muted-foreground">optional</span>
+        )}
+      </div>
+      <div className="relative">
+        <Input
+          ref={barcodeInputRef}
+          id="barcode"
+          type="text"
+          value={barcode}
+          onChange={(e) => {
+            setBarcode(e.target.value);
+            setBarcodeCheckStatus({ checking: false, exists: false, existingItem: null, error: null, checked: false });
+          }}
+          onFocus={() => setBarcodeInputFocused(true)}
+          onBlur={() => setBarcodeInputFocused(false)}
+          placeholder="Scan or type barcode"
+          disabled={isSubmitting}
+          className={`${inputClass} font-mono pr-8`}
+          data-barcode-enabled="true"
+          autoComplete="off"
+          autoCorrect="off"
+          spellCheck={false}
+        />
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center">
+          {barcodeScanStatus.scanning ? (
+            <div className="w-1.5 h-1.5 rounded-full bg-[#1c6a1e] animate-pulse" />
+          ) : barcode ? (
+            <button
+              type="button"
+              onClick={() => {
+                setBarcode('');
+                setBarcodeCheckStatus({ checking: false, exists: false, existingItem: null, error: null, checked: false });
+                barcodeInputRef.current?.focus();
+              }}
+              className="text-[10px] text-muted-foreground hover:text-foreground px-1"
+              title="Clear"
+            >
+              ✕
+            </button>
+          ) : (
+            <QrCode className="w-3.5 h-3.5 text-muted-foreground" />
+          )}
+        </div>
+      </div>
+      {barcode.trim() ? (
+        <div className="flex flex-wrap items-center gap-1">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={checkBarcodeExists}
+            disabled={isSubmitting || barcodeCheckStatus.checking}
+            className="h-6 text-[10px] px-2"
+          >
+            {barcodeCheckStatus.checking ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              'Check'
+            )}
+          </Button>
+          {barcodeCheckStatus.exists && barcodeCheckStatus.existingItem ? (
+            <span className="text-[10px] text-red-600 dark:text-red-400 truncate">
+              Exists: {barcodeCheckStatus.existingItem.name}
+            </span>
+          ) : null}
+          {barcodeCheckStatus.checked && !barcodeCheckStatus.checking && !barcodeCheckStatus.exists && !barcodeCheckStatus.error ? (
+            <span className="text-[10px] text-emerald-600 dark:text-emerald-400">Available</span>
+          ) : null}
+          {barcodeCheckStatus.error ? (
+            <span className="text-[10px] text-amber-600">{barcodeCheckStatus.error}</span>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CategoryDropdownField({
+  categories,
+  categoryId,
+  categorySearchQuery,
+  setCategorySearchQuery,
+  setCategoryId,
+  isCustomCategory,
+  setIsCustomCategory,
+  customCategoryName,
+  setCustomCategoryName,
+  isSubmitting,
+  inputClass,
+  onCategorySelect,
+}: {
+  categories: Category[];
+  categoryId: string;
+  categorySearchQuery: string;
+  setCategorySearchQuery: (v: string) => void;
+  setCategoryId: (id: string) => void;
+  isCustomCategory: boolean;
+  setIsCustomCategory: (v: boolean) => void;
+  customCategoryName: string;
+  setCustomCategoryName: (v: string) => void;
+  isSubmitting: boolean;
+  inputClass: string;
+  onCategorySelect?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    if (!categorySearchQuery.trim()) return categories;
+    const q = categorySearchQuery.toLowerCase();
+    return categories.filter((c) => c.name.toLowerCase().includes(q));
+  }, [categories, categorySearchQuery]);
+
+  const selected = categories.find((c) => c.id === categoryId);
+
+  useEffect(() => {
+    const onPointerDown = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, []);
+
+  if (isCustomCategory) {
+    return (
+      <div className="space-y-1">
+        <FieldLabel required>Category</FieldLabel>
+        <div className="flex gap-1">
+          <Input
+            value={customCategoryName}
+            onChange={(e) => setCustomCategoryName(e.target.value)}
+            placeholder="New category name"
+            disabled={isSubmitting}
+            className={`${inputClass} flex-1`}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 px-2 text-[10px] shrink-0"
+            onClick={() => setIsCustomCategory(false)}
+            disabled={isSubmitting}
+          >
+            Pick list
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1" ref={rootRef}>
+      <FieldLabel required>Category</FieldLabel>
+      <div className="relative">
+        <button
+          type="button"
+          disabled={isSubmitting}
+          onClick={() => setOpen((v) => !v)}
+          className={`w-full flex items-center justify-between gap-2 rounded-md border bg-background px-2.5 text-left hover:bg-accent/40 disabled:opacity-50 ${inputClass}`}
+        >
+          <span className="truncate text-xs">
+            {selected ? (
+              <>
+                <span className="mr-1">{selected.icon || '📦'}</span>
+                {selected.name}
+              </>
+            ) : (
+              <span className="text-muted-foreground">Select category...</span>
+            )}
+          </span>
+          <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+        {open && (
+          <div className="absolute z-50 left-0 right-0 top-full mt-1 rounded-md border bg-popover text-popover-foreground shadow-md p-2 space-y-1.5">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
+              <Input
+                placeholder="Search categories..."
+                value={categorySearchQuery}
+                onChange={(e) => setCategorySearchQuery(e.target.value)}
+                className="pl-7 h-7 text-xs"
+                onKeyDown={(e) => e.stopPropagation()}
+                autoFocus
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-1 max-h-[5.75rem] overflow-y-auto">
+              {filtered.map((category) => {
+                const isSelected = categoryId === category.id;
+                return (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() => {
+                      setCategoryId(category.id);
+                      setIsCustomCategory(false);
+                      setCustomCategoryName('');
+                      setCategorySearchQuery('');
+                      onCategorySelect?.();
+                      setOpen(false);
+                    }}
+                    disabled={isSubmitting}
+                    title={category.name}
+                    className={`h-7 min-w-0 px-1 rounded border text-[10px] font-medium flex items-center justify-center gap-0.5 ${
+                      isSelected
+                        ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 text-[#1c6a1e]'
+                        : 'border-border hover:border-[#1c6a1e]/40 hover:bg-accent/30'
+                    }`}
+                  >
+                    <span className="shrink-0">{category.icon || '📦'}</span>
+                    <span className="truncate">{category.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {filtered.length === 0 ? (
+              <p className="text-[10px] text-muted-foreground text-center py-1">No categories found</p>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => {
+                setIsCustomCategory(true);
+                setCategoryId('');
+                setCustomCategoryName('');
+                setOpen(false);
+              }}
+              disabled={isSubmitting}
+              className="w-full h-7 rounded border border-dashed text-[10px] text-muted-foreground hover:border-[#1c6a1e]/40 hover:bg-accent/20"
+            >
+              + Create new category
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 interface ItemFormProps {
   itemId?: string;
   initialData?: {
@@ -779,6 +1106,7 @@ export function ItemForm({
   const [parentSearchQuery, setParentSearchQuery] = useState('');
   const [categorySearchQuery, setCategorySearchQuery] = useState('');
   const [formStep, setFormStep] = useState(1);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [barcodeScanStatus, setBarcodeScanStatus] = useState<{ scanning: boolean; lastScanned: string | null }>({ scanning: false, lastScanned: null });
   const [barcodeCheckStatus, setBarcodeCheckStatus] = useState<{ checking: boolean; exists: boolean; existingItem: Item | null; error: string | null; checked: boolean }>({ checking: false, exists: false, existingItem: null, error: null, checked: false });
 
@@ -1027,6 +1355,14 @@ export function ItemForm({
     setImageUrl(initialData.image_url ?? null);
     setPendingImageFile(null);
     setFormStep(1);
+    const hasExtras = !!(
+      initialData.product_code ||
+      initialData.expiry_date ||
+      initialData.aisle_number ||
+      initialData.bundle_quantity ||
+      initialData.packaging_unit_name
+    );
+    setShowMoreOptions(!!itemId && hasExtras);
   }, [initialData, itemId, parentItemId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1323,23 +1659,59 @@ export function ItemForm({
   }
 
   const isEditingExistingItem = !!itemId;
-  const useSteps = !isEditingExistingItem && !parentItemId;
+  const isCreate = !itemId;
+  const compact = isEditingExistingItem;
+  const showCompactShell = isCreate || compact;
+  const useSteps = !showCompactShell && !isEditingExistingItem && !parentItemId;
   const totalSteps = useSteps
     ? (mode === 'variant' ? 4 : 3)
     : 1;
   const canGoNext = formStep < totalSteps;
   const canGoBack = formStep > 1;
+  const sectionGap = compact ? 'space-y-1.5' : 'space-y-3';
+  const formGap = showCompactShell ? 'space-y-2' : 'space-y-6';
+  const labelClass = compact ? 'text-sm font-semibold' : 'text-base font-semibold';
+  const inputClass = showCompactShell
+    ? 'h-8 text-sm focus-visible:ring-[#1c6a1e]'
+    : 'h-12 text-base focus-visible:ring-[#1c6a1e]';
+
+  const selectedParentForPreview = parentItems.find((p) => p.id === selectedParentId);
+  const selectedParentName = selectedParentForPreview?.name || '';
+  const selectedParentCategoryName =
+    categories.find((c) => c.id === selectedParentForPreview?.category_id)?.name || '';
+  const variantSuggestionsForShell =
+    selectedParentId && selectedParentName
+      ? getVariantSuggestions(selectedParentName, selectedParentCategoryName)
+      : [];
+  const moreOptionsCount = [
+    productCode,
+    expiryDate,
+    aisleNumber,
+    bundleEnabled,
+    packagingEnabled,
+  ].filter(Boolean).length;
+  const currentStepHint = useSteps
+    ? formStep === 1
+      ? STEP_HINTS.type
+      : formStep === 2
+        ? STEP_HINTS.structure
+        : formStep === 3 && mode === 'variant'
+          ? STEP_HINTS.variant
+          : STEP_HINTS.details
+    : null;
 
   return (
-    <div className="max-w-2xl mx-auto py-4">
+    <div className={showCompactShell ? 'h-full min-h-0 flex flex-col' : 'max-w-2xl mx-auto py-4'}>
       <form
         onSubmit={handleSubmit}
-        className={`space-y-6 transition-opacity ${isSubmitting ? 'opacity-60' : ''}`}
+        className={`${showCompactShell ? 'h-full min-h-0 flex flex-col gap-2' : formGap} transition-opacity ${isSubmitting ? 'opacity-60' : ''}`}
         aria-busy={isSubmitting}
       >
+        <div className={showCompactShell ? 'flex-1 min-h-0 overflow-hidden flex flex-col gap-2' : undefined}>
         {/* Step indicator - only for new items */}
         {useSteps && (
-          <div className="flex items-center gap-0 mb-6 p-1.5 rounded-2xl bg-slate-100/80 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50">
+          <div className="space-y-2 mb-4">
+          <div className="flex items-center gap-0 p-1.5 rounded-2xl bg-slate-100/80 dark:bg-slate-800/50 border border-slate-200/50 dark:border-slate-700/50">
             {Array.from({ length: totalSteps }).map((_, i) => {
               const stepNum = i + 1;
               const isActive = formStep === stepNum;
@@ -1371,8 +1743,382 @@ export function ItemForm({
               );
             })}
           </div>
+          {currentStepHint ? (
+            <p className="text-xs text-muted-foreground leading-relaxed px-1">{currentStepHint}</p>
+          ) : null}
+          </div>
         )}
 
+        {showCompactShell && (
+            <div className="rounded-lg border border-[#1c6a1e]/25 bg-white dark:bg-slate-900/50 p-2.5 space-y-2 shrink-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[#1c6a1e]">Required</p>
+
+              {isCreate && !parentItemId && (
+                <div className="space-y-1">
+                  <FieldLabel required>What are you adding?</FieldLabel>
+                  <div className="flex gap-1">
+                    {([
+                      { id: 'standalone' as FormMode, label: 'Single product', icon: Package },
+                      { id: 'parent' as FormMode, label: 'Has sizes', icon: Layers },
+                      { id: 'variant' as FormMode, label: 'Add a size', icon: Layers },
+                    ]).map(({ id, label, icon: Icon }) => {
+                      const isSelected = mode === id;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setMode(id)}
+                          disabled={isSubmitting}
+                          className={`flex-1 min-w-0 flex items-center justify-center gap-1 px-1.5 py-1.5 rounded-md border text-[10px] font-medium transition-all ${
+                            isSelected
+                              ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 text-[#1c6a1e]'
+                              : 'border-border hover:border-[#1c6a1e]/40'
+                          }`}
+                        >
+                          <Icon className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <FieldLabel required>Department</FieldLabel>
+                <div className="flex flex-wrap gap-1">
+                  {productTypes.map((type) => {
+                    const isSelected = itemType === type.key;
+                    const typeColor = type.color || '#1c6a1e';
+                    return (
+                      <button
+                        key={type.key}
+                        type="button"
+                        onClick={() => setItemType(type.key)}
+                        disabled={isSubmitting}
+                        className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded border text-[10px] font-medium ${isSelected ? '' : 'border-border hover:border-[#1c6a1e]/40'}`}
+                        style={isSelected ? {
+                          borderColor: typeColor,
+                          backgroundColor: `${typeColor}18`,
+                          color: typeColor,
+                        } : undefined}
+                      >
+                        <span aria-hidden>{type.emoji}</span>
+                        {type.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {isCreate && mode !== 'variant' && (
+                <CategoryDropdownField
+                  categories={categories}
+                  categoryId={categoryId}
+                  categorySearchQuery={categorySearchQuery}
+                  setCategorySearchQuery={setCategorySearchQuery}
+                  setCategoryId={setCategoryId}
+                  isCustomCategory={isCustomCategory}
+                  setIsCustomCategory={setIsCustomCategory}
+                  customCategoryName={customCategoryName}
+                  setCustomCategoryName={setCustomCategoryName}
+                  isSubmitting={isSubmitting}
+                  inputClass={inputClass}
+                  onCategorySelect={() => {
+                    setSelectedItemSuggestion('');
+                    setIsCustomItemName(true);
+                    setName('');
+                  }}
+                />
+              )}
+
+              {isCreate && mode === 'variant' && !parentItemId && (
+                <div className="space-y-1">
+                  <FieldLabel required>Parent product</FieldLabel>
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
+                    <Input
+                      placeholder="Search products..."
+                      value={parentSearchQuery}
+                      onChange={(e) => setParentSearchQuery(e.target.value)}
+                      className={`pl-7 ${inputClass}`}
+                    />
+                  </div>
+                  <div className="max-h-16 overflow-y-auto space-y-0.5">
+                    {filteredParentItems.slice(0, 8).map((item) => {
+                      const isSelected = item.id === selectedParentId;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedParentId(item.id);
+                            setCategoryId(item.category_id);
+                          }}
+                          className={`w-full text-left px-2 py-1 rounded border text-[10px] ${
+                            isSelected ? 'border-[#1c6a1e] bg-[#1c6a1e]/5 text-[#1c6a1e]' : 'border-border'
+                          }`}
+                        >
+                          {item.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {isCreate && parentItemId && selectedParentName && (
+                <p className="text-[10px] text-muted-foreground px-2 py-1 rounded bg-muted/40 border">
+                  Adding size to: <span className="font-medium text-foreground">{selectedParentName}</span>
+                </p>
+              )}
+
+              {mode === 'variant' && (
+                <div className="space-y-1">
+                  <FieldLabel htmlFor="variantName" required>
+                    {selectedParentName ? `Variant of ${selectedParentName}` : 'Variant name'}
+                  </FieldLabel>
+                  {variantSuggestionsForShell.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {variantSuggestionsForShell.slice(0, 6).map((suggestion) => {
+                        const isSelected = selectedVariantSuggestion === suggestion && !isCustomVariantName;
+                        return (
+                          <button
+                            key={suggestion}
+                            type="button"
+                            onClick={() => {
+                              setIsCustomVariantName(false);
+                              setSelectedVariantSuggestion(suggestion);
+                              setVariantName(suggestion);
+                              const detectedUnit = getUnitTypeFromVariant(suggestion);
+                              if (detectedUnit) setUnitType(detectedUnit);
+                            }}
+                            disabled={isSubmitting}
+                            className={`px-2 py-0.5 rounded border text-[10px] transition-all ${isSelected ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 text-[#1c6a1e] font-medium' : 'border-border hover:border-[#1c6a1e]/50'}`}
+                          >
+                            {suggestion}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <Input
+                    id="variantName"
+                    value={variantName}
+                    onChange={(e) => setVariantName(e.target.value)}
+                    placeholder="e.g. 1kg, Big, Red"
+                    required
+                    disabled={isSubmitting}
+                    className={inputClass}
+                  />
+                </div>
+              )}
+
+              {mode !== 'variant' && (
+                <div className="space-y-1">
+                  <FieldLabel htmlFor="name" required>Product name</FieldLabel>
+                  {isCreate && categoryId && !isCustomCategory && (() => {
+                    const catName = categories.find((c) => c.id === categoryId)?.name || '';
+                    const suggestions = CATEGORY_ITEM_SUGGESTIONS[catName];
+                    return suggestions && suggestions.length > 0;
+                  })() && (
+                    <div className="flex flex-wrap gap-1">
+                      {CATEGORY_ITEM_SUGGESTIONS[categories.find((c) => c.id === categoryId)?.name || '']?.slice(0, 6).map((itemName) => (
+                        <button
+                          key={itemName}
+                          type="button"
+                          onClick={() => {
+                            setIsCustomItemName(false);
+                            setSelectedItemSuggestion(itemName);
+                            setName(itemName);
+                          }}
+                          className={`px-2 py-0.5 rounded border text-[10px] ${
+                            name === itemName ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 text-[#1c6a1e]' : 'border-border'
+                          }`}
+                        >
+                          {itemName}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder={mode === 'parent' ? 'e.g. Beans, Rice' : 'e.g. Tomatoes, Milk'}
+                    required
+                    disabled={isSubmitting}
+                    className={inputClass}
+                  />
+                </div>
+              )}
+
+              {mode !== 'parent' && (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <FieldLabel htmlFor="price" required>Sell price (KES)</FieldLabel>
+                      <Input
+                        id="price"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={sellPrice}
+                        onChange={(e) => setSellPrice(e.target.value)}
+                        placeholder="0"
+                        required
+                        disabled={isSubmitting}
+                        className={inputClass}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <FieldLabel required>Unit</FieldLabel>
+                      <div className="flex gap-1 overflow-x-auto pb-0.5">
+                        {UNIT_CHIP_OPTIONS.map((opt) => {
+                          const isSelected = unitType === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setUnitType(opt.value)}
+                              disabled={isSubmitting}
+                              className={`shrink-0 px-2 py-1 rounded border text-[10px] font-medium ${
+                                isSelected
+                                  ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 text-[#1c6a1e]'
+                                  : 'border-border hover:border-[#1c6a1e]/40'
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <FieldLabel htmlFor="stock">
+                        {isCreate ? `Starting stock (${unitType})` : `Stock (${unitType})`}
+                      </FieldLabel>
+                      <Input
+                        id="stock"
+                        type="number"
+                        step={unitType === 'piece' ? '1' : '0.01'}
+                        min="0"
+                        value={initialStock}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (unitType === 'piece') {
+                            setInitialStock(value === '' ? '' : Math.floor(parseFloat(value) || 0).toString());
+                          } else {
+                            setInitialStock(value);
+                          }
+                        }}
+                        placeholder="0"
+                        disabled={isSubmitting}
+                        className={inputClass}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <FieldLabel htmlFor="buyPrice">Buy price (KES)</FieldLabel>
+                      <Input
+                        id="buyPrice"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={buyPrice}
+                        onChange={(e) => setBuyPrice(e.target.value)}
+                        placeholder="0"
+                        disabled={isSubmitting}
+                        className={inputClass}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+        )}
+
+        {showCompactShell && mode !== 'parent' && (
+          <BarcodeFieldCompact
+            barcode={barcode}
+            setBarcode={setBarcode}
+            barcodeInputRef={barcodeInputRef}
+            barcodeInputFocused={barcodeInputFocused}
+            setBarcodeInputFocused={setBarcodeInputFocused}
+            barcodeScanStatus={barcodeScanStatus}
+            barcodeCheckStatus={barcodeCheckStatus}
+            checkBarcodeExists={checkBarcodeExists}
+            setBarcodeCheckStatus={setBarcodeCheckStatus}
+            isSubmitting={isSubmitting}
+            inputClass={inputClass}
+          />
+        )}
+
+        {showCompactShell && (
+            <button
+              type="button"
+              onClick={() => setShowMoreOptions((v) => !v)}
+              className="shrink-0 w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 text-xs text-muted-foreground hover:bg-slate-50 dark:hover:bg-slate-800/50"
+            >
+              <span className="flex items-center gap-1.5 min-w-0">
+                <Sparkles className="h-3.5 w-3.5 shrink-0 text-[#1c6a1e]" />
+                Optional fields
+                {moreOptionsCount > 0 && (
+                  <Badge variant="secondary" className="text-[9px] h-4 px-1">{moreOptionsCount}</Badge>
+                )}
+              </span>
+              <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${showMoreOptions ? 'rotate-180' : ''}`} />
+            </button>
+        )}
+
+        <div className={showCompactShell ? 'flex-1 min-h-0 overflow-y-auto space-y-2 pr-0.5' : undefined}>
+        {showCompactShell && showMoreOptions && (
+              <div className="space-y-2">
+                <ItemImageUpload
+                  itemId={itemId}
+                  itemName={mode === 'variant' ? variantName || name : name}
+                  imageUrl={imageUrl}
+                  onImageUrlChange={setImageUrl}
+                  pendingFile={pendingImageFile}
+                  onPendingFileChange={setPendingImageFile}
+                  compact
+                />
+                {mode !== 'parent' && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <FieldLabel htmlFor="minStock">Low stock alert</FieldLabel>
+                      <Input
+                        id="minStock"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={minStockLevel}
+                        onChange={(e) => setMinStockLevel(e.target.value)}
+                        placeholder="Optional"
+                        disabled={isSubmitting}
+                        className={inputClass}
+                      />
+                    </div>
+                    <div className="flex items-end pb-1">
+                      <label className="flex items-center gap-1.5 cursor-pointer text-[10px]">
+                        <input
+                          type="checkbox"
+                          checked={unitSalesOnly}
+                          onChange={(e) => setUnitSalesOnly(e.target.checked)}
+                          className="h-3 w-3 rounded border-gray-300 text-[#1c6a1e]"
+                          disabled={isSubmitting}
+                        />
+                        Whole units only
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+        )}
+
+        {!showCompactShell && (
+          <>
         {(isEditingExistingItem || formStep === totalSteps) && (
           <ItemImageUpload
             itemId={itemId}
@@ -1381,16 +2127,43 @@ export function ItemForm({
             onImageUrlChange={setImageUrl}
             pendingFile={pendingImageFile}
             onPendingFileChange={setPendingImageFile}
+            compact={compact}
           />
         )}
 
         {/* Step 1: Product type */}
         {(formStep === 1 || !useSteps) && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <Package className="h-4 w-4 text-muted-foreground" />
-            <Label className="text-base font-semibold">Product type</Label>
-          </div>
+        compact ? (
+          <FormCard title="Shop department" hint="Sets units and how you price this item">
+            <div className="flex flex-wrap gap-1.5">
+              {productTypes.map((type) => {
+                const isSelected = itemType === type.key;
+                const typeColor = type.color || '#1c6a1e';
+                return (
+                  <button
+                    key={type.key}
+                    type="button"
+                    onClick={() => setItemType(type.key)}
+                    disabled={isSubmitting}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md border text-xs font-medium transition-colors ${
+                      isSelected ? '' : 'border-border hover:border-muted-foreground/40'
+                    } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    style={isSelected ? {
+                      borderColor: typeColor,
+                      backgroundColor: `${typeColor}18`,
+                      color: typeColor,
+                    } : undefined}
+                  >
+                    <span aria-hidden>{type.emoji}</span>
+                    {type.label}
+                  </button>
+                );
+              })}
+            </div>
+          </FormCard>
+        ) : (
+        <div className={sectionGap}>
+          <Label className={labelClass}>Product type</Label>
           <p className="text-sm text-muted-foreground -mt-1">
             Choose how this product is sold (affects units & pricing)
           </p>
@@ -1450,6 +2223,7 @@ export function ItemForm({
             })}
           </div>
         </div>
+        )
         )}
 
         {/* Step 2: Mode Selection - only show for new items */}
@@ -1460,7 +2234,7 @@ export function ItemForm({
               <Label className="text-base font-semibold">Product structure</Label>
             </div>
             <p className="text-sm text-muted-foreground -mt-1">
-              How is this product organized?
+              One product, a family of sizes, or a new size on something you already sell?
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
@@ -1564,24 +2338,74 @@ export function ItemForm({
 
         {/* Step 3: Variant-specific - Parent selection + Variant name (compact) */}
         {(formStep === 3 || !useSteps) && mode === 'variant' && !parentItemId && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <Layers className="h-4 w-4 text-muted-foreground shrink-0" />
-              <Label className="text-sm font-semibold">Which product is this a variant of? *</Label>
-            </div>
+          compact ? (
+            <FormCard title="Parent product" hint="Which product does this size or type belong to?">
+              {itemId && selectedParentId ? (
+                <p className="text-sm font-medium px-2 py-1.5 rounded-md bg-muted/40 border">
+                  {parentItems.find((p) => p.id === selectedParentId)?.name || 'Selected parent'}
+                </p>
+              ) : (
+                <>
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
+                    <Input
+                      placeholder="Search products..."
+                      value={parentSearchQuery}
+                      onChange={(e) => setParentSearchQuery(e.target.value)}
+                      className={`pl-7 ${inputClass} bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700`}
+                    />
+                  </div>
+                  <div className="space-y-0.5 max-h-[100px] overflow-y-auto">
+                    {filteredParentItems.length === 0 ? (
+                      <div className="text-center py-4 text-muted-foreground border border-dashed rounded-md text-xs">
+                        No products found
+                      </div>
+                    ) : (
+                      filteredParentItems.map((item) => {
+                        const isSelected = item.id === selectedParentId;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedParentId(item.id);
+                              setCategoryId(item.category_id);
+                            }}
+                            className={`w-full text-left px-2 py-1 rounded-md text-xs border transition-all ${isSelected
+                                ? 'border-[#1c6a1e] bg-[#1c6a1e]/5'
+                                : 'border-slate-100 dark:border-slate-800 hover:border-[#1c6a1e]/50 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                              }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={`font-medium truncate ${isSelected ? 'text-[#1c6a1e]' : 'text-slate-700 dark:text-slate-300'}`}>
+                                {item.name}
+                              </span>
+                              {isSelected && <CheckCircle2 className="h-3.5 w-3.5 text-[#1c6a1e] shrink-0" />}
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </>
+              )}
+            </FormCard>
+          ) : (
+          <div className={sectionGap}>
+            <Label className={`${labelClass} text-xs`}>Parent product *</Label>
+            <>
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-400" />
               <Input
                 placeholder="Search products..."
                 value={parentSearchQuery}
                 onChange={(e) => setParentSearchQuery(e.target.value)}
-                className="pl-8 h-9 text-sm bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 focus-visible:ring-[#1c6a1e]"
+                className={`pl-7 ${inputClass} bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700`}
               />
             </div>
-            <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
+            <div className={`space-y-1.5 max-h-[160px] overflow-y-auto`}>
               {filteredParentItems.length === 0 ? (
-                <div className="text-center py-6 text-muted-foreground border border-dashed rounded-lg text-xs">
-                  <Package className="h-6 w-6 mx-auto mb-1 opacity-20" />
+                <div className="text-center py-4 text-muted-foreground border border-dashed rounded-md text-xs">
                   No products found
                 </div>
               ) : (
@@ -1595,34 +2419,31 @@ export function ItemForm({
                         setSelectedParentId(item.id);
                         setCategoryId(item.category_id);
                       }}
-                      className={`w-full text-left p-2.5 rounded-lg border transition-all text-sm ${isSelected
+                      className={`w-full text-left p-2.5 rounded-lg text-sm border transition-all ${isSelected
                           ? 'border-[#1c6a1e] bg-[#1c6a1e]/5'
                           : 'border-slate-100 dark:border-slate-800 hover:border-[#1c6a1e]/50 hover:bg-slate-50 dark:hover:bg-slate-800/50'
                         }`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div className={`w-6 h-6 rounded flex items-center justify-center shrink-0 ${isSelected ? 'bg-[#1c6a1e]/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
-                            <Package className={`h-3 w-3 ${isSelected ? 'text-[#1c6a1e]' : 'text-slate-500'}`} />
-                          </div>
-                          <span className={`font-medium truncate ${isSelected ? 'text-[#1c6a1e]' : 'text-slate-700 dark:text-slate-300'}`}>
-                            {item.name}
-                          </span>
-                        </div>
-                        {isSelected && <CheckCircle2 className="h-4 w-4 text-[#1c6a1e] shrink-0" />}
+                        <span className={`font-medium truncate ${isSelected ? 'text-[#1c6a1e]' : 'text-slate-700 dark:text-slate-300'}`}>
+                          {item.name}
+                        </span>
+                        {isSelected && <CheckCircle2 className="h-3.5 w-3.5 text-[#1c6a1e] shrink-0" />}
                       </div>
                     </button>
                   );
                 })
               )}
             </div>
+            </>
           </div>
+          )
         )}
 
         {/* Variant Name (for variants) - part of Step 3 (compact) */}
         {(formStep === 3 || !useSteps) && mode === 'variant' && (
         <>
-        <Separator className="my-2" />
+        {!compact && <Separator className="my-2" />}
         {(() => {
           const selectedParent = parentItems.find(p => p.id === selectedParentId);
           const parentName = selectedParent?.name || '';
@@ -1630,14 +2451,13 @@ export function ItemForm({
           const categoryName = parentCategory?.name || '';
           const variantSuggestions = selectedParentId ? getVariantSuggestions(parentName, categoryName) : [];
 
-          return (
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">What type of variant is this? *</Label>
-              {selectedParentId && parentName && (
+          const variantBody = (
+            <>
+              {selectedParentId && parentName && !compact && (
                 <p className="text-xs text-muted-foreground">Adding to: <span className="font-medium text-foreground">{parentName}</span></p>
               )}
               {selectedParentId && variantSuggestions.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
+                <div className={`flex flex-wrap ${compact ? 'gap-1' : 'gap-1.5'}`}>
                   {variantSuggestions.map((suggestion) => {
                     const isSelected = selectedVariantSuggestion === suggestion && !isCustomVariantName;
                     return (
@@ -1652,7 +2472,7 @@ export function ItemForm({
                           if (detectedUnit) setUnitType(detectedUnit);
                         }}
                         disabled={isSubmitting}
-                        className={`px-2.5 py-1.5 rounded-md border text-xs transition-all ${isSelected ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 text-[#1c6a1e] font-medium' : 'border-border hover:border-[#1c6a1e]/50 hover:bg-accent/50'} ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        className={`${compact ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1.5 text-xs'} rounded-md border transition-all ${isSelected ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 text-[#1c6a1e] font-medium' : 'border-border hover:border-[#1c6a1e]/50 hover:bg-accent/50'} ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                       >
                         {suggestion}
                       </button>
@@ -1662,16 +2482,16 @@ export function ItemForm({
                     type="button"
                     onClick={() => { setIsCustomVariantName(true); setSelectedVariantSuggestion(''); setVariantName(''); }}
                     disabled={isSubmitting}
-                    className={`px-2.5 py-1.5 rounded-md border border-dashed text-xs ${isCustomVariantName ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 text-[#1c6a1e]' : 'border-border hover:border-[#1c6a1e]/50'} ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    className={`${compact ? 'px-2 py-0.5 text-[11px]' : 'px-2.5 py-1.5 text-xs'} rounded-md border border-dashed ${isCustomVariantName ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 text-[#1c6a1e]' : 'border-border hover:border-[#1c6a1e]/50'} ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                   >
-                    <Sparkles className="h-3 w-3 inline mr-1" /> Other
+                    <Sparkles className="h-3 w-3 inline mr-0.5" /> Other
                   </button>
                 </div>
               )}
               {selectedVariantSuggestion && !isCustomVariantName ? (
-                <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/50 border text-sm">
-                  <span className="font-medium">{selectedVariantSuggestion}</span>
-                  <button type="button" onClick={() => { setIsCustomVariantName(true); setSelectedVariantSuggestion(''); setVariantName(''); }} disabled={isSubmitting} className="text-xs text-primary hover:underline">Change</button>
+                <div className={`flex items-center justify-between ${compact ? 'p-1.5' : 'p-2.5'} rounded-md bg-muted/50 border text-sm`}>
+                  <span className="font-medium text-xs">{selectedVariantSuggestion}</span>
+                  <button type="button" onClick={() => { setIsCustomVariantName(true); setSelectedVariantSuggestion(''); setVariantName(''); }} disabled={isSubmitting} className="text-[11px] text-primary hover:underline">Change</button>
                 </div>
               ) : (
                 <Input
@@ -1681,14 +2501,25 @@ export function ItemForm({
                   placeholder={parentName ? `e.g. Big, 1kg, Red` : 'Select a product first'}
                   required
                   disabled={isSubmitting || !selectedParentId}
-                  className="h-9 text-sm focus-visible:ring-[#1c6a1e]"
+                  className={inputClass}
                 />
               )}
-              {variantName && parentName && (
+              {variantName && parentName && !compact && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Info className="h-3 w-3" /> <span className="font-medium text-green-600 dark:text-green-400">{parentName} — {variantName}</span>
                 </p>
               )}
+            </>
+          );
+
+          return compact ? (
+            <FormCard title="Variant name" hint={parentName ? `Size or type for ${parentName}` : 'Pick a parent product first'}>
+              {variantBody}
+            </FormCard>
+          ) : (
+            <div className={sectionGap}>
+              <Label className={labelClass}>Variant type *</Label>
+              {variantBody}
             </div>
           );
         })()}
@@ -1699,7 +2530,7 @@ export function ItemForm({
         {(formStep === (mode === 'variant' ? 4 : 3) || !useSteps) && (
         <>
         {/* Category - non-variant only */}
-        {mode !== 'variant' && (
+        {mode !== 'variant' && !compact && (
           <>
             <Separator />
 
@@ -1853,6 +2684,19 @@ export function ItemForm({
 
         {/* Item Name (for standalone and parent modes) */}
         {mode !== 'variant' && (
+          compact ? (
+            <FormCard title="Product name" hint="What customers see on receipts and the POS">
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={mode === 'parent' ? 'e.g., Beans, Rice, Flour' : 'e.g., Tomatoes, Milk, Bread'}
+                required
+                disabled={isSubmitting}
+                className={inputClass}
+              />
+            </FormCard>
+          ) : (
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <ShoppingCart className="h-4 w-4 text-muted-foreground" />
@@ -1953,42 +2797,190 @@ export function ItemForm({
               />
             )}
           </div>
+          )
         )}
 
-        <Separator />
+        {!compact && <Separator className={compact ? 'my-1' : undefined} />}
 
         {/* Unit Type - only for non-parent items */}
-        {mode !== 'parent' && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Box className="h-4 w-4 text-muted-foreground" />
-                <Label htmlFor="unit" className="text-base font-semibold">How do you sell this? *</Label>
-              </div>
+        {mode !== 'parent' && !showCompactShell && (
+          compact ? (
+            <>
+              <FormCard title="How you sell it" hint="Tap the unit customers buy in">
+                <div className="flex flex-wrap gap-1.5">
+                  {UNIT_CHIP_OPTIONS.map((opt) => {
+                    const isSelected = unitType === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setUnitType(opt.value)}
+                        disabled={isSubmitting}
+                        className={`px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+                          isSelected
+                            ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 text-[#1c6a1e]'
+                            : 'border-border hover:border-[#1c6a1e]/40 hover:bg-accent/30'
+                        } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {mode === 'variant' && variantName && getUnitTypeFromVariant(variantName) && (
+                  <p className="text-[10px] text-muted-foreground">Auto-set from &quot;{variantName}&quot; — change if needed</p>
+                )}
+                <label className="flex items-center gap-2 cursor-pointer pt-0.5">
+                  <input
+                    type="checkbox"
+                    id="unitSalesOnly"
+                    checked={unitSalesOnly}
+                    onChange={(e) => setUnitSalesOnly(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-[#1c6a1e] focus:ring-[#1c6a1e] cursor-pointer"
+                    disabled={isSubmitting}
+                  />
+                  <span className="text-xs font-medium">Whole units only (no decimals)</span>
+                </label>
+              </FormCard>
+
+              <FormCard title="Pricing" hint="What you charge and what you pay suppliers">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="price" className="text-[11px] font-medium text-muted-foreground">Sell (KES) *</Label>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-[10px]">KES</span>
+                      <Input
+                        id="price"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={sellPrice}
+                        onChange={(e) => setSellPrice(e.target.value)}
+                        placeholder="0"
+                        required
+                        disabled={isSubmitting}
+                        className={`${inputClass} pl-9`}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="buyPrice" className="text-[11px] font-medium text-muted-foreground">Buy (KES)</Label>
+                    <div className="relative">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-[10px]">KES</span>
+                      <Input
+                        id="buyPrice"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={buyPrice}
+                        onChange={(e) => setBuyPrice(e.target.value)}
+                        placeholder="0"
+                        disabled={isSubmitting}
+                        className={`${inputClass} pl-9`}
+                      />
+                    </div>
+                  </div>
+                </div>
+                {sellPrice && buyPrice && parseFloat(sellPrice) > 0 && parseFloat(buyPrice) > 0 && (
+                  <p className="text-[10px] text-emerald-700 dark:text-emerald-400">
+                    Margin: KES {(parseFloat(sellPrice) - parseFloat(buyPrice)).toFixed(0)} per {unitType}
+                  </p>
+                )}
+              </FormCard>
+
+              <FormCard title="Stock levels" hint="Current count and when to alert you">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor={itemId ? 'editStock' : 'stock'} className="text-[11px] font-medium text-muted-foreground">
+                      {itemId ? 'On hand' : 'Starting'} ({unitType})
+                    </Label>
+                    <Input
+                      id={itemId ? 'editStock' : 'stock'}
+                      type="number"
+                      step={unitType === 'piece' ? '1' : '0.01'}
+                      min="0"
+                      value={initialStock}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (unitType === 'piece') {
+                          setInitialStock(value === '' ? '' : Math.floor(parseFloat(value) || 0).toString());
+                        } else {
+                          setInitialStock(value);
+                        }
+                      }}
+                      placeholder="0"
+                      disabled={isSubmitting}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="minStock" className="text-[11px] font-medium text-muted-foreground">Low alert</Label>
+                    <Input
+                      id="minStock"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={minStockLevel}
+                      onChange={(e) => setMinStockLevel(e.target.value)}
+                      placeholder="Optional"
+                      disabled={isSubmitting}
+                      className={inputClass}
+                    />
+                  </div>
+                </div>
+                {parseInt(initialStock, 10) > 0 && !buyPrice && (
+                  <p className="text-[10px] text-amber-700 dark:text-amber-300 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    Add buy price if you have stock on hand
+                  </p>
+                )}
+              </FormCard>
+
+              <button
+                type="button"
+                onClick={() => setShowMoreOptions((v) => !v)}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 text-sm text-muted-foreground hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+              >
+                <span className="flex items-center gap-2 min-w-0">
+                  <Sparkles className="h-4 w-4 shrink-0 text-[#1c6a1e]" />
+                  <span className="truncate">More options</span>
+                  {moreOptionsCount > 0 && (
+                    <Badge variant="secondary" className="text-[10px] h-5 px-1.5">{moreOptionsCount}</Badge>
+                  )}
+                </span>
+                <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${showMoreOptions ? 'rotate-180' : ''}`} />
+              </button>
+            </>
+          ) : (
+          <div className={sectionGap}>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="unit" className={labelClass}>How do you sell this? *</Label>
               {mode === 'variant' && variantName && getUnitTypeFromVariant(variantName) && (
                 <Badge variant="secondary" className="text-xs">
-                  Auto-detected from "{variantName}"
+                  Auto-detected from &quot;{variantName}&quot;
                 </Badge>
               )}
             </div>
-            <Select
-              value={unitType}
-              onValueChange={(v) => setUnitType(v as UnitType)}
-              disabled={isSubmitting}
-            >
-              <SelectTrigger className="h-12">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="piece">By Piece (1, 2, 3...)</SelectItem>
-                <SelectItem value="kg">By Kilogram (kg)</SelectItem>
-                <SelectItem value="g">By Gram (g)</SelectItem>
-                <SelectItem value="bunch">By Bunch</SelectItem>
-                <SelectItem value="tray">By Tray</SelectItem>
-                <SelectItem value="litre">By Litre (L)</SelectItem>
-                <SelectItem value="ml">By Millilitre (ml)</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex flex-wrap gap-1.5">
+              {UNIT_CHIP_OPTIONS.map((opt) => {
+                const isSelected = unitType === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setUnitType(opt.value)}
+                    disabled={isSubmitting}
+                    className={`px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+                      isSelected
+                        ? 'border-[#1c6a1e] bg-[#1c6a1e]/10 text-[#1c6a1e]'
+                        : 'border-border hover:border-[#1c6a1e]/40 hover:bg-accent/30'
+                    } ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               <Info className="h-3 w-3" />
               {mode === 'variant' && variantName && getUnitTypeFromVariant(variantName)
@@ -1996,45 +2988,39 @@ export function ItemForm({
                 : 'This determines how you measure and price the product'}
             </p>
 
-            {/* Unit Sales Only Option */}
-            <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 border">
+            <div className={`flex items-center gap-2 p-3 rounded-md bg-muted/30 border`}>
               <input
                 type="checkbox"
                 id="unitSalesOnly"
                 checked={unitSalesOnly}
                 onChange={(e) => setUnitSalesOnly(e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-[#1c6a1e] focus:ring-[#1c6a1e] cursor-pointer"
+                className="h-3.5 w-3.5 rounded border-gray-300 text-[#1c6a1e] focus:ring-[#1c6a1e] cursor-pointer"
                 disabled={isSubmitting}
               />
               <Label htmlFor="unitSalesOnly" className="text-sm font-medium cursor-pointer flex-1">
-                Sell in whole units only (no decimals)
+                Whole units only (no decimals)
               </Label>
             </div>
-            <p className="text-xs text-muted-foreground pl-7">
-              When enabled, this item can only be sold in whole numbers (e.g., 1, 2, 3 pieces, not 1.5)
-            </p>
           </div>
+          )
         )}
 
         {/* Stock and Price fields - only for non-parent items */}
-        {mode !== 'parent' && (
+        {mode !== 'parent' && !compact && (
           <>
-            <Separator />
+            <Separator className={compact ? 'my-1' : undefined} />
 
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-                <Label className="text-base font-semibold">Pricing & Stock Information</Label>
-              </div>
+            <div className={compact ? 'space-y-2' : 'space-y-4'}>
+              <Label className={labelClass}>Pricing & stock</Label>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={`grid grid-cols-1 md:grid-cols-2 ${compact ? 'gap-2' : 'gap-4'}`}>
                 {/* Selling Price */}
-                <div className="space-y-2">
-                  <Label htmlFor="price" className="text-sm font-medium">
-                    Selling Price (KES) *
+                <div className="space-y-1">
+                  <Label htmlFor="price" className="text-xs font-medium">
+                    Selling price (KES) *
                   </Label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">KES</span>
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">KES</span>
                     <Input
                       id="price"
                       type="number"
@@ -2045,22 +3031,18 @@ export function ItemForm({
                       placeholder="0.00"
                       required
                       disabled={isSubmitting}
-                      className="h-12 pl-12 text-base focus-visible:ring-[#1c6a1e]"
+                      className={`${inputClass} pl-11`}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    How much you sell 1 {unitType} for
-                  </p>
                 </div>
 
                 {/* Buying Price */}
-                <div className="space-y-2">
-                  <Label htmlFor="buyPrice" className="text-sm font-medium">
-                    Buying Price (KES)
-                    <span className="text-xs font-normal text-muted-foreground ml-1">(Optional)</span>
+                <div className="space-y-1">
+                  <Label htmlFor="buyPrice" className="text-xs font-medium">
+                    Buying price (KES)
                   </Label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">KES</span>
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">KES</span>
                     <Input
                       id="buyPrice"
                       type="number"
@@ -2070,17 +3052,14 @@ export function ItemForm({
                       onChange={(e) => setBuyPrice(e.target.value)}
                       placeholder="0.00"
                       disabled={isSubmitting}
-                      className="h-12 pl-12 text-base focus-visible:ring-[#1c6a1e]"
+                      className={`${inputClass} pl-11`}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    How much you buy 1 {unitType} for
-                  </p>
                 </div>
               </div>
 
               {/* Stock Information */}
-              <div className="p-4 rounded-lg bg-muted/30 border space-y-4">
+              <div className={`${compact ? 'p-2 space-y-2' : 'p-4 space-y-4'} rounded-md bg-muted/30 border`}>
                 {!itemId ? (
                   <div className="space-y-2">
                     <Label htmlFor="stock" className="text-sm font-medium">
@@ -2096,12 +3075,14 @@ export function ItemForm({
                       onChange={(e) => setInitialStock(e.target.value)}
                       placeholder="0"
                       disabled={isSubmitting}
-                      className="h-12 text-base focus-visible:ring-[#1c6a1e]"
+                      className={inputClass}
                     />
+                    {!compact && (
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Info className="h-3 w-3" />
                       How many {unitType}s you have right now (leave 0 if none)
                     </p>
+                    )}
                     {parseInt(initialStock, 10) > 0 && !buyPrice && (
                       <div className="p-2 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                         <p className="text-xs text-amber-700 dark:text-amber-300 flex items-center gap-1">
@@ -2134,14 +3115,16 @@ export function ItemForm({
                       }}
                       placeholder="0"
                       disabled={isSubmitting}
-                      className="h-12 text-base focus-visible:ring-[#1c6a1e]"
+                      className={inputClass}
                     />
+                    {!compact && (
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Info className="h-3 w-3" />
                       {unitType === 'piece' 
                         ? 'Enter the current stock quantity (whole numbers only)'
                         : 'Enter the current stock quantity'}
                     </p>
+                    )}
                   </div>
                 )}
 
@@ -2168,18 +3151,24 @@ export function ItemForm({
                   </p>
                 </div>
               </div>
+            </div>
+          </>
+        )}
 
+        {mode !== 'parent' && (
+          <>
               {/* Optional Details: Barcode & Expiry Date */}
-              <div className="p-4 rounded-lg bg-muted/30 border space-y-4">
+              <div className={`p-4 rounded-lg bg-muted/30 border space-y-4 ${showCompactShell && !showMoreOptions ? 'hidden' : ''}`}>
                 <div className="flex items-center gap-2 mb-2">
                   <Sparkles className="h-4 w-4 text-muted-foreground" />
                   <p className="text-sm font-medium text-muted-foreground">Optional Details</p>
                 </div>
 
-                {/* Barcode - only shown for non-parent (this block is inside mode !== 'parent') */}
+                {/* Barcode - only shown for non-parent (compact shell shows barcode above) */}
+                {!showCompactShell && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="barcode" className="text-sm font-medium">
+                    <Label htmlFor="barcode-full" className="text-sm font-medium">
                       Barcode
                       <span className="text-xs font-normal text-muted-foreground ml-1">(Optional)</span>
                     </Label>
@@ -2194,12 +3183,11 @@ export function ItemForm({
                     <div className="relative">
                       <Input
                         ref={barcodeInputRef}
-                        id="barcode"
+                        id="barcode-full"
                         type="text"
                         value={barcode}
                         onChange={(e) => {
                           setBarcode(e.target.value);
-                          // Clear check status when barcode changes
                           setBarcodeCheckStatus({ checking: false, exists: false, existingItem: null, error: null, checked: false });
                         }}
                         onFocus={() => setBarcodeInputFocused(true)}
@@ -2296,6 +3284,7 @@ export function ItemForm({
                     </div>
                   )}
                 </div>
+                )}
 
                 {/* Product Code (for Stock Lot numbering) */}
                 <div className="space-y-2">
@@ -2362,7 +3351,7 @@ export function ItemForm({
               </div>
 
               {/* Bundle Pricing Section */}
-              <div className="p-4 rounded-lg bg-gradient-to-br from-amber-50/50 to-orange-50/50 dark:from-amber-900/10 dark:to-orange-900/10 border border-amber-200/50 dark:border-amber-800/30 space-y-4">
+              <div className={`p-4 rounded-lg bg-gradient-to-br from-amber-50/50 to-orange-50/50 dark:from-amber-900/10 dark:to-orange-900/10 border border-amber-200/50 dark:border-amber-800/30 space-y-4 ${showCompactShell && !showMoreOptions ? 'hidden' : ''}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Package className="h-4 w-4 text-amber-600" />
@@ -2474,17 +3463,16 @@ export function ItemForm({
 
                 {!bundleEnabled && (
                   <p className="text-xs text-amber-600/70 dark:text-amber-400/70">
-                    Enable bundle pricing to offer special deals like "3 tomatoes for KES 20" or "Half dozen eggs for KES 60"
+                    Enable bundle pricing to offer special deals like &quot;3 tomatoes for KES 20&quot; or &quot;Half dozen eggs for KES 60&quot;
                   </p>
                 )}
               </div>
-            </div>
           </>
         )}
 
         {/* Packaging Unit Section - available for all modes */}
-        <Separator />
-        <div className="p-4 rounded-lg bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-900/10 dark:to-indigo-900/10 border border-blue-200/50 dark:border-blue-800/30 space-y-4">
+        {!compact && <Separator />}
+        <div className={`p-4 rounded-lg bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-900/10 dark:to-indigo-900/10 border border-blue-200/50 dark:border-blue-800/30 space-y-4 ${showCompactShell && !showMoreOptions ? 'hidden' : ''}`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Box className="h-4 w-4 text-blue-600" />
@@ -2619,6 +3607,11 @@ export function ItemForm({
         )}
         </>
         )}
+        </>
+        )}
+
+        </div>
+        </div>
 
         {/* Step navigation - Next / Back */}
         {useSteps && formStep < totalSteps && (
@@ -2654,11 +3647,11 @@ export function ItemForm({
           </div>
         )}
 
-        {(formStep === totalSteps || !useSteps) && (
+        {(formStep === totalSteps || !useSteps || showCompactShell) && (
         <>
-        <Separator />
+        {!showCompactShell && <Separator />}
 
-        <div className="flex gap-3 pt-2">
+        <div className={`flex gap-3 pt-2 shrink-0 ${showCompactShell ? 'border-t bg-slate-50/80 dark:bg-slate-900/80 -mx-4 px-4 py-2 mt-auto' : ''}`}>
           <Button
             type="button"
             variant="outline"
@@ -2669,7 +3662,7 @@ export function ItemForm({
                 router.push('/admin/items');
               }
             }}
-            className="flex-1 h-11"
+            className={`flex-1 ${showCompactShell ? 'h-9' : 'h-11'}`}
             disabled={isSubmitting}
           >
             Cancel
@@ -2677,7 +3670,7 @@ export function ItemForm({
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="flex-1 h-11 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white font-semibold shadow-md shadow-[#1c6a1e]/20"
+            className={`flex-1 ${showCompactShell ? 'h-9 text-sm' : 'h-11'} bg-[#1c6a1e] hover:bg-[#2a8a30] text-white font-semibold shadow-md shadow-[#1c6a1e]/20`}
           >
             {isSubmitting ? (
               <>
@@ -2698,4 +3691,3 @@ export function ItemForm({
     </div>
   );
 }
-

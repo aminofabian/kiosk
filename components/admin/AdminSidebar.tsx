@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useCurrentUser } from "@/lib/hooks/use-current-user";
 import { useItemTypes } from "@/lib/hooks/use-item-types";
 import { apiGet } from "@/lib/utils/api-client";
@@ -18,7 +18,7 @@ import {
   CreditCard,
   Clock,
   FileText,
-  ChevronDown,
+  ChevronRight,
   Users,
   FolderTree,
   Receipt,
@@ -35,87 +35,100 @@ import {
   ScrollText,
   Cloud,
   ClipboardCheck,
+  ShoppingCart,
+  type LucideIcon,
 } from "lucide-react";
 
-interface SubItem {
+interface NavChild {
   href: string;
   label: string;
-  icon: typeof LayoutDashboard;
+  icon: LucideIcon;
 }
 
-interface MenuItem {
+interface NavItem {
   href: string;
   label: string;
-  icon: typeof LayoutDashboard;
+  icon: LucideIcon;
   matchPath?: string;
   roles?: UserRole[];
-  subItems?: SubItem[];
+  badge?: "bills" | "expiry" | "carts";
+  children?: NavChild[];
+  dynamicChildren?: "sales-types" | "profit-types";
 }
 
-interface MenuSection {
-  label: string | null;
-  items: MenuItem[];
+interface NavSection {
+  id: string;
+  label: string;
+  alwaysOpen?: boolean;
+  items: NavItem[];
 }
 
-const BASE_SECTIONS: MenuSection[] = [
+const CASHIER_HREFS = new Set([
+  "/admin",
+  "/admin/aisles",
+  "/admin/categories",
+  "/admin/items",
+  "/admin/items/no-barcode",
+  "/admin/items/price-stickers",
+  "/admin/credits",
+  "/admin/expenses",
+  "/admin/supplier-bills",
+  "/admin/supplier-price-comparison",
+  "/admin/out-of-stock-requests",
+  "/admin/pending-carts",
+  "/pos",
+]);
+
+const BASE_SECTIONS: NavSection[] = [
   {
-    label: null,
-    items: [{ href: "/pos", label: "Dashboard", icon: LayoutDashboard }],
+    id: "home",
+    label: "Home",
+    alwaysOpen: true,
+    items: [
+      { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/pos", label: "Open POS", icon: ShoppingCart },
+    ],
   },
   {
-    label: "Analytics",
+    id: "sales",
+    label: "Sales",
     items: [
-      { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-      {
-        href: "/admin/sales",
-        label: "Sales",
-        icon: BarChart3,
-        subItems: [], // filled from product types
-      },
+      { href: "/admin/sales", label: "Sales", icon: BarChart3, dynamicChildren: "sales-types" },
       { href: "/admin/transactions", label: "Transactions", icon: ListOrdered },
-      {
-        href: "/admin/pending-carts",
-        label: "Open Carts",
-        icon: Cloud,
-      },
-      {
-        href: "/admin/returns",
-        label: "Returns",
-        icon: RotateCcw,
-        roles: ["owner", "admin"],
-      },
-      {
-        href: "/admin/profit",
-        label: "Profit",
-        icon: TrendingUp,
-        subItems: [], // filled from product types
-      },
+      { href: "/admin/pending-carts", label: "Open carts", icon: Cloud, badge: "carts" },
+      { href: "/admin/returns", label: "Returns", icon: RotateCcw, roles: ["owner", "admin"] },
       { href: "/admin/customers", label: "Customers", icon: UserCheck },
     ],
   },
   {
-    label: "Inventory",
+    id: "catalog",
+    label: "Catalog",
     items: [
-      { href: "/admin/purchases", label: "Purchases", icon: ShoppingBag },
       { href: "/admin/categories", label: "Categories", icon: FolderTree },
+      {
+        href: "/admin/items",
+        label: "Items",
+        icon: Package,
+        children: [
+          { href: "/admin/items/no-barcode", label: "Barcode audit", icon: ScanBarcode },
+          { href: "/admin/items/price-stickers", label: "Price stickers", icon: LayoutGrid },
+        ],
+      },
       { href: "/admin/aisles", label: "Aisles", icon: MapPin },
-      { href: "/admin/items", label: "Items", icon: Package },
+    ],
+  },
+  {
+    id: "stock",
+    label: "Stock",
+    items: [
+      { href: "/admin/stock", label: "Stock levels", icon: PackageCheck },
+      { href: "/admin/batches", label: "Stock lots", icon: Layers, badge: "expiry" },
+      { href: "/admin/purchases", label: "Purchases", icon: ShoppingBag },
       {
-        href: "/admin/items/no-barcode",
-        label: "Barcode Audit",
-        icon: ScanBarcode,
-      },
-      {
-        href: "/admin/items/price-stickers",
-        label: "Price Stickers",
-        icon: LayoutGrid,
-      },
-      { href: "/admin/stock", label: "Stock", icon: PackageCheck },
-      { href: "/admin/batches", label: "Stock Lots", icon: Layers },
-      {
-        href: "/admin/out-of-stock-requests",
-        label: "Requested (Not Sold)",
-        icon: PackageX,
+        href: "/admin/stock-counts",
+        label: "Stock counts",
+        icon: ClipboardCheck,
+        roles: ["admin", "owner"],
       },
       {
         href: "/admin/stock/approvals",
@@ -123,53 +136,75 @@ const BASE_SECTIONS: MenuSection[] = [
         icon: Scale,
         roles: ["admin", "owner"],
       },
-      {
-        href: "/admin/stock-counts",
-        label: "Stock Counts",
-        icon: ClipboardCheck,
-        roles: ["admin", "owner"],
-      },
+      { href: "/admin/out-of-stock-requests", label: "Not sold", icon: PackageX },
     ],
   },
   {
+    id: "finance",
     label: "Finance",
     items: [
       { href: "/admin/expenses", label: "Expenses", icon: Receipt },
-      { href: "/admin/supplier-bills", label: "Supplier Bills", icon: Receipt },
+      { href: "/admin/supplier-bills", label: "Supplier bills", icon: Receipt, badge: "bills" },
+      { href: "/admin/credits", label: "Credits", icon: CreditCard },
       {
         href: "/admin/supplier-price-comparison",
-        label: "Compare Supplier Prices",
+        label: "Price compare",
         icon: TrendingDown,
       },
-      { href: "/admin/credits", label: "Credits", icon: CreditCard },
     ],
   },
   {
-    label: "System",
+    id: "insights",
+    label: "Insights",
     items: [
+      { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+      { href: "/admin/profit", label: "Profit", icon: TrendingUp, dynamicChildren: "profit-types" },
+      {
+        href: "/admin/reports/daily",
+        label: "Daily report",
+        icon: FileText,
+        matchPath: "/admin/reports",
+      },
+    ],
+  },
+  {
+    id: "admin",
+    label: "Admin",
+    items: [
+      { href: "/admin/shifts", label: "Shifts", icon: Clock },
+      {
+        href: "/admin/logs",
+        label: "Activity log",
+        icon: ScrollText,
+        roles: ["owner", "admin"],
+      },
+      { href: "/admin/users", label: "Users", icon: Users, roles: ["owner"] },
       {
         href: "/admin/settings",
         label: "Settings",
         icon: Settings,
         roles: ["owner", "admin"],
       },
-      { href: "/admin/shifts", label: "Shifts", icon: Clock },
-      {
-        href: "/admin/logs",
-        label: "Activity Log",
-        icon: ScrollText,
-        roles: ["owner", "admin"],
-      },
-      {
-        href: "/admin/reports/daily",
-        label: "Daily Report",
-        icon: FileText,
-        matchPath: "/admin/reports",
-      },
-      { href: "/admin/users", label: "Users", icon: Users, roles: ["owner"] },
     ],
   },
 ];
+
+const STORAGE_KEY = "admin-sidebar-sections";
+
+function itemMatchesPath(
+  item: NavItem,
+  pathname: string,
+  isActive: (href: string, matchPath?: string) => boolean,
+): boolean {
+  if (isActive(item.href, item.matchPath)) return true;
+  if (item.children?.some((c) => pathname === c.href || pathname.startsWith(c.href + "/")))
+    return true;
+  if (item.dynamicChildren === "sales-types" && pathname.startsWith("/admin/sales/"))
+    return true;
+  if (item.dynamicChildren === "profit-types" && pathname.startsWith("/admin/profit/"))
+    return true;
+  return false;
+}
 
 export function AdminSidebar() {
   const pathname = usePathname();
@@ -178,53 +213,137 @@ export function AdminSidebar() {
   const [billNotificationCount, setBillNotificationCount] = useState(0);
   const [expiryNotificationCount, setExpiryNotificationCount] = useState(0);
   const [pendingCartCount, setPendingCartCount] = useState(0);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
 
-  const SECTIONS: MenuSection[] = useMemo(() => {
-    const subItemsFromTypes: SubItem[] = productTypes.map((t) => ({
-      href: `/admin/sales/${t.key}`,
-      label: `${t.emoji} ${t.label}`,
-      icon: BarChart3,
-    }));
-    const profitSubItems: SubItem[] = productTypes.map((t) => ({
-      href: `/admin/profit/${t.key}`,
-      label: `${t.emoji} ${t.label}`,
-      icon: BarChart3,
-    }));
+  const salesTypeChildren: NavChild[] = useMemo(
+    () =>
+      productTypes.map((t) => ({
+        href: `/admin/sales/${t.key}`,
+        label: `${t.emoji} ${t.label}`,
+        icon: BarChart3,
+      })),
+    [productTypes],
+  );
+
+  const profitTypeChildren: NavChild[] = useMemo(
+    () =>
+      productTypes.map((t) => ({
+        href: `/admin/profit/${t.key}`,
+        label: `${t.emoji} ${t.label}`,
+        icon: TrendingUp,
+      })),
+    [productTypes],
+  );
+
+  const isActive = useCallback(
+    (href: string, matchPath?: string) => {
+      const pathToMatch = matchPath || href;
+      if (pathToMatch === "/admin") return pathname === "/admin";
+      return pathname.startsWith(pathToMatch);
+    },
+    [pathname],
+  );
+
+  const isSubActive = useCallback(
+    (href: string) => pathname === href || pathname.startsWith(href + "/"),
+    [pathname],
+  );
+
+  const visibleSections = useMemo(() => {
     return BASE_SECTIONS.map((section) => ({
       ...section,
-      items: section.items.map((item) => {
-        if (item.href === "/admin/sales")
-          return { ...item, subItems: subItemsFromTypes };
-        if (item.href === "/admin/profit")
-          return { ...item, subItems: profitSubItems };
-        return item;
-      }),
-    }));
-  }, [productTypes]);
+      items: section.items
+        .filter((item) => {
+          if (item.roles) return user && item.roles.includes(user.role);
+          if (user?.role === "cashier") return CASHIER_HREFS.has(item.href);
+          return true;
+        })
+        .map((item) => {
+          if (user?.role !== "cashier" || !item.children) return item;
+          return {
+            ...item,
+            children: item.children.filter((c) => CASHIER_HREFS.has(c.href)),
+          };
+        }),
+    })).filter((s) => s.items.length > 0);
+  }, [user]);
 
-  // Fetch bill notifications for admin/owner
+  // Initialise section collapse: open section containing active route
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        setCollapsed(JSON.parse(stored));
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+
+    const initial: Record<string, boolean> = {};
+    for (const section of visibleSections) {
+      if (section.alwaysOpen) {
+        initial[section.id] = false;
+        continue;
+      }
+      const hasActive = section.items.some((item) =>
+        itemMatchesPath(item, pathname, isActive),
+      );
+      initial[section.id] = !hasActive;
+    }
+    setCollapsed(initial);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-expand section + parent item when navigating
+  useEffect(() => {
+    setCollapsed((prev) => {
+      const next = { ...prev };
+      for (const section of visibleSections) {
+        if (section.alwaysOpen) continue;
+        const hasActive = section.items.some((item) =>
+          itemMatchesPath(item, pathname, isActive),
+        );
+        if (hasActive) next[section.id] = false;
+      }
+      return next;
+    });
+
+    setExpandedItems((prev) => {
+      const next = { ...prev };
+      for (const section of visibleSections) {
+        for (const item of section.items) {
+          const hasChildren =
+            item.children?.length ||
+            (item.dynamicChildren === "sales-types" && salesTypeChildren.length) ||
+            (item.dynamicChildren === "profit-types" && profitTypeChildren.length);
+          if (hasChildren && itemMatchesPath(item, pathname, isActive)) {
+            next[item.href] = true;
+          }
+        }
+      }
+      return next;
+    });
+  }, [pathname, visibleSections, isActive, salesTypeChildren.length, profitTypeChildren.length]);
+
   useEffect(() => {
     if (user && (user.role === "admin" || user.role === "owner")) {
       apiGet<{
-        pending: { count: number; total: number; bills: unknown[] };
-        overdue: { count: number; total: number; bills: unknown[] };
-        upcoming: { count: number; total: number; bills: unknown[] };
+        pending: { count: number };
+        overdue: { count: number };
+        upcoming: { count: number };
       }>("/api/supplier-bills/notifications")
         .then((result) => {
           if (result.success && result.data) {
-            const count =
+            setBillNotificationCount(
               (result.data.overdue?.count || 0) +
-              (result.data.upcoming?.count || 0);
-            setBillNotificationCount(count);
+                (result.data.upcoming?.count || 0),
+            );
           }
         })
         .catch(() => {});
 
-      apiGet<{
-        expired: unknown[];
-        expiringSoon: unknown[];
-        totalCount: number;
-      }>("/api/batches/expiring")
+      apiGet<{ totalCount: number }>("/api/batches/expiring")
         .then((result) => {
           if (result.success && result.data) {
             setExpiryNotificationCount(result.data.totalCount || 0);
@@ -250,181 +369,190 @@ export function AdminSidebar() {
     return () => clearInterval(timer);
   }, [user]);
 
-  const isActive = (href: string, matchPath?: string) => {
-    const pathToMatch = matchPath || href;
-    if (pathToMatch === "/admin") return pathname === "/admin";
-    return pathname.startsWith(pathToMatch);
+  const toggleSection = (id: string) => {
+    setCollapsed((prev) => {
+      const next = { ...prev, [id]: !prev[id] };
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
   };
 
-  const isSubActive = (href: string) =>
-    pathname === href || pathname.startsWith(href + "/");
+  const toggleItem = (href: string) => {
+    setExpandedItems((prev) => ({ ...prev, [href]: !prev[href] }));
+  };
 
-  const isExpanded = (href: string) => pathname.startsWith(href);
+  const getBadgeCount = (badge?: NavItem["badge"]) => {
+    if (badge === "bills") return billNotificationCount;
+    if (badge === "expiry") return expiryNotificationCount;
+    if (badge === "carts") return pendingCartCount;
+    return 0;
+  };
 
-  // Filter sections by user role
-  const visibleSections = SECTIONS.map((section) => ({
-    ...section,
-    items: section.items.filter((item) => {
-      if (item.roles) return user && item.roles.includes(user.role);
-      if (user?.role === "cashier") {
-        const allowed = [
-          "/admin",
-          "/admin/aisles",
-          "/admin/categories",
-          "/admin/items",
-          "/admin/items/no-barcode",
-          "/admin/items/price-stickers",
-          "/admin/credits",
-          "/admin/expenses",
-          "/admin/supplier-bills",
-          "/admin/supplier-price-comparison",
-          "/admin/out-of-stock-requests",
-          "/admin/pending-carts",
-        ];
-        return (
-          allowed.includes(item.href) ||
-          (item.matchPath && allowed.some((a) => item.href.startsWith(a)))
-        );
-      }
-      return true;
-    }),
-  })).filter((s) => s.items.length > 0);
+  const getChildren = (item: NavItem): NavChild[] => {
+    if (item.children) return item.children;
+    if (item.dynamicChildren === "sales-types") return salesTypeChildren;
+    if (item.dynamicChildren === "profit-types") return profitTypeChildren;
+    return [];
+  };
 
   return (
-    <nav className="px-3 select-none" aria-label="Admin navigation">
-      {visibleSections.map((section, sIdx) => (
-        <div key={sIdx} className={sIdx > 0 ? "mt-8" : ""}>
-          {/* Section label — uppercase, bold (Agentic structure) */}
-          {section.label && (
-            <div className="flex items-center gap-2 px-3 mb-3">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-500">
-                {section.label}
-              </span>
-            </div>
-          )}
+    <nav className="px-2 select-none" aria-label="Admin navigation">
+      {visibleSections.map((section, sIdx) => {
+        const isSectionCollapsed = !section.alwaysOpen && collapsed[section.id];
+        const sectionHasActive = section.items.some((item) =>
+          itemMatchesPath(item, pathname, isActive),
+        );
 
-          {/* Menu items — subtle left pill for active, plain text (Agentic layout) */}
-          <div className="space-y-0.5">
-            {section.items.map((item) => {
-              const Icon = item.icon;
-              const active = isActive(item.href, item.matchPath);
-              const hasSubItems = item.subItems && item.subItems.length > 0;
-              const expanded = hasSubItems && isExpanded(item.href);
-              const showBadge =
-                item.href === "/admin/supplier-bills" &&
-                billNotificationCount > 0;
-              const showExpiryBadge =
-                item.href === "/admin/batches" && expiryNotificationCount > 0;
-              const showPendingCartBadge =
-                item.href === "/admin/pending-carts" && pendingCartCount > 0;
+        return (
+          <div key={section.id} className={sIdx > 0 ? "mt-5" : ""}>
+            {section.alwaysOpen ? (
+              <div className="px-2 mb-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  {section.label}
+                </span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => toggleSection(section.id)}
+                className="w-full flex items-center gap-1.5 px-2 py-1.5 mb-1 rounded-md hover:bg-slate-100/80 dark:hover:bg-white/[0.04] transition-colors group"
+              >
+                <ChevronRight
+                  className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${
+                    isSectionCollapsed ? "" : "rotate-90"
+                  }`}
+                  strokeWidth={2}
+                />
+                <span
+                  className={`text-[10px] font-semibold uppercase tracking-wider ${
+                    sectionHasActive
+                      ? "text-[#1c6a1e] dark:text-[#2a8a30]"
+                      : "text-slate-400 dark:text-slate-500"
+                  }`}
+                >
+                  {section.label}
+                </span>
+              </button>
+            )}
 
-              return (
-                <div key={item.href}>
-                  <Link href={item.href}>
-                    <div className="relative group flex items-center gap-2.5 px-3 py-2 rounded-md transition-colors duration-150 hover:bg-slate-100/80 dark:hover:bg-white/[0.04]">
-                      {/* Active indicator — small pill left of text (Agentic-style) */}
-                      {active && (
-                        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 rounded-r-full bg-[#1c6a1e] dark:bg-[#2a8a30]" />
-                      )}
-                      <Icon
-                        className={`w-4 h-4 shrink-0 ${
-                          active
-                            ? "text-[#1c6a1e] dark:text-[#2a8a30]"
-                            : "text-slate-500 dark:text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300"
-                        }`}
-                        strokeWidth={1.5}
-                      />
-                      <span
-                        className={`flex-1 text-[12px] truncate font-medium ${
-                          active
-                            ? "text-[#1c6a1e] dark:text-[#2a8a30]"
-                            : "text-slate-600 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"
-                        }`}
-                      >
-                        {item.label}
-                      </span>
+            {!isSectionCollapsed && (
+              <div className="space-y-0.5">
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.href, item.matchPath);
+                  const children = getChildren(item);
+                  const hasChildren = children.length > 0;
+                  const itemExpanded = expandedItems[item.href] ?? false;
+                  const badgeCount = getBadgeCount(item.badge);
 
-                      {showBadge && (
-                        <span className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center shrink-0">
-                          {billNotificationCount > 99
-                            ? "99+"
-                            : billNotificationCount}
-                        </span>
-                      )}
-                      {showExpiryBadge && (
-                        <span className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center justify-center shrink-0">
-                          {expiryNotificationCount > 99
-                            ? "99+"
-                            : expiryNotificationCount}
-                        </span>
-                      )}
-                      {showPendingCartBadge && (
-                        <span className="min-w-[18px] h-[18px] px-1.5 rounded-full bg-amber-500 text-white text-[10px] font-semibold flex items-center justify-center shrink-0">
-                          {pendingCartCount > 99 ? "99+" : pendingCartCount}
-                        </span>
-                      )}
+                  return (
+                    <div key={item.href}>
+                      <div className="flex items-center">
+                        <Link href={item.href} className="flex-1 min-w-0">
+                          <div
+                            className={`relative group flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors duration-150 hover:bg-slate-100/80 dark:hover:bg-white/[0.04] ${
+                              active && !hasChildren
+                                ? "bg-[#1c6a1e]/8 dark:bg-[#1c6a1e]/12"
+                                : ""
+                            }`}
+                          >
+                            {active && !hasChildren && (
+                              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-r-full bg-[#1c6a1e] dark:bg-[#2a8a30]" />
+                            )}
+                            <Icon
+                              className={`w-4 h-4 shrink-0 ${
+                                active
+                                  ? "text-[#1c6a1e] dark:text-[#2a8a30]"
+                                  : "text-slate-400 dark:text-slate-500 group-hover:text-slate-600 dark:group-hover:text-slate-300"
+                              }`}
+                              strokeWidth={1.5}
+                            />
+                            <span
+                              className={`flex-1 text-[12px] truncate ${
+                                active
+                                  ? "font-semibold text-[#1c6a1e] dark:text-[#2a8a30]"
+                                  : "font-medium text-slate-600 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"
+                              }`}
+                            >
+                              {item.label}
+                            </span>
+                            {badgeCount > 0 && (
+                              <span
+                                className={`min-w-[16px] h-4 px-1 rounded-full text-white text-[9px] font-bold flex items-center justify-center shrink-0 ${
+                                  item.badge === "bills" ? "bg-red-500" : "bg-amber-500"
+                                }`}
+                              >
+                                {badgeCount > 99 ? "99+" : badgeCount}
+                              </span>
+                            )}
+                          </div>
+                        </Link>
+                        {hasChildren && (
+                          <button
+                            type="button"
+                            onClick={() => toggleItem(item.href)}
+                            className="p-1.5 mr-0.5 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100/80 dark:hover:bg-white/[0.04] transition-colors"
+                            aria-label={`Toggle ${item.label} sub-menu`}
+                          >
+                            <ChevronRight
+                              className={`w-3 h-3 transition-transform duration-200 ${
+                                itemExpanded ? "rotate-90" : ""
+                              }`}
+                              strokeWidth={2}
+                            />
+                          </button>
+                        )}
+                      </div>
 
-                      {hasSubItems && (
-                        <ChevronDown
-                          className={`w-3.5 h-3.5 shrink-0 transition-transform duration-200 ${
-                            expanded ? "rotate-0" : "-rotate-90"
-                          } text-slate-400 dark:text-slate-500`}
-                          strokeWidth={1.5}
-                        />
-                      )}
-                    </div>
-                  </Link>
-
-                  {/* Sub-items — indented, left pill for active */}
-                  {hasSubItems && (
-                    <div
-                      className={`grid transition-[grid-template-rows] duration-200 ease-out ${
-                        expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-                      }`}
-                    >
-                      <div className="overflow-hidden">
-                        <div className="ml-4 pl-3 mt-1 mb-2 space-y-0.5 border-l border-slate-200 dark:border-slate-700">
-                          {item.subItems!.map((sub) => {
-                            const SubIcon = sub.icon;
-                            const subActive = isSubActive(sub.href);
-
+                      {hasChildren && itemExpanded && (
+                        <div className="ml-3 pl-2 mt-0.5 mb-1 space-y-0.5 border-l border-slate-200/80 dark:border-slate-700/80">
+                          {children.map((child) => {
+                            const ChildIcon = child.icon;
+                            const childActive = isSubActive(child.href);
                             return (
-                              <Link key={sub.href} href={sub.href}>
-                                <div className="relative flex items-center gap-2.5 pl-3 pr-2.5 py-1.5 -ml-px rounded-r-md transition-colors hover:bg-slate-100/60 dark:hover:bg-white/[0.03]">
-                                  {subActive && (
-                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-3 rounded-r-full bg-[#1c6a1e] dark:bg-[#2a8a30]" />
-                                  )}
-                                  <SubIcon
-                                    className={`w-3.5 h-3.5 shrink-0 ${
-                                      subActive
+                              <Link key={child.href} href={child.href}>
+                                <div
+                                  className={`relative flex items-center gap-2 pl-2 pr-2 py-1 rounded-md transition-colors hover:bg-slate-100/60 dark:hover:bg-white/[0.03] ${
+                                    childActive
+                                      ? "bg-[#1c6a1e]/8 dark:bg-[#1c6a1e]/12"
+                                      : ""
+                                  }`}
+                                >
+                                  <ChildIcon
+                                    className={`w-3 h-3 shrink-0 ${
+                                      childActive
                                         ? "text-[#1c6a1e] dark:text-[#2a8a30]"
-                                        : "text-slate-500 dark:text-slate-400"
+                                        : "text-slate-400 dark:text-slate-500"
                                     }`}
                                     strokeWidth={1.5}
                                   />
                                   <span
-                                    className={`text-[11px] truncate font-medium ${
-                                      subActive
-                                        ? "text-[#1c6a1e] dark:text-[#2a8a30]"
-                                        : "text-slate-500 dark:text-slate-400"
+                                    className={`text-[11px] truncate ${
+                                      childActive
+                                        ? "font-semibold text-[#1c6a1e] dark:text-[#2a8a30]"
+                                        : "font-medium text-slate-500 dark:text-slate-400"
                                     }`}
                                   >
-                                    {sub.label}
+                                    {child.label}
                                   </span>
                                 </div>
                               </Link>
                             );
                           })}
                         </div>
-                      </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </nav>
   );
 }

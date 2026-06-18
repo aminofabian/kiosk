@@ -210,6 +210,19 @@ export async function GET(request: NextRequest) {
     }
 
     // Exclude parent items from low stock (they don't have actual stock)
+    const lowStockCountRow = await queryOne<{ count: number }>(
+      `SELECT COUNT(*) as count
+       FROM items i
+       WHERE i.business_id = ?
+         AND i.active = 1
+         AND i.min_stock_level IS NOT NULL
+         AND i.current_stock <= i.min_stock_level
+         AND NOT EXISTS (
+           SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1
+         )`,
+      [auth.businessId]
+    );
+
     const lowStockItems = await query<{
       id: string;
       name: string;
@@ -248,6 +261,7 @@ export async function GET(request: NextRequest) {
         totalProfit: summaryData.total_profit,
         profitMargin,
         topItems,
+        lowStockCount: lowStockCountRow?.count ?? 0,
         lowStockItems,
       },
     });

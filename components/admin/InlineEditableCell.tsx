@@ -16,7 +16,7 @@ interface InlineEditableCellProps {
   onSave: () => void;
   onCancel: () => void;
   unitType?: UnitType;
-  valueKind?: 'quantity' | 'price';
+  valueKind?: 'quantity' | 'price' | 'text';
   allowEmpty?: boolean;
   align?: 'left' | 'right';
   className?: string;
@@ -80,16 +80,26 @@ export function InlineEditableCell({
   }
 
   if (isEditing) {
+    const isText = valueKind === 'text';
     return (
-      <div className="flex flex-col gap-1 min-w-0 w-full max-w-[140px] ml-auto" onClick={(e) => e.stopPropagation()}>
+      <div
+        className={`flex flex-col gap-1 min-w-0 w-full ${
+          isText ? '' : `max-w-[140px] ${align === 'right' ? 'ml-auto' : 'mx-auto'}`
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <Input
           ref={inputRef}
-          type="number"
+          type={isText ? 'text' : 'number'}
           step={valueKind === 'price' ? '1' : isDiscreteUnitType(unitType) ? '1' : '0.01'}
           min={valueKind === 'price' ? '0' : '0'}
           value={value}
           onChange={(e) => {
             const next = e.target.value;
+            if (isText) {
+              onChange(next);
+              return;
+            }
             if (valueKind === 'price') {
               if (next === '' || /^\d*\.?\d*$/.test(next)) onChange(next);
               return;
@@ -117,7 +127,9 @@ export function InlineEditableCell({
               onCancel();
             }
           }}
-          className="h-7 w-full min-w-0 text-right text-xs font-semibold tabular-nums px-1.5"
+          className={`h-7 w-full min-w-0 text-xs font-semibold px-1.5 ${
+            isText ? 'font-mono text-left' : 'text-right tabular-nums'
+          }`}
         />
         <InlineEditActions onSave={onSave} onCancel={onCancel} />
       </div>

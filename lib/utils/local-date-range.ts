@@ -6,6 +6,19 @@ export function getLocalTodayDateString(): string {
   return formatLocalDate(new Date());
 }
 
+/** Inclusive Unix range for a calendar day N days ago in the user's local timezone (0 = today). */
+export function getLocalDayTimestamps(daysAgo: number): { start: number; end: number } {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return localDateStringsToTimestamps(formatLocalDate(d), formatLocalDate(d));
+}
+
+/** Local midnight through now. */
+export function getLocalTodaySoFarTimestamps(): { start: number; end: number } {
+  const { start } = getLocalDayTimestamps(0);
+  return { start, end: Math.floor(Date.now() / 1000) };
+}
+
 /** Convert YYYY-MM-DD bounds to inclusive Unix seconds in the user's local timezone. */
 export function localDateStringsToTimestamps(
   start: string,
