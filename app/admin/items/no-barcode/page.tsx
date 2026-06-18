@@ -29,6 +29,7 @@ import {
   CheckCircle2,
   AlertCircle,
   X,
+  Trash2,
 } from 'lucide-react';
 import type { Item, Category } from '@/lib/db/types';
 import { getItemDisplayName } from '@/lib/utils';
@@ -57,6 +58,7 @@ export default function ItemsWithoutBarcodePage() {
   const [editingItem, setEditingItem] = useState<ItemWithCategory | null>(null);
   const [barcodeInput, setBarcodeInput] = useState('');
   const [savingBarcode, setSavingBarcode] = useState(false);
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
@@ -249,6 +251,34 @@ export default function ItemsWithoutBarcodePage() {
     setEditingItem(item);
     setBarcodeInput('');
     setBarcodeDrawerOpen(true);
+  };
+
+  const handleDeleteItem = (item: ItemWithCategory) => {
+    const itemName = getItemDisplayName(item.name, item.variant_name);
+    toast(`Are you sure you want to delete "${itemName}"? This action cannot be undone.`, {
+      action: {
+        label: 'Delete',
+        onClick: async () => {
+          setDeletingItemId(item.id);
+          try {
+            const response = await fetch(`/api/items/${item.id}`, { method: 'DELETE' });
+            const result = await response.json();
+            if (result.success) {
+              await fetchData();
+              toast.success('Item deleted');
+            } else {
+              toast.error(result.message || 'Failed to delete item');
+            }
+          } catch (err) {
+            console.error('Error deleting item:', err);
+            toast.error('Failed to delete item. Please try again.');
+          } finally {
+            setDeletingItemId(null);
+          }
+        },
+      },
+      cancel: { label: 'Cancel', onClick: () => {} },
+    });
   };
 
   const handleSaveBarcode = async () => {
@@ -480,7 +510,7 @@ export default function ItemsWithoutBarcodePage() {
                             <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                               Price
                             </th>
-                            <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-[120px]">
+                            <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-[160px]">
                               Actions
                             </th>
                           </tr>
@@ -528,6 +558,19 @@ export default function ItemsWithoutBarcodePage() {
                                       <Edit className="w-4 h-4" />
                                     </Button>
                                   </Link>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                                    onClick={() => handleDeleteItem(row.item)}
+                                    disabled={deletingItemId === row.item.id}
+                                  >
+                                    {deletingItemId === row.item.id ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="w-4 h-4" />
+                                    )}
+                                  </Button>
                                   <Button
                                     size="sm"
                                     className="h-8 bg-amber-600 hover:bg-amber-700 text-white"
