@@ -436,9 +436,7 @@ export async function GET(request: NextRequest) {
             `SELECT i.*, p.name as parent_name
              FROM items i
              LEFT JOIN items p ON i.parent_item_id = p.id AND p.business_id = i.business_id
-             WHERE i.business_id = ? AND i.active = 1${itemTypeFilter.replace(" AND ", " AND i.")}
-             AND (COALESCE(TRIM(i.barcode), '') = '')
-             AND (i.parent_item_id IS NOT NULL OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id AND v.active = 1))
+             WHERE i.business_id = ? AND i.active = 1${itemTypeFilter.replace(" AND ", " AND i.")}${noBarcodeFilterAlias}${noBarcodeExcludeParentsAlias}
              ORDER BY COALESCE(p.name, i.name), i.variant_name ASC`,
             [auth.businessId, ...itemTypeParam],
           );
