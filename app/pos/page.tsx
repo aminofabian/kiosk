@@ -202,6 +202,7 @@ export default function POSPage() {
   const [posStockFilter, setPosStockFilter] = useState<"all" | "out" | "low">(
     "all",
   );
+  const [editQuickSellPhotos, setEditQuickSellPhotos] = useState(false);
   const [statsMenuOpen, setStatsMenuOpen] = useState(false);
   const statsMenuRefMobile = useRef<HTMLDivElement>(null);
   const statsMenuRefDesktop = useRef<HTMLDivElement>(null);
@@ -244,6 +245,7 @@ export default function POSPage() {
   const activeCart = carts.find((c) => c.id === activeCartId) || carts[0];
   const cartItems = activeCart?.items || [];
   const isOwnerOrAdmin = user?.role === "owner" || user?.role === "admin";
+  const canManageItemImages = isOwnerOrAdmin && editQuickSellPhotos;
   const canAccessAdmin = isOwnerOrAdmin || user?.role === "cashier";
   const canProcessReturn = user?.role
     ? canProcessRefund(user.role as UserRole)
@@ -1008,7 +1010,7 @@ export default function POSPage() {
                     outStockItems={outStockItems}
                     lowQuantityItems={lowQtyHomeItems}
                     stockListFilter="all"
-                    canManageItemImages={isOwnerOrAdmin}
+                    canManageItemImages={canManageItemImages}
                     onItemImageUpdated={handleItemImageUpdated}
                     allowSellOutOfStock={allowSellOutOfStock}
                   />
@@ -1089,7 +1091,7 @@ export default function POSPage() {
                       outStockItems={outStockItems}
                       lowQuantityItems={lowQtyHomeItems}
                       stockListFilter="all"
-                      canManageItemImages={isOwnerOrAdmin}
+                      canManageItemImages={canManageItemImages}
                       onItemImageUpdated={handleItemImageUpdated}
                       allowSellOutOfStock={allowSellOutOfStock}
                     />
@@ -1119,7 +1121,7 @@ export default function POSPage() {
                           isOwnerOrAdmin ? posStockFilter : "all"
                         }
                         showLowStockStrip={isOwnerOrAdmin}
-                        canManageItemImages={isOwnerOrAdmin}
+                        canManageItemImages={canManageItemImages}
                         onItemImageUpdated={handleItemImageUpdated}
                         allowSellOutOfStock={allowSellOutOfStock}
                       />
@@ -1204,7 +1206,7 @@ export default function POSPage() {
                     outStockItems={outStockItems}
                     lowQuantityItems={lowQtyHomeItems}
                     stockListFilter="all"
-                    canManageItemImages={isOwnerOrAdmin}
+                    canManageItemImages={canManageItemImages}
                     onItemImageUpdated={handleItemImageUpdated}
                     allowSellOutOfStock={allowSellOutOfStock}
                   />
@@ -1411,6 +1413,10 @@ export default function POSPage() {
             onOutOfStock={() => setOutOfStockModalOpen(true)}
             onReturns={() => setReturnsDialogOpen(true)}
             onLogout={() => signOut({ callbackUrl: "/pos/login" })}
+            editQuickSellPhotos={editQuickSellPhotos}
+            onEditQuickSellPhotosToggle={() =>
+              setEditQuickSellPhotos((on) => !on)
+            }
           />
         </div>
 
@@ -1453,6 +1459,10 @@ export default function POSPage() {
                   onReturns={() => setReturnsDialogOpen(true)}
                   canAccessAdmin={canAccessAdmin}
                   onLogout={() => signOut({ callbackUrl: "/pos/login" })}
+                  editQuickSellPhotos={editQuickSellPhotos}
+                  onEditQuickSellPhotosToggle={() =>
+                    setEditQuickSellPhotos((on) => !on)
+                  }
                   cartItemCount={cartItemCount}
                   cartTotal={cartTotal}
                   cartsCount={carts.length}
@@ -1518,7 +1528,7 @@ export default function POSPage() {
                             : posStockFilter
                         }
                         showLowStockStrip={isOwnerOrAdmin}
-                        canManageItemImages={isOwnerOrAdmin}
+                        canManageItemImages={canManageItemImages}
                         onItemImageUpdated={handleItemImageUpdated}
                         allowSellOutOfStock={allowSellOutOfStock}
                       />

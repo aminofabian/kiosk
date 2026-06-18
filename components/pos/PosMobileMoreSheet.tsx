@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   BarChart2,
   Banknote,
+  ImagePlus,
   LogOut,
   PackageX,
   Receipt,
@@ -40,6 +41,8 @@ interface PosMobileMoreSheetProps {
   onOutOfStock?: () => void;
   onReturns?: () => void;
   onLogout?: () => void;
+  editQuickSellPhotos?: boolean;
+  onEditQuickSellPhotosToggle?: () => void;
 }
 
 function ActionRow({
@@ -112,6 +115,8 @@ export function PosMobileMoreSheet({
   onOutOfStock,
   onReturns,
   onLogout,
+  editQuickSellPhotos,
+  onEditQuickSellPhotosToggle,
 }: PosMobileMoreSheetProps) {
   const { hasOpenShift, openDrawer } = usePosCashierOps();
   const closeThen = (fn?: () => void) => {
@@ -163,6 +168,49 @@ export function PosMobileMoreSheet({
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {isOwnerOrAdmin && onEditQuickSellPhotosToggle && (
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2 px-1">
+                Quick Sell
+              </p>
+              <button
+                type="button"
+                onClick={() => onEditQuickSellPhotosToggle()}
+                className={`w-full flex items-center gap-3 px-4 py-3.5 text-left rounded-xl border transition-colors active:scale-[0.99] ${
+                  editQuickSellPhotos
+                    ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800'
+                    : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/80'
+                }`}
+              >
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    editQuickSellPhotos
+                      ? 'bg-amber-100 dark:bg-amber-950/50'
+                      : 'bg-slate-100 dark:bg-slate-800'
+                  }`}
+                >
+                  <ImagePlus
+                    className={`w-5 h-5 ${
+                      editQuickSellPhotos
+                        ? 'text-amber-700 dark:text-amber-400'
+                        : 'text-slate-600 dark:text-slate-400'
+                    }`}
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    {editQuickSellPhotos ? 'Photo edit mode on' : 'Edit product photos'}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {editQuickSellPhotos
+                      ? 'Tap to return to normal selling'
+                      : 'Upload or change Quick Sell images'}
+                  </p>
+                </div>
+              </button>
             </div>
           )}
 

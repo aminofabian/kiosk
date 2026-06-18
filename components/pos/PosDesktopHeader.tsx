@@ -4,6 +4,7 @@ import Link from 'next/link';
 import {
   BarChart2,
   Camera,
+  ImagePlus,
   Loader2,
   LogOut,
   PackageX,
@@ -51,6 +52,8 @@ interface PosDesktopHeaderProps {
   onReturns: () => void;
   canAccessAdmin?: boolean;
   onLogout: () => void;
+  editQuickSellPhotos?: boolean;
+  onEditQuickSellPhotosToggle?: () => void;
   cartItemCount: number;
   cartTotal: number;
   cartsCount: number;
@@ -89,6 +92,8 @@ function HeaderToolbar({
   onReturns,
   canAccessAdmin,
   onLogout,
+  editQuickSellPhotos,
+  onEditQuickSellPhotosToggle,
 }: Pick<
   PosDesktopHeaderProps,
   | 'isOwnerOrAdmin'
@@ -105,6 +110,8 @@ function HeaderToolbar({
   | 'onReturns'
   | 'canAccessAdmin'
   | 'onLogout'
+  | 'editQuickSellPhotos'
+  | 'onEditQuickSellPhotosToggle'
 >) {
   return (
     <div
@@ -152,6 +159,23 @@ function HeaderToolbar({
             </div>
           )}
         </div>
+      )}
+
+      {isOwnerOrAdmin && onEditQuickSellPhotosToggle && (
+        <ToolbarBtn
+          onClick={onEditQuickSellPhotosToggle}
+          active={editQuickSellPhotos}
+          title={
+            editQuickSellPhotos
+              ? 'Photo edit mode on — turn off to sell normally'
+              : 'Edit Quick Sell product photos'
+          }
+          aria-label="Edit Quick Sell product photos"
+          aria-pressed={editQuickSellPhotos}
+          className={editQuickSellPhotos ? 'text-amber-600 dark:text-amber-400' : ''}
+        >
+          <ImagePlus className="w-4 h-4" />
+        </ToolbarBtn>
       )}
 
       <ToolbarBtn onClick={onRefresh} disabled={refreshing} title="Refresh products">
@@ -216,6 +240,8 @@ export function PosDesktopHeader({
   onReturns,
   canAccessAdmin,
   onLogout,
+  editQuickSellPhotos,
+  onEditQuickSellPhotosToggle,
 }: PosDesktopHeaderProps) {
   const toolbarProps = {
     isOwnerOrAdmin,
@@ -232,6 +258,8 @@ export function PosDesktopHeader({
     onReturns,
     canAccessAdmin,
     onLogout,
+    editQuickSellPhotos,
+    onEditQuickSellPhotosToggle,
   };
 
   return (
