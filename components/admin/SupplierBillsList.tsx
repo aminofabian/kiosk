@@ -525,15 +525,18 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
 
   // ── Data fetching ────────────────────────────────────
 
-  const fetchBills = useCallback(async () => {
+  const fetchBills = useCallback(async (background = false) => {
     try {
-      setLoading(true);
-      // Always fetch all bills; status filtering is done client-side to avoid API/client mismatch
+      if (!background) {
+        setLoading(true);
+        setError(null);
+      }
       const result = await apiGet<SupplierBillWithDetails[]>(
         '/api/supplier-bills?includeOverdue=true'
       );
       if (result.success) {
         setBills(result.data || []);
+        setError(null);
       } else {
         setError(result.message || 'Failed to load bills');
       }
@@ -605,7 +608,7 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
             try {
               const result = await apiDelete(`/api/supplier-bills/${bill.id}`);
               if (result.success) {
-                await fetchBills();
+                await fetchBills(true);
                 toast.success('Bill cancelled');
               } else {
                 toast.error(result.message || 'Failed to cancel bill');
@@ -638,7 +641,7 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
         setMarkAsPaidDialog({ open: false, bill: null });
         setPaymentMethod('');
         setPaymentNotes('');
-        await fetchBills();
+        await fetchBills(true);
       } else {
         setError(result.message || 'Failed to mark bill as paid');
       }
@@ -649,34 +652,6 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
       setIsMarkingAsPaid(false);
     }
   };
-
-  // ── Loading / Error ──────────────────────────────────
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-[#1c6a1e]" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="rounded-2xl border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 shadow-sm">
-        <div className="flex items-center justify-center py-24 sm:py-32">
-          <div className="text-center space-y-4 max-w-sm px-4">
-            <div className="w-14 h-14 rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto">
-              <AlertTriangle className="h-7 w-7 text-red-600 dark:text-red-400" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-red-800 dark:text-red-300">Unable to load bills</p>
-              <p className="text-xs text-red-600/90 dark:text-red-400/90 mt-1">{error}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // ── Computed data ────────────────────────────────────
 
@@ -774,7 +749,25 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
 
   return (
     <div className="space-y-4">
-      {(overdueCount > 0 || dueSoonCount > 0) && (
+      {error && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50/80 dark:bg-red-950/20 px-4 py-3">
+          <div className="flex items-start gap-2 flex-1 min-w-0">
+            <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+            <p className="text-sm text-red-800 dark:text-red-300">{error}</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 shrink-0 border-red-200 text-red-700 hover:bg-red-100"
+            onClick={() => void fetchBills()}
+            disabled={loading}
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Try again'}
+          </Button>
+        </div>
+      )}
+
+      {(overdueCount > 0 || dueSoonCount > 0) && !loading && (
         <div className="flex flex-wrap gap-2">
           {overdueCount > 0 && (
             <button
@@ -1070,7 +1063,12 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
       {/* Bills table */}
       <Card className="border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
         <CardContent className="p-0">
-          {filteredBills.length === 0 ? (
+          {loading && bills.length === 0 ? (
+            <div className="py-16 flex flex-col items-center justify-center gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-[#1c6a1e]" />
+              <p className="text-sm text-slate-500">Loading bills…</p>
+            </div>
+          ) : filteredBills.length === 0 ? (
             <div className="py-14 px-6 text-center">
               <Receipt className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600 mb-3" />
               <p className="font-medium text-slate-900 dark:text-white">No bills found</p>
@@ -1360,7 +1358,7 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
                 }
                 onSuccess={async () => {
                   setEditingBill(null);
-                  await fetchBills();
+                  await fetchBills(true);
                 }}
                 onCancel={() => setEditingBill(null)}
               />
