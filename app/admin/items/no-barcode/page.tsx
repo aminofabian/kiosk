@@ -4,8 +4,14 @@ import { useEffect, useState, useMemo } from 'react';
 import { AdminLayout } from '@/components/layouts/admin-layout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Drawer,
   DrawerContent,
@@ -19,13 +25,10 @@ import {
   Loader2,
   Search,
   Edit,
-  ChevronRight,
-  Sparkles,
-  Layers,
-  FolderTree,
   Store,
   CheckCircle2,
   AlertCircle,
+  X,
 } from 'lucide-react';
 import type { Item, Category } from '@/lib/db/types';
 import { getItemDisplayName } from '@/lib/utils';
@@ -54,7 +57,6 @@ export default function ItemsWithoutBarcodePage() {
   const [editingItem, setEditingItem] = useState<ItemWithCategory | null>(null);
   const [barcodeInput, setBarcodeInput] = useState('');
   const [savingBarcode, setSavingBarcode] = useState(false);
-  const [expandedParents, setExpandedParents] = useState<Set<string>>(new Set());
 
   const fetchData = async () => {
     try {
@@ -170,21 +172,65 @@ export default function ItemsWithoutBarcodePage() {
     });
   }, [items, searchQuery, selectedCategory]);
 
-  const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const item of items) {
+  const filteredCount = useMemo(() => {
+    let n = 0;
+    for (const item of filteredItems) {
       if (item.isParent && item.variants) {
-        for (const v of item.variants) {
-          const catName = categories.find((c) => c.id === v.category_id)?.name || 'Uncategorized';
-          counts[catName] = (counts[catName] || 0) + 1;
-        }
+        n += item.variants.length;
       } else {
-        const catName = categories.find((c) => c.id === item.category_id)?.name || 'Uncategorized';
-        counts[catName] = (counts[catName] || 0) + 1;
+        n += 1;
       }
     }
-    return counts;
-  }, [items, categories]);
+    return n;
+  }, [filteredItems]);
+
+  const tableRows = useMemo(() => {
+    const rows: {
+      id: string;
+      item: ItemWithCategory;
+      productLabel: string;
+      variantLabel?: string;
+      categoryName: string;
+    }[] = [];
+
+    for (const entry of filteredItems) {
+      if (entry.isParent && entry.variants) {
+        const q = searchQuery.toLowerCase().trim();
+        const variants = q
+          ? entry.variants.filter(
+              (v) =>
+                v.name.toLowerCase().includes(q) ||
+                v.variant_name?.toLowerCase().includes(q) ||
+                entry.name.toLowerCase().includes(q)
+            )
+          : entry.variants;
+
+        for (const v of variants) {
+          const catName =
+            categories.find((c) => c.id === v.category_id)?.name || 'Uncategorized';
+          rows.push({
+            id: v.id,
+            item: v,
+            productLabel: entry.name,
+            variantLabel: v.variant_name || getItemDisplayName(v.name, v.variant_name),
+            categoryName: catName,
+          });
+        }
+      } else if (!entry.isParent) {
+        const catName =
+          categories.find((c) => c.id === entry.category_id)?.name || 'Uncategorized';
+        rows.push({
+          id: entry.id,
+          item: entry,
+          productLabel: entry.name,
+          variantLabel: entry.variant_name || undefined,
+          categoryName: catName,
+        });
+      }
+    }
+
+    return rows;
+  }, [filteredItems, categories, searchQuery]);
 
   const totalCount = useMemo(() => {
     let n = 0;
@@ -197,15 +243,6 @@ export default function ItemsWithoutBarcodePage() {
     }
     return n;
   }, [items]);
-
-  const toggleParentExpanded = (id: string) => {
-    setExpandedParents((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
 
   const openBarcodeDrawer = (item: ItemWithCategory) => {
     if (item.isParent) return;
@@ -242,48 +279,55 @@ export default function ItemsWithoutBarcodePage() {
     }
   };
 
+  const hasActiveFilters =
+    searchQuery.trim() !== '' || selectedCategory !== 'all';
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedCategory('all');
+  };
+
   const formatPrice = (p: number) => `KES ${p.toFixed(0)}`;
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-gradient-to-b from-amber-50/50 via-white to-slate-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-        {/* Hero Header */}
-        <div className="relative overflow-hidden border-b border-amber-200/60 dark:border-amber-900/40 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-amber-500/10 dark:from-amber-900/20 dark:via-orange-900/10 dark:to-amber-900/20">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-amber-400/10 via-transparent to-transparent" />
-          <div className="absolute top-0 right-0 w-96 h-96 bg-amber-400/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-          <div className="relative px-4 md:px-6 py-8">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-xl shadow-amber-500/25 ring-4 ring-amber-400/20">
-                  <ScanBarcode className="w-7 h-7 text-white" strokeWidth={2} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
-                      Barcode Audit
-                    </h1>
-                    <Sparkles className="w-5 h-5 text-amber-500" />
-                  </div>
-                  <p className="text-slate-600 dark:text-slate-400 text-sm md:text-base">
-                    Items missing barcodes — get scan-ready for faster checkout
-                  </p>
-                </div>
+      <div className="min-h-screen bg-slate-50/80 dark:bg-slate-950">
+        {/* Header */}
+        <div className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <div className="px-4 md:px-6 py-5 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center shrink-0">
+                <ScanBarcode className="w-5 h-5 text-white" strokeWidth={2} />
               </div>
-              <Link href="/admin/items">
-                <Button
-                  variant="outline"
-                  className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20"
-                >
-                  <Package className="w-4 h-4 mr-2" />
-                  All Items
-                </Button>
-              </Link>
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">
+                  Barcode Audit
+                </h1>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {!loading && !error && (
+                    <>
+                      {hasActiveFilters ? (
+                        <span>
+                          Showing {filteredCount} of {totalCount} items
+                        </span>
+                      ) : (
+                        <span>{totalCount} items need barcodes</span>
+                      )}
+                    </>
+                  )}
+                </p>
+              </div>
             </div>
+            <Link href="/admin/items">
+              <Button variant="outline" size="sm" className="shrink-0">
+                <Package className="w-4 h-4 mr-2" />
+                All Items
+              </Button>
+            </Link>
           </div>
         </div>
 
-        {/* Stats & Filters */}
-        <div className="px-4 md:px-6 py-6 space-y-6">
+        <div className="px-4 md:px-6 py-4 space-y-4">
           {loading ? (
             <div className="flex items-center justify-center py-24">
               <div className="text-center space-y-4">
@@ -302,225 +346,202 @@ export default function ItemsWithoutBarcodePage() {
             </Card>
           ) : (
             <>
-              {/* Stats Row */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="border-amber-200/60 dark:border-amber-900/40 bg-white/80 dark:bg-slate-900/50 backdrop-blur-sm overflow-hidden">
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-amber-400/10 rounded-bl-full" />
-                  <CardContent className="p-5 relative">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center">
-                        <Package className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                          {totalCount}
-                        </p>
-                        <p className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider">
-                          Need Barcodes
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/50 backdrop-blur-sm">
-                  <CardContent className="p-5">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                        <FolderTree className="w-5 h-5 text-slate-600 dark:text-slate-400" />
-                      </div>
-                      <div>
-                        <p className="text-2xl font-bold text-slate-900 dark:text-white">
-                          {Object.keys(categoryCounts).length}
-                        </p>
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-                          Categories
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/50 backdrop-blur-sm col-span-1 sm:col-span-2 lg:col-span-2">
-                  <CardContent className="p-5">
-                    <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">
-                      Top categories
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {Object.entries(categoryCounts)
-                        .sort((a, b) => b[1] - a[1])
-                        .slice(0, 5)
-                        .map(([name, count]) => (
-                          <Badge
-                            key={name}
-                            variant="secondary"
-                            className="bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 font-medium"
-                          >
-                            {name} · {count}
-                          </Badge>
-                        ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Filters */}
-              <Card className="border-slate-200 dark:border-slate-800">
-                <CardContent className="p-4 space-y-4">
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <div className="relative flex-1">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                      <Input
-                        placeholder="Search items..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9"
-                      />
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      <Button
-                        variant={itemTypeFilter === 'retail' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setItemTypeFilter('retail')}
-                        className={
-                          itemTypeFilter === 'retail'
-                            ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                            : ''
-                        }
+              {/* Toolbar */}
+              <div className="sticky top-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 py-3 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-sm border-b border-slate-200/80 dark:border-slate-800/80 space-y-3">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Input
+                      placeholder="Search by name, variant, or category..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-9 pr-9 h-11 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus-visible:ring-amber-500"
+                    />
+                    {searchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        aria-label="Clear search"
                       >
-                        <Store className="w-4 h-4 mr-1.5" />
-                        Retail
-                      </Button>
-                      {productTypes
-                        .filter((t) => t.key !== 'retail')
-                        .map((t) => (
-                          <Button
-                            key={t.key}
-                            variant={itemTypeFilter === t.key ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setItemTypeFilter(t.key)}
-                            className={
-                              itemTypeFilter === t.key
-                                ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                                : ''
-                            }
-                          >
-                            <span className="mr-1.5">{t.emoji}</span>
-                            {t.label}
-                          </Button>
-                        ))}
-                    </div>
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      variant={selectedCategory === 'all' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setSelectedCategory('all')}
-                      className={
-                        selectedCategory === 'all'
-                          ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                          : ''
-                      }
-                    >
-                      All
-                    </Button>
-                    {categories.map((cat) => (
+                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                    <SelectTrigger className="h-11 w-full sm:w-[180px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All categories</SelectItem>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    variant={itemTypeFilter === 'retail' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setItemTypeFilter('retail')}
+                    className={
+                      itemTypeFilter === 'retail'
+                        ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                        : 'bg-white dark:bg-slate-900'
+                    }
+                  >
+                    <Store className="w-4 h-4 mr-1.5" />
+                    Retail
+                  </Button>
+                  {productTypes
+                    .filter((t) => t.key !== 'retail')
+                    .map((t) => (
                       <Button
-                        key={cat.id}
-                        variant={selectedCategory === cat.id ? 'default' : 'outline'}
+                        key={t.key}
+                        variant={itemTypeFilter === t.key ? 'default' : 'outline'}
                         size="sm"
-                        onClick={() => setSelectedCategory(cat.id)}
+                        onClick={() => setItemTypeFilter(t.key)}
                         className={
-                          selectedCategory === cat.id
+                          itemTypeFilter === t.key
                             ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                            : ''
+                            : 'bg-white dark:bg-slate-900'
                         }
                       >
-                        {cat.name}
+                        <span className="mr-1.5">{t.emoji}</span>
+                        {t.label}
                       </Button>
                     ))}
-                  </div>
-                </CardContent>
-              </Card>
+                  {hasActiveFilters && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearFilters}
+                      className="text-slate-500 hover:text-slate-700 ml-auto"
+                    >
+                      <X className="w-3.5 h-3.5 mr-1" />
+                      Clear filters
+                    </Button>
+                  )}
+                </div>
+              </div>
 
-              {/* Item List */}
-              <Card className="border-slate-200 dark:border-slate-800 overflow-hidden">
+              {/* Item Table */}
+              <Card className="border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
                 <CardContent className="p-0">
-                  {filteredItems.length === 0 ? (
-                    <div className="p-16 text-center">
-                      <CheckCircle2 className="w-16 h-16 mx-auto text-emerald-400 mb-4" />
-                      <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-                        All clear!
-                      </h3>
-                      <p className="text-slate-500 dark:text-slate-400 mb-4">
-                        {itemTypeFilter === 'retail'
-                          ? 'All retail items have barcodes. Great job!'
-                          : `All ${productTypes.find((t) => t.key === itemTypeFilter)?.label || itemTypeFilter} items have barcodes.`}
-                      </p>
-                      <Link href="/admin/items">
-                        <Button variant="outline">View all items</Button>
-                      </Link>
+                  {tableRows.length === 0 ? (
+                    <div className="p-12 text-center">
+                      {hasActiveFilters ? (
+                        <>
+                          <Search className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-600 mb-3" />
+                          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">
+                            No matches
+                          </h3>
+                          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                            Try a different search term or category
+                          </p>
+                          <Button variant="outline" size="sm" onClick={clearFilters}>
+                            Clear filters
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-12 h-12 mx-auto text-emerald-400 mb-3" />
+                          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1">
+                            All clear!
+                          </h3>
+                          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                            {itemTypeFilter === 'retail'
+                              ? 'All retail items have barcodes.'
+                              : `All ${productTypes.find((t) => t.key === itemTypeFilter)?.label || itemTypeFilter} items have barcodes.`}
+                          </p>
+                          <Link href="/admin/items">
+                            <Button variant="outline" size="sm">View all items</Button>
+                          </Link>
+                        </>
+                      )}
                     </div>
                   ) : (
-                    <div className="max-h-[60vh] overflow-y-auto py-2">
-                      {filteredItems.map((item) => {
-                        const isExpanded = expandedParents.has(item.id);
-                        return (
-                          <div key={item.id}>
-                            {item.isParent ? (
-                              <>
-                                {/* Parent as label — sticker/tag aesthetic */}
-                                <button
-                                  type="button"
-                                  onClick={() => toggleParentExpanded(item.id)}
-                                  className="w-full group/label text-left"
-                                >
-                                  <div className="relative mx-2 mt-3 mb-1 px-4 py-2.5 rounded-lg border-2 border-dashed border-amber-300/60 dark:border-amber-600/40 bg-gradient-to-r from-amber-50/80 to-orange-50/60 dark:from-amber-950/40 dark:to-orange-950/30 shadow-sm hover:shadow-md hover:border-amber-400/80 dark:hover:border-amber-500/50 transition-all duration-200 overflow-hidden">
-                                    {/* Tape/sticker accent */}
-                                    <div className="absolute top-0 right-8 w-16 h-3 bg-amber-300/40 dark:bg-amber-600/30 -skew-x-12" />
-                                    <div className="absolute -top-px left-4 w-8 h-px bg-amber-400/50 dark:bg-amber-500/30 rounded-full" />
-                                    <div className="flex items-center gap-3 relative">
-                                      <ChevronRight
-                                        className={`w-4 h-4 text-amber-600 dark:text-amber-400 transition-transform duration-200 shrink-0 ${
-                                          isExpanded ? 'rotate-90' : 'group-hover/label:translate-x-0.5'
-                                        }`}
-                                      />
-                                      <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-700/80 dark:text-amber-400/90">
-                                        {item.category_name || 'Uncategorized'}
-                                      </span>
-                                      <span className="text-amber-400 dark:text-amber-500">/</span>
-                                      <span className="font-semibold text-slate-800 dark:text-slate-200 text-sm truncate">
-                                        {item.name}
-                                      </span>
-                                      <span className="ml-auto text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-200/50 dark:bg-amber-800/30 px-2 py-0.5 rounded-full">
-                                        {item.variantCount} to scan
-                                      </span>
-                                    </div>
-                                  </div>
-                                </button>
-                                {isExpanded && item.variants && (
-                                  <div className="space-y-1 pb-2">
-                                    {item.variants.map((v) => (
-                                      <ItemRow
-                                        key={v.id}
-                                        item={v}
-                                        categories={categories}
-                                        onAddBarcode={openBarcodeDrawer}
-                                        showAddBarcode
-                                      />
-                                    ))}
-                                  </div>
+                    <div className="overflow-x-auto max-h-[calc(100vh-280px)] overflow-y-auto">
+                      <table className="w-full text-sm">
+                        <thead className="sticky top-0 z-[1]">
+                          <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80">
+                            <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                              Product
+                            </th>
+                            <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden sm:table-cell">
+                              Variant
+                            </th>
+                            <th className="text-left py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">
+                              Category
+                            </th>
+                            <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                              Price
+                            </th>
+                            <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-[120px]">
+                              Actions
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {tableRows.map((row) => (
+                            <tr
+                              key={row.id}
+                              className="hover:bg-amber-50/40 dark:hover:bg-amber-950/10 transition-colors"
+                            >
+                              <td className="py-3 px-4">
+                                <p className="font-medium text-slate-900 dark:text-white truncate max-w-[200px] sm:max-w-none">
+                                  {row.productLabel}
+                                </p>
+                                {row.variantLabel && (
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 truncate sm:hidden mt-0.5">
+                                    {row.variantLabel}
+                                  </p>
                                 )}
-                              </>
-                            ) : (
-                              <ItemRow
-                                item={item}
-                                categories={categories}
-                                onAddBarcode={openBarcodeDrawer}
-                                showAddBarcode
-                              />
-                            )}
-                          </div>
-                        );
-                      })}
+                                <p className="text-xs text-slate-400 truncate md:hidden mt-0.5">
+                                  {row.categoryName}
+                                </p>
+                              </td>
+                              <td className="py-3 px-4 text-slate-600 dark:text-slate-300 hidden sm:table-cell">
+                                {row.variantLabel ? (
+                                  <span className="truncate block max-w-[160px]">{row.variantLabel}</span>
+                                ) : (
+                                  <span className="text-slate-300 dark:text-slate-600">—</span>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-slate-500 dark:text-slate-400 hidden md:table-cell">
+                                <span className="truncate block max-w-[140px]">{row.categoryName}</span>
+                              </td>
+                              <td className="py-3 px-4 text-right font-medium text-amber-700 dark:text-amber-400 whitespace-nowrap">
+                                {formatPrice(row.item.current_sell_price)}
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center justify-end gap-1">
+                                  <Link href={`/admin/items/${row.item.id}/edit`}>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-slate-400 hover:text-slate-600"
+                                    >
+                                      <Edit className="w-4 h-4" />
+                                    </Button>
+                                  </Link>
+                                  <Button
+                                    size="sm"
+                                    className="h-8 bg-amber-600 hover:bg-amber-700 text-white"
+                                    onClick={() => openBarcodeDrawer(row.item)}
+                                  >
+                                    <ScanBarcode className="w-4 h-4 sm:mr-1.5" />
+                                    <span className="hidden sm:inline">Add</span>
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </CardContent>
@@ -593,55 +614,5 @@ export default function ItemsWithoutBarcodePage() {
         </Drawer>
       </div>
     </AdminLayout>
-  );
-}
-
-function ItemRow({
-  item,
-  categories,
-  onAddBarcode,
-  showAddBarcode = false,
-}: {
-  item: ItemWithCategory;
-  categories: Category[];
-  onAddBarcode: (item: ItemWithCategory) => void;
-  showAddBarcode?: boolean;
-}) {
-  const catName = categories.find((c) => c.id === item.category_id)?.name;
-  const formatPrice = (p: number) => `KES ${p.toFixed(0)}`;
-
-  return (
-    <div className="flex items-center gap-3 px-4 py-3 mx-2 rounded-xl hover:bg-amber-50/40 dark:hover:bg-amber-950/20 transition-colors group border border-transparent hover:border-amber-200/50 dark:hover:border-amber-800/30">
-      <div className="w-9 h-9 rounded-lg bg-amber-100/80 dark:bg-amber-900/40 flex items-center justify-center shrink-0 ring-1 ring-amber-200/50 dark:ring-amber-800/30">
-        <Package className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-medium text-slate-900 dark:text-white truncate">
-          {getItemDisplayName(item.name, item.variant_name)}
-        </p>
-        <div className="flex items-center gap-2 text-sm text-slate-500">
-          <span>{formatPrice(item.current_sell_price)}</span>
-          <span>·</span>
-          <span>{catName || 'Uncategorized'}</span>
-        </div>
-      </div>
-      <div className="flex items-center gap-2 shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-        <Link href={`/admin/items/${item.id}/edit`}>
-          <Button variant="ghost" size="sm" className="text-slate-500 hover:text-slate-700">
-            <Edit className="w-4 h-4" />
-          </Button>
-        </Link>
-        {showAddBarcode && (
-          <Button
-            size="sm"
-            className="bg-amber-600 hover:bg-amber-700 text-white shadow-sm shadow-amber-500/20"
-            onClick={() => onAddBarcode(item)}
-          >
-            <ScanBarcode className="w-4 h-4 mr-1.5" />
-            Add Barcode
-          </Button>
-        )}
-      </div>
-    </div>
   );
 }
