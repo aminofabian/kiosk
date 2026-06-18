@@ -5,6 +5,7 @@ import { migrateItemVariants } from "./migrate-item-variants";
 import { migrateDomains } from "./migrate-domains";
 import { migratePasswordResetTokens } from "./migrate-password-reset";
 import { migrateBarcodeExpiry } from "./migrate-barcode-expiry";
+import { migrateBarcodeExempt } from "./migrate-barcode-exempt";
 import { migrateBundlePricing } from "./migrate-bundle-pricing";
 import { migrateAisle } from "./migrate-aisle";
 import { migrateAislesTable } from "./migrate-aisles-table";
@@ -306,6 +307,12 @@ export async function runMigrations() {
       await migrateBarcodeExpiry();
     } catch (error) {
       console.error("⚠ barcode_expiry migration skipped:", error);
+    }
+
+    try {
+      await migrateBarcodeExempt();
+    } catch (error) {
+      console.error("⚠ barcode_exempt migration skipped:", error);
     }
 
     try {

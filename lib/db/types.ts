@@ -107,6 +107,8 @@ export interface Item {
   current_sell_price: number;
   image_url: string | null;
   barcode: string | null; // Optional barcode (EAN-13, UPC, etc.)
+  barcode_exempt?: number; // 1 = intentionally no barcode needed
+  barcode_exempt_reason?: string | null; // Reason key from BARCODE_EXEMPT_REASONS
   product_code: string | null; // Optional 3-5 char code for batch numbering (e.g. TOM, ONI)
   expiry_date: number | null; // Optional expiry date as Unix timestamp
   // Bundle pricing: allows selling items in bundles (e.g., "3 tomatoes for KES 20")

@@ -30,10 +30,16 @@ import {
   AlertCircle,
   X,
   Trash2,
+  Stamp,
 } from 'lucide-react';
 import type { Item, Category } from '@/lib/db/types';
 import { getItemDisplayName } from '@/lib/utils';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
+import {
+  BARCODE_EXEMPT_REASONS,
+  getBarcodeExemptReason,
+  type BarcodeExemptReasonId,
+} from '@/lib/constants/barcode-exempt';
 import { toast } from 'sonner';
 import Link from 'next/link';
 
@@ -59,6 +65,11 @@ export default function ItemsWithoutBarcodePage() {
   const [barcodeInput, setBarcodeInput] = useState('');
   const [savingBarcode, setSavingBarcode] = useState(false);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+  const [exemptDrawerOpen, setExemptDrawerOpen] = useState(false);
+  const [exemptingItem, setExemptingItem] = useState<ItemWithCategory | null>(null);
+  const [selectedExemptReason, setSelectedExemptReason] = useState<BarcodeExemptReasonId>('fresh_produce');
+  const [stampingExempt, setStampingExempt] = useState(false);
+  const [stampingItemId, setStampingItemId] = useState<string | null>(null);
 
   const fetchData = async () => {
     try {
@@ -253,6 +264,44 @@ export default function ItemsWithoutBarcodePage() {
     setBarcodeDrawerOpen(true);
   };
 
+  const openExemptDrawer = (item: ItemWithCategory) => {
+    if (item.isParent) return;
+    setExemptingItem(item);
+    setSelectedExemptReason('fresh_produce');
+    setExemptDrawerOpen(true);
+  };
+
+  const handleStampExempt = async () => {
+    if (!exemptingItem) return;
+    const reason = getBarcodeExemptReason(selectedExemptReason);
+    setStampingExempt(true);
+    setStampingItemId(exemptingItem.id);
+    try {
+      const res = await fetch(`/api/items/${exemptingItem.id}/barcode-exempt`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exempt: true, reason: selectedExemptReason }),
+      });
+      const result = await res.json();
+      if (result.success) {
+        const name = getItemDisplayName(exemptingItem.name, exemptingItem.variant_name);
+        toast.success(`${reason?.emoji ?? '✨'} Passport stamped`, {
+          description: `${name} — ${reason?.stamp ?? 'scan-free'}. Won't appear here again.`,
+        });
+        setExemptDrawerOpen(false);
+        setExemptingItem(null);
+        await fetchData();
+      } else {
+        toast.error(result.message || 'Failed to stamp passport');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to stamp passport');
+    } finally {
+      setStampingExempt(false);
+      setStampingItemId(null);
+    }
+  };
+
   const handleDeleteItem = (item: ItemWithCategory) => {
     const itemName = getItemDisplayName(item.name, item.variant_name);
     toast(`Are you sure you want to delete "${itemName}"? This action cannot be undone.`, {
@@ -338,10 +387,12 @@ export default function ItemsWithoutBarcodePage() {
                     <>
                       {hasActiveFilters ? (
                         <span>
-                          Showing {filteredCount} of {totalCount} items
+                          Showing {filteredCount} of {totalCount} missing barcodes
                         </span>
                       ) : (
-                        <span>{totalCount} items need barcodes</span>
+                        <span>
+                          {totalCount} need barcodes · stamp a passport for scan-free items
+                        </span>
                       )}
                     </>
                   )}
@@ -510,7 +561,7 @@ export default function ItemsWithoutBarcodePage() {
                             <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                               Price
                             </th>
-                            <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-[160px]">
+                            <th className="text-right py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider min-w-[200px]">
                               Actions
                             </th>
                           </tr>
@@ -548,7 +599,24 @@ export default function ItemsWithoutBarcodePage() {
                                 {formatPrice(row.item.current_sell_price)}
                               </td>
                               <td className="py-3 px-4">
-                                <div className="flex items-center justify-end gap-1">
+                                <div className="flex items-center justify-end gap-1 flex-wrap">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 border-violet-200 text-violet-700 hover:bg-violet-50 hover:text-violet-800 dark:border-violet-800 dark:text-violet-300 dark:hover:bg-violet-950/40"
+                                    onClick={() => openExemptDrawer(row.item)}
+                                    disabled={stampingItemId === row.item.id}
+                                    title="Mark as scan-free"
+                                  >
+                                    {stampingItemId === row.item.id ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <>
+                                        <Stamp className="w-4 h-4 sm:mr-1" />
+                                        <span className="hidden sm:inline">Skip scan</span>
+                                      </>
+                                    )}
+                                  </Button>
                                   <Link href={`/admin/items/${row.item.id}/edit`}>
                                     <Button
                                       variant="ghost"
@@ -648,6 +716,93 @@ export default function ItemsWithoutBarcodePage() {
                     <>
                       <CheckCircle2 className="w-4 h-4 mr-2" />
                       Save
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DrawerContent>
+        </Drawer>
+
+        {/* Scan-Free Passport Drawer */}
+        <Drawer
+          open={exemptDrawerOpen}
+          onOpenChange={(o) => {
+            setExemptDrawerOpen(o);
+            if (!o) setExemptingItem(null);
+          }}
+          direction="right"
+        >
+          <DrawerContent className="!w-full sm:!w-[440px] !max-w-none">
+            <DrawerHeader className="border-b bg-gradient-to-br from-violet-50 to-indigo-50/80 dark:from-violet-950/40 dark:to-indigo-950/20">
+              <DrawerTitle className="flex items-center gap-2">
+                <Stamp className="w-5 h-5 text-violet-600" />
+                Scan-Free Passport
+              </DrawerTitle>
+              <DrawerDescription>
+                {exemptingItem
+                  ? `Stamp ${getItemDisplayName(exemptingItem.name, exemptingItem.variant_name)} — it leaves this audit forever.`
+                  : 'Some items live outside the barcode world.'}
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="p-6 space-y-5 overflow-y-auto">
+              <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                Pick why this item doesn&apos;t need a barcode. Cashiers can still search by name at checkout.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {BARCODE_EXEMPT_REASONS.map((reason) => {
+                  const selected = selectedExemptReason === reason.id;
+                  return (
+                    <button
+                      key={reason.id}
+                      type="button"
+                      onClick={() => setSelectedExemptReason(reason.id)}
+                      className={`text-left rounded-xl border-2 p-3 transition-all ${
+                        selected
+                          ? 'border-violet-500 bg-violet-50 dark:bg-violet-950/30 shadow-sm ring-2 ring-violet-500/20'
+                          : 'border-slate-200 dark:border-slate-700 hover:border-violet-300 dark:hover:border-violet-700 bg-white dark:bg-slate-900'
+                      }`}
+                    >
+                      <span className="text-2xl leading-none">{reason.emoji}</span>
+                      <p className="font-semibold text-sm text-slate-900 dark:text-white mt-2">
+                        {reason.title}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">
+                        {reason.description}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="rounded-xl border border-dashed border-violet-300 dark:border-violet-700 bg-violet-50/50 dark:bg-violet-950/20 px-4 py-3 text-center">
+                <p className="text-xs uppercase tracking-widest text-violet-500 font-semibold mb-1">
+                  Passport stamp
+                </p>
+                <p className="text-lg font-bold text-violet-800 dark:text-violet-200">
+                  {getBarcodeExemptReason(selectedExemptReason)?.emoji}{' '}
+                  {getBarcodeExemptReason(selectedExemptReason)?.stamp}
+                </p>
+              </div>
+              <div className="flex gap-3 pt-1">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setExemptDrawerOpen(false)}
+                  disabled={stampingExempt}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1 bg-violet-600 hover:bg-violet-700 text-white"
+                  onClick={() => void handleStampExempt()}
+                  disabled={stampingExempt}
+                >
+                  {stampingExempt ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Stamp className="w-4 h-4 mr-2" />
+                      Stamp passport
                     </>
                   )}
                 </Button>

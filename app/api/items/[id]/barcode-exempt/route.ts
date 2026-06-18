@@ -3,6 +3,7 @@ import { execute, queryOne } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 import { logActivity } from '@/lib/db/activity-log';
+import { BARCODE_EXEMPT_REASONS } from '@/lib/constants/barcode-exempt';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -12,8 +13,8 @@ export async function OPTIONS() {
 }
 
 /**
- * PATCH /api/items/[id]/barcode
- * Update only the barcode field for an item.
+ * PATCH /api/items/[id]/barcode-exempt
+ * Mark an item as intentionally barcode-free (or revoke exemption).
  */
 export async function PATCH(
   request: NextRequest,
@@ -25,13 +26,26 @@ export async function PATCH(
 
     const { id: itemId } = await params;
     const body = await request.json();
-    const { barcode } = body as { barcode?: string | null };
+    const { exempt, reason } = body as { exempt?: boolean; reason?: string | null };
 
-    // Allow empty string to clear barcode
-    const barcodeValue = barcode == null ? null : (typeof barcode === 'string' ? barcode.trim() || null : null);
+    if (typeof exempt !== 'boolean') {
+      return jsonResponse({ success: false, message: 'exempt (boolean) is required' }, 400);
+    }
 
-    // Verify item exists and is not a parent (parents don't have barcodes)
-    const item = await queryOne<{ id: string; parent_item_id: string | null; name: string; variant_name: string | null }>(
+    const validReasonIds = new Set(BARCODE_EXEMPT_REASONS.map((r) => r.id));
+    const reasonValue =
+      exempt && reason && validReasonIds.has(reason as (typeof BARCODE_EXEMPT_REASONS)[number]['id'])
+        ? reason
+        : exempt
+          ? 'other'
+          : null;
+
+    const item = await queryOne<{
+      id: string;
+      parent_item_id: string | null;
+      name: string;
+      variant_name: string | null;
+    }>(
       'SELECT id, parent_item_id, name, variant_name FROM items WHERE id = ? AND business_id = ? AND active = 1',
       [itemId, auth.businessId]
     );
@@ -40,62 +54,47 @@ export async function PATCH(
       return jsonResponse({ success: false, message: 'Item not found' }, 404);
     }
 
-    // Check if this item has variants (is a parent) - parents shouldn't have barcodes
     const variantCount = await queryOne<{ count: number }>(
       'SELECT COUNT(*) as count FROM items WHERE parent_item_id = ? AND active = 1',
       [itemId]
     );
     if ((variantCount?.count || 0) > 0) {
       return jsonResponse(
-        { success: false, message: 'Parent items cannot have barcodes. Add barcodes to variants instead.' },
+        {
+          success: false,
+          message: 'Parent items cannot be marked scan-free. Mark each variant instead.',
+        },
         400
       );
     }
 
-    // Check for duplicate barcode if setting one
-    if (barcodeValue) {
-      const existing = await queryOne<{ id: string; name: string }>(
-        'SELECT id, name FROM items WHERE business_id = ? AND barcode = ? AND id != ? AND active = 1',
-        [auth.businessId, barcodeValue, itemId]
-      );
-      if (existing) {
-        return jsonResponse(
-          {
-            success: false,
-            message: `Barcode "${barcodeValue}" already exists on "${existing.name}". Use a different barcode.`,
-          },
-          409
-        );
-      }
-    }
-
     await execute(
-      'UPDATE items SET barcode = ?, barcode_exempt = 0, barcode_exempt_reason = NULL WHERE id = ? AND business_id = ?',
-      [barcodeValue, itemId, auth.businessId]
+      'UPDATE items SET barcode_exempt = ?, barcode_exempt_reason = ? WHERE id = ? AND business_id = ?',
+      [exempt ? 1 : 0, reasonValue, itemId, auth.businessId]
     );
 
     const displayName = item.variant_name ? `${item.name} (${item.variant_name})` : item.name;
     logActivity({
       businessId: auth.businessId,
-      action: 'update',
+      action: exempt ? 'update' : 'update',
       entityType: 'item',
       entityId: itemId,
       entityNameSnapshot: displayName,
-      details: { field: 'barcode', barcode: barcodeValue },
+      details: { field: 'barcode_exempt', exempt, reason: reasonValue },
       performedBy: auth.userId,
     }).catch(() => {});
 
     return jsonResponse({
       success: true,
-      message: 'Barcode updated',
-      data: { itemId, barcode: barcodeValue },
+      message: exempt ? 'Item marked as scan-free' : 'Scan exemption removed',
+      data: { itemId, barcode_exempt: exempt ? 1 : 0, barcode_exempt_reason: reasonValue },
     });
   } catch (error) {
-    console.error('Error updating barcode:', error);
+    console.error('Error updating barcode exemption:', error);
     return jsonResponse(
       {
         success: false,
-        message: 'Failed to update barcode',
+        message: 'Failed to update scan exemption',
         error: error instanceof Error ? error.message : 'Unknown error',
       },
       500

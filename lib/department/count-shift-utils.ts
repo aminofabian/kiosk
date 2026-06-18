@@ -32,14 +32,18 @@ export function resolveCountDepartmentKey(
   return null;
 }
 
-export function allMorningComplete(batches: CountBatchRow[]): boolean {
+export function allMorningComplete(
+  batches: Array<{ morning_count_status: string }>,
+): boolean {
   return (
     batches.length > 0 &&
     batches.every((b) => b.morning_count_status !== "pending")
   );
 }
 
-export function allEveningComplete(batches: CountBatchRow[]): boolean {
+export function allEveningComplete(
+  batches: Array<{ evening_count_status: string }>,
+): boolean {
   return (
     batches.length > 0 &&
     batches.every((b) => b.evening_count_status !== "pending")

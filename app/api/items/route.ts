@@ -60,10 +60,10 @@ export async function GET(request: NextRequest) {
         ? ` AND i.item_type IN (${itemTypeList.map(() => "?").join(",")})`
         : "";
     const noBarcodeFilter = noBarcode
-      ? ` AND (COALESCE(TRIM(barcode), '') = '')`
+      ? ` AND (COALESCE(TRIM(barcode), '') = '') AND COALESCE(barcode_exempt, 0) = 0`
       : "";
     const noBarcodeFilterAlias = noBarcode
-      ? ` AND (COALESCE(TRIM(i.barcode), '') = '')`
+      ? ` AND (COALESCE(TRIM(i.barcode), '') = '') AND COALESCE(i.barcode_exempt, 0) = 0`
       : "";
     // When noBarcode: exclude parents (they don't have barcodes; only variants/standalone do)
     const noBarcodeExcludeParents = noBarcode
