@@ -31,22 +31,17 @@ function SupplierBillsPageContent() {
   const searchParams = useSearchParams();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  // Pre-selected supplier for the new bill form
   const [preSelectedSupplierId, setPreSelectedSupplierId] = useState<string | undefined>();
   const [preSelectedSupplierName, setPreSelectedSupplierName] = useState<string | undefined>();
-  // Supplier products drawer
   const [supplierDrawerOpen, setSupplierDrawerOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<SupplierForDrawer | null>(null);
   const [linkedProductsRefreshKey, setLinkedProductsRefreshKey] = useState(0);
-  // Replicate past order: open new bill form with items from existing bill
   const [replicateInitialData, setReplicateInitialData] = useState<SupplierBillInitialData | null>(null);
 
-  // Check if we should open the drawer from URL query parameter
   useEffect(() => {
     const shouldOpen = searchParams.get('new') === 'true';
     if (shouldOpen) {
       setDrawerOpen(true);
-      // Clean up the URL
       router.replace('/admin/supplier-bills', { scroll: false });
     }
   }, [searchParams, router]);
@@ -56,7 +51,6 @@ function SupplierBillsPageContent() {
     setPreSelectedSupplierId(undefined);
     setPreSelectedSupplierName(undefined);
     setReplicateInitialData(null);
-    // Trigger refresh of the list by changing the key
     setRefreshKey((prev) => prev + 1);
   };
 
@@ -79,7 +73,7 @@ function SupplierBillsPageContent() {
     payment_details: string | null;
   }) => {
     const now = Math.floor(Date.now() / 1000);
-    const dueDate = bill.due_date > now ? bill.due_date : now + 7 * 86400; // Use original if future, else 7 days from now
+    const dueDate = bill.due_date > now ? bill.due_date : now + 7 * 86400;
     setReplicateInitialData({
       supplierId: bill.supplier_id,
       supplierName: bill.supplier_name,
@@ -102,7 +96,6 @@ function SupplierBillsPageContent() {
   };
 
   const handleCreateBillFromSupplier = (supplierId: string, supplierName: string) => {
-    // Close supplier drawer, open bill drawer with pre-selected supplier
     setSupplierDrawerOpen(false);
     setPreSelectedSupplierId(supplierId);
     setPreSelectedSupplierName(supplierName);
@@ -117,37 +110,33 @@ function SupplierBillsPageContent() {
 
   return (
     <AdminLayout>
-      <div className="min-h-screen bg-slate-100/60 dark:bg-[#0a1208]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
-          {/* Page Header */}
-          <header className="mb-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#1c6a1e] to-[#2a8a30] flex items-center justify-center shadow-md shrink-0">
-                  <Receipt className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-                    Supplier Bills
-                  </h1>
-                  <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-400">
-                    Record bills, track payments, and manage supplier orders.
-                  </p>
-                </div>
+      <div className="min-h-screen bg-slate-50/80 dark:bg-slate-950">
+        <div className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <div className="px-4 md:px-6 py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-[#1c6a1e] flex items-center justify-center shrink-0">
+                <Receipt className="w-5 h-5 text-white" strokeWidth={2} />
               </div>
-              <Button
-                onClick={handleOpenNewBill}
-                size="default"
-                className="bg-[#1c6a1e] hover:bg-[#238b26] text-white shrink-0 h-10 px-5 font-medium rounded-lg"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                New Bill
-              </Button>
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">
+                  Supplier Bills
+                </h1>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Record bills, track payments & supplier orders
+                </p>
+              </div>
             </div>
-          </header>
+            <Button
+              onClick={handleOpenNewBill}
+              className="bg-[#1c6a1e] hover:bg-[#238b26] text-white shrink-0 h-9"
+            >
+              <Plus className="w-4 h-4 mr-1.5" />
+              New Bill
+            </Button>
+          </div>
+        </div>
 
-          {/* Main Content */}
-          <main className="space-y-6">
+        <div className="px-4 md:px-6 py-4 pb-24 md:pb-6">
           <SupplierBillsList
             key={refreshKey}
             onSupplierClick={handleSupplierClick}
@@ -155,7 +144,6 @@ function SupplierBillsPageContent() {
             onReplicateBill={handleReplicateBill}
           />
 
-          {/* Supplier Products Drawer */}
           <SupplierProductsDrawer
             open={supplierDrawerOpen}
             onOpenChange={(open) => {
@@ -168,20 +156,19 @@ function SupplierBillsPageContent() {
             onSupplierUpdated={(updated) => setSelectedSupplier(updated)}
           />
 
-          {/* New Supplier Bill Drawer */}
           <Drawer open={drawerOpen} onOpenChange={setDrawerOpen} direction="right">
             <DrawerContent className="!w-full sm:!w-[900px] !max-w-none h-full max-h-screen z-[51]">
-              <DrawerHeader className="border-b border-slate-200 dark:border-slate-800 bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-[#1c2e18] relative pr-12">
+              <DrawerHeader className="border-b border-slate-200 dark:border-slate-800 relative pr-12 py-3 px-5">
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={() => setDrawerOpen(false)}
-                  className="absolute right-4 top-4 h-10 w-10 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-red-100 dark:hover:bg-red-900/30 hover:text-red-600 dark:hover:text-red-400 border-2 border-slate-300 dark:border-slate-700 hover:border-red-300 dark:hover:border-red-700 transition-all shadow-sm hover:shadow-md rounded-lg"
+                  className="absolute right-3 top-3 h-8 w-8"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-4 w-4" />
                 </Button>
-                <DrawerTitle className="flex items-center gap-2 text-slate-900 dark:text-white pr-8">
-                  <Receipt className="w-5 h-5 text-[#1c6a1e]" />
+                <DrawerTitle className="flex items-center gap-2 text-base text-slate-900 dark:text-white pr-8">
+                  <Receipt className="w-4 h-4 text-[#1c6a1e]" />
                   New Supplier Bill
                   {preSelectedSupplierName && (
                     <span className="text-sm font-normal text-slate-500">
@@ -189,13 +176,17 @@ function SupplierBillsPageContent() {
                     </span>
                   )}
                 </DrawerTitle>
-                <DrawerDescription className="text-slate-600 dark:text-slate-400">
+                <DrawerDescription className="text-sm text-slate-500">
                   Record a pending payment to a supplier
                 </DrawerDescription>
               </DrawerHeader>
-              <div className="flex-1 min-h-0 overflow-y-auto p-6">
+              <div className="flex-1 min-h-0 overflow-y-auto p-5">
                 <SupplierBillForm
-                  key={replicateInitialData ? `replicate-${replicateInitialData.supplierName}-${replicateInitialData.amount}` : preSelectedSupplierId || 'default'}
+                  key={
+                    replicateInitialData
+                      ? `replicate-${replicateInitialData.supplierName}-${replicateInitialData.amount}`
+                      : preSelectedSupplierId || 'default'
+                  }
                   onSuccess={handleSuccess}
                   onCancel={() => {
                     setDrawerOpen(false);
@@ -216,7 +207,6 @@ function SupplierBillsPageContent() {
               </div>
             </DrawerContent>
           </Drawer>
-          </main>
         </div>
       </div>
     </AdminLayout>
@@ -228,11 +218,8 @@ export default function SupplierBillsPage() {
     <Suspense
       fallback={
         <AdminLayout>
-          <div className="min-h-screen flex items-center justify-center bg-slate-50/50 dark:bg-[#0f1a0d]">
-            <div className="text-center space-y-4">
-              <Loader2 className="h-10 w-10 animate-spin mx-auto text-[#1c6a1e]" />
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Loading supplier bills...</p>
-            </div>
+          <div className="min-h-screen flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-[#1c6a1e]" />
           </div>
         </AdminLayout>
       }
