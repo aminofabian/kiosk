@@ -296,26 +296,28 @@ export function CreditList() {
     customerEditModalOpen,
   ]);
 
-  useEffect(() => {
-    async function fetchCredits() {
-      try {
-        setLoading(true);
+  const fetchCredits = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await apiGet<CreditAccount[]>("/api/credits");
+      if (result.success) {
+        setAccounts(result.data ?? []);
         setError(null);
-        const result = await apiGet<CreditAccount[]>("/api/credits");
-        if (result.success) {
-          setAccounts(result.data ?? []);
-        } else {
-          setError(result.message || "Failed to load credits");
-        }
-      } catch (err) {
-        setError("Failed to load credits");
-        console.error("Error fetching credits:", err);
-      } finally {
-        setLoading(false);
+      } else {
+        setError(result.message || "Failed to load credits");
       }
+    } catch (err) {
+      setError("Failed to load credits");
+      console.error("Error fetching credits:", err);
+    } finally {
+      setLoading(false);
     }
-    fetchCredits();
   }, []);
+
+  useEffect(() => {
+    void fetchCredits();
+  }, [fetchCredits]);
 
   const fetchPendingClaims = useCallback(async () => {
     if (!canManageCreditProfiles) {
@@ -818,9 +820,14 @@ export function CreditList() {
   }, [accounts, creditorFilter, creditView, searchQuery, sortBy]);
 
   const totalOutstanding = useMemo(() => {
-    if (creditView !== "outstanding") return 0;
-    return visibleAccounts.reduce((sum, acc) => sum + acc.total_credit, 0);
-  }, [creditView, visibleAccounts]);
+    return accounts
+      .filter((a) => a.total_credit > 0)
+      .reduce((sum, acc) => sum + acc.total_credit, 0);
+  }, [accounts]);
+
+  const totalWalletBalance = useMemo(() => {
+    return accounts.reduce((sum, acc) => sum + accountWalletBalance(acc), 0);
+  }, [accounts]);
 
   const printPendingTabItemsForCustomer = useCallback(() => {
     if (!selectedAccount) {
@@ -993,76 +1000,6 @@ export function CreditList() {
     user?.name,
   ]);
 
-  // ——— Loading ———
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 max-md:py-28 touch-manipulation">
-        <div className="relative">
-          <div className="h-14 w-14 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-            <Loader2 className="h-7 w-7 text-[#1c6a1e] animate-spin" />
-          </div>
-          <div className="absolute -inset-1 rounded-3xl bg-[#1c6a1e]/10 animate-pulse" />
-        </div>
-        <p className="mt-4 text-sm font-medium text-slate-500 dark:text-slate-400">
-          Loading credit accounts…
-        </p>
-        <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">
-          Fetching outstanding balances
-        </p>
-      </div>
-    );
-  }
-
-  // ——— Error ———
-  if (error) {
-    return (
-      <Card className="border-amber-200 dark:border-amber-900/50 bg-amber-50/50 dark:bg-amber-950/20 overflow-hidden max-md:rounded-3xl">
-        <CardContent className="p-8 max-md:p-6">
-          <div className="flex flex-col items-center text-center max-w-sm mx-auto">
-            <div className="h-14 w-14 rounded-2xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mb-4">
-              <AlertCircle className="h-7 w-7 text-amber-600 dark:text-amber-400" />
-            </div>
-            <h3 className="font-semibold text-slate-900 dark:text-white">
-              Couldn&apos;t load credits
-            </h3>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-              {error}
-            </p>
-            <Button
-              variant="outline"
-              className="mt-6 border-slate-300 dark:border-slate-600"
-              onClick={() => window.location.reload()}
-            >
-              Try again
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // ——— Empty (no accounts at all) ———
-  if (accounts.length === 0) {
-    return (
-      <Card className="border-emerald-200 dark:border-emerald-900/50 bg-gradient-to-br from-emerald-50/80 to-white dark:from-emerald-950/20 dark:to-[#0f1a0d] overflow-hidden max-md:rounded-3xl max-md:border-emerald-200/70">
-        <CardContent className="p-10 md:p-14 max-md:p-8">
-          <div className="flex flex-col items-center text-center max-w-md mx-auto">
-            <div className="h-20 w-20 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-5 shadow-inner">
-              <Sparkles className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
-            </div>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-              No credit customers yet
-            </h3>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-              Credit sales will create customer accounts here.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // ——— Main content ———
   const sortOptions: { value: "name" | "amount" | "date"; label: string }[] = [
     {
       value: "amount",
@@ -1077,64 +1014,187 @@ export function CreditList() {
   const creditorFilterActive = creditorFilter !== "all";
 
   return (
-    <div className="space-y-6 max-md:space-y-4">
-      {/* Summary */}
-      <Card className="overflow-hidden border-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 text-white shadow-xl shadow-slate-900/20 max-md:rounded-3xl max-md:shadow-2xl max-md:shadow-slate-900/35">
-        <CardContent className="p-6 md:p-8 max-md:p-5">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-            <div>
-              {creditView === "outstanding" ? (
-                <>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    Total outstanding
-                  </p>
-                  <p className="mt-1 text-3xl max-md:text-[2rem] md:text-4xl font-bold tracking-tight tabular-nums">
-                    {listEmpty ? formatPrice(0) : formatPrice(totalOutstanding)}
-                  </p>
-                  <p className="mt-2 text-sm text-slate-400">
-                    {listEmpty
-                      ? searchQuery
-                        ? "No matches in this list"
-                        : creditorFilterActive
-                          ? "No matches for this creditor filter"
-                          : outstandingCount === 0
-                            ? "Everyone is paid up — switch to Paid up to see them"
-                            : "No balances due in this filtered list"
-                      : `Across ${visibleAccounts.length} customer${visibleAccounts.length !== 1 ? "s" : ""}`}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                    Paid up
-                  </p>
-                  <p className="mt-1 text-3xl md:text-4xl font-bold tracking-tight">
-                    {listEmpty ? "0" : visibleAccounts.length}
-                  </p>
-                  <p className="mt-2 text-sm text-slate-400">
-                    {listEmpty
-                      ? searchQuery
-                        ? "No matches in this list"
-                        : creditorFilterActive
-                          ? "No matches for this creditor filter"
-                          : paidUpCount === 0
-                            ? "No zero-balance accounts yet"
-                            : "Try clearing search"
-                      : `Customer${visibleAccounts.length !== 1 ? "s" : ""} with no balance due`}
-                  </p>
-                </>
-              )}
-            </div>
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-sm">
-              {creditView === "outstanding" ? (
-                <DollarSign className="h-7 w-7 text-white/90" />
-              ) : (
-                <CheckCircle className="h-7 w-7 text-emerald-300" />
-              )}
-            </div>
+    <div className="space-y-4">
+      {error && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/20 px-4 py-3">
+          <div className="flex items-start gap-2 flex-1 min-w-0">
+            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-900 dark:text-amber-200">{error}</p>
           </div>
-        </CardContent>
-      </Card>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 shrink-0 border-amber-300 text-amber-800 hover:bg-amber-100"
+            onClick={() => void fetchCredits()}
+            disabled={loading}
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Try again"}
+          </Button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <button
+          type="button"
+          onClick={() => setCreditView("outstanding")}
+          className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
+            creditView === "outstanding"
+              ? "border-[#1c6a1e]/40 bg-emerald-50/60 dark:bg-emerald-950/20"
+              : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-[#1c6a1e]/30"
+          }`}
+        >
+          <p className="text-[10px] uppercase tracking-wide text-slate-500">Outstanding</p>
+          <p className="text-lg font-bold text-[#1c6a1e] tabular-nums">
+            {loading && accounts.length === 0 ? "—" : formatPrice(totalOutstanding)}
+          </p>
+        </button>
+        <button
+          type="button"
+          onClick={() => setCreditView("outstanding")}
+          className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2.5 text-left"
+        >
+          <p className="text-[10px] uppercase tracking-wide text-slate-500">Customers owing</p>
+          <p className="text-lg font-bold text-slate-900 dark:text-white tabular-nums">
+            {loading && accounts.length === 0 ? "—" : outstandingCount}
+          </p>
+        </button>
+        <button
+          type="button"
+          onClick={() => setCreditView("paid")}
+          className={`rounded-lg border px-3 py-2.5 text-left transition-colors ${
+            creditView === "paid"
+              ? "border-emerald-300/60 bg-emerald-50/50 dark:bg-emerald-950/20"
+              : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-emerald-300/40"
+          }`}
+        >
+          <p className="text-[10px] uppercase tracking-wide text-emerald-600">Paid up</p>
+          <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300 tabular-nums">
+            {loading && accounts.length === 0 ? "—" : paidUpCount}
+          </p>
+        </button>
+        <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-3 py-2.5">
+          <p className="text-[10px] uppercase tracking-wide text-slate-500">Store wallet</p>
+          <p className="text-lg font-bold text-slate-900 dark:text-white tabular-nums">
+            {loading && accounts.length === 0 ? "—" : formatPrice(totalWalletBalance)}
+          </p>
+        </div>
+      </div>
+
+      <div className="sticky top-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 py-3 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-sm border-b border-slate-200/80 dark:border-slate-800/80 space-y-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant={creditView === "outstanding" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setCreditView("outstanding")}
+            className={
+              creditView === "outstanding"
+                ? "h-8 bg-[#1c6a1e] hover:bg-[#238b26] text-white"
+                : "h-8 bg-white dark:bg-slate-900"
+            }
+          >
+            Outstanding ({outstandingCount})
+          </Button>
+          <Button
+            type="button"
+            variant={creditView === "paid" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setCreditView("paid")}
+            className={
+              creditView === "paid"
+                ? "h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
+                : "h-8 bg-white dark:bg-slate-900"
+            }
+          >
+            Paid up ({paidUpCount})
+          </Button>
+          {canManageCreditProfiles && (
+            <button
+              type="button"
+              onClick={async () => {
+                const next = !allowNewCreditAccounts;
+                try {
+                  const result = await apiPatch("/api/credits/settings", {
+                    creditSettings: { allow_new_credit_accounts: next },
+                  });
+                  if (result.success) {
+                    setAllowNewCreditAccounts(next);
+                    toast.success(
+                      next
+                        ? "New credit accounts allowed"
+                        : "New credit accounts blocked",
+                    );
+                  } else {
+                    toast.error(result.message || "Failed to update setting");
+                  }
+                } catch {
+                  toast.error("Failed to update setting");
+                }
+              }}
+              className={cn(
+                "ml-auto inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                allowNewCreditAccounts
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200"
+                  : "border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400",
+              )}
+            >
+              New tabs: {allowNewCreditAccounts ? "On" : "Off"}
+            </button>
+          )}
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <Input
+              type="search"
+              placeholder="Search name or phone…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-9 bg-white dark:bg-slate-900"
+            />
+          </div>
+          <select
+            value={creditorFilter}
+            onChange={(e) => setCreditorFilter(e.target.value)}
+            aria-label="Filter by creditor"
+            className="h-9 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 text-sm min-w-[140px]"
+          >
+            <option value="all">All creditors</option>
+            {hasCreditorUnknown && (
+              <option value="__none__">Unknown creditor</option>
+            )}
+            {creditorOptions.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <div className="flex items-center gap-1 shrink-0">
+            {sortOptions.map((opt) => (
+              <Button
+                key={opt.value}
+                type="button"
+                variant={sortBy === opt.value ? "default" : "outline"}
+                size="sm"
+                onClick={() => setSortBy(opt.value)}
+                className={`h-9 text-xs ${sortBy === opt.value ? "bg-slate-700 text-white" : ""}`}
+              >
+                {opt.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+        {!loading && (
+          <p className="text-xs text-slate-500">
+            {listEmpty
+              ? "No matches"
+              : `${visibleAccounts.length} customer${visibleAccounts.length !== 1 ? "s" : ""}`}
+            {creditView === "outstanding" && !listEmpty
+              ? ` · ${formatPrice(visibleAccounts.reduce((s, a) => s + a.total_credit, 0))} in view`
+              : ""}
+          </p>
+        )}
+      </div>
 
       {canManageCreditProfiles && pendingPublicClaims.length > 0 ? (
         <Card className="overflow-hidden border-2 border-amber-400 bg-gradient-to-br from-amber-50 via-amber-50/90 to-orange-50/70 shadow-lg shadow-amber-900/10 dark:border-amber-600 dark:from-amber-950/50 dark:via-amber-950/40 dark:to-orange-950/25 dark:shadow-black/30 max-md:rounded-3xl max-md:border-amber-300/90">
@@ -1295,237 +1355,88 @@ export function CreditList() {
         </Card>
       ) : null}
 
-      {/* Accept new credit toggle (admin only) */}
-      {canManageCreditProfiles ? (
-        <Card className="overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 shadow-sm max-md:rounded-2xl">
-          <CardContent className="p-4 sm:p-5 max-md:p-4">
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
-                  New credit accounts
-                </p>
-                <p className="mt-1 text-sm text-slate-700 dark:text-slate-300">
-                  {allowNewCreditAccounts
-                    ? "New customers can take credit at the till"
-                    : "Only existing credit customers can take credit"}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={async () => {
-                  const next = !allowNewCreditAccounts;
-                  try {
-                    const result = await apiPatch("/api/credits/settings", {
-                      creditSettings: {
-                        allow_new_credit_accounts: next,
-                      },
-                    });
-                    if (result.success) {
-                      setAllowNewCreditAccounts(next);
-                      toast.success(
-                        next
-                          ? "New credit accounts are now allowed"
-                          : "New credit accounts are now blocked",
-                      );
-                    } else {
-                      toast.error(result.message || "Failed to update setting");
-                    }
-                  } catch {
-                    toast.error("Failed to update setting");
-                  }
-                }}
-                className={cn(
-                  "relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30",
-                  allowNewCreditAccounts
-                    ? "bg-[#1c6a1e]"
-                    : "bg-slate-300 dark:bg-slate-600",
-                )}
-                role="switch"
-                aria-checked={allowNewCreditAccounts}
-                aria-label="Toggle new credit accounts"
-              >
-                <span
-                  className={cn(
-                    "pointer-events-none inline-block h-6 w-6 rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out",
-                    allowNewCreditAccounts ? "translate-x-5" : "translate-x-0",
-                  )}
-                />
-              </button>
-            </div>
+      {loading && accounts.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <Loader2 className="h-8 w-8 text-[#1c6a1e] animate-spin" />
+          <p className="mt-3 text-sm text-slate-500">Loading credit accounts…</p>
+        </div>
+      ) : accounts.length === 0 ? (
+        <Card className="border-emerald-200 dark:border-emerald-900/50 bg-white dark:bg-slate-900 overflow-hidden">
+          <CardContent className="p-10 text-center">
+            <Sparkles className="h-10 w-10 text-emerald-600 dark:text-emerald-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+              No credit customers yet
+            </h3>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              Credit sales will create customer accounts here.
+            </p>
           </CardContent>
         </Card>
-      ) : null}
-
-      {/* View toggle + Search + Sort */}
-      <div className="flex flex-col gap-3 max-md:gap-3.5 touch-manipulation">
-        <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
-          <div className="flex rounded-2xl max-md:p-1.5 bg-slate-100/95 dark:bg-slate-800/90 p-1 gap-1 w-full sm:w-auto ring-1 ring-slate-200/60 dark:ring-slate-700/80">
-            <button
-              type="button"
-              onClick={() => setCreditView("outstanding")}
-              className={cn(
-                "flex-1 sm:flex-none px-3 max-md:min-h-11 max-md:rounded-xl py-2 rounded-md text-xs font-semibold transition-all active:scale-[0.98]",
-                creditView === "outstanding"
-                  ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-600/60"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white",
-              )}
-            >
-              Outstanding
-              <span className="ml-1.5 tabular-nums opacity-70">
-                ({outstandingCount})
-              </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setCreditView("paid")}
-              className={cn(
-                "flex-1 sm:flex-none px-3 max-md:min-h-11 max-md:rounded-xl py-2 rounded-md text-xs font-semibold transition-all active:scale-[0.98]",
-                creditView === "paid"
-                  ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-600/60"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white",
-              )}
-            >
-              Paid up
-              <span className="ml-1.5 tabular-nums opacity-70">
-                ({paidUpCount})
-              </span>
-            </button>
-          </div>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3 sm:items-stretch">
-          <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search by name or phone…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={cn(
-                "w-full rounded-2xl max-md:min-h-[3rem] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50",
-                "pl-10 pr-4 py-3 max-md:py-3 max-md:text-base text-sm placeholder:text-slate-400",
-                "focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]",
-                "transition-colors shadow-sm",
-              )}
-            />
-          </div>
-          <div className="relative w-full sm:w-[min(100%,15rem)] shrink-0">
-            <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
-            <ChevronDown className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 pointer-events-none z-10" />
-            <select
-              value={creditorFilter}
-              onChange={(e) => setCreditorFilter(e.target.value)}
-              aria-label="Filter by creditor"
-              title="Accounts whose latest credit entry was recorded by this staff member"
-              className={cn(
-                "w-full appearance-none rounded-2xl max-md:min-h-[3rem] border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50",
-                "pl-10 pr-10 py-3 max-md:text-base text-sm text-slate-900 dark:text-white",
-                "focus:outline-none focus:ring-2 focus:ring-[#1c6a1e]/30 focus:border-[#1c6a1e]",
-                "transition-colors cursor-pointer shadow-sm",
-              )}
-            >
-              <option value="all">All creditors</option>
-              {hasCreditorUnknown && (
-                <option value="__none__">Unknown / not on file</option>
-              )}
-              {creditorOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-center gap-2 shrink-0 min-w-0">
-            <ArrowUpDown className="h-4 w-4 text-slate-400 hidden sm:block shrink-0" />
-            <div className="flex rounded-2xl max-md:p-1 bg-slate-100/95 dark:bg-slate-800/90 p-1 gap-1 max-md:w-full max-md:overflow-x-auto max-md:scrollbar-none max-md:snap-x max-md:snap-mandatory ring-1 ring-slate-200/60 dark:ring-slate-700/80">
-              {sortOptions.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setSortBy(opt.value)}
-                  className={cn(
-                    "px-3 max-md:min-h-10 max-md:snap-start max-md:shrink-0 py-2 rounded-xl text-xs font-semibold transition-all active:scale-[0.98]",
-                    sortBy === opt.value
-                      ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200/80 dark:ring-slate-600/60"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white",
-                  )}
+      ) : listEmpty ? (
+        <Card className="border-emerald-200 dark:border-emerald-900/50 bg-white dark:bg-slate-900 overflow-hidden">
+          <CardContent className="p-10 text-center max-w-md mx-auto">
+            <Sparkles className="h-10 w-10 text-emerald-600 dark:text-emerald-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+              {creditView === "outstanding"
+                ? "No outstanding credits"
+                : "No paid-up customers"}
+            </h3>
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+              {searchQuery && creditorFilterActive
+                ? "No customers match this search and creditor filter together. Try adjusting one or both."
+                : searchQuery
+                  ? "No customers match your search. Try a different name or phone."
+                  : creditorFilterActive
+                    ? "No accounts match the selected creditor. Pick someone else or reset the creditor filter."
+                    : creditView === "outstanding"
+                      ? outstandingCount === 0
+                        ? "There are no outstanding balances. Open Paid up to see customers at zero balance."
+                        : "No results for the current sort and filters."
+                      : paidUpCount === 0
+                        ? "Customers will appear here once their balance is cleared."
+                        : "No results for the current sort and filters."}
+            </p>
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+              {creditorFilterActive && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-slate-600 dark:text-slate-400"
+                  onClick={() => setCreditorFilter("all")}
                 >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {listEmpty ? (
-        <Card className="border-emerald-200 dark:border-emerald-900/50 bg-gradient-to-br from-emerald-50/80 to-white dark:from-emerald-950/20 dark:to-[#0f1a0d] overflow-hidden max-md:rounded-3xl max-md:border-emerald-200/70">
-          <CardContent className="p-10 md:p-14 max-md:p-8">
-            <div className="flex flex-col items-center text-center max-w-md mx-auto">
-              <div className="h-20 w-20 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mb-5 shadow-inner">
-                <Sparkles className="h-10 w-10 text-emerald-600 dark:text-emerald-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
-                {creditView === "outstanding"
-                  ? "No outstanding credits"
-                  : "No paid-up customers"}
-              </h3>
-              <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-                {searchQuery && creditorFilterActive
-                  ? "No customers match this search and creditor filter together. Try adjusting one or both."
-                  : searchQuery
-                    ? "No customers match your search. Try a different name or phone."
-                    : creditorFilterActive
-                      ? "No accounts match the selected creditor. Pick someone else or reset the creditor filter."
-                      : creditView === "outstanding"
-                        ? outstandingCount === 0
-                          ? "There are no outstanding balances. Open Paid up to see customers at zero balance."
-                          : "No results for the current sort and filters."
-                        : paidUpCount === 0
-                          ? "Customers will appear here once their balance is cleared."
-                          : "No results for the current sort and filters."}
-              </p>
-              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                {creditorFilterActive && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-slate-600 dark:text-slate-400"
-                    onClick={() => setCreditorFilter("all")}
-                  >
-                    All creditors
-                  </Button>
-                )}
-                {searchQuery && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-slate-600 dark:text-slate-400"
-                    onClick={() => setSearchQuery("")}
-                  >
-                    Clear search
-                  </Button>
-                )}
-                {creditView === "paid" && outstandingCount > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-slate-300 dark:border-slate-600"
-                    onClick={() => setCreditView("outstanding")}
-                  >
-                    Show outstanding
-                  </Button>
-                )}
-                {creditView === "outstanding" && paidUpCount > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-slate-300 dark:border-slate-600"
-                    onClick={() => setCreditView("paid")}
-                  >
-                    Show paid up
-                  </Button>
-                )}
-              </div>
+                  All creditors
+                </Button>
+              )}
+              {searchQuery && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-slate-600 dark:text-slate-400"
+                  onClick={() => setSearchQuery("")}
+                >
+                  Clear search
+                </Button>
+              )}
+              {creditView === "paid" && outstandingCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-300 dark:border-slate-600"
+                  onClick={() => setCreditView("outstanding")}
+                >
+                  Show outstanding
+                </Button>
+              )}
+              {creditView === "outstanding" && paidUpCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-300 dark:border-slate-600"
+                  onClick={() => setCreditView("paid")}
+                >
+                  Show paid up
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
