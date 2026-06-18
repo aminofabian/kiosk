@@ -2,13 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { AdminLayout } from "@/components/layouts/admin-layout";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,12 +13,12 @@ import {
   Loader2,
   Plus,
   Trash2,
-  GripVertical,
   Tag,
   Palette,
   Gift,
   Package,
   ClipboardCheck,
+  X,
 } from "lucide-react";
 import type { ProductTypeConfig } from "@/lib/types/product-types";
 
@@ -49,6 +43,13 @@ const EMOJI_OPTIONS = [
   "⚡",
   "🛒",
 ];
+
+const SECTIONS = [
+  { id: "loyalty", label: "Loyalty", icon: Gift },
+  { id: "stock", label: "Stock & POS", icon: Package },
+  { id: "count", label: "Count tolerance", icon: ClipboardCheck },
+  { id: "types", label: "Product types", icon: Tag },
+] as const;
 
 function slugify(s: string): string {
   return s
@@ -115,13 +116,11 @@ export default function AdminSettingsPage() {
     try {
       const res = await apiPatch<{ productTypes: ProductType[] }>(
         "/api/settings",
-        {
-          productTypes: types,
-        },
+        { productTypes: types },
       );
       if (res.success && res.data?.productTypes) {
         setProductTypes(res.data.productTypes);
-        toast.success("Settings saved");
+        toast.success("Product types saved");
       } else {
         toast.error(res.message || "Failed to save");
       }
@@ -134,10 +133,9 @@ export default function AdminSettingsPage() {
   };
 
   const handleUpdateType = (index: number, updates: Partial<ProductType>) => {
-    const next = productTypes.map((t, i) =>
-      i === index ? { ...t, ...updates } : t,
+    setProductTypes((prev) =>
+      prev.map((t, i) => (i === index ? { ...t, ...updates } : t)),
     );
-    setProductTypes(next);
   };
 
   const handleRemoveType = (index: number) => {
@@ -196,9 +194,7 @@ export default function AdminSettingsPage() {
     try {
       const res = await apiPatch<{ loyaltyPointsPerKes: number }>(
         "/api/settings",
-        {
-          loyaltyPointsPerKes: n,
-        },
+        { loyaltyPointsPerKes: n },
       );
       if (res.success && res.data?.loyaltyPointsPerKes !== undefined) {
         setLoyaltyPointsPerKesInput(String(res.data.loyaltyPointsPerKes));
@@ -219,16 +215,14 @@ export default function AdminSettingsPage() {
     try {
       const res = await apiPatch<{ allowSellOutOfStock: boolean }>(
         "/api/settings",
-        {
-          allowSellOutOfStock: nextAllowSellOutOfStock,
-        },
+        { allowSellOutOfStock: nextAllowSellOutOfStock },
       );
       if (res.success && res.data) {
         setAllowSellOutOfStock(res.data.allowSellOutOfStock === true);
         toast.success(
           res.data.allowSellOutOfStock
             ? "Cashiers can sell out-of-stock items"
-            : "Out-of-stock items cannot be sold by cashiers",
+            : "Out-of-stock items blocked for cashiers",
         );
       } else {
         toast.error(res.message || "Failed to save stock setting");
@@ -262,7 +256,7 @@ export default function AdminSettingsPage() {
       if (res.success && res.data?.countSettings) {
         setTolerancePercent(String(res.data.countSettings.tolerancePercent));
         setToleranceAbsolute(String(res.data.countSettings.toleranceAbsolute));
-        toast.success("Count tolerance settings saved");
+        toast.success("Count tolerance saved");
       } else {
         toast.error(res.message || "Failed to save count settings");
       }
@@ -274,313 +268,341 @@ export default function AdminSettingsPage() {
     }
   };
 
+  const scrollToSection = (id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <AdminLayout>
-      <div className="min-h-screen px-3 py-4 sm:px-4 md:px-6 lg:px-8">
-        <div className="max-w-3xl mx-auto">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-              <Settings className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+      <div className="min-h-screen bg-slate-50/80 dark:bg-slate-950">
+        <div className="border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+          <div className="px-4 md:px-6 py-5 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-700 flex items-center justify-center shrink-0">
+              <Settings className="w-5 h-5 text-white" strokeWidth={2} />
             </div>
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+            <div className="min-w-0">
+              <h1 className="text-xl font-bold text-slate-900 dark:text-white truncate">
                 Settings
               </h1>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                Business and product type configuration
+                Loyalty, stock rules, count tolerance & product types
               </p>
             </div>
           </div>
+        </div>
 
-          <Card className="mb-6 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-            <CardHeader className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Gift className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                Loyalty points
-              </CardTitle>
-              <CardDescription>
-                When a sale is linked to a customer (credit tab, split credit,
-                or wallet-linked phone), they earn points:{" "}
-                <span className="font-mono text-slate-700 dark:text-slate-300">
-                  floor(sale total × rate)
-                </span>
-                . Example: rate <span className="font-mono">0.01</span> → 100
-                KES = 1 point. Set to <span className="font-mono">0</span> to
-                turn earning off.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6">
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-7 h-7 animate-spin text-[#1c6a1e]" />
-                </div>
-              ) : (
-                <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-                  <div className="flex-1 space-y-2">
-                    <Label htmlFor="loyalty-rate">Points per 1 KES</Label>
-                    <Input
-                      id="loyalty-rate"
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      max={5}
-                      step="0.0001"
-                      value={loyaltyPointsPerKesInput}
-                      onChange={(e) =>
-                        setLoyaltyPointsPerKesInput(e.target.value)
-                      }
-                      className="h-10 max-w-xs font-mono text-sm"
-                      placeholder="0.01"
-                    />
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Allowed range: 0–5. Customers see their balance on the
-                      public credit status page.
+        {!loading && (
+          <div className="sticky top-0 z-10 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/95 dark:bg-slate-950/95 backdrop-blur-sm">
+            <div className="px-4 md:px-6 py-2.5 flex gap-2 overflow-x-auto">
+              {SECTIONS.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => scrollToSection(id)}
+                  className="inline-flex items-center gap-1.5 shrink-0 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 hover:border-[#1c6a1e] hover:text-[#1c6a1e] transition-colors"
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="px-4 md:px-6 py-4 pb-24 md:pb-8 max-w-5xl">
+          {loading ? (
+            <div className="flex items-center justify-center py-24">
+              <Loader2 className="h-8 w-8 animate-spin text-[#1c6a1e]" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Quick settings grid */}
+              <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {/* Loyalty */}
+                <Card
+                  id="loyalty"
+                  className="border-slate-200 dark:border-slate-800 scroll-mt-28 xl:col-span-1"
+                >
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Gift className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                      <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                        Loyalty points
+                      </h2>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                      Linked customers earn{" "}
+                      <span className="font-mono">floor(total × rate)</span>.{" "}
+                      <span className="font-mono">0.01</span> → 100 KES = 1 pt.{" "}
+                      <span className="font-mono">0</span> = off.
                     </p>
-                  </div>
-                  <Button
-                    type="button"
-                    disabled={loyaltySaving}
-                    className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white shrink-0"
-                    onClick={() => void handleSaveLoyalty()}
-                  >
-                    {loyaltySaving ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Saving…
-                      </>
-                    ) : (
-                      "Save rate"
-                    )}
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="mb-6 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-            <CardHeader className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Package className="w-4 h-4 text-[#1c6a1e]" />
-                Stock &amp; POS
-              </CardTitle>
-              <CardDescription>
-                Control whether cashiers can sell products that are out of stock
-                (zero or negative on-hand quantity). When disabled, those items
-                are blocked on the POS and checkout requires manager approval to
-                oversell.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6">
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-7 h-7 animate-spin text-[#1c6a1e]" />
-                </div>
-              ) : (
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="mt-1 h-4 w-4 rounded border-slate-300 text-[#1c6a1e] focus:ring-[#1c6a1e] disabled:opacity-50"
-                    checked={allowSellOutOfStock}
-                    disabled={stockSaving}
-                    onChange={(e) =>
-                      void handleSaveStockSetting(e.target.checked)
-                    }
-                  />
-                  <span className="text-sm text-slate-700 dark:text-slate-300">
-                    <span className="font-medium text-slate-900 dark:text-white block mb-1">
-                      Allow cashiers to sell out-of-stock items
-                    </span>
-                    Stock will go negative when you sell more than is on hand.
-                    Out-of-stock items stay visible on the POS with an &quot;Out
-                    of stock&quot; badge.
-                  </span>
-                </label>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="mb-6 border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-            <CardHeader className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
-              <CardTitle className="text-base flex items-center gap-2">
-                <ClipboardCheck className="w-4 h-4 text-[#1c6a1e]" />
-                Count Shift Tolerance
-              </CardTitle>
-              <CardDescription>
-                Set thresholds for stock count variance escalation. An item is
-                escalated only when BOTH the absolute difference AND the
-                percentage difference exceed these values. Defaults: 2 units and
-                5%.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6">
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-7 h-7 animate-spin text-[#1c6a1e]" />
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        Tolerance % (0-100)
+                      <Label htmlFor="loyalty-rate" className="text-xs">
+                        Points per 1 KES
                       </Label>
-                      <div className="flex items-center gap-2">
+                      <div className="flex gap-2">
                         <Input
+                          id="loyalty-rate"
                           type="number"
+                          inputMode="decimal"
                           min={0}
-                          max={100}
-                          step={0.1}
-                          value={tolerancePercent}
-                          onChange={(e) => setTolerancePercent(e.target.value)}
-                          className="h-10 max-w-[120px] font-mono text-sm"
-                          placeholder="5"
-                        />
-                        <span className="text-xs text-slate-500">%</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400">
-                        Variance as a percentage of the larger stock value.
-                      </p>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                        Absolute Tolerance (units)
-                      </Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        step={0.1}
-                        value={toleranceAbsolute}
-                        onChange={(e) => setToleranceAbsolute(e.target.value)}
-                        className="h-10 max-w-[120px] font-mono text-sm"
-                        placeholder="2"
-                      />
-                      <p className="text-[11px] text-slate-400">
-                        Minimum unit difference before escalation.
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={handleSaveCountSettings}
-                    disabled={toleranceSaving}
-                    className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
-                  >
-                    {toleranceSaving ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                        Saving...
-                      </>
-                    ) : (
-                      "Save tolerance"
-                    )}
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-            <CardHeader className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Tag className="w-4 h-4 text-[#1c6a1e]" />
-                Product Types
-              </CardTitle>
-              <CardDescription>
-                These types are used for items, POS departments, and
-                sales/profit reports. Add or remove types (e.g. Grocery, Retail,
-                Cereals). Defaults: Grocery, Retail.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6">
-              {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="w-8 h-8 animate-spin text-[#1c6a1e]" />
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {productTypes.map((t, index) => (
-                    <div
-                      key={t.key}
-                      className="flex items-center gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/50"
-                    >
-                      <span className="text-slate-400 dark:text-slate-500 cursor-grab">
-                        <GripVertical className="w-4 h-4" />
-                      </span>
-                      <span className="text-2xl" title="Emoji">
-                        {t.emoji}
-                      </span>
-                      <div className="flex-1 min-w-0 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <div>
-                          <Label className="text-xs text-slate-500">
-                            Label
-                          </Label>
-                          <Input
-                            value={t.label}
-                            onChange={(e) =>
-                              handleUpdateType(index, { label: e.target.value })
-                            }
-                            className="h-9 text-sm"
-                            placeholder="e.g. Grocery"
-                          />
-                        </div>
-                        <div>
-                          <Label className="text-xs text-slate-500">
-                            Key (used in data)
-                          </Label>
-                          <Input
-                            value={t.key}
-                            onChange={(e) =>
-                              handleUpdateType(index, {
-                                key: e.target.value
-                                  .toLowerCase()
-                                  .replace(/\s/g, "_"),
-                              })
-                            }
-                            className="h-9 text-sm font-mono"
-                            placeholder="grocery"
-                          />
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <input
-                          type="color"
-                          value={t.color}
-                          onChange={(e) => {
-                            handleUpdateType(index, { color: e.target.value });
-                            handleSave(
-                              productTypes.map((x, i) =>
-                                i === index
-                                  ? { ...x, color: e.target.value }
-                                  : x,
-                              ),
-                            );
-                          }}
-                          className="w-9 h-9 rounded border border-slate-300 dark:border-slate-600 cursor-pointer"
-                          title="Color"
+                          max={5}
+                          step="0.0001"
+                          value={loyaltyPointsPerKesInput}
+                          onChange={(e) =>
+                            setLoyaltyPointsPerKesInput(e.target.value)
+                          }
+                          className="h-9 font-mono text-sm flex-1"
+                          placeholder="0.01"
                         />
                         <Button
                           type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                          onClick={() => handleRemoveType(index)}
-                          title="Remove type"
+                          size="sm"
+                          disabled={loyaltySaving}
+                          className="h-9 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white shrink-0"
+                          onClick={() => void handleSaveLoyalty()}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          {loyaltySaving ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            "Save"
+                          )}
                         </Button>
                       </div>
                     </div>
-                  ))}
+                  </CardContent>
+                </Card>
 
-                  {adding ? (
-                    <div className="flex flex-wrap items-end gap-3 p-4 rounded-lg border-2 border-dashed border-slate-300 dark:border-slate-600 bg-slate-50/50 dark:bg-slate-900/30">
-                      <div className="flex gap-2 items-center">
+                {/* Stock & POS */}
+                <Card
+                  id="stock"
+                  className="border-slate-200 dark:border-slate-800 scroll-mt-28"
+                >
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Package className="w-4 h-4 text-[#1c6a1e] shrink-0" />
+                      <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                        Stock &amp; POS
+                      </h2>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                      When off, zero-stock items are blocked on POS; oversell needs
+                      manager approval.
+                    </p>
+                    <label className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/50 px-3 py-2.5 cursor-pointer">
+                      <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
+                        Allow selling out-of-stock
+                      </span>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 rounded border-slate-300 text-[#1c6a1e] focus:ring-[#1c6a1e] disabled:opacity-50"
+                        checked={allowSellOutOfStock}
+                        disabled={stockSaving}
+                        onChange={(e) =>
+                          void handleSaveStockSetting(e.target.checked)
+                        }
+                      />
+                    </label>
+                  </CardContent>
+                </Card>
+
+                {/* Count tolerance */}
+                <Card
+                  id="count"
+                  className="border-slate-200 dark:border-slate-800 scroll-mt-28 md:col-span-2 xl:col-span-1"
+                >
+                  <CardContent className="p-4 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <ClipboardCheck className="w-4 h-4 text-[#1c6a1e] shrink-0" />
+                      <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                        Count tolerance
+                      </h2>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                      Escalate only when both % and absolute variance exceed limits
+                      (default 5% and 2 units).
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase tracking-wide text-slate-500">
+                          %
+                        </Label>
+                        <div className="flex items-center gap-1">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={100}
+                            step={0.1}
+                            value={tolerancePercent}
+                            onChange={(e) => setTolerancePercent(e.target.value)}
+                            className="h-9 font-mono text-sm"
+                          />
+                          <span className="text-xs text-slate-400">%</span>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase tracking-wide text-slate-500">
+                          Units
+                        </Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step={0.1}
+                          value={toleranceAbsolute}
+                          onChange={(e) => setToleranceAbsolute(e.target.value)}
+                          className="h-9 font-mono text-sm"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={handleSaveCountSettings}
+                      disabled={toleranceSaving}
+                      className="h-8 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white w-full"
+                    >
+                      {toleranceSaving ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        "Save tolerance"
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Product types */}
+              <Card
+                id="types"
+                className="border-slate-200 dark:border-slate-800 overflow-hidden scroll-mt-28"
+              >
+                <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/40">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Tag className="w-4 h-4 text-[#1c6a1e] shrink-0" />
+                    <div className="min-w-0">
+                      <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                        Product types
+                      </h2>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                        Used for items, departments & reports · {productTypes.length} type
+                        {productTypes.length !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                  </div>
+                  {!adding && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 shrink-0"
+                      onClick={() => setAdding(true)}
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-1" />
+                      Add
+                    </Button>
+                  )}
+                </div>
+
+                <CardContent className="p-0">
+                  {productTypes.length === 0 && !adding ? (
+                    <div className="py-10 text-center text-sm text-slate-500">
+                      No product types yet.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm min-w-[640px]">
+                        <thead>
+                          <tr className="border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                            <th className="w-12 py-2.5 px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                              Icon
+                            </th>
+                            <th className="py-2.5 px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                              Label
+                            </th>
+                            <th className="py-2.5 px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                              Key
+                            </th>
+                            <th className="w-16 py-2.5 px-3 text-left text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                              Color
+                            </th>
+                            <th className="w-12 py-2.5 px-3" />
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {productTypes.map((t, index) => (
+                            <tr
+                              key={t.key}
+                              className="hover:bg-slate-50/80 dark:hover:bg-slate-900/40"
+                            >
+                              <td className="py-2 px-3 text-xl leading-none">{t.emoji}</td>
+                              <td className="py-2 px-3">
+                                <Input
+                                  value={t.label}
+                                  onChange={(e) =>
+                                    handleUpdateType(index, { label: e.target.value })
+                                  }
+                                  className="h-8 text-sm"
+                                  placeholder="Label"
+                                />
+                              </td>
+                              <td className="py-2 px-3">
+                                <Input
+                                  value={t.key}
+                                  onChange={(e) =>
+                                    handleUpdateType(index, {
+                                      key: e.target.value
+                                        .toLowerCase()
+                                        .replace(/\s/g, "_"),
+                                    })
+                                  }
+                                  className="h-8 text-sm font-mono"
+                                  placeholder="key"
+                                />
+                              </td>
+                              <td className="py-2 px-3">
+                                <input
+                                  type="color"
+                                  value={t.color}
+                                  onChange={(e) => {
+                                    handleUpdateType(index, { color: e.target.value });
+                                    handleSave(
+                                      productTypes.map((x, i) =>
+                                        i === index
+                                          ? { ...x, color: e.target.value }
+                                          : x,
+                                      ),
+                                    );
+                                  }}
+                                  className="w-8 h-8 rounded border border-slate-300 dark:border-slate-600 cursor-pointer"
+                                  title="Color"
+                                />
+                              </td>
+                              <td className="py-2 px-3">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                  onClick={() => handleRemoveType(index)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {adding && (
+                    <div className="border-t border-slate-200 dark:border-slate-800 p-4 bg-slate-50/50 dark:bg-slate-900/30 space-y-3">
+                      <div className="flex flex-wrap gap-1">
                         {EMOJI_OPTIONS.map((emoji) => (
                           <button
                             key={emoji}
                             type="button"
                             onClick={() => setNewType((p) => ({ ...p, emoji }))}
-                            className={`text-2xl p-1 rounded ${
+                            className={`text-xl p-1 rounded ${
                               newType.emoji === emoji
                                 ? "ring-2 ring-[#1c6a1e] bg-emerald-50 dark:bg-emerald-900/20"
                                 : "hover:bg-slate-200 dark:hover:bg-slate-700"
@@ -590,8 +612,8 @@ export default function AdminSettingsPage() {
                           </button>
                         ))}
                       </div>
-                      <div className="flex flex-wrap gap-2 items-end">
-                        <div>
+                      <div className="flex flex-wrap items-end gap-2">
+                        <div className="flex-1 min-w-[120px]">
                           <Label className="text-xs">Label</Label>
                           <Input
                             value={newType.label}
@@ -603,23 +625,21 @@ export default function AdminSettingsPage() {
                               }))
                             }
                             placeholder="e.g. Cereals"
-                            className="h-9 w-36"
+                            className="h-9 mt-1"
                           />
                         </div>
-                        <div>
+                        <div className="w-28">
                           <Label className="text-xs">Key</Label>
                           <Input
                             value={newType.key}
                             onChange={(e) =>
                               setNewType((p) => ({
                                 ...p,
-                                key: e.target.value
-                                  .toLowerCase()
-                                  .replace(/\s/g, "_"),
+                                key: e.target.value.toLowerCase().replace(/\s/g, "_"),
                               }))
                             }
                             placeholder="cereals"
-                            className="h-9 w-28 font-mono"
+                            className="h-9 mt-1 font-mono"
                           />
                         </div>
                         <div>
@@ -630,71 +650,56 @@ export default function AdminSettingsPage() {
                             type="color"
                             value={newType.color}
                             onChange={(e) =>
-                              setNewType((p) => ({
-                                ...p,
-                                color: e.target.value,
-                              }))
+                              setNewType((p) => ({ ...p, color: e.target.value }))
                             }
-                            className="w-9 h-9 rounded border border-slate-300 dark:border-slate-600 cursor-pointer"
+                            className="w-9 h-9 mt-1 rounded border border-slate-300 dark:border-slate-600 cursor-pointer block"
                           />
                         </div>
                         <Button
                           type="button"
                           size="sm"
-                          className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white h-9"
+                          className="h-9 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
                           onClick={handleAddType}
                         >
-                          Add
+                          Add type
                         </Button>
                         <Button
                           type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-9"
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9"
                           onClick={() => {
                             setAdding(false);
                             setNewType(DEFAULT_NEW_TYPE);
                           }}
                         >
-                          Cancel
+                          <X className="w-4 h-4" />
                         </Button>
                       </div>
                     </div>
-                  ) : (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full border-dashed border-2 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-400 hover:border-[#1c6a1e] hover:text-[#1c6a1e]"
-                      onClick={() => setAdding(true)}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add product type
-                    </Button>
                   )}
 
                   {productTypes.length > 0 && (
-                    <div className="pt-2 flex justify-end">
+                    <div className="flex justify-end px-4 py-3 border-t border-slate-100 dark:border-slate-800">
                       <Button
                         type="button"
+                        size="sm"
                         disabled={saving}
-                        className="bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
+                        className="h-8 bg-[#1c6a1e] hover:bg-[#2a8a30] text-white"
                         onClick={() => handleSave(productTypes)}
                       >
                         {saving ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Saving...
-                          </>
+                          <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                          "Save changes"
+                          "Save product types"
                         )}
                       </Button>
                     </div>
                   )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       </div>
     </AdminLayout>
