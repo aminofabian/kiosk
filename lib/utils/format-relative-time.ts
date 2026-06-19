@@ -13,6 +13,15 @@ export function formatRelativeTime(timestamp: number, nowSec = Math.floor(Date.n
   });
 }
 
+export function formatShortDateTime(timestamp: number): string {
+  return new Date(timestamp * 1000).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 export function formatDateTime(timestamp: number): string {
   return new Date(timestamp * 1000).toLocaleString(undefined, {
     dateStyle: 'medium',

@@ -61,7 +61,7 @@ export function formatSellableItemName(item: ItemWithParentName): string {
     if (parent.toLowerCase() === variant.toLowerCase()) {
       return parent;
     }
-    return `${parent} — ${variant}`;
+    return `${parent} (${variant})`;
   }
 
   return parent || variant;

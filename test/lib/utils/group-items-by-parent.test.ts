@@ -66,7 +66,7 @@ describe('formatSellableItemName', () => {
       ...item({ id: 'v1', name: '10', parent_item_id: 'p1', variant_name: '10' }),
       parent_name: 'Onions',
     };
-    expect(formatSellableItemName(variant)).toBe('Onions — 10');
+    expect(formatSellableItemName(variant)).toBe('Onions (10)');
   });
 
   it('returns standalone item name unchanged', () => {

@@ -31,7 +31,7 @@ import { formatSellableItemName } from '@/lib/utils/group-items-by-parent';
 import { computeTopup, formatTopupDisplay } from '@/lib/utils/inventory-topup';
 import {
   formatDateTime,
-  formatRelativeTime,
+  formatShortDateTime,
   isWithinLastWeek,
 } from '@/lib/utils/format-relative-time';
 import type { AdjustmentReason } from '@/lib/constants';
@@ -1157,8 +1157,7 @@ export function DepartmentStockScreen() {
                 <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#1a2c17] border-b border-slate-200 dark:border-slate-700">
                   <tr className="text-left text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     <th className="px-1 py-1.5 w-[3%] text-center">#</th>
-                    <th className="px-1 py-1.5 w-[19%]">Product</th>
-                    <th className="px-1 py-1.5 w-[10%]">Updated</th>
+                    <th className="px-1 py-1.5 w-[26%]">Product</th>
                     <th className="px-1 py-1.5 w-[6%]">Unit</th>
                     <th className="px-1 py-1.5 w-[7%] text-right">Price</th>
                     <th className="px-1 py-1.5 w-[7%] text-right">Stock</th>
@@ -1197,16 +1196,18 @@ export function DepartmentStockScreen() {
                           <button
                             type="button"
                             onClick={() => openDrawer(item)}
-                            className="text-left whitespace-normal break-words text-xs leading-snug hover:text-[#1c6a1e] hover:underline underline-offset-2 w-full"
+                            className="text-left whitespace-normal break-words text-xs leading-snug hover:text-[#1c6a1e] w-full"
                           >
-                            {displayItemName(item)}
+                            <span className="block hover:underline underline-offset-2">
+                              {displayItemName(item)}
+                            </span>
+                            <span
+                              className="block mt-0.5 text-[10px] font-normal text-slate-400 dark:text-slate-500 tabular-nums"
+                              title={formatDateTime(lastUpdated)}
+                            >
+                              {formatShortDateTime(lastUpdated)}
+                            </span>
                           </button>
-                        </td>
-                        <td
-                          className="px-1 py-1.5 text-[10px] text-slate-500 dark:text-slate-400 tabular-nums align-top whitespace-nowrap"
-                          title={formatDateTime(lastUpdated)}
-                        >
-                          {formatRelativeTime(lastUpdated)}
                         </td>
                             <td className="px-1 py-1.5 min-w-0 align-top">
                               <InlineUnitCell
@@ -1339,7 +1340,7 @@ export function DepartmentStockScreen() {
         onOpenChange={(open) => !open && closeSelection()}
         direction="right"
       >
-        <DrawerContent className="h-[100dvh] w-full max-w-none rounded-none inset-0 data-[vaul-drawer-direction=right]:w-full [&>div:first-child]:hidden flex flex-col">
+        <DrawerContent className="!w-full sm:!w-[420px] md:!w-[440px] !max-w-none h-full max-h-[100dvh] flex flex-col bg-white dark:bg-[#1c2e18] border-l border-slate-200 dark:border-slate-800 shadow-2xl [&>div:first-child]:hidden">
           <DrawerHeader className="shrink-0 border-b border-slate-100 dark:border-slate-800 text-left py-3 px-4">
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
