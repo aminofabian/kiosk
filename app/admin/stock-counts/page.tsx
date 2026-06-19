@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { AdminLayout } from "@/components/layouts/admin-layout";
 import { useCurrentUser } from "@/lib/hooks/use-current-user";
 import { apiGet } from "@/lib/utils/api-client";
@@ -389,9 +389,9 @@ function ShiftsTab() {
         </div>
       )}
 
-      {/* Shift list */}
+      {/* Shift list — mobile cards */}
       {!loading && !error && shifts.length > 0 && (
-        <div className="space-y-2">
+        <div className="md:hidden space-y-2">
           {shifts.map((shift) => {
             const isExpanded = expandedId === shift.id;
             const hasEscalations = isExpanded
@@ -401,12 +401,11 @@ function ShiftsTab() {
             return (
               <div
                 key={shift.id}
-                className="bg-white dark:bg-[#1a2c17] rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800/60 overflow-hidden"
+                className="bg-white dark:bg-[#1a2c17] rounded-xl border border-slate-200/60 dark:border-slate-800/60 overflow-hidden"
               >
-                {/* Row */}
                 <button
                   onClick={() => toggleExpand(shift.id)}
-                  className="w-full text-left px-3 py-2.5 flex items-start gap-2 hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors"
+                  className="w-full text-left px-3 py-2 flex items-start gap-2 hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors"
                 >
                   {isExpanded ? (
                     <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
@@ -415,21 +414,21 @@ function ShiftsTab() {
                   )}
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <span className="font-medium text-slate-900 dark:text-white capitalize">
+                      <span className="font-medium text-slate-900 dark:text-white capitalize text-sm">
                         {shift.department || "General"}
                       </span>
                       <span className="text-slate-400">·</span>
-                      <span className="text-sm text-slate-600 dark:text-slate-400">
+                      <span className="text-xs text-slate-600 dark:text-slate-400">
                         {shift.user_name || "Unknown"}
                       </span>
                       {shiftStatusBadge(shift.status, hasEscalations)}
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-500 dark:text-slate-500">
-                      <span>Opened {formatDate(shift.opened_at)}</span>
+                    <div className="flex flex-wrap items-center gap-x-3 text-[11px] text-slate-500">
+                      <span>{formatDate(shift.opened_at)}</span>
                       <span>
                         {shift.closed_at
-                          ? `Closed ${formatDate(shift.closed_at)}`
-                          : "Still open"}
+                          ? formatDate(shift.closed_at)
+                          : "Open"}
                       </span>
                       {shift.batch_count != null && (
                         <span>{shift.batch_count} items</span>
@@ -437,146 +436,17 @@ function ShiftsTab() {
                     </div>
                   </div>
                 </button>
-
-                {/* Expanded batch details */}
                 {isExpanded && (
                   <div className="border-t border-slate-200 dark:border-slate-800">
-                    {batchesLoading && (
-                      <div className="flex items-center justify-center py-8 gap-3">
-                        <Loader2 className="w-5 h-5 animate-spin text-[#1c6a1e]" />
-                        <span className="text-sm text-slate-500">
-                          Loading batch details...
-                        </span>
-                      </div>
-                    )}
-
-                    {!batchesLoading && batchesError && (
-                      <div className="px-4 py-6 text-center">
-                        <p className="text-sm text-red-600 dark:text-red-400">
-                          {batchesError}
-                        </p>
-                      </div>
-                    )}
-
-                    {!batchesLoading &&
-                      !batchesError &&
-                      batches.length === 0 && (
-                        <div className="px-4 py-6 text-center">
-                          <p className="text-sm text-slate-500">
-                            No batch items found for this shift.
-                          </p>
-                        </div>
-                      )}
-
-                    {!batchesLoading && !batchesError && batches.length > 0 && (
-                      <div className="p-3 space-y-2">
-                        {shift.status === "closed" &&
-                          batches.some((b) => b.status === "escalated") && (
-                            <div className="flex justify-end">
-                              <button
-                                type="button"
-                                onClick={() => handleAcknowledge(shift.id)}
-                                disabled={acknowledging}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-xs font-semibold hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors disabled:opacity-50"
-                              >
-                                {acknowledging ? (
-                                  <Loader2 className="w-3 h-3 animate-spin" />
-                                ) : (
-                                  <CheckCheck className="w-3.5 h-3.5" />
-                                )}
-                                Acknowledge All
-                              </button>
-                            </div>
-                          )}
-                        {batches.map((b) => (
-                          <div
-                            key={b.id}
-                            className={`rounded-lg border px-3 py-2.5 text-sm ${
-                              b.status === "escalated"
-                                ? "border-red-200 bg-red-50/40 dark:border-red-900/40 dark:bg-red-900/10"
-                                : b.status === "matched"
-                                  ? "border-green-200 bg-green-50/30 dark:border-green-900/40 dark:bg-green-900/10"
-                                  : "border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a2c17]"
-                            }`}
-                          >
-                            <div className="flex flex-wrap items-start justify-between gap-2">
-                              <div className="min-w-0 flex-1">
-                                <p className="font-medium text-slate-900 dark:text-white">
-                                  {b.item_name || "Unknown Item"}
-                                </p>
-                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                  {[b.barcode, b.unit_type]
-                                    .filter(Boolean)
-                                    .join(" · ")}
-                                </p>
-                              </div>
-                              <div className="shrink-0 flex flex-col items-end gap-1">
-                                {batchStatusBadge(b.status)}
-                                {b.status === "escalated" &&
-                                  shift.status === "closed" && (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handleAcknowledge(shift.id, [b.id])
-                                      }
-                                      disabled={acknowledging}
-                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
-                                    >
-                                      <CheckCheck className="w-3 h-3" />
-                                      Acknowledge
-                                    </button>
-                                  )}
-                              </div>
-                            </div>
-                            <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1 text-[11px]">
-                              <div>
-                                <span className="text-slate-400">Opening</span>
-                                <p className="font-medium tabular-nums">
-                                  {b.morning_count ?? "—"}
-                                </p>
-                              </div>
-                              <div>
-                                <span className="text-slate-400">Closing</span>
-                                <p className="font-medium tabular-nums">
-                                  {b.evening_count ?? "—"}
-                                </p>
-                              </div>
-                              <div>
-                                <span className="text-slate-400">System</span>
-                                <p className="font-medium tabular-nums">
-                                  {b.system_stock_morning}
-                                </p>
-                              </div>
-                              <div>
-                                <span className="text-slate-400">Var. AM / PM</span>
-                                <p className="font-medium tabular-nums">
-                                  <span className={varianceClass(b.variance_morning)}>
-                                    {variancePrefix(b.variance_morning)}
-                                  </span>
-                                  {" / "}
-                                  <span className={varianceClass(b.variance_evening)}>
-                                    {variancePrefix(b.variance_evening)}
-                                  </span>
-                                </p>
-                              </div>
-                            </div>
-                            {b.variance_intraday != null && (
-                              <p className="mt-1.5 text-[11px]">
-                                <span className="text-slate-400">Intraday </span>
-                                <span className={varianceClass(b.variance_intraday)}>
-                                  {variancePrefix(b.variance_intraday)}
-                                </span>
-                              </p>
-                            )}
-                            {b.escalation_notes && (
-                              <p className="mt-2 text-[11px] leading-relaxed text-red-600 dark:text-red-400 whitespace-normal break-words">
-                                {b.escalation_notes}
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <BatchDetailsBody
+                      shift={shift}
+                      batches={batches}
+                      batchesLoading={batchesLoading}
+                      batchesError={batchesError}
+                      acknowledging={acknowledging}
+                      onAcknowledge={handleAcknowledge}
+                      layout="cards"
+                    />
                   </div>
                 )}
               </div>
@@ -584,6 +454,358 @@ function ShiftsTab() {
           })}
         </div>
       )}
+
+      {/* Shift list — desktop table */}
+      {!loading && !error && shifts.length > 0 && (
+        <div className="hidden md:block bg-white dark:bg-[#1a2c17] rounded-lg border border-slate-200/60 dark:border-slate-800/60 overflow-hidden">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40">
+                <th className="w-7 py-1.5 px-1" />
+                <th className="text-left py-1.5 px-2 font-semibold text-[10px] uppercase tracking-wide text-slate-500">
+                  Department
+                </th>
+                <th className="text-left py-1.5 px-2 font-semibold text-[10px] uppercase tracking-wide text-slate-500">
+                  Staff
+                </th>
+                <th className="text-left py-1.5 px-2 font-semibold text-[10px] uppercase tracking-wide text-slate-500">
+                  Status
+                </th>
+                <th className="text-left py-1.5 px-2 font-semibold text-[10px] uppercase tracking-wide text-slate-500">
+                  Opened
+                </th>
+                <th className="text-left py-1.5 px-2 font-semibold text-[10px] uppercase tracking-wide text-slate-500">
+                  Closed
+                </th>
+                <th className="text-right py-1.5 px-2 font-semibold text-[10px] uppercase tracking-wide text-slate-500">
+                  Items
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {shifts.map((shift) => {
+                const isExpanded = expandedId === shift.id;
+                const hasEscalations = isExpanded
+                  ? hasEscalatedBatches(batches)
+                  : undefined;
+
+                return (
+                  <Fragment key={shift.id}>
+                    <tr
+                      onClick={() => toggleExpand(shift.id)}
+                      className={`cursor-pointer border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50/80 dark:hover:bg-slate-800/30 ${
+                        isExpanded ? "bg-slate-50/50 dark:bg-slate-800/20" : ""
+                      }`}
+                    >
+                      <td className="py-1 px-1 text-center">
+                        {isExpanded ? (
+                          <ChevronDown className="w-3.5 h-3.5 text-slate-400 inline" />
+                        ) : (
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 inline" />
+                        )}
+                      </td>
+                      <td className="py-1 px-2 font-medium text-slate-900 dark:text-white capitalize">
+                        {shift.department || "General"}
+                      </td>
+                      <td className="py-1 px-2 text-slate-600 dark:text-slate-400">
+                        {shift.user_name || "Unknown"}
+                      </td>
+                      <td className="py-1 px-2">
+                        {shiftStatusBadge(shift.status, hasEscalations)}
+                      </td>
+                      <td className="py-1 px-2 text-slate-500 tabular-nums">
+                        {formatDate(shift.opened_at)}
+                      </td>
+                      <td className="py-1 px-2 text-slate-500 tabular-nums">
+                        {shift.closed_at ? formatDate(shift.closed_at) : "—"}
+                      </td>
+                      <td className="py-1 px-2 text-right text-slate-500 tabular-nums">
+                        {shift.batch_count ?? "—"}
+                      </td>
+                    </tr>
+                    {isExpanded && (
+                      <tr className="border-b border-slate-200 dark:border-slate-800">
+                        <td colSpan={7} className="p-0 bg-slate-50/30 dark:bg-slate-900/20">
+                          <BatchDetailsBody
+                            shift={shift}
+                            batches={batches}
+                            batchesLoading={batchesLoading}
+                            batchesError={batchesError}
+                            acknowledging={acknowledging}
+                            onAcknowledge={handleAcknowledge}
+                            layout="table"
+                          />
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BatchDetailsBody({
+  shift,
+  batches,
+  batchesLoading,
+  batchesError,
+  acknowledging,
+  onAcknowledge,
+  layout,
+}: {
+  shift: CountShift;
+  batches: CountBatch[];
+  batchesLoading: boolean;
+  batchesError: string | null;
+  acknowledging: boolean;
+  onAcknowledge: (shiftId: string, batchIds?: string[]) => void;
+  layout: "cards" | "table";
+}) {
+  if (batchesLoading) {
+    return (
+      <div className="flex items-center justify-center py-6 gap-2">
+        <Loader2 className="w-4 h-4 animate-spin text-[#1c6a1e]" />
+        <span className="text-xs text-slate-500">Loading…</span>
+      </div>
+    );
+  }
+
+  if (batchesError) {
+    return (
+      <div className="px-3 py-4 text-center">
+        <p className="text-xs text-red-600 dark:text-red-400">{batchesError}</p>
+      </div>
+    );
+  }
+
+  if (batches.length === 0) {
+    return (
+      <div className="px-3 py-4 text-center">
+        <p className="text-xs text-slate-500">No items in this shift.</p>
+      </div>
+    );
+  }
+
+  const showAckAll =
+    shift.status === "closed" && batches.some((b) => b.status === "escalated");
+
+  if (layout === "table") {
+    return (
+      <div>
+        {showAckAll && (
+          <div className="px-2 py-1.5 flex justify-end border-b border-slate-200/60 dark:border-slate-800/60">
+            <button
+              type="button"
+              onClick={() => onAcknowledge(shift.id)}
+              disabled={acknowledging}
+              className="inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 hover:bg-red-100 disabled:opacity-50"
+            >
+              {acknowledging ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <CheckCheck className="w-3 h-3" />
+              )}
+              Acknowledge all
+            </button>
+          </div>
+        )}
+        <table className="w-full text-[11px]">
+          <thead>
+            <tr className="border-b border-slate-200/60 dark:border-slate-700/60 bg-white/60 dark:bg-[#1a2c17]/60">
+              <th className="text-left py-1 px-2 font-semibold text-[10px] uppercase tracking-wide text-slate-500">
+                Item
+              </th>
+              <th className="text-right py-1 px-2 font-semibold text-[10px] uppercase tracking-wide text-slate-500 w-14">
+                Open
+              </th>
+              <th className="text-right py-1 px-2 font-semibold text-[10px] uppercase tracking-wide text-slate-500 w-14">
+                Close
+              </th>
+              <th className="text-right py-1 px-2 font-semibold text-[10px] uppercase tracking-wide text-slate-500 w-14">
+                Sys
+              </th>
+              <th className="text-right py-1 px-2 font-semibold text-[10px] uppercase tracking-wide text-slate-500 w-12">
+                Δ AM
+              </th>
+              <th className="text-right py-1 px-2 font-semibold text-[10px] uppercase tracking-wide text-slate-500 w-12">
+                Δ PM
+              </th>
+              <th className="text-right py-1 px-2 font-semibold text-[10px] uppercase tracking-wide text-slate-500 w-12">
+                Δ Day
+              </th>
+              <th className="text-left py-1 px-2 font-semibold text-[10px] uppercase tracking-wide text-slate-500 w-24">
+                Status
+              </th>
+              <th className="w-16" />
+            </tr>
+          </thead>
+          <tbody>
+            {batches.map((b) => (
+              <Fragment key={b.id}>
+                <tr
+                  className={`border-b border-slate-100 dark:border-slate-800/50 ${
+                    b.status === "escalated"
+                      ? "bg-red-50/50 dark:bg-red-900/10"
+                      : b.status === "matched"
+                        ? "bg-green-50/30 dark:bg-green-900/10"
+                        : ""
+                  }`}
+                >
+                  <td className="py-1 px-2">
+                    <span className="font-medium text-slate-900 dark:text-white">
+                      {b.item_name || "Unknown"}
+                    </span>
+                    {b.barcode && (
+                      <span className="block text-[10px] text-slate-400 font-mono">
+                        {b.barcode}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-1 px-2 text-right tabular-nums">
+                    {b.morning_count ?? "—"}
+                  </td>
+                  <td className="py-1 px-2 text-right tabular-nums">
+                    {b.evening_count ?? "—"}
+                  </td>
+                  <td className="py-1 px-2 text-right tabular-nums text-slate-500">
+                    {b.system_stock_morning}
+                  </td>
+                  <td
+                    className={`py-1 px-2 text-right tabular-nums ${varianceClass(b.variance_morning)}`}
+                  >
+                    {variancePrefix(b.variance_morning)}
+                  </td>
+                  <td
+                    className={`py-1 px-2 text-right tabular-nums ${varianceClass(b.variance_evening)}`}
+                  >
+                    {variancePrefix(b.variance_evening)}
+                  </td>
+                  <td
+                    className={`py-1 px-2 text-right tabular-nums ${varianceClass(b.variance_intraday)}`}
+                  >
+                    {variancePrefix(b.variance_intraday)}
+                  </td>
+                  <td className="py-1 px-2">{batchStatusBadge(b.status)}</td>
+                  <td className="py-1 px-1 text-right">
+                    {b.status === "escalated" && shift.status === "closed" && (
+                      <button
+                        type="button"
+                        onClick={() => onAcknowledge(shift.id, [b.id])}
+                        disabled={acknowledging}
+                        className="text-[10px] font-medium text-red-600 dark:text-red-400 hover:underline disabled:opacity-50"
+                      >
+                        Ack
+                      </button>
+                    )}
+                  </td>
+                </tr>
+                {b.escalation_notes && (
+                  <tr
+                    className={
+                      b.status === "escalated"
+                        ? "bg-red-50/30 dark:bg-red-900/5"
+                        : ""
+                    }
+                  >
+                    <td
+                      colSpan={9}
+                      className="py-1 px-2 pb-1.5 text-[10px] leading-snug text-red-600 dark:text-red-400"
+                    >
+                      {b.escalation_notes}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-2 space-y-1.5">
+      {showAckAll && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => onAcknowledge(shift.id)}
+            disabled={acknowledging}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 text-[10px] font-semibold disabled:opacity-50"
+          >
+            {acknowledging ? (
+              <Loader2 className="w-3 h-3 animate-spin" />
+            ) : (
+              <CheckCheck className="w-3 h-3" />
+            )}
+            Acknowledge all
+          </button>
+        </div>
+      )}
+      {batches.map((b) => (
+        <div
+          key={b.id}
+          className={`rounded-lg border px-2.5 py-2 text-xs ${
+            b.status === "escalated"
+              ? "border-red-200 bg-red-50/40 dark:border-red-900/40 dark:bg-red-900/10"
+              : b.status === "matched"
+                ? "border-green-200 bg-green-50/30 dark:border-green-900/40 dark:bg-green-900/10"
+                : "border-slate-200 dark:border-slate-800"
+          }`}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="font-medium text-slate-900 dark:text-white">
+                {b.item_name || "Unknown Item"}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-0.5">
+                {[b.barcode, b.unit_type].filter(Boolean).join(" · ")}
+              </p>
+            </div>
+            {batchStatusBadge(b.status)}
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] tabular-nums">
+            <span>
+              <span className="text-slate-400">Open </span>
+              {b.morning_count ?? "—"}
+            </span>
+            <span>
+              <span className="text-slate-400">Close </span>
+              {b.evening_count ?? "—"}
+            </span>
+            <span>
+              <span className="text-slate-400">Sys </span>
+              {b.system_stock_morning}
+            </span>
+            <span className={varianceClass(b.variance_morning)}>
+              Δ AM {variancePrefix(b.variance_morning)}
+            </span>
+            <span className={varianceClass(b.variance_evening)}>
+              Δ PM {variancePrefix(b.variance_evening)}
+            </span>
+          </div>
+          {b.escalation_notes && (
+            <p className="mt-1.5 text-[10px] leading-snug text-red-600 dark:text-red-400">
+              {b.escalation_notes}
+            </p>
+          )}
+          {b.status === "escalated" && shift.status === "closed" && (
+            <button
+              type="button"
+              onClick={() => onAcknowledge(shift.id, [b.id])}
+              disabled={acknowledging}
+              className="mt-1 text-[10px] font-medium text-red-600 dark:text-red-400"
+            >
+              Acknowledge
+            </button>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

@@ -771,7 +771,7 @@ export default function DepartmentCountPage() {
   // ═══════════════════════════════════════════════════════════
 
   return (
-    <div className="h-full flex flex-col bg-[#f6f8f6] dark:bg-[#0f1a0d]">
+    <div className="h-full flex flex-col bg-[#f6f8f6] dark:bg-[#0f1a0d] lg:max-w-6xl lg:mx-auto lg:w-full">
       <BarcodeCameraScannerDialog
         open={scannerOpen}
         onOpenChange={setScannerOpen}
@@ -779,19 +779,18 @@ export default function DepartmentCountPage() {
       />
 
       {/* Header */}
-      <div className="shrink-0 px-3 pt-3 pb-2 border-b border-slate-200/60 dark:border-slate-800/60 bg-white/80 dark:bg-[#0f1a0d]/80">
-        <div className="flex items-center justify-between gap-2 mb-2">
+      <div className="shrink-0 px-3 pt-2 pb-2 border-b border-slate-200/60 dark:border-slate-800/60 bg-white/80 dark:bg-[#0f1a0d]/80 lg:px-4">
+        <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <h1 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
+            <h1 className="text-sm lg:text-base font-bold text-slate-900 dark:text-white leading-tight">
               {phaseLabel}
             </h1>
-            {isEvening && (
-              <p className="text-[11px] text-amber-600 dark:text-amber-400">
-                Same items as opening count
-              </p>
-            )}
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              {countedItems}/{totalItems} entered
+              {isEvening ? " · same items as opening" : ""}
+            </p>
           </div>
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1 shrink-0 lg:hidden">
             <button
               type="button"
               onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
@@ -801,8 +800,8 @@ export default function DepartmentCountPage() {
             >
               <ChevronLeft className="w-4 h-4 text-slate-600 dark:text-slate-300" />
             </button>
-            <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 tabular-nums min-w-[4.5rem] text-center">
-              {currentIndex + 1} / {totalItems}
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 tabular-nums min-w-[4rem] text-center">
+              {currentIndex + 1}/{totalItems}
             </span>
             <button
               type="button"
@@ -817,7 +816,7 @@ export default function DepartmentCountPage() {
             </button>
           </div>
         </div>
-        <div className="h-1 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+        <div className="h-1 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden mt-2">
           <div
             className="h-full rounded-full bg-[#1c6a1e] transition-all duration-300"
             style={{
@@ -825,41 +824,131 @@ export default function DepartmentCountPage() {
             }}
           />
         </div>
-        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">
-          {countedItems} of {totalItems} entered
-        </p>
       </div>
 
-      {/* Item status strip — full labels, no truncation */}
-      {batches && phase && (
-        <div className="shrink-0 px-3 py-2 border-b border-slate-200/40 dark:border-slate-800/40 bg-white dark:bg-[#1a2c17]">
-          <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
-            {batches.map((batch, idx) => {
-              const displayStatus = getItemDisplayStatus(batch, phase, counts);
-              const styles = ITEM_STATUS_STYLES[displayStatus];
-              const isActive = idx === currentIndex;
-              return (
-                <button
-                  key={batch.item_id}
-                  type="button"
-                  onClick={() => setCurrentIndex(idx)}
-                  className={`shrink-0 flex flex-col items-center min-w-[3.25rem] px-2 py-1 rounded-lg text-center transition-all ${styles.chip} ${isActive ? styles.active : ""}`}
-                >
-                  <span className="text-xs font-bold tabular-nums leading-none">
-                    {idx + 1}
-                  </span>
-                  <span className="text-[10px] font-medium leading-tight mt-0.5 whitespace-nowrap">
-                    {displayStatus}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      <div className="flex-1 flex flex-col lg:flex-row lg:min-h-0">
+        {/* Desktop item table */}
+        {batches && phase && (
+          <div className="hidden lg:flex lg:flex-col lg:w-[44%] xl:w-[42%] border-r border-slate-200/60 dark:border-slate-800/60 bg-white dark:bg-[#1a2c17] min-h-0">
+            <div className="overflow-y-auto flex-1">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800/90 border-b border-slate-200 dark:border-slate-700">
+                  <tr>
+                    <th className="text-left py-1 px-2 font-semibold text-[10px] uppercase tracking-wide text-slate-500 w-8">
+                      #
+                    </th>
+                    <th className="text-left py-1 px-2 font-semibold text-[10px] uppercase tracking-wide text-slate-500">
+                      Product
+                    </th>
+                    <th className="text-left py-1 px-2 font-semibold text-[10px] uppercase tracking-wide text-slate-500 w-20">
+                      Status
+                    </th>
+                    <th className="text-right py-1 px-2 font-semibold text-[10px] uppercase tracking-wide text-slate-500 w-14">
+                      Qty
+                    </th>
+                    {isEvening && (
+                      <th className="text-right py-1 px-2 font-semibold text-[10px] uppercase tracking-wide text-slate-500 w-14">
+                        Open
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {batches.map((batch, idx) => {
+                    const displayStatus = getItemDisplayStatus(
+                      batch,
+                      phase,
+                      counts,
+                    );
+                    const entry = counts[batch.item_id];
+                    const isActive = idx === currentIndex;
+                    const statusColor =
+                      displayStatus === "Counted"
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : displayStatus === "Not found"
+                          ? "text-red-600 dark:text-red-400"
+                          : "text-slate-500 dark:text-slate-400";
 
-      {/* Main content */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2">
+                    return (
+                      <tr
+                        key={batch.item_id}
+                        onClick={() => setCurrentIndex(idx)}
+                        className={`cursor-pointer border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 ${
+                          isActive
+                            ? "bg-[#1c6a1e]/8 dark:bg-[#1c6a1e]/15"
+                            : ""
+                        }`}
+                      >
+                        <td className="py-1 px-2 tabular-nums text-slate-400">
+                          {idx + 1}
+                        </td>
+                        <td className="py-1 px-2">
+                          <span className="font-medium text-slate-900 dark:text-white leading-tight">
+                            {batch.item_name}
+                          </span>
+                          {batch.barcode && (
+                            <span className="block text-[10px] text-slate-400 font-mono">
+                              {batch.barcode}
+                            </span>
+                          )}
+                        </td>
+                        <td className={`py-1 px-2 font-medium ${statusColor}`}>
+                          {displayStatus}
+                        </td>
+                        <td className="py-1 px-2 text-right tabular-nums font-medium text-slate-800 dark:text-slate-200">
+                          {entry?.status === "counted"
+                            ? entry.count || "0"
+                            : "—"}
+                        </td>
+                        {isEvening && (
+                          <td className="py-1 px-2 text-right tabular-nums text-slate-500">
+                            {batch.morning_count ?? "—"}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        <div className="flex-1 flex flex-col min-h-0">
+          {/* Mobile item status strip */}
+          {batches && phase && (
+            <div className="shrink-0 px-3 py-1.5 border-b border-slate-200/40 dark:border-slate-800/40 bg-white dark:bg-[#1a2c17] lg:hidden">
+              <div className="flex gap-1 overflow-x-auto no-scrollbar">
+                {batches.map((batch, idx) => {
+                  const displayStatus = getItemDisplayStatus(
+                    batch,
+                    phase,
+                    counts,
+                  );
+                  const styles = ITEM_STATUS_STYLES[displayStatus];
+                  const isActive = idx === currentIndex;
+                  return (
+                    <button
+                      key={batch.item_id}
+                      type="button"
+                      onClick={() => setCurrentIndex(idx)}
+                      className={`shrink-0 flex flex-col items-center min-w-[3rem] px-1.5 py-0.5 rounded-md text-center ${styles.chip} ${isActive ? styles.active : ""}`}
+                    >
+                      <span className="text-[11px] font-bold tabular-nums leading-none">
+                        {idx + 1}
+                      </span>
+                      <span className="text-[9px] font-medium leading-tight mt-0.5 whitespace-nowrap">
+                        {displayStatus}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Entry panel */}
+          <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 lg:px-4 lg:py-3">
         {currentBatch && (
           <div className="bg-white dark:bg-[#1a2c17] rounded-xl border border-slate-200/60 dark:border-slate-800/60 p-3">
             <h2 className="text-base font-bold text-slate-900 dark:text-white leading-snug">
@@ -1011,10 +1100,10 @@ export default function DepartmentCountPage() {
             </div>
           </div>
         )}
-      </div>
+          </div>
 
-      {/* Bottom actions */}
-      <div className="shrink-0 px-3 py-2 space-y-1.5 border-t border-slate-200/60 dark:border-slate-800/60 bg-white/90 dark:bg-[#0f1a0d]/90">
+          {/* Bottom actions */}
+          <div className="shrink-0 px-3 py-2 space-y-1.5 border-t border-slate-200/60 dark:border-slate-800/60 bg-white/90 dark:bg-[#0f1a0d]/90 lg:px-4">
         {error && (
           <p
             className="text-xs text-red-600 dark:text-red-400 text-center"
@@ -1063,6 +1152,8 @@ export default function DepartmentCountPage() {
             )}
           </button>
         )}
+          </div>
+        </div>
       </div>
     </div>
   );
