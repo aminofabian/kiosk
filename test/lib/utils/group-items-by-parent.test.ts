@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { groupItemsByParent, displayGroupedItemName } from '@/lib/utils/group-items-by-parent';
+import {
+  groupItemsByParent,
+  displayGroupedItemName,
+  formatSellableItemName,
+} from '@/lib/utils/group-items-by-parent';
 import type { Item } from '@/lib/db/types';
 
 function item(
@@ -53,5 +57,19 @@ describe('groupItemsByParent', () => {
       parent_name: 'Tomatoes',
     };
     expect(displayGroupedItemName(variant)).toBe('Small');
+  });
+});
+
+describe('formatSellableItemName', () => {
+  it('combines parent and variant for sellable rows', () => {
+    const variant = {
+      ...item({ id: 'v1', name: '10', parent_item_id: 'p1', variant_name: '10' }),
+      parent_name: 'Onions',
+    };
+    expect(formatSellableItemName(variant)).toBe('Onions — 10');
+  });
+
+  it('returns standalone item name unchanged', () => {
+    expect(formatSellableItemName(item({ id: 's1', name: 'Carrots' }))).toBe('Carrots');
   });
 });

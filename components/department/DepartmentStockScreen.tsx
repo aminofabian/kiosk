@@ -27,11 +27,12 @@ import { PosDepartmentRail } from '@/components/pos/PosDepartmentRail';
 import { apiDelete, apiPatch, apiPost } from '@/lib/utils/api-client';
 import { itemMatchesShopType } from '@/lib/utils/shop-type';
 import type { Item } from '@/lib/db/types';
+import { formatSellableItemName } from '@/lib/utils/group-items-by-parent';
 import { computeTopup, formatTopupDisplay } from '@/lib/utils/inventory-topup';
 import { isDiscreteUnitType, UNIT_TYPES } from '@/lib/constants';
 import { toast } from 'sonner';
 
-type StockListItem = Item & { last_updated_at?: number };
+type StockListItem = Item & { parent_name?: string | null; last_updated_at?: number };
 
 function sortByLastUpdated(items: StockListItem[]): StockListItem[] {
   return [...items].sort(
@@ -78,11 +79,8 @@ function parseEditableStockValue(
   return parsed;
 }
 
-function displayItemName(item: Item): string {
-  if (item.parent_item_id) {
-    return item.variant_name?.trim() || item.name;
-  }
-  return item.name;
+function displayItemName(item: StockListItem): string {
+  return formatSellableItemName(item);
 }
 
 function bumpItemUpdated(
@@ -635,6 +633,8 @@ export function DepartmentStockScreen() {
       (item) =>
         item.name.toLowerCase().includes(q) ||
         (item.variant_name?.toLowerCase().includes(q) ?? false) ||
+        (item.parent_name?.toLowerCase().includes(q) ?? false) ||
+        displayItemName(item).toLowerCase().includes(q) ||
         item.unit_type.toLowerCase().includes(q),
     );
   }, [items, searchQuery, shopType]);
@@ -1036,7 +1036,7 @@ export function DepartmentStockScreen() {
 
   const handleDelete = async (item: Item) => {
     const confirmed = window.confirm(
-      `Delete "${item.name}"? This removes it from the catalog.`,
+      `Delete "${displayItemName(item)}"? This removes it from the catalog.`,
     );
     if (!confirmed) return;
 
@@ -1312,7 +1312,7 @@ export function DepartmentStockScreen() {
                                 disabled={isDeleting}
                                 className="inline-flex items-center justify-center w-7 h-7 rounded-md text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50"
                                 title="Delete product"
-                                aria-label={`Delete ${item.name}`}
+                                aria-label={`Delete ${displayItemName(item)}`}
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -1346,7 +1346,7 @@ export function DepartmentStockScreen() {
                   Stock update
                 </p>
                 <DrawerTitle className="text-base font-bold truncate pr-2">
-                  {selectedItem?.name || 'Stock'}
+                  {selectedItem ? displayItemName(selectedItem as StockListItem) : 'Stock'}
                 </DrawerTitle>
               </div>
               <DrawerClose asChild>

@@ -49,6 +49,25 @@ export function groupItemsByParent(items: ItemWithParentName[]): ItemParentGroup
   );
 }
 
+export function formatSellableItemName(item: ItemWithParentName): string {
+  if (!item.parent_item_id) {
+    return item.name;
+  }
+
+  const parent = item.parent_name?.trim();
+  const variant = item.variant_name?.trim() || item.name;
+
+  if (parent && variant) {
+    if (parent.toLowerCase() === variant.toLowerCase()) {
+      return parent;
+    }
+    return `${parent} — ${variant}`;
+  }
+
+  return parent || variant;
+}
+
+/** Variant label only (e.g. when parent is shown in a group header). */
 export function displayGroupedItemName(item: ItemWithParentName): string {
   if (item.parent_item_id) {
     return item.variant_name?.trim() || item.name;
