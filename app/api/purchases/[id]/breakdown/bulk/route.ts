@@ -8,6 +8,7 @@ import {
   parseQuantityFromNote,
 } from '@/lib/purchase/breakdown-defaults';
 import { createPurchaseBreakdown } from '@/lib/purchase/create-breakdown';
+import { publishPurchaseApprovedEvent } from '@/lib/department/purchase-order-events';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -154,6 +155,11 @@ export async function POST(
     }
 
     const results = [];
+    let autoApprovedEvent: {
+      recordedBy: string;
+      totalAmount: number;
+    } | null = null;
+
     for (const line of resolvedLines) {
       const result = await createPurchaseBreakdown({
         businessId: auth.businessId,
@@ -167,9 +173,27 @@ export async function POST(
         notes: line.notes,
       });
       results.push({ purchaseItemId: line.purchaseItemId, ...result });
+      if (result.autoApproved && result.recordedBy) {
+        autoApprovedEvent = {
+          recordedBy: result.recordedBy,
+          totalAmount: result.totalAmount ?? 0,
+        };
+      }
+    }
+
+    if (autoApprovedEvent) {
+      publishPurchaseApprovedEvent({
+        purchaseId,
+        businessId: auth.businessId,
+        recordedBy: autoApprovedEvent.recordedBy,
+        adminName: auth.name,
+        adminId: auth.userId,
+        totalAmount: autoApprovedEvent.totalAmount,
+      });
     }
 
     const lastStatus = results[results.length - 1]?.purchaseStatus ?? 'partial';
+    const lastApprovalStatus = results[results.length - 1]?.approvalStatus ?? 'approved';
 
     return jsonResponse({
       success: true,
@@ -178,6 +202,7 @@ export async function POST(
         confirmed: results.length,
         skipped,
         purchaseStatus: lastStatus,
+        approvalStatus: lastApprovalStatus,
         results,
       },
     });

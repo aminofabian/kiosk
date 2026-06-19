@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
 import { createPurchaseBreakdown } from '@/lib/purchase/create-breakdown';
+import { publishPurchaseApprovedEvent } from '@/lib/department/purchase-order-events';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -44,6 +45,17 @@ export async function POST(
       buyPricePerUnit,
       notes,
     });
+
+    if (result.autoApproved && result.recordedBy) {
+      publishPurchaseApprovedEvent({
+        purchaseId,
+        businessId: auth.businessId,
+        recordedBy: result.recordedBy,
+        adminName: auth.name,
+        adminId: auth.userId,
+        totalAmount: result.totalAmount ?? 0,
+      });
+    }
 
     return jsonResponse({
       success: true,

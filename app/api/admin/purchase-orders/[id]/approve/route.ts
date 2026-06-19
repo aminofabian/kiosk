@@ -3,8 +3,8 @@ import { execute, queryOne } from "@/lib/db";
 import { migrateDepartmentSuppliers } from "@/lib/db/migrate-department-suppliers";
 import { jsonResponse, optionsResponse } from "@/lib/utils/api-response";
 import { requirePermission, isAuthResponse } from "@/lib/auth/api-auth";
-import { eventBus } from "@/lib/sse/event-bus";
 import { logActivity } from "@/lib/db/activity-log";
+import { publishPurchaseApprovedEvent } from "@/lib/department/purchase-order-events";
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -31,8 +31,9 @@ export async function POST(
       recorded_by: string;
       approval_status: string;
       total_amount: number;
+      business_id: string;
     }>(
-      `SELECT id, recorded_by, approval_status, total_amount FROM purchases
+      `SELECT id, recorded_by, approval_status, total_amount, business_id FROM purchases
        WHERE id = ? AND business_id = ?`,
       [purchaseId, auth.businessId],
     );
@@ -67,21 +68,15 @@ export async function POST(
       performedBy: auth.userId,
     }).catch(() => {});
 
-    // Notify staff
-    try {
-      eventBus.publish(`staff:${po.recorded_by}`, {
-        type: "purchase:approved",
-        data: {
-          purchaseId,
-          adminName: auth.name,
-          adminId: auth.userId,
-          totalAmount: po.total_amount,
-        },
-        timestamp: Date.now(),
-      });
-    } catch {
-      /* non-critical */
-    }
+    // Notify staff (personal + business channels for live UI refresh)
+    publishPurchaseApprovedEvent({
+      purchaseId,
+      businessId: auth.businessId,
+      recordedBy: po.recorded_by,
+      adminName: auth.name,
+      adminId: auth.userId,
+      totalAmount: po.total_amount,
+    });
 
     return jsonResponse({
       success: true,

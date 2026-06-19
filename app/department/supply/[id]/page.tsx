@@ -23,6 +23,7 @@ import { apiGet, apiPost, apiPatch } from "@/lib/utils/api-client";
 import { toast } from "sonner";
 import { getItemDisplayName } from "@/lib/utils";
 import { SupplyShell } from "@/components/department/supply/SupplyShell";
+import { useDepartmentApp } from "@/components/department/DepartmentAppProvider";
 import { WorkflowSteps } from "@/components/department/supply/WorkflowSteps";
 import {
   POApprovalBadge,
@@ -123,6 +124,7 @@ function poToEditLines(po: PO): LineDraft[] {
 export default function PODetailPage() {
   const params = useParams();
   const id = params.id as string;
+  const { supplyRefreshKey } = useDepartmentApp();
   const [po, setPo] = useState<PO | null>(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
@@ -136,8 +138,10 @@ export default function PODetailPage() {
   >({});
   const [showDelivery, setShowDelivery] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setLoading(true);
+    }
     try {
       const result = await apiGet<PO>(`/api/department/purchase-orders/${id}`);
       if (result.success && result.data) {
@@ -163,12 +167,24 @@ export default function PODetailPage() {
     } catch {
       toast.error("Failed to load PO");
     } finally {
-      setLoading(false);
+      if (!options?.silent) {
+        setLoading(false);
+      }
     }
   }, [id]);
 
   useEffect(() => {
-    void load();
+    void load({ silent: supplyRefreshKey > 0 });
+  }, [id, supplyRefreshKey, load]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void load({ silent: true });
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [load]);
 
   const loadSupplierProducts = useCallback(

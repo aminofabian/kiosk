@@ -100,4 +100,26 @@ export async function migrateDepartmentSuppliers(): Promise<void> {
   }
 
   console.log("✅ Department supply migration complete");
+
+  // Fix POs where stock was received/broken down but approval_status was never updated
+  const stuck = await query<{ count: number }>(
+    `SELECT COUNT(*) AS count FROM purchases
+     WHERE department IS NOT NULL
+       AND approval_status = 'pending_approval'
+       AND status IN ('partial', 'complete')`,
+  );
+  if (stuck[0]?.count > 0) {
+    const now = Math.floor(Date.now() / 1000);
+    await execute(
+      `UPDATE purchases
+       SET approval_status = 'approved', updated_at = ?
+       WHERE department IS NOT NULL
+         AND approval_status = 'pending_approval'
+         AND status IN ('partial', 'complete')`,
+      [now],
+    );
+    console.log(
+      `✅ Auto-approved ${stuck[0].count} department PO(s) with completed/partial delivery`,
+    );
+  }
 }

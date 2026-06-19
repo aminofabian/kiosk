@@ -20,6 +20,10 @@ export interface CreateBreakdownResult {
   breakdownId: string;
   batchId: string;
   purchaseStatus: string;
+  approvalStatus: string;
+  autoApproved: boolean;
+  recordedBy: string | null;
+  totalAmount: number | null;
 }
 
 export async function createPurchaseBreakdown(
@@ -152,8 +156,13 @@ export async function createPurchaseBreakdown(
     [itemId, purchaseItemId],
   );
 
-  const purchase = await queryOne<{ status: string }>(
-    `SELECT status FROM purchases WHERE id = ?`,
+  const purchase = await queryOne<{
+    status: string;
+    approval_status: string;
+    recorded_by: string;
+    total_amount: number;
+  }>(
+    `SELECT status, approval_status, recorded_by, total_amount FROM purchases WHERE id = ?`,
     [purchaseId],
   );
 
@@ -173,11 +182,16 @@ export async function createPurchaseBreakdown(
     newStatus = 'partial';
   }
 
+  const autoApproved = purchase?.approval_status === 'pending_approval';
+  const newApprovalStatus = autoApproved ? 'approved' : (purchase?.approval_status || 'approved');
+
   await execute(
     `UPDATE purchases
-     SET status = ?
+     SET status = ?,
+         approval_status = ?,
+         updated_at = ?
      WHERE id = ?`,
-    [newStatus, purchaseId],
+    [newStatus, newApprovalStatus, now, purchaseId],
   );
 
   const item = await queryOne<{ name: string }>(
@@ -198,5 +212,9 @@ export async function createPurchaseBreakdown(
     breakdownId,
     batchId,
     purchaseStatus: newStatus,
+    approvalStatus: newApprovalStatus,
+    autoApproved,
+    recordedBy: purchase?.recorded_by ?? null,
+    totalAmount: purchase?.total_amount ?? null,
   };
 }
