@@ -4,13 +4,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpCircle,
   Check,
-  CheckCircle2,
   Loader2,
   Package,
   RefreshCw,
   Search,
+  SlidersHorizontal,
   Trash2,
-  TrendingUp,
   X,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
@@ -27,8 +26,15 @@ import { PosDepartmentRail } from '@/components/pos/PosDepartmentRail';
 import { apiDelete, apiPatch, apiPost } from '@/lib/utils/api-client';
 import { itemMatchesShopType } from '@/lib/utils/shop-type';
 import type { Item } from '@/lib/db/types';
+import { DepartmentStockAdjustForm } from '@/components/department/DepartmentStockAdjustForm';
 import { formatSellableItemName } from '@/lib/utils/group-items-by-parent';
 import { computeTopup, formatTopupDisplay } from '@/lib/utils/inventory-topup';
+import {
+  formatDateTime,
+  formatRelativeTime,
+  isWithinLastWeek,
+} from '@/lib/utils/format-relative-time';
+import type { AdjustmentReason } from '@/lib/constants';
 import { isDiscreteUnitType, UNIT_TYPES } from '@/lib/constants';
 import { toast } from 'sonner';
 
@@ -39,6 +45,10 @@ function sortByLastUpdated(items: StockListItem[]): StockListItem[] {
     (a, b) =>
       (b.last_updated_at ?? b.created_at) - (a.last_updated_at ?? a.created_at),
   );
+}
+
+function getLastUpdatedAt(item: StockListItem): number {
+  return item.last_updated_at ?? item.created_at;
 }
 
 function formatStockQty(stock: number, unitType: Item['unit_type']) {
@@ -126,17 +136,19 @@ function getLiveTopup(
   return computeTopup(currentStock, minStock, expectedStock);
 }
 
+interface TopupButtonProps {
+  topup: number;
+  unitType: Item['unit_type'];
+  isLoading?: boolean;
+  onTopup: () => void;
+}
+
 function TopupButton({
   topup,
   unitType,
   isLoading,
   onTopup,
-}: {
-  topup: number;
-  unitType: Item['unit_type'];
-  isLoading?: boolean;
-  onTopup: () => void;
-}) {
+}: TopupButtonProps) {
   if (topup <= 0) {
     return (
       <span className="text-slate-400 dark:text-slate-500 tabular-nums text-xs">—</span>
@@ -163,102 +175,6 @@ function TopupButton({
       )}
       +{label}
     </button>
-  );
-}
-
-interface SimpleStockFormProps {
-  selectedItem: Item;
-  topup: number;
-  isSubmitting: boolean;
-  onTopup: () => void;
-  onClose: () => void;
-}
-
-function DepartmentStockSimpleForm({
-  selectedItem,
-  topup,
-  isSubmitting,
-  onTopup,
-  onClose,
-}: SimpleStockFormProps) {
-  const needsTopup = topup > 0;
-  const target = selectedItem.expected_stock_level;
-
-  return (
-    <div className="flex flex-col flex-1 min-h-0">
-      <div className="flex-1 p-4 space-y-4">
-        <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Now
-            </span>
-            <span className="text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
-              {formatStockQty(selectedItem.current_stock, selectedItem.unit_type)}
-              <span className="text-sm font-normal text-slate-500 ml-1">
-                {selectedItem.unit_type}
-              </span>
-            </span>
-          </div>
-          {target != null && (
-            <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                Target
-              </span>
-              <span className="text-lg font-semibold tabular-nums text-[#1c6a1e]">
-                {formatStockQty(target, selectedItem.unit_type)}{' '}
-                <span className="text-sm font-normal text-slate-500">
-                  {selectedItem.unit_type}
-                </span>
-              </span>
-            </div>
-          )}
-        </div>
-
-        {needsTopup ? (
-          <div className="space-y-2">
-            <p className="text-sm text-amber-800 dark:text-amber-200 text-center">
-              Below minimum — add{' '}
-              <strong className="tabular-nums">
-                {formatStockQty(topup, selectedItem.unit_type)}
-              </strong>{' '}
-              to reach target
-            </p>
-            <Button
-              type="button"
-              onClick={onTopup}
-              disabled={isSubmitting}
-              className="w-full h-14 text-lg font-bold bg-[#1c6a1e] hover:bg-[#165a19] shadow-lg"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Updating…
-                </>
-              ) : (
-                <>
-                  <TrendingUp className="mr-2 h-5 w-5" />
-                  Top up +{formatStockQty(topup, selectedItem.unit_type)}
-                </>
-              )}
-            </Button>
-          </div>
-        ) : (
-          <div className="text-center py-6 px-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
-            <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
-            <p className="font-semibold text-slate-700 dark:text-slate-200">Stock OK</p>
-            <p className="text-sm text-slate-500 mt-1">
-              No top-up needed. Tap Stock in the table to change quantity.
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 p-3 bg-white dark:bg-[#1c2e18] safe-area-bottom">
-        <Button type="button" variant="outline" onClick={onClose} className="w-full h-11">
-          Close
-        </Button>
-      </div>
-    </div>
   );
 }
 
@@ -295,10 +211,11 @@ function InlineEditActions({
   );
 }
 
-type StockFilterKey = 'all' | 'out' | 'low' | 'ok';
+type StockFilterKey = 'all' | 'recent' | 'out' | 'low' | 'ok';
 
 const STOCK_FILTER_TABS: { key: StockFilterKey; label: string }[] = [
   { key: 'all', label: 'All' },
+  { key: 'recent', label: '< 1 wk' },
   { key: 'out', label: 'Out' },
   { key: 'low', label: 'Low' },
   { key: 'ok', label: 'OK' },
@@ -512,7 +429,7 @@ export function DepartmentStockScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [stockFilter, setStockFilter] = useState<StockFilterKey>('all');
-  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  const [selectedItem, setSelectedItem] = useState<StockListItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingStockId, setEditingStockId] = useState<string | null>(null);
   const [editingStockValue, setEditingStockValue] = useState('');
@@ -530,6 +447,7 @@ export function DepartmentStockScreen() {
   const [editingUnitValue, setEditingUnitValue] = useState('');
   const [savingUnitId, setSavingUnitId] = useState<string | null>(null);
   const [isTopupSubmitting, setIsTopupSubmitting] = useState(false);
+  const [isAdjustSubmitting, setIsAdjustSubmitting] = useState(false);
   const [toppingUpId, setToppingUpId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -614,7 +532,7 @@ export function DepartmentStockScreen() {
   );
 
   const handleQuickTopup = useCallback(
-    (item: Item, options?: { closeDrawer?: boolean }) => {
+    (item: StockListItem, options?: { closeDrawer?: boolean }) => {
       const qty = computeTopup(
         item.current_stock,
         item.min_stock_level,
@@ -623,6 +541,51 @@ export function DepartmentStockScreen() {
       void applyTopup(item, qty, options);
     },
     [applyTopup],
+  );
+
+  const handleStockAdjust = useCallback(
+    async (
+      item: StockListItem,
+      params: {
+        adjustmentType: 'increase' | 'decrease';
+        quantity: number;
+        reason: AdjustmentReason;
+        notes: string | null;
+      },
+    ) => {
+      setIsAdjustSubmitting(true);
+      try {
+        const result = await apiPost('/api/stock/adjust', {
+          itemId: item.id,
+          ...params,
+        });
+
+        if (result.success) {
+          const newStock =
+            params.adjustmentType === 'increase'
+              ? item.current_stock + params.quantity
+              : item.current_stock - params.quantity;
+          toast.success('Stock updated');
+          setItems((prev) =>
+            bumpItemUpdated(prev, item.id, { current_stock: newStock }),
+          );
+          setSelectedItem((prev) =>
+            prev?.id === item.id ? { ...prev, current_stock: newStock } : prev,
+          );
+          void fetchItems(true);
+          return true;
+        }
+
+        toast.error(result.message || 'Failed to update stock');
+        return false;
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'An error occurred');
+        return false;
+      } finally {
+        setIsAdjustSubmitting(false);
+      }
+    },
+    [fetchItems],
   );
 
   const scopedItems = useMemo(() => {
@@ -642,6 +605,7 @@ export function DepartmentStockScreen() {
   const statusCounts = useMemo(
     () => ({
       all: scopedItems.length,
+      recent: scopedItems.filter((i) => isWithinLastWeek(getLastUpdatedAt(i))).length,
       out: scopedItems.filter((i) => stockStatus(i) === 'out').length,
       low: scopedItems.filter((i) => stockStatus(i) === 'low').length,
       ok: scopedItems.filter((i) => stockStatus(i) === 'ok').length,
@@ -650,6 +614,9 @@ export function DepartmentStockScreen() {
   );
 
   const filteredItems = useMemo(() => {
+    if (stockFilter === 'recent') {
+      return scopedItems.filter((item) => isWithinLastWeek(getLastUpdatedAt(item)));
+    }
     if (stockFilter === 'all') return scopedItems;
     return scopedItems.filter((item) => stockStatus(item) === stockFilter);
   }, [scopedItems, stockFilter]);
@@ -674,11 +641,17 @@ export function DepartmentStockScreen() {
   );
 
   useEffect(() => {
-    if (
-      selectedItem &&
-      (!itemMatchesShopType(selectedItem, shopType) ||
-        (stockFilter !== 'all' && stockStatus(selectedItem) !== stockFilter))
-    ) {
+    if (!selectedItem) return;
+
+    const outOfScope =
+      !itemMatchesShopType(selectedItem, shopType) ||
+      (stockFilter === 'recent' &&
+        !isWithinLastWeek(getLastUpdatedAt(selectedItem))) ||
+      (stockFilter !== 'all' &&
+        stockFilter !== 'recent' &&
+        stockStatus(selectedItem) !== stockFilter);
+
+    if (outOfScope) {
       setSelectedItem(null);
       setDrawerOpen(false);
     }
@@ -706,7 +679,7 @@ export function DepartmentStockScreen() {
     setEditingUnitValue('');
   };
 
-  const openDrawer = useCallback((item: Item) => {
+  const openDrawer = useCallback((item: StockListItem) => {
     clearInlineEdits();
     setSelectedItem(item);
     setDrawerOpen(true);
@@ -1119,7 +1092,9 @@ export function DepartmentStockScreen() {
                           ? 'bg-amber-500 text-white border-amber-500'
                           : tab.key === 'ok'
                             ? 'bg-[#1c6a1e] text-white border-[#1c6a1e]'
-                            : 'bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900'
+                            : tab.key === 'recent'
+                              ? 'bg-sky-600 text-white border-sky-600'
+                              : 'bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900'
                       : 'bg-white dark:bg-[#1c2e18] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300'
                   }`}
                 >
@@ -1160,7 +1135,11 @@ export function DepartmentStockScreen() {
             <div className="flex flex-1 flex-col items-center justify-center text-center px-6">
               <Package className="w-10 h-10 text-slate-300 mb-2" />
               <p className="font-semibold text-slate-600 dark:text-slate-300">
-                {scopedItems.length === 0 ? 'No items found' : 'No items match this filter'}
+                {scopedItems.length === 0
+                  ? 'No items found'
+                  : stockFilter === 'recent'
+                    ? 'No products updated in the last week'
+                    : 'No items match this filter'}
               </p>
               {stockFilter !== 'all' && scopedItems.length > 0 && (
                 <button
@@ -1177,16 +1156,17 @@ export function DepartmentStockScreen() {
               <table className="w-full table-fixed border-collapse text-xs">
                 <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#1a2c17] border-b border-slate-200 dark:border-slate-700">
                   <tr className="text-left text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    <th className="px-1 py-1.5 w-[4%] text-center">#</th>
-                    <th className="px-1 py-1.5 w-[22%]">Product</th>
-                    <th className="px-1 py-1.5 w-[7%]">Unit</th>
-                    <th className="px-1 py-1.5 w-[8%] text-right">Price</th>
-                    <th className="px-1 py-1.5 w-[8%] text-right">Stock</th>
-                    <th className="px-1 py-1.5 w-[8%] text-right">Min</th>
-                    <th className="px-1 py-1.5 w-[9%] text-right">Expected</th>
-                    <th className="px-1 py-1.5 w-[8%] text-right">Topup</th>
-                    <th className="px-1 py-1.5 w-[6%]">St</th>
-                    <th className="px-1 py-1.5 w-[6%] text-right" aria-label="Actions" />
+                    <th className="px-1 py-1.5 w-[3%] text-center">#</th>
+                    <th className="px-1 py-1.5 w-[19%]">Product</th>
+                    <th className="px-1 py-1.5 w-[10%]">Updated</th>
+                    <th className="px-1 py-1.5 w-[6%]">Unit</th>
+                    <th className="px-1 py-1.5 w-[7%] text-right">Price</th>
+                    <th className="px-1 py-1.5 w-[7%] text-right">Stock</th>
+                    <th className="px-1 py-1.5 w-[7%] text-right">Min</th>
+                    <th className="px-1 py-1.5 w-[8%] text-right">Expected</th>
+                    <th className="px-1 py-1.5 w-[7%] text-right">Topup</th>
+                    <th className="px-1 py-1.5 w-[5%]">St</th>
+                    <th className="px-1 py-1.5 w-[8%] text-right" aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody>
@@ -1195,6 +1175,7 @@ export function DepartmentStockScreen() {
                     const selected = selectedItem?.id === item.id;
                     const topup = getLiveTopup(item, topupEditCtx);
                     const needsTopup = topup > 0;
+                    const lastUpdated = getLastUpdatedAt(item);
 
                     return (
                       <tr
@@ -1220,6 +1201,12 @@ export function DepartmentStockScreen() {
                           >
                             {displayItemName(item)}
                           </button>
+                        </td>
+                        <td
+                          className="px-1 py-1.5 text-[10px] text-slate-500 dark:text-slate-400 tabular-nums align-top whitespace-nowrap"
+                          title={formatDateTime(lastUpdated)}
+                        >
+                          {formatRelativeTime(lastUpdated)}
                         </td>
                             <td className="px-1 py-1.5 min-w-0 align-top">
                               <InlineUnitCell
@@ -1303,19 +1290,33 @@ export function DepartmentStockScreen() {
                               <StockStatusBadge status={status} />
                             </td>
                             <td className="px-1 py-1.5 text-right align-top">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  void handleDelete(item);
-                                }}
-                                disabled={isDeleting}
-                                className="inline-flex items-center justify-center w-7 h-7 rounded-md text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50"
-                                title="Delete product"
-                                aria-label={`Delete ${displayItemName(item)}`}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              <div className="flex items-center justify-end gap-0.5">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openDrawer(item);
+                                  }}
+                                  className="inline-flex items-center justify-center w-7 h-7 rounded-md text-[#1c6a1e] hover:bg-[#1c6a1e]/10 dark:hover:bg-[#1c6a1e]/20"
+                                  title="Adjust stock"
+                                  aria-label={`Adjust stock for ${displayItemName(item)}`}
+                                >
+                                  <SlidersHorizontal className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleDelete(item);
+                                  }}
+                                  disabled={isDeleting}
+                                  className="inline-flex items-center justify-center w-7 h-7 rounded-md text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50"
+                                  title="Delete product"
+                                  aria-label={`Delete ${displayItemName(item)}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
                             </td>
                       </tr>
                     );
@@ -1343,10 +1344,10 @@ export function DepartmentStockScreen() {
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                  Stock update
+                  Stock adjust
                 </p>
                 <DrawerTitle className="text-base font-bold truncate pr-2">
-                  {selectedItem ? displayItemName(selectedItem as StockListItem) : 'Stock'}
+                  {selectedItem ? displayItemName(selectedItem) : 'Stock'}
                 </DrawerTitle>
               </div>
               <DrawerClose asChild>
@@ -1357,11 +1358,13 @@ export function DepartmentStockScreen() {
             </div>
           </DrawerHeader>
           {selectedItem && (
-            <DepartmentStockSimpleForm
+            <DepartmentStockAdjustForm
               selectedItem={selectedItem}
               topup={selectedTopup}
-              isSubmitting={isTopupSubmitting}
+              lastUpdatedAt={getLastUpdatedAt(selectedItem)}
+              isSubmitting={isTopupSubmitting || isAdjustSubmitting}
               onTopup={() => handleQuickTopup(selectedItem, { closeDrawer: true })}
+              onAdjust={(params) => handleStockAdjust(selectedItem, params)}
               onClose={closeSelection}
             />
           )}
