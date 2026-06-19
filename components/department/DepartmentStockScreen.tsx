@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpCircle,
   Check,
@@ -27,14 +27,18 @@ import { PosDepartmentRail } from '@/components/pos/PosDepartmentRail';
 import { apiDelete, apiPatch, apiPost } from '@/lib/utils/api-client';
 import { itemMatchesShopType } from '@/lib/utils/shop-type';
 import type { Item } from '@/lib/db/types';
-import {
-  displayGroupedItemName,
-  groupItemsByParent,
-  type ItemWithParentName,
-} from '@/lib/utils/group-items-by-parent';
 import { computeTopup, formatTopupDisplay } from '@/lib/utils/inventory-topup';
 import { isDiscreteUnitType, UNIT_TYPES } from '@/lib/constants';
 import { toast } from 'sonner';
+
+type StockListItem = Item & { last_updated_at?: number };
+
+function sortByLastUpdated(items: StockListItem[]): StockListItem[] {
+  return [...items].sort(
+    (a, b) =>
+      (b.last_updated_at ?? b.created_at) - (a.last_updated_at ?? a.created_at),
+  );
+}
 
 function formatStockQty(stock: number, unitType: Item['unit_type']) {
   return isDiscreteUnitType(unitType)
@@ -74,8 +78,28 @@ function parseEditableStockValue(
   return parsed;
 }
 
+function displayItemName(item: Item): string {
+  if (item.parent_item_id) {
+    return item.variant_name?.trim() || item.name;
+  }
+  return item.name;
+}
+
+function bumpItemUpdated(
+  items: StockListItem[],
+  itemId: string,
+  patch: Partial<StockListItem>,
+): StockListItem[] {
+  const now = Math.floor(Date.now() / 1000);
+  return sortByLastUpdated(
+    items.map((i) =>
+      i.id === itemId ? { ...i, ...patch, last_updated_at: now } : i,
+    ),
+  );
+}
+
 function getLiveTopup(
-  item: ItemWithParentName,
+  item: StockListItem,
   ctx: {
     editingStockId: string | null;
     editingStockValue: string;
@@ -485,7 +509,7 @@ function InlineUnitCell({
 export function DepartmentStockScreen() {
   const { assignedTypes, shopType, setShopType } = useDepartmentApp();
 
-  const [items, setItems] = useState<ItemWithParentName[]>([]);
+  const [items, setItems] = useState<StockListItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -515,14 +539,18 @@ export function DepartmentStockScreen() {
     try {
       if (!silent) setLoadingItems(true);
       else setRefreshing(true);
-      const params = new URLSearchParams({ all: 'true', sellableOnly: 'true' });
+      const params = new URLSearchParams({
+        all: 'true',
+        sellableOnly: 'true',
+        sort: 'updated',
+      });
       if (assignedTypes.length > 0) {
         params.set('itemTypes', assignedTypes.join(','));
       }
       const res = await fetch(`/api/items?${params}`);
       const result = await res.json();
       if (result.success) {
-        setItems(result.data);
+        setItems(sortByLastUpdated(result.data));
       }
     } catch {
       toast.error('Failed to load items');
@@ -565,9 +593,7 @@ export function DepartmentStockScreen() {
             `Added ${formatStockQty(qty, item.unit_type)} — now ${formatStockQty(newStock, item.unit_type)}`,
           );
           setItems((prev) =>
-            prev.map((i) =>
-              i.id === item.id ? { ...i, current_stock: newStock } : i,
-            ),
+            bumpItemUpdated(prev, item.id, { current_stock: newStock }),
           );
           setSelectedItem((prev) =>
             prev?.id === item.id ? { ...prev, current_stock: newStock } : prev,
@@ -608,6 +634,7 @@ export function DepartmentStockScreen() {
     return list.filter(
       (item) =>
         item.name.toLowerCase().includes(q) ||
+        (item.variant_name?.toLowerCase().includes(q) ?? false) ||
         item.unit_type.toLowerCase().includes(q),
     );
   }, [items, searchQuery, shopType]);
@@ -626,11 +653,6 @@ export function DepartmentStockScreen() {
     if (stockFilter === 'all') return scopedItems;
     return scopedItems.filter((item) => stockStatus(item) === stockFilter);
   }, [scopedItems, stockFilter]);
-
-  const groupedItems = useMemo(
-    () => groupItemsByParent(filteredItems),
-    [filteredItems],
-  );
 
   const topupEditCtx = useMemo(
     () => ({
@@ -818,9 +840,7 @@ export function DepartmentStockScreen() {
       if (result.success) {
         toast.success('Stock updated');
         setItems((prev) =>
-          prev.map((i) =>
-            i.id === item.id ? { ...i, current_stock: target } : i,
-          ),
+          bumpItemUpdated(prev, item.id, { current_stock: target }),
         );
         void fetchItems(true);
       } else {
@@ -1170,73 +1190,37 @@ export function DepartmentStockScreen() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(() => {
-                    let rowIndex = 0;
-                    return groupedItems.flatMap((group) => {
-                      const rows: ReactNode[] = [];
+                  {filteredItems.map((item, index) => {
+                    const status = stockStatus(item);
+                    const selected = selectedItem?.id === item.id;
+                    const topup = getLiveTopup(item, topupEditCtx);
+                    const needsTopup = topup > 0;
 
-                      if (group.isVariantGroup) {
-                        rows.push(
-                          <tr
-                            key={`parent-${group.id}`}
-                            className="bg-slate-200/80 dark:bg-[#1f3420] border-b border-slate-300 dark:border-slate-700"
+                    return (
+                      <tr
+                        key={item.id}
+                        className={`border-b border-slate-100 dark:border-slate-800/80 transition-colors ${
+                          needsTopup
+                            ? 'bg-amber-50/90 dark:bg-amber-950/25 ring-1 ring-inset ring-amber-300/50 dark:ring-amber-600/40'
+                            : selected
+                              ? 'bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20'
+                              : index % 2 === 0
+                                ? 'bg-white dark:bg-[#132210]'
+                                : 'bg-slate-50/80 dark:bg-[#161f14]'
+                        }`}
+                      >
+                        <td className="px-1 py-1.5 text-center text-[10px] text-slate-400 tabular-nums align-top">
+                          {index + 1}
+                        </td>
+                        <td className="px-1 py-1.5 font-medium text-slate-900 dark:text-white min-w-0 align-top">
+                          <button
+                            type="button"
+                            onClick={() => openDrawer(item)}
+                            className="text-left whitespace-normal break-words text-xs leading-snug hover:text-[#1c6a1e] hover:underline underline-offset-2 w-full"
                           >
-                            <td
-                              colSpan={10}
-                              className="px-2 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wide text-[#1c6a1e] dark:text-emerald-300"
-                            >
-                              {group.label}
-                              <span className="ml-2 font-semibold normal-case tracking-normal text-slate-500 dark:text-slate-400">
-                                ({group.items.length} variant{group.items.length !== 1 ? 's' : ''})
-                              </span>
-                            </td>
-                          </tr>,
-                        );
-                      }
-
-                      for (const item of group.items) {
-                        rowIndex += 1;
-                        const index = rowIndex;
-                        const status = stockStatus(item);
-                        const selected = selectedItem?.id === item.id;
-                        const isVariantRow = group.isVariantGroup;
-                        const topup = getLiveTopup(item, topupEditCtx);
-                        const needsTopup = topup > 0;
-
-                        rows.push(
-                          <tr
-                            key={item.id}
-                            className={`border-b border-slate-100 dark:border-slate-800/80 transition-colors ${
-                              needsTopup
-                                ? 'bg-amber-50/90 dark:bg-amber-950/25 ring-1 ring-inset ring-amber-300/50 dark:ring-amber-600/40'
-                                : selected
-                                  ? 'bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20'
-                                  : index % 2 === 0
-                                    ? 'bg-white dark:bg-[#132210]'
-                                    : 'bg-slate-50/80 dark:bg-[#161f14]'
-                            }`}
-                          >
-                            <td className="px-1 py-1.5 text-center text-[10px] text-slate-400 tabular-nums align-top">
-                              {index}
-                            </td>
-                            <td
-                              className={`px-1 py-1.5 font-medium text-slate-900 dark:text-white min-w-0 align-top ${
-                                isVariantRow ? 'pl-3' : ''
-                              }`}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => openDrawer(item)}
-                                className={`text-left whitespace-normal break-words text-xs leading-snug hover:text-[#1c6a1e] hover:underline underline-offset-2 w-full ${
-                                  isVariantRow ? 'text-slate-700 dark:text-slate-200' : ''
-                                }`}
-                              >
-                                {isVariantRow && (
-                                  <span className="text-slate-400 dark:text-slate-500 mr-1">↳</span>
-                                )}
-                                {displayGroupedItemName(item)}
-                              </button>
-                            </td>
+                            {displayItemName(item)}
+                          </button>
+                        </td>
                             <td className="px-1 py-1.5 min-w-0 align-top">
                               <InlineUnitCell
                                 unitType={item.unit_type}
@@ -1333,13 +1317,9 @@ export function DepartmentStockScreen() {
                                 <Trash2 className="w-4 h-4" />
                               </button>
                             </td>
-                          </tr>,
-                        );
-                      }
-
-                      return rows;
-                    });
-                  })()}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

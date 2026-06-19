@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
     const itemType = searchParams.get("itemType")?.trim() || null;
     const itemTypes = searchParams.get("itemTypes")?.trim() || null; // Comma-separated list of type keys
     const noBarcode = searchParams.get("noBarcode") === "true";
+    const sort = searchParams.get("sort");
 
     const itemTypeFilter = itemType ? ` AND item_type = ?` : "";
     const itemTypeParam = itemType ? [itemType] : [];
@@ -417,15 +418,26 @@ export async function GET(request: NextRequest) {
       } else if (sellableOnly) {
         // Only sellable items (variants OR standalone items without variants)
         const variantActiveFilter = includeInactive ? "" : " AND v.active = 1";
-        items = await query<Item & { parent_name?: string | null }>(
-          `SELECT i.*, p.name as parent_name FROM items i
+        const lastUpdatedSql = `COALESCE(
+             (SELECT MAX(al.created_at) FROM activity_log al
+              WHERE al.business_id = i.business_id AND al.entity_id = i.id),
+             (SELECT MAX(sa.created_at) FROM stock_adjustments sa WHERE sa.item_id = i.id),
+             i.created_at
+           )`;
+        const orderBy =
+          sort === "updated"
+            ? `${lastUpdatedSql} DESC, i.name ASC`
+            : "i.name ASC";
+        items = await query<Item & { parent_name?: string | null; last_updated_at?: number }>(
+          `SELECT i.*, p.name as parent_name, ${lastUpdatedSql} AS last_updated_at
+           FROM items i
            LEFT JOIN items p ON i.parent_item_id = p.id AND p.business_id = i.business_id
            WHERE i.business_id = ?${iActiveFilter}${itemTypeFilter.replace(" AND ", " AND i.")}${itemTypeInFilterAlias}${noBarcodeFilterAlias}${noBarcodeExcludeParentsAlias}
            AND (
              i.parent_item_id IS NOT NULL
              OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id${variantActiveFilter})
            )
-           ORDER BY COALESCE(p.name, i.name) ASC, COALESCE(i.variant_name, i.name) ASC`,
+           ORDER BY ${orderBy}`,
           itemTypeList
             ? [auth.businessId, ...itemTypeList, ...itemTypeParam]
             : [auth.businessId, ...itemTypeParam],
