@@ -236,7 +236,7 @@ function BreakdownDrawer({
             </div>
           </div>
           <DrawerDescription className="text-xs text-blue-800/70 dark:text-blue-200/70 mt-1">
-            Break down items and add more to this purchase
+            Review auto-filled quantities and confirm everything in one step
           </DrawerDescription>
         </DrawerHeader>
         <div className="overflow-y-auto px-4 sm:px-6 pb-24 flex-1 bg-gradient-to-b from-blue-50/30 via-white to-white dark:from-blue-950/10 dark:via-[#0f1a0d] dark:to-[#0f1a0d]">
