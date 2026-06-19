@@ -34,7 +34,6 @@ import type { POProductOption } from "@/components/department/supply/POLineEdito
 import {
   deptLabel,
   formatSupplierName,
-  sortProductsAlphabetically,
 } from "@/lib/department/supply-constants";
 import {
   clearNewPODraft,
@@ -109,6 +108,7 @@ export default function NewPurchaseOrderPage() {
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [localDraftSaved, setLocalDraftSaved] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
+  const [supplierExpanded, setSupplierExpanded] = useState(true);
   const draftLoadedRef = useRef(false);
 
   const selectedSupplier = suppliers.find((s) => s.id === supplierId);
@@ -193,10 +193,7 @@ export default function NewPurchaseOrderPage() {
         `/api/department/suppliers/${supplierId}/products?departmentKey=${encodeURIComponent(department)}`,
       );
       if (result.success && result.data) {
-        const options = sortProductsAlphabetically(
-          result.data.map(toProductOption),
-          (p) => getItemDisplayName(p.name, p.variantName),
-        );
+        const options = result.data.map(toProductOption);
         setProducts(options);
         setLineInputs((prev) => mergeLineInputs(options, prev));
       } else {
@@ -266,6 +263,12 @@ export default function NewPurchaseOrderPage() {
     }
   }, [assignedTypes, department]);
 
+  useEffect(() => {
+    if (supplierId && !loadingProducts && products.length > 0) {
+      setSupplierExpanded(false);
+    }
+  }, [supplierId, loadingProducts, products.length]);
+
   const filledLineCount = useMemo(
     () =>
       products.filter((p) => {
@@ -298,7 +301,30 @@ export default function NewPurchaseOrderPage() {
     filledLineCount > 0 &&
     lineTotal > 0;
 
-  const hasUnsavedServerDraft = canSave;
+  const hasLocalProgress = useMemo(
+    () =>
+      !!supplierId ||
+      notes.trim() !== "" ||
+      Object.values(lineInputs).some(
+        (line) => line.qty.trim() !== "" || line.cost.trim() !== "",
+      ),
+    [supplierId, notes, lineInputs],
+  );
+
+  useEffect(() => {
+    const handler = (event: BeforeUnloadEvent) => {
+      if (!hasLocalProgress) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [hasLocalProgress]);
+
+  const recentItemIds = useMemo(
+    () => lastOrder?.lines.map((line) => line.itemId) ?? [],
+    [lastOrder],
+  );
 
   const applyLastOrder = () => {
     if (!lastOrder) return;
@@ -415,7 +441,7 @@ export default function NewPurchaseOrderPage() {
   };
 
   const handleBackClick = () => {
-    if (hasUnsavedServerDraft) {
+    if (hasLocalProgress) {
       setExitDialogOpen(true);
       return;
     }
@@ -492,78 +518,122 @@ export default function NewPurchaseOrderPage() {
             />
 
             <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 overflow-hidden">
-              <div className="px-3 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
-                <div className="flex items-center gap-2 mb-2">
-                  <Truck className="w-3.5 h-3.5 text-[#1c6a1e]" />
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                    Who are you ordering from?
-                  </span>
-                </div>
-                <div
-                  className={`grid gap-2 ${assignedTypes.length > 1 ? "sm:grid-cols-2" : ""}`}
-                >
-                  {assignedTypes.length > 1 && (
-                    <div className="space-y-1">
-                      <Label className="text-[10px] text-slate-500">
-                        Department
-                      </Label>
-                      <Select
-                        value={department}
-                        onValueChange={(v) => {
-                          setDepartment(v);
-                          setSupplierId("");
-                          setProducts([]);
-                          setLineInputs({});
-                        }}
-                      >
-                        <SelectTrigger className="h-9 text-sm">
-                          <SelectValue placeholder="Department" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {assignedTypes.map((key) => (
-                            <SelectItem key={key} value={key}>
-                              {deptLabel(key)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+              <div className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
+                {supplierExpanded || !supplierId ? (
+                  <div className="px-3 py-3">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2">
+                        <Truck className="w-3.5 h-3.5 text-[#1c6a1e]" />
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                          Who are you ordering from?
+                        </span>
+                      </div>
+                      {supplierId && (
+                        <button
+                          type="button"
+                          onClick={() => setSupplierExpanded(false)}
+                          className="text-[10px] font-semibold text-[#1c6a1e]"
+                        >
+                          Done
+                        </button>
+                      )}
                     </div>
-                  )}
-                  <div className="space-y-1">
-                    <Label className="text-[10px] text-slate-500">Supplier</Label>
-                    <Select
-                      value={supplierId}
-                      onValueChange={(v) => {
-                        setSupplierId(v);
-                        setProducts([]);
-                        setLineInputs({});
-                        setLastOrder(null);
-                      }}
+                    <div
+                      className={`grid gap-2 ${assignedTypes.length > 1 ? "sm:grid-cols-2" : ""}`}
                     >
-                      <SelectTrigger className="h-9 text-sm">
-                        <SelectValue placeholder="Select supplier" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {suppliers.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {formatSupplierName(s.name)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      {assignedTypes.length > 1 && (
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-slate-500">
+                            Department
+                          </Label>
+                          <Select
+                            value={department}
+                            onValueChange={(v) => {
+                              setDepartment(v);
+                              setSupplierId("");
+                              setProducts([]);
+                              setLineInputs({});
+                              setLastOrder(null);
+                              setSupplierExpanded(true);
+                            }}
+                          >
+                            <SelectTrigger className="h-9 text-sm">
+                              <SelectValue placeholder="Department" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {assignedTypes.map((key) => (
+                                <SelectItem key={key} value={key}>
+                                  {deptLabel(key)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-slate-500">
+                          Supplier
+                        </Label>
+                        <Select
+                          value={supplierId}
+                          onValueChange={(v) => {
+                            setSupplierId(v);
+                            setProducts([]);
+                            setLineInputs({});
+                            setLastOrder(null);
+                          }}
+                        >
+                          <SelectTrigger className="h-9 text-sm">
+                            <SelectValue placeholder="Select supplier" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {suppliers.map((s) => (
+                              <SelectItem key={s.id} value={s.id}>
+                                {formatSupplierName(s.name)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    {suppliers.length === 0 && (
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-2">
+                        No suppliers assigned — ask admin to link one to your
+                        department.
+                      </p>
+                    )}
                   </div>
-                </div>
-                {suppliers.length === 0 && (
-                  <p className="text-[11px] text-amber-600 dark:text-amber-400 mt-2">
-                    No suppliers assigned — ask admin to link one to your
-                    department.
-                  </p>
-                )}
-                {selectedSupplier && products.length > 0 && !loadingProducts && (
-                  <p className="text-[11px] text-[#1c6a1e] mt-2 font-medium">
-                    {products.length} product{products.length !== 1 ? "s" : ""}{" "}
-                    available from {formatSupplierName(selectedSupplier.name)}
-                  </p>
+                ) : (
+                  <div className="px-3 py-2.5 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                        Ordering from
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                        {assignedTypes.length > 1 && (
+                          <span>{deptLabel(department)} · </span>
+                        )}
+                        {selectedSupplier
+                          ? formatSupplierName(selectedSupplier.name)
+                          : "Supplier"}
+                      </p>
+                      {products.length > 0 && !loadingProducts && (
+                        <p className="text-[11px] text-[#1c6a1e] mt-0.5">
+                          {products.length} product
+                          {products.length !== 1 ? "s" : ""} available
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSupplierExpanded(true)}
+                      className="h-8 text-xs shrink-0"
+                    >
+                      Change
+                    </Button>
+                  </div>
                 )}
               </div>
 
@@ -583,6 +653,7 @@ export default function NewPurchaseOrderPage() {
                     lastOrderAvailable={!!lastOrder}
                     lastOrderLoading={loadingLastOrder}
                     lastOrderLabel={lastOrderLabel}
+                    recentItemIds={recentItemIds}
                   />
                 )}
               </div>
@@ -630,10 +701,13 @@ export default function NewPurchaseOrderPage() {
       <Dialog open={exitDialogOpen} onOpenChange={setExitDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Save before leaving?</DialogTitle>
+            <DialogTitle>
+              {canSave ? "Save before leaving?" : "Leave this order?"}
+            </DialogTitle>
             <DialogDescription>
-              You have products ready to order. Save as a draft on the server, or
-              leave — your progress is already saved on this device.
+              {canSave
+                ? "You have products ready to order. Save as a draft on the server, or leave — your progress is already saved on this device."
+                : "Your progress is saved on this device. You can come back and continue later."}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
@@ -656,18 +730,20 @@ export default function NewPurchaseOrderPage() {
             >
               Leave anyway
             </Button>
-            <Button
-              type="button"
-              className="bg-[#1c6a1e] hover:bg-[#165a19]"
-              disabled={submitting}
-              onClick={() => void handleExitSaveDraft()}
-            >
-              {submitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                "Save draft"
-              )}
-            </Button>
+            {canSave && (
+              <Button
+                type="button"
+                className="bg-[#1c6a1e] hover:bg-[#165a19]"
+                disabled={submitting}
+                onClick={() => void handleExitSaveDraft()}
+              >
+                {submitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "Save draft"
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

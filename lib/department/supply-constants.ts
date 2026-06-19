@@ -189,6 +189,38 @@ export function sortProductsAlphabetically<
   );
 }
 
+/** Recently ordered / updated items first, then the rest A–Z. */
+export function sortProductsRecentlyThenAlphabetically<
+  T extends {
+    id: string;
+    name: string;
+    variantName?: string | null;
+    lastUpdatedAt?: number | null;
+  },
+>(products: T[], recentIds: string[], displayName?: (p: T) => string): T[] {
+  const label = displayName ?? ((p: T) => p.name);
+  const recentOrder = new Map(recentIds.map((id, index) => [id, index]));
+  const recentSet = new Set(recentIds);
+
+  const fromLastOrder = products
+    .filter((p) => recentSet.has(p.id))
+    .sort(
+      (a, b) =>
+        (recentOrder.get(a.id) ?? 0) - (recentOrder.get(b.id) ?? 0),
+    );
+
+  const remaining = products.filter((p) => !recentSet.has(p.id));
+  const withUpdates = remaining
+    .filter((p) => p.lastUpdatedAt != null)
+    .sort((a, b) => (b.lastUpdatedAt ?? 0) - (a.lastUpdatedAt ?? 0));
+  const withoutUpdates = sortProductsAlphabetically(
+    remaining.filter((p) => p.lastUpdatedAt == null),
+    label,
+  );
+
+  return [...fromLastOrder, ...withUpdates, ...withoutUpdates];
+}
+
 export type AdminTab = "setup" | "approvals" | "deliveries";
 
 export const ADMIN_TABS: { key: AdminTab; label: string; icon: LucideIcon }[] = [

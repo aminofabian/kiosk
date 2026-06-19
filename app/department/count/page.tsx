@@ -111,12 +111,6 @@ function getItemCount(batch: CountBatchWithItem, phase: Phase): number | null {
   return phase === "morning" ? batch.morning_count : batch.evening_count;
 }
 
-function getSystemStock(batch: CountBatchWithItem, phase: Phase): number {
-  return phase === "morning"
-    ? batch.system_stock_morning
-    : (batch.system_stock_evening ?? batch.system_stock_morning);
-}
-
 function getSelectionLabel(source: string | null | undefined): string | null {
   if (!source) return null;
   if (source in POOL_SOURCE_LABELS) {
@@ -124,6 +118,43 @@ function getSelectionLabel(source: string | null | undefined): string | null {
   }
   return null;
 }
+
+type ItemDisplayStatus = "Pending" | "Counted" | "Not found";
+
+function getItemDisplayStatus(
+  batch: CountBatchWithItem,
+  phase: Phase,
+  counts: Record<string, ItemCountEntry>,
+): ItemDisplayStatus {
+  const entry = counts[batch.item_id];
+  if (entry?.status === "not_located") return "Not found";
+  if (entry?.status === "counted") return "Counted";
+  const serverStatus = getItemStatus(batch, phase);
+  if (serverStatus === "not_located") return "Not found";
+  if (serverStatus === "counted") return "Counted";
+  return "Pending";
+}
+
+const ITEM_STATUS_STYLES: Record<
+  ItemDisplayStatus,
+  { chip: string; active: string }
+> = {
+  Pending: {
+    chip: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+    active:
+      "ring-2 ring-slate-400 bg-slate-200 dark:bg-slate-700 dark:text-slate-200",
+  },
+  Counted: {
+    chip: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400",
+    active:
+      "ring-2 ring-emerald-500 bg-emerald-100 dark:bg-emerald-900/50 dark:text-emerald-300",
+  },
+  "Not found": {
+    chip: "bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-400",
+    active:
+      "ring-2 ring-red-500 bg-red-100 dark:bg-red-900/50 dark:text-red-300",
+  },
+};
 
 // ── Page Component ─────────────────────────────────────────────
 
@@ -667,36 +698,36 @@ export default function DepartmentCountPage() {
 
     return (
       <div className="h-full overflow-y-auto bg-[#f6f8f6] dark:bg-[#0f1a0d]">
-        <div className="max-w-lg mx-auto p-4 pt-6">
-          <div className="bg-white dark:bg-[#1a2c17] rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800/60 p-6">
-            <div className="flex items-center justify-center mb-4">
-              <div className="w-16 h-16 rounded-full bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center">
-                <Sun className="w-8 h-8 text-amber-500" />
+        <div className="max-w-lg mx-auto p-4 pt-5">
+          <div className="bg-white dark:bg-[#1a2c17] rounded-xl shadow-sm border border-slate-200/60 dark:border-slate-800/60 p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-11 h-11 rounded-full bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center shrink-0">
+                <Sun className="w-5 h-5 text-amber-500" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-900 dark:text-white">
+                  Opening Count Complete
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {totalItems} items counted — ready for closing count
+                </p>
               </div>
             </div>
 
-            <h2 className="text-xl font-bold text-center text-slate-900 dark:text-white mb-2">
-              Opening Count Complete
-            </h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400 text-center mb-6">
-              You counted {totalItems} items this morning. When you&apos;re
-              ready to close the shift, count the same {totalItems} items again.
-            </p>
-
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              <div className="bg-emerald-50 dark:bg-emerald-950/30 rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">
+            <div className="flex gap-2 mb-4">
+              <div className="flex-1 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg px-3 py-2 text-center">
+                <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">
                   {morningCounted}
                 </p>
-                <p className="text-xs text-emerald-600 dark:text-emerald-500 mt-0.5">
+                <p className="text-[11px] text-emerald-600 dark:text-emerald-500">
                   Counted
                 </p>
               </div>
-              <div className="bg-red-50 dark:bg-red-950/30 rounded-xl p-4 text-center">
-                <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+              <div className="flex-1 bg-red-50 dark:bg-red-950/30 rounded-lg px-3 py-2 text-center">
+                <p className="text-lg font-bold text-red-600 dark:text-red-400 tabular-nums">
                   {morningNotFound}
                 </p>
-                <p className="text-xs text-red-500 dark:text-red-400 mt-0.5">
+                <p className="text-[11px] text-red-500 dark:text-red-400">
                   Not found
                 </p>
               </div>
@@ -704,7 +735,7 @@ export default function DepartmentCountPage() {
 
             {error && (
               <p
-                className="text-sm text-red-600 dark:text-red-400 text-center mb-4"
+                className="text-sm text-red-600 dark:text-red-400 mb-3"
                 role="alert"
               >
                 {error}
@@ -715,16 +746,16 @@ export default function DepartmentCountPage() {
               type="button"
               onClick={handleStartClosingCount}
               disabled={startingClosingCount}
-              className="w-full h-12 min-h-[48px] rounded-xl bg-[#1c6a1e] text-white font-semibold text-sm active:scale-[0.98] transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full h-11 rounded-xl bg-[#1c6a1e] text-white font-semibold text-sm active:scale-[0.98] transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {startingClosingCount ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Preparing closing count…
+                  Preparing…
                 </>
               ) : (
                 <>
-                  <Moon className="w-5 h-5" />
+                  <Moon className="w-4 h-4" />
                   Start Closing Count
                 </>
               )}
@@ -741,7 +772,6 @@ export default function DepartmentCountPage() {
 
   return (
     <div className="h-full flex flex-col bg-[#f6f8f6] dark:bg-[#0f1a0d]">
-      {/* Barcode Scanner Dialog */}
       <BarcodeCameraScannerDialog
         open={scannerOpen}
         onOpenChange={setScannerOpen}
@@ -749,24 +779,45 @@ export default function DepartmentCountPage() {
       />
 
       {/* Header */}
-      <div className="shrink-0 px-4 pt-4 pb-2">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h1 className="text-lg font-bold text-slate-900 dark:text-white">
+      <div className="shrink-0 px-3 pt-3 pb-2 border-b border-slate-200/60 dark:border-slate-800/60 bg-white/80 dark:bg-[#0f1a0d]/80">
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="min-w-0">
+            <h1 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
               {phaseLabel}
             </h1>
             {isEvening && (
-              <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
-                Opening count done — count the same items for closing
+              <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                Same items as opening count
               </p>
             )}
           </div>
-          <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
-            {countedItems}/{totalItems}
-          </span>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
+              disabled={currentIndex === 0}
+              className="h-8 w-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center disabled:opacity-30"
+              aria-label="Previous item"
+            >
+              <ChevronLeft className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+            </button>
+            <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 tabular-nums min-w-[4.5rem] text-center">
+              {currentIndex + 1} / {totalItems}
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                setCurrentIndex((i) => Math.min(totalItems - 1, i + 1))
+              }
+              disabled={currentIndex >= totalItems - 1}
+              className="h-8 w-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center disabled:opacity-30"
+              aria-label="Next item"
+            >
+              <ChevronRight className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+            </button>
+          </div>
         </div>
-        {/* Progress bar */}
-        <div className="h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+        <div className="h-1 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
           <div
             className="h-full rounded-full bg-[#1c6a1e] transition-all duration-300"
             style={{
@@ -774,132 +825,151 @@ export default function DepartmentCountPage() {
             }}
           />
         </div>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1.5">
+          {countedItems} of {totalItems} entered
+        </p>
       </div>
 
-      {/* Scrollable content */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3">
+      {/* Item status strip — full labels, no truncation */}
+      {batches && phase && (
+        <div className="shrink-0 px-3 py-2 border-b border-slate-200/40 dark:border-slate-800/40 bg-white dark:bg-[#1a2c17]">
+          <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-0.5">
+            {batches.map((batch, idx) => {
+              const displayStatus = getItemDisplayStatus(batch, phase, counts);
+              const styles = ITEM_STATUS_STYLES[displayStatus];
+              const isActive = idx === currentIndex;
+              return (
+                <button
+                  key={batch.item_id}
+                  type="button"
+                  onClick={() => setCurrentIndex(idx)}
+                  className={`shrink-0 flex flex-col items-center min-w-[3.25rem] px-2 py-1 rounded-lg text-center transition-all ${styles.chip} ${isActive ? styles.active : ""}`}
+                >
+                  <span className="text-xs font-bold tabular-nums leading-none">
+                    {idx + 1}
+                  </span>
+                  <span className="text-[10px] font-medium leading-tight mt-0.5 whitespace-nowrap">
+                    {displayStatus}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Main content */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2">
         {currentBatch && (
-          <div className="bg-white dark:bg-[#1a2c17] rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-800/60 p-5">
-            {/* Item name */}
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">
+          <div className="bg-white dark:bg-[#1a2c17] rounded-xl border border-slate-200/60 dark:border-slate-800/60 p-3">
+            <h2 className="text-base font-bold text-slate-900 dark:text-white leading-snug">
               {currentBatch.item_name}
             </h2>
 
-            {(() => {
-              const selectionLabel = getSelectionLabel(
-                currentBatch.selection_source,
-              );
-              return selectionLabel ? (
-                <span className="inline-flex items-center rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-300 mb-2">
-                  {selectionLabel}
-                </span>
-              ) : null;
-            })()}
-
-            {/* Barcode */}
-            {currentBatch.barcode && (
-              <p className="text-sm text-slate-400 dark:text-slate-500 mb-3 font-mono tracking-wide">
-                {currentBatch.barcode}
-              </p>
-            )}
-
-            {/* System stock */}
-            <div className="flex items-baseline gap-2 mb-4">
-              <span className="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                System
-              </span>
-              <span className="text-2xl font-bold text-slate-700 dark:text-slate-300">
-                {phase && getSystemStock(currentBatch, phase)}
-              </span>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1 mb-2 text-[11px] text-slate-500 dark:text-slate-400">
+              {currentBatch.barcode && (
+                <span className="font-mono">{currentBatch.barcode}</span>
+              )}
+              {(() => {
+                const selectionLabel = getSelectionLabel(
+                  currentBatch.selection_source,
+                );
+                return selectionLabel ? (
+                  <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2 py-0.5 font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                    {selectionLabel}
+                  </span>
+                ) : null;
+              })()}
               {isEvening && currentBatch.morning_count !== null && (
-                <span className="text-xs text-slate-400 dark:text-slate-500">
-                  opening: {currentBatch.morning_count}
+                <span className="whitespace-nowrap">
+                  Opening:{" "}
+                  <span className="font-semibold text-slate-700 dark:text-slate-300 tabular-nums">
+                    {currentBatch.morning_count}
+                  </span>
                 </span>
               )}
             </div>
 
-            {/* Current count status banner */}
-            {currentEntry ? (
-              <div className="mb-4">
-                {currentEntry.status === "not_located" ? (
-                  <div className="flex items-center gap-2 bg-red-50 dark:bg-red-950/30 rounded-xl px-4 py-3">
-                    <SearchX className="w-5 h-5 text-red-500 shrink-0" />
-                    <span className="text-sm font-semibold text-red-600 dark:text-red-400">
-                      Marked as not found
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleClearCount(currentBatch.item_id)}
-                      className="ml-auto text-xs text-red-500 underline"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/30 rounded-xl px-4 py-3">
-                    <span className="text-sm text-slate-500 dark:text-slate-400">
-                      Counted
-                    </span>
-                    <span className="text-2xl font-bold text-slate-900 dark:text-white tabular-nums">
-                      {currentEntry.count || "0"}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleClearCount(currentBatch.item_id)}
-                      className="text-xs text-slate-400 underline"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                )}
-              </div>
-            ) : null}
-
-            {!needsBarcodeVerify && (
-              <button
-                type="button"
-                onClick={() =>
-                  setVerifiedBarcodes((prev) => ({
-                    ...prev,
-                    [currentBatch.item_id]: true,
-                  }))
-                }
-                className="mb-4 w-full h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-sm font-medium"
-              >
-                Confirm item (no barcode)
-              </button>
-            )}
-
-            {needsBarcodeVerify && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (!barcodeVerified) setScannerOpen(true);
-                }}
-                disabled={barcodeVerified}
-                className={`mb-2 w-full flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-left active:scale-[0.99] transition-transform ${
-                  barcodeVerified
-                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
-                    : "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
+            {/* Entry status */}
+            {currentEntry && (
+              <div
+                className={`mb-2 flex items-center justify-between rounded-lg px-3 py-2 text-sm ${
+                  currentEntry.status === "not_located"
+                    ? "bg-red-50 dark:bg-red-950/30"
+                    : "bg-emerald-50 dark:bg-emerald-950/30"
                 }`}
               >
-                <Scan className="w-4 h-4 shrink-0" />
-                {barcodeVerified
-                  ? "Barcode verified"
-                  : "Tap to scan barcode and verify this item"}
-              </button>
-            )}
-            {needsBarcodeVerify && !barcodeVerified && (
-              <button
-                type="button"
-                onClick={handleManualVerify}
-                className="mb-4 w-full text-xs text-slate-500 dark:text-slate-400 underline"
-              >
-                Can&apos;t scan? I&apos;ve visually confirmed this item
-              </button>
+                <span
+                  className={`font-medium ${
+                    currentEntry.status === "not_located"
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-emerald-700 dark:text-emerald-400"
+                  }`}
+                >
+                  {currentEntry.status === "not_located"
+                    ? "Not found"
+                    : "Counted"}
+                </span>
+                {currentEntry.status === "counted" && (
+                  <span className="text-lg font-bold tabular-nums text-slate-900 dark:text-white">
+                    {currentEntry.count || "0"}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleClearCount(currentBatch.item_id)}
+                  className="text-[11px] text-slate-400 underline ml-2"
+                >
+                  Clear
+                </button>
+              </div>
             )}
 
-            {/* Numeric keypad */}
+            {/* Barcode verify */}
+            {needsBarcodeVerify ? (
+              <div className="mb-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!barcodeVerified) setScannerOpen(true);
+                  }}
+                  disabled={barcodeVerified}
+                  className={`flex-1 flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium ${
+                    barcodeVerified
+                      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400"
+                      : "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
+                  }`}
+                >
+                  <Scan className="w-3.5 h-3.5 shrink-0" />
+                  {barcodeVerified ? "Barcode verified" : "Scan to verify"}
+                </button>
+                {!barcodeVerified && (
+                  <button
+                    type="button"
+                    onClick={handleManualVerify}
+                    className="text-[11px] text-slate-500 underline shrink-0"
+                  >
+                    Visual OK
+                  </button>
+                )}
+              </div>
+            ) : (
+              !verifiedBarcodes[currentBatch.item_id] && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVerifiedBarcodes((prev) => ({
+                      ...prev,
+                      [currentBatch.item_id]: true,
+                    }))
+                  }
+                  className="mb-2 w-full rounded-lg bg-slate-100 dark:bg-slate-800 px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300"
+                >
+                  Confirm item (no barcode)
+                </button>
+              )
+            )}
+
             <PosNumericKeypad
               value={
                 currentEntry?.status === "counted" ? currentEntry.count : ""
@@ -910,95 +980,55 @@ export default function DepartmentCountPage() {
               allowDecimal={
                 !isDiscreteUnitType(currentBatch.unit_type as UnitType)
               }
-              className="mb-3"
+              className="mb-2"
             />
 
-            <button
-              type="button"
-              onClick={handleConfirmItem}
-              disabled={!currentEntry}
-              className="w-full h-12 min-h-[48px] rounded-xl bg-[#1c6a1e] text-white font-semibold text-sm active:scale-[0.98] transition-transform disabled:opacity-40 mb-4"
-            >
-              {needsBarcodeVerify && !barcodeVerified
-                ? "Scan barcode to confirm"
-                : currentIndex < totalItems - 1
-                  ? "Confirm & next item"
-                  : "Confirm last item"}
-            </button>
-
-            {/* Action buttons */}
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setScannerOpen(true)}
-                className="flex-1 h-12 min-h-[48px] rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-sm active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+                onClick={handleConfirmItem}
+                disabled={!currentEntry}
+                className="flex-[2] h-11 rounded-xl bg-[#1c6a1e] text-white font-semibold text-sm active:scale-[0.98] transition-transform disabled:opacity-40"
               >
-                <Scan className="w-5 h-5" />
-                Scan barcode
+                {needsBarcodeVerify && !barcodeVerified
+                  ? "Scan first"
+                  : currentIndex < totalItems - 1
+                    ? "Confirm & next"
+                    : "Confirm last"}
               </button>
               <button
                 type="button"
                 onClick={() => handleMarkNotFound(currentBatch.item_id)}
-                className={`flex-1 h-12 min-h-[48px] rounded-xl font-semibold text-sm active:scale-[0.98] transition-transform flex items-center justify-center gap-2 ${
+                className={`flex-1 h-11 rounded-xl font-semibold text-xs active:scale-[0.98] transition-transform flex items-center justify-center gap-1 ${
                   currentEntry?.status === "not_located"
                     ? "bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400"
                     : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
                 }`}
               >
-                <SearchX className="w-5 h-5" />
+                <SearchX className="w-4 h-4" />
                 Not found
               </button>
             </div>
           </div>
         )}
-
-        {/* Navigation */}
-        <div className="flex items-center justify-between mt-3">
-          <button
-            type="button"
-            onClick={() => setCurrentIndex((i) => Math.max(0, i - 1))}
-            disabled={currentIndex === 0}
-            className="h-10 w-10 rounded-xl bg-white dark:bg-[#1a2c17] border border-slate-200/60 dark:border-slate-800/60 flex items-center justify-center disabled:opacity-30 active:scale-[0.95] transition-transform"
-            aria-label="Previous item"
-          >
-            <ChevronLeft className="w-5 h-5 text-slate-600 dark:text-slate-300" />
-          </button>
-
-          <span className="text-sm font-medium text-slate-400 dark:text-slate-500">
-            Item {currentIndex + 1} of {totalItems}
-          </span>
-
-          <button
-            type="button"
-            onClick={() =>
-              setCurrentIndex((i) => Math.min(totalItems - 1, i + 1))
-            }
-            disabled={currentIndex >= totalItems - 1}
-            className="h-10 w-10 rounded-xl bg-white dark:bg-[#1a2c17] border border-slate-200/60 dark:border-slate-800/60 flex items-center justify-center disabled:opacity-30 active:scale-[0.95] transition-transform"
-            aria-label="Next item"
-          >
-            <ChevronRight className="w-5 h-5 text-slate-600 dark:text-slate-300" />
-          </button>
-        </div>
       </div>
 
       {/* Bottom actions */}
-      <div className="shrink-0 px-4 py-3 space-y-2">
+      <div className="shrink-0 px-3 py-2 space-y-1.5 border-t border-slate-200/60 dark:border-slate-800/60 bg-white/90 dark:bg-[#0f1a0d]/90">
         {error && (
           <p
-            className="text-sm text-red-600 dark:text-red-400 text-center"
+            className="text-xs text-red-600 dark:text-red-400 text-center"
             role="alert"
           >
             {error}
           </p>
         )}
 
-        {/* Submit counts */}
         <button
           type="button"
           onClick={handleSubmitCounts}
           disabled={submitting || countedItems === 0}
-          className="w-full h-12 min-h-[48px] rounded-xl bg-[#1c6a1e] text-white font-semibold text-sm active:scale-[0.98] transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
+          className="w-full h-11 rounded-xl bg-[#1c6a1e] text-white font-semibold text-sm active:scale-[0.98] transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {submitting ? (
             <>
@@ -1007,29 +1037,28 @@ export default function DepartmentCountPage() {
             </>
           ) : (
             <>
-              <CheckCircle2 className="w-5 h-5" />
+              <CheckCircle2 className="w-4 h-4" />
               Submit {phaseLabel} ({countedItems}/{totalItems})
             </>
           )}
         </button>
 
-        {/* Close shift — closing count only, when all items submitted on server */}
         {isEvening && eveningCompleteOnServer && (
           <button
             type="button"
             onClick={handleCloseShift}
             disabled={closingShift}
-            className="w-full h-12 min-h-[48px] rounded-xl bg-amber-500 text-white font-semibold text-sm active:scale-[0.98] transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full h-11 rounded-xl bg-amber-500 text-white font-semibold text-sm active:scale-[0.98] transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {closingShift ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Closing shift…
+                Closing…
               </>
             ) : (
               <>
-                <AlertTriangle className="w-5 h-5" />
-                Close Shift &amp; Compare
+                <AlertTriangle className="w-4 h-4" />
+                Close Shift & Compare
               </>
             )}
           </button>

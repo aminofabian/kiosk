@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { getItemDisplayName } from "@/lib/utils";
 import {
   formatProductLastUpdated,
-  sortProductsAlphabetically,
+  sortProductsRecentlyThenAlphabetically,
 } from "@/lib/department/supply-constants";
 import type { POProductLineInput } from "@/lib/department/po-new-draft";
 import type { POProductOption } from "@/components/department/supply/POLineEditor";
@@ -24,6 +24,7 @@ interface POProductPickerProps {
   lastOrderLoading?: boolean;
   lastOrderAvailable?: boolean;
   lastOrderLabel?: string;
+  recentItemIds?: string[];
 }
 
 function displayName(product: POProductOption): string {
@@ -83,6 +84,7 @@ export function POProductPicker({
   lastOrderLoading,
   lastOrderAvailable,
   lastOrderLabel,
+  recentItemIds = [],
 }: POProductPickerProps) {
   const [search, setSearch] = useState("");
   const [viewMode, setViewMode] = useState<ProductViewMode>("all");
@@ -90,9 +92,16 @@ export function POProductPicker({
   const prevFilledCountRef = useRef(0);
 
   const sortedProducts = useMemo(
-    () => sortProductsAlphabetically(products, displayName),
-    [products],
+    () =>
+      sortProductsRecentlyThenAlphabetically(
+        products,
+        recentItemIds,
+        displayName,
+      ),
+    [products, recentItemIds],
   );
+
+  const recentIdSet = useMemo(() => new Set(recentItemIds), [recentItemIds]);
 
   const filledCount = useMemo(
     () => products.filter((p) => isFilledInput(lineInputs[p.id])).length,
@@ -131,6 +140,17 @@ export function POProductPicker({
       ...lineInputs,
       [productId]: { ...current, ...patch },
     });
+  };
+
+  const bumpQty = (productId: string, delta: number) => {
+    const product = products.find((p) => p.id === productId);
+    const current = lineInputs[productId] ?? {
+      qty: "",
+      cost: product ? defaultCostFor(product) : "",
+    };
+    const currentQty = parseFloat(current.qty);
+    const nextQty = (isNaN(currentQty) ? 0 : currentQty) + delta;
+    updateLine(productId, { qty: String(Math.max(0, nextQty)) });
   };
 
   if (loading) {
@@ -240,7 +260,8 @@ export function POProductPicker({
           </>
         ) : (
           <>
-            {products.length} product{products.length !== 1 ? "s" : ""} · A–Z
+            {products.length} product{products.length !== 1 ? "s" : ""}
+            {recentItemIds.length > 0 ? " · recent first" : " · A–Z"}
             {filledCount > 0 && (
               <span className="text-[#1c6a1e] font-medium">
                 {" "}
@@ -279,59 +300,83 @@ export function POProductPicker({
             const cost = parseFloat(input.cost);
             const isFilled = isFilledInput(input);
             const subtotal = isFilled ? qty * cost : null;
+            const isRecent = recentIdSet.has(product.id);
 
             return (
               <div
                 key={product.id}
-                className={`flex items-start gap-2 px-2.5 py-2 transition-colors ${
+                className={`flex flex-col gap-1.5 px-2.5 py-2 transition-colors ${
                   isFilled
                     ? "bg-[#1c6a1e]/5 dark:bg-[#1c6a1e]/10"
                     : "bg-white dark:bg-slate-900/40"
                 }`}
               >
-                <div className="flex-1 min-w-0 pt-1">
-                  <p className="text-xs font-medium text-slate-900 dark:text-slate-100 leading-snug truncate">
-                    {displayName(product)}
-                  </p>
-                  {product.lastUpdatedAt != null && (
-                    <p className="text-[10px] text-slate-400 mt-0.5">
-                      Updated {formatProductLastUpdated(product.lastUpdatedAt)}
+                <div className="flex items-start gap-2">
+                  <div className="flex-1 min-w-0 pt-1">
+                    <p className="text-xs font-medium text-slate-900 dark:text-slate-100 leading-snug truncate">
+                      {displayName(product)}
                     </p>
-                  )}
-                  {subtotal != null && (
-                    <p className="text-[10px] text-[#1c6a1e] font-medium mt-0.5 tabular-nums">
-                      KES{" "}
-                      {subtotal.toLocaleString("en-KE", {
-                        maximumFractionDigits: 0,
-                      })}
-                    </p>
-                  )}
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                      {isRecent && (
+                        <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                          Last order
+                        </span>
+                      )}
+                      {product.lastUpdatedAt != null && (
+                        <span className="text-[10px] text-slate-400">
+                          Updated{" "}
+                          {formatProductLastUpdated(product.lastUpdatedAt)}
+                        </span>
+                      )}
+                    </div>
+                    {subtotal != null && (
+                      <p className="text-[10px] text-[#1c6a1e] font-medium mt-0.5 tabular-nums">
+                        KES{" "}
+                        {subtotal.toLocaleString("en-KE", {
+                          maximumFractionDigits: 0,
+                        })}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="Qty"
+                      value={input.qty}
+                      onChange={(e) =>
+                        updateLine(product.id, { qty: e.target.value })
+                      }
+                      className="h-8 w-[68px] text-xs text-right px-2"
+                      aria-label={`Quantity for ${displayName(product)}`}
+                    />
+                    <Input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="Cost"
+                      value={input.cost}
+                      onChange={(e) =>
+                        updateLine(product.id, { cost: e.target.value })
+                      }
+                      className="h-8 w-[76px] text-xs text-right px-2"
+                      aria-label={`Cost for ${displayName(product)}`}
+                    />
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 shrink-0">
-                  <Input
-                    type="number"
-                    min="0"
-                    step="any"
-                    placeholder="Qty"
-                    value={input.qty}
-                    onChange={(e) =>
-                      updateLine(product.id, { qty: e.target.value })
-                    }
-                    className="h-8 w-[68px] text-xs text-right px-2"
-                    aria-label={`Quantity for ${displayName(product)}`}
-                  />
-                  <Input
-                    type="number"
-                    min="0"
-                    step="any"
-                    placeholder="Cost"
-                    value={input.cost}
-                    onChange={(e) =>
-                      updateLine(product.id, { cost: e.target.value })
-                    }
-                    className="h-8 w-[76px] text-xs text-right px-2"
-                    aria-label={`Cost for ${displayName(product)}`}
-                  />
+                <div className="flex gap-1 pl-0.5">
+                  {[1, 5, 10].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => bumpQty(product.id, n)}
+                      className="h-6 px-2 rounded-md text-[10px] font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/60 active:scale-95 transition-transform"
+                      aria-label={`Add ${n} to quantity for ${displayName(product)}`}
+                    >
+                      +{n}
+                    </button>
+                  ))}
                 </div>
               </div>
             );

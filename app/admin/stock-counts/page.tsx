@@ -82,15 +82,6 @@ const formatDate = (ts: number) =>
     year: "numeric",
   });
 
-function formatKES(n: number | null | undefined): string {
-  if (n == null) return "—";
-  return n.toLocaleString("en-KE", {
-    style: "currency",
-    currency: "KES",
-    minimumFractionDigits: 2,
-  });
-}
-
 function varianceClass(v: number | null | undefined): string {
   if (v == null) return "text-slate-400";
   if (v > 0) return "text-red-600 font-semibold";
@@ -108,32 +99,32 @@ function shiftStatusBadge(status: CountShiftStatus, hasEscalations?: boolean) {
   switch (status) {
     case "open":
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 whitespace-nowrap">
           Open
         </span>
       );
     case "counting":
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-          Counting
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 whitespace-nowrap">
+          Opening count
         </span>
       );
     case "morning_complete":
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
-          Evening
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 whitespace-nowrap">
+          Closing count
         </span>
       );
     case "closed":
       return hasEscalations ? (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-          <AlertTriangle className="w-3 h-3" />
-          Closed
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 whitespace-nowrap">
+          <AlertTriangle className="w-3 h-3 shrink-0" />
+          Closed · escalated
         </span>
       ) : (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-          <CheckCircle2 className="w-3 h-3" />
-          Closed
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 whitespace-nowrap">
+          <CheckCircle2 className="w-3 h-3 shrink-0" />
+          Closed · matched
         </span>
       );
   }
@@ -143,28 +134,28 @@ function batchStatusBadge(status: CountBatchStatus) {
   switch (status) {
     case "pending":
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 whitespace-nowrap">
           Pending
         </span>
       );
     case "matched":
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-          <CheckCircle2 className="w-3 h-3" />
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 whitespace-nowrap">
+          <CheckCircle2 className="w-3 h-3 shrink-0" />
           Matched
         </span>
       );
     case "escalated":
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400">
-          <AlertTriangle className="w-3 h-3" />
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400 whitespace-nowrap">
+          <AlertTriangle className="w-3 h-3 shrink-0" />
           Escalated
         </span>
       );
     case "acknowledged":
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-          <CheckCircle2 className="w-3 h-3" />
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 whitespace-nowrap">
+          <CheckCircle2 className="w-3 h-3 shrink-0" />
           Acknowledged
         </span>
       );
@@ -415,43 +406,35 @@ function ShiftsTab() {
                 {/* Row */}
                 <button
                   onClick={() => toggleExpand(shift.id)}
-                  className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors"
+                  className="w-full text-left px-3 py-2.5 flex items-start gap-2 hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors"
                 >
                   {isExpanded ? (
-                    <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
+                    <ChevronDown className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                   ) : (
-                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
+                    <ChevronRight className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                   )}
-                  <div className="flex-1 min-w-0 grid grid-cols-2 md:grid-cols-5 gap-2 items-center text-sm">
-                    <span className="font-medium text-slate-900 dark:text-white truncate capitalize">
-                      {shift.department || "General"}
-                    </span>
-                    <span className="text-slate-600 dark:text-slate-400 truncate">
-                      {shift.user_name || "Unknown"}
-                    </span>
-                    <span className="hidden md:block">
-                      {shiftStatusBadge(shift.status, hasEscalations)}
-                    </span>
-                    <span className="text-xs text-slate-500 dark:text-slate-500 hidden md:block">
-                      {formatDate(shift.opened_at)}
-                    </span>
-                    <span className="text-xs text-slate-500 dark:text-slate-500 hidden md:block">
-                      {shift.closed_at ? formatDate(shift.closed_at) : "—"}
-                    </span>
-                  </div>
-                  {/* Mobile status + count */}
-                  <div className="md:hidden flex items-center gap-2 shrink-0">
-                    {shiftStatusBadge(shift.status, hasEscalations)}
-                    {shift.batch_count != null && (
-                      <span className="text-xs text-slate-500">
-                        {shift.batch_count} items
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="font-medium text-slate-900 dark:text-white capitalize">
+                        {shift.department || "General"}
                       </span>
-                    )}
-                  </div>
-                  <div className="hidden md:block text-xs text-slate-500 shrink-0">
-                    {shift.batch_count != null
-                      ? `${shift.batch_count} items`
-                      : ""}
+                      <span className="text-slate-400">·</span>
+                      <span className="text-sm text-slate-600 dark:text-slate-400">
+                        {shift.user_name || "Unknown"}
+                      </span>
+                      {shiftStatusBadge(shift.status, hasEscalations)}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-500 dark:text-slate-500">
+                      <span>Opened {formatDate(shift.opened_at)}</span>
+                      <span>
+                        {shift.closed_at
+                          ? `Closed ${formatDate(shift.closed_at)}`
+                          : "Still open"}
+                      </span>
+                      {shift.batch_count != null && (
+                        <span>{shift.batch_count} items</span>
+                      )}
+                    </div>
                   </div>
                 </button>
 
@@ -486,11 +469,10 @@ function ShiftsTab() {
                       )}
 
                     {!batchesLoading && !batchesError && batches.length > 0 && (
-                      <div className="overflow-x-auto">
-                        {/* Acknowledge All button */}
+                      <div className="p-3 space-y-2">
                         {shift.status === "closed" &&
                           batches.some((b) => b.status === "escalated") && (
-                            <div className="px-4 py-2 flex justify-end">
+                            <div className="flex justify-end">
                               <button
                                 type="button"
                                 onClick={() => handleAcknowledge(shift.id)}
@@ -506,119 +488,93 @@ function ShiftsTab() {
                               </button>
                             </div>
                           )}
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30">
-                              <th className="text-left py-2.5 px-4 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                Item
-                              </th>
-                              <th className="text-right py-2.5 px-3 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                Morning Count
-                              </th>
-                              <th className="text-right py-2.5 px-3 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                Evening Count
-                              </th>
-                              <th className="text-right py-2.5 px-3 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                System Stock
-                              </th>
-                              <th className="text-right py-2.5 px-3 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                Var. AM
-                              </th>
-                              <th className="text-right py-2.5 px-3 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                Var. PM
-                              </th>
-                              <th className="text-right py-2.5 px-3 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                Intraday Δ
-                              </th>
-                              <th className="text-center py-2.5 px-3 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                                Status
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {batches.map((b) => (
-                              <tr
-                                key={b.id}
-                                className={`border-b border-slate-50 dark:border-slate-800/50 last:border-0 ${
-                                  b.status === "escalated"
-                                    ? "bg-red-50/40 dark:bg-red-900/10"
-                                    : b.status === "matched"
-                                      ? "bg-green-50/30 dark:bg-green-900/10"
-                                      : ""
-                                }`}
-                              >
-                                <td className="py-2.5 px-4">
-                                  <div>
-                                    <span className="font-medium text-slate-900 dark:text-white">
-                                      {b.item_name || "Unknown Item"}
-                                    </span>
-                                    {b.barcode && (
-                                      <span className="block text-[11px] text-slate-400 dark:text-slate-500">
-                                        {b.barcode}
-                                      </span>
-                                    )}
-                                    {b.sell_price != null && (
-                                      <span className="block text-[11px] text-slate-400 dark:text-slate-500">
-                                        {formatKES(b.sell_price)}
-                                        {b.unit_type ? ` / ${b.unit_type}` : ""}
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="py-2.5 px-3 text-right">
-                                  {b.morning_count != null
-                                    ? b.morning_count
-                                    : "—"}
-                                </td>
-                                <td className="py-2.5 px-3 text-right">
-                                  {b.evening_count != null
-                                    ? b.evening_count
-                                    : "—"}
-                                </td>
-                                <td className="py-2.5 px-3 text-right text-slate-600 dark:text-slate-400">
-                                  {b.system_stock_morning}
-                                </td>
-                                <td
-                                  className={`py-2.5 px-3 text-right ${varianceClass(b.variance_morning)}`}
-                                >
-                                  {variancePrefix(b.variance_morning)}
-                                </td>
-                                <td
-                                  className={`py-2.5 px-3 text-right ${varianceClass(b.variance_evening)}`}
-                                >
-                                  {variancePrefix(b.variance_evening)}
-                                </td>
-                                <td
-                                  className={`py-2.5 px-3 text-right ${varianceClass(b.variance_intraday)}`}
-                                >
-                                  {variancePrefix(b.variance_intraday)}
-                                </td>
-                                <td className="py-2.5 px-3 text-center">
-                                  {batchStatusBadge(b.status)}
-                                  {b.escalation_notes && (
-                                    <p className="text-[11px] text-red-600 dark:text-red-400 mt-0.5 max-w-[160px] truncate">
-                                      {b.escalation_notes}
-                                    </p>
+                        {batches.map((b) => (
+                          <div
+                            key={b.id}
+                            className={`rounded-lg border px-3 py-2.5 text-sm ${
+                              b.status === "escalated"
+                                ? "border-red-200 bg-red-50/40 dark:border-red-900/40 dark:bg-red-900/10"
+                                : b.status === "matched"
+                                  ? "border-green-200 bg-green-50/30 dark:border-green-900/40 dark:bg-green-900/10"
+                                  : "border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a2c17]"
+                            }`}
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-slate-900 dark:text-white">
+                                  {b.item_name || "Unknown Item"}
+                                </p>
+                                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                                  {[b.barcode, b.unit_type]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </p>
+                              </div>
+                              <div className="shrink-0 flex flex-col items-end gap-1">
+                                {batchStatusBadge(b.status)}
+                                {b.status === "escalated" &&
+                                  shift.status === "closed" && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleAcknowledge(shift.id, [b.id])
+                                      }
+                                      disabled={acknowledging}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
+                                    >
+                                      <CheckCheck className="w-3 h-3" />
+                                      Acknowledge
+                                    </button>
                                   )}
-                                  {b.status === "escalated" &&
-                                    shift.status === "closed" && (
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleAcknowledge(shift.id, [b.id])
-                                        }
-                                        disabled={acknowledging}
-                                        className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded text-[10px] font-medium text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
-                                      >
-                                        <CheckCheck className="w-3 h-3" />
-                                        Ack
-                                      </button>
-                                    )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                              </div>
+                            </div>
+                            <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1 text-[11px]">
+                              <div>
+                                <span className="text-slate-400">Opening</span>
+                                <p className="font-medium tabular-nums">
+                                  {b.morning_count ?? "—"}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-slate-400">Closing</span>
+                                <p className="font-medium tabular-nums">
+                                  {b.evening_count ?? "—"}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-slate-400">System</span>
+                                <p className="font-medium tabular-nums">
+                                  {b.system_stock_morning}
+                                </p>
+                              </div>
+                              <div>
+                                <span className="text-slate-400">Var. AM / PM</span>
+                                <p className="font-medium tabular-nums">
+                                  <span className={varianceClass(b.variance_morning)}>
+                                    {variancePrefix(b.variance_morning)}
+                                  </span>
+                                  {" / "}
+                                  <span className={varianceClass(b.variance_evening)}>
+                                    {variancePrefix(b.variance_evening)}
+                                  </span>
+                                </p>
+                              </div>
+                            </div>
+                            {b.variance_intraday != null && (
+                              <p className="mt-1.5 text-[11px]">
+                                <span className="text-slate-400">Intraday </span>
+                                <span className={varianceClass(b.variance_intraday)}>
+                                  {variancePrefix(b.variance_intraday)}
+                                </span>
+                              </p>
+                            )}
+                            {b.escalation_notes && (
+                              <p className="mt-2 text-[11px] leading-relaxed text-red-600 dark:text-red-400 whitespace-normal break-words">
+                                {b.escalation_notes}
+                              </p>
+                            )}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
