@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { execute, queryOne } from '@/lib/db';
+import { migrateExpectedStock } from '@/lib/db/migrate-expected-stock';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
 import { hasPermission } from '@/lib/auth/permissions';
@@ -32,6 +33,8 @@ export async function PATCH(
     const { id } = await params;
     const body = await request.json();
     const { expectedStockLevel } = body as { expectedStockLevel: number | null };
+
+    await migrateExpectedStock();
 
     if (
       expectedStockLevel !== null &&

@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  AlertTriangle,
-  ArrowRight,
   ArrowUpCircle,
   Check,
   CheckCircle2,
@@ -12,14 +10,11 @@ import {
   RefreshCw,
   Search,
   Trash2,
-  TrendingDown,
   TrendingUp,
   X,
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Drawer,
   DrawerClose,
@@ -38,26 +33,8 @@ import {
   type ItemWithParentName,
 } from '@/lib/utils/group-items-by-parent';
 import { computeTopup, formatTopupDisplay } from '@/lib/utils/inventory-topup';
-import type { AdjustmentReason } from '@/lib/constants';
-import { ADJUSTMENT_REASONS, isDiscreteUnitType, UNIT_TYPES } from '@/lib/constants';
+import { isDiscreteUnitType, UNIT_TYPES } from '@/lib/constants';
 import { toast } from 'sonner';
-
-const REASON_LABELS: Record<AdjustmentReason, string> = {
-  restock: 'Restock',
-  spoilage: 'Spoilage',
-  theft: 'Theft',
-  counting_error: 'Count error',
-  damage: 'Damage',
-  other: 'Other',
-};
-
-const REDUCTION_REASONS: AdjustmentReason[] = [
-  'spoilage',
-  'theft',
-  'damage',
-  'counting_error',
-  'other',
-];
 
 function formatStockQty(stock: number, unitType: Item['unit_type']) {
   return isDiscreteUnitType(unitType)
@@ -127,12 +104,16 @@ function getLiveTopup(
   return computeTopup(currentStock, minStock, expectedStock);
 }
 
-function TopupCell({
+function TopupButton({
   topup,
   unitType,
+  isLoading,
+  onTopup,
 }: {
   topup: number;
   unitType: Item['unit_type'];
+  isLoading?: boolean;
+  onTopup: () => void;
 }) {
   if (topup <= 0) {
     return (
@@ -140,11 +121,122 @@ function TopupCell({
     );
   }
 
+  const label = formatTopupDisplay(topup, (v) => formatStockQty(v, unitType));
+
   return (
-    <span className="inline-flex items-center justify-end gap-0.5 w-full text-amber-700 dark:text-amber-300 font-bold tabular-nums text-xs">
-      <ArrowUpCircle className="w-3 h-3 shrink-0" aria-hidden />
-      {formatTopupDisplay(topup, (v) => formatStockQty(v, unitType))}
-    </span>
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onTopup();
+      }}
+      disabled={isLoading}
+      className="inline-flex items-center justify-end gap-0.5 w-full min-h-7 px-1 rounded-md text-amber-800 dark:text-amber-200 font-bold tabular-nums text-[10px] sm:text-xs bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/50 dark:hover:bg-amber-900/70 border border-amber-300/60 dark:border-amber-600/50 disabled:opacity-60"
+      title={`Top up ${label}`}
+    >
+      {isLoading ? (
+        <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+      ) : (
+        <ArrowUpCircle className="w-3 h-3 shrink-0" />
+      )}
+      +{label}
+    </button>
+  );
+}
+
+interface SimpleStockFormProps {
+  selectedItem: Item;
+  topup: number;
+  isSubmitting: boolean;
+  onTopup: () => void;
+  onClose: () => void;
+}
+
+function DepartmentStockSimpleForm({
+  selectedItem,
+  topup,
+  isSubmitting,
+  onTopup,
+  onClose,
+}: SimpleStockFormProps) {
+  const needsTopup = topup > 0;
+  const target = selectedItem.expected_stock_level;
+
+  return (
+    <div className="flex flex-col flex-1 min-h-0">
+      <div className="flex-1 p-4 space-y-4">
+        <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Now
+            </span>
+            <span className="text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
+              {formatStockQty(selectedItem.current_stock, selectedItem.unit_type)}
+              <span className="text-sm font-normal text-slate-500 ml-1">
+                {selectedItem.unit_type}
+              </span>
+            </span>
+          </div>
+          {target != null && (
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Target
+              </span>
+              <span className="text-lg font-semibold tabular-nums text-[#1c6a1e]">
+                {formatStockQty(target, selectedItem.unit_type)}{' '}
+                <span className="text-sm font-normal text-slate-500">
+                  {selectedItem.unit_type}
+                </span>
+              </span>
+            </div>
+          )}
+        </div>
+
+        {needsTopup ? (
+          <div className="space-y-2">
+            <p className="text-sm text-amber-800 dark:text-amber-200 text-center">
+              Below minimum — add{' '}
+              <strong className="tabular-nums">
+                {formatStockQty(topup, selectedItem.unit_type)}
+              </strong>{' '}
+              to reach target
+            </p>
+            <Button
+              type="button"
+              onClick={onTopup}
+              disabled={isSubmitting}
+              className="w-full h-14 text-lg font-bold bg-[#1c6a1e] hover:bg-[#165a19] shadow-lg"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Updating…
+                </>
+              ) : (
+                <>
+                  <TrendingUp className="mr-2 h-5 w-5" />
+                  Top up +{formatStockQty(topup, selectedItem.unit_type)}
+                </>
+              )}
+            </Button>
+          </div>
+        ) : (
+          <div className="text-center py-6 px-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
+            <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
+            <p className="font-semibold text-slate-700 dark:text-slate-200">Stock OK</p>
+            <p className="text-sm text-slate-500 mt-1">
+              No top-up needed. Tap Stock in the table to change quantity.
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 p-3 bg-white dark:bg-[#1c2e18] safe-area-bottom">
+        <Button type="button" variant="outline" onClick={onClose} className="w-full h-11">
+          Close
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -390,249 +482,6 @@ function InlineUnitCell({
   );
 }
 
-interface AdjustFormProps {
-  selectedItem: Item;
-  adjustmentType: 'increase' | 'decrease';
-  setAdjustmentType: (t: 'increase' | 'decrease') => void;
-  quantity: string;
-  setQuantity: (q: string) => void;
-  reason: AdjustmentReason;
-  setReason: (r: AdjustmentReason) => void;
-  notes: string;
-  setNotes: (n: string) => void;
-  calculatedNewStock: number | null;
-  willGoNegative: boolean;
-  willBeLowStock: boolean;
-  isLowStock: boolean;
-  isSubmitting: boolean;
-  isDeleting: boolean;
-  error: string | null;
-  onSubmit: (e: React.FormEvent) => void;
-  onDelete: () => void;
-  onClose: () => void;
-}
-
-function DepartmentStockAdjustForm({
-  selectedItem,
-  adjustmentType,
-  setAdjustmentType,
-  quantity,
-  setQuantity,
-  reason,
-  setReason,
-  notes,
-  setNotes,
-  calculatedNewStock,
-  willGoNegative,
-  willBeLowStock,
-  isLowStock,
-  isSubmitting,
-  isDeleting,
-  error,
-  onSubmit,
-  onDelete,
-  onClose,
-}: AdjustFormProps) {
-  return (
-    <form onSubmit={onSubmit} className="flex flex-col flex-1 min-h-0">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <div className="p-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Current stock
-            </span>
-            <span className="text-lg font-bold tabular-nums">
-              {formatStockQty(selectedItem.current_stock, selectedItem.unit_type)}{' '}
-              <span className="text-sm font-normal text-slate-500">{selectedItem.unit_type}</span>
-            </span>
-          </div>
-          {isLowStock && (
-            <p className="flex items-center gap-1.5 text-xs text-amber-600 mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              Low stock
-            </p>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => setAdjustmentType('decrease')}
-            className={`py-2.5 px-3 rounded-lg border-2 text-sm font-semibold flex items-center justify-center gap-1.5 ${
-              adjustmentType === 'decrease'
-                ? 'border-red-500 bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300'
-                : 'border-slate-200 dark:border-slate-700'
-            }`}
-          >
-            <TrendingDown className="h-4 w-4" />
-            Reduce
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setAdjustmentType('increase');
-              setReason('restock');
-            }}
-            className={`py-2.5 px-3 rounded-lg border-2 text-sm font-semibold flex items-center justify-center gap-1.5 ${
-              adjustmentType === 'increase'
-                ? 'border-green-500 bg-green-50 text-green-700 dark:bg-green-950/40 dark:text-green-300'
-                : 'border-slate-200 dark:border-slate-700'
-            }`}
-          >
-            <TrendingUp className="h-4 w-4" />
-            Add
-          </button>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Reason
-          </Label>
-          <div className="flex flex-wrap gap-1.5">
-            {(adjustmentType === 'decrease' ? REDUCTION_REASONS : ADJUSTMENT_REASONS).map(
-              (r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setReason(r)}
-                  className={`px-2.5 py-1 rounded text-xs font-semibold border ${
-                    reason === r
-                      ? 'bg-[#1c6a1e] text-white border-[#1c6a1e]'
-                      : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
-                  }`}
-                >
-                  {REASON_LABELS[r]}
-                </button>
-              ),
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <Label
-            htmlFor="dept-stock-qty"
-            className="text-xs font-semibold uppercase tracking-wide text-slate-500"
-          >
-            Quantity ({selectedItem.unit_type})
-          </Label>
-          <Input
-            id="dept-stock-qty"
-            type="number"
-            step={isDiscreteUnitType(selectedItem.unit_type) ? '1' : '0.01'}
-            min="0"
-            value={quantity}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (isDiscreteUnitType(selectedItem.unit_type)) {
-                const intValue = parseInt(value, 10);
-                if (value === '' || (!isNaN(intValue) && intValue >= 0)) {
-                  setQuantity(value === '' ? '' : intValue.toString());
-                }
-              } else {
-                setQuantity(value);
-              }
-            }}
-            placeholder="0"
-            required
-            className="h-10 text-base tabular-nums"
-          />
-        </div>
-
-        {calculatedNewStock !== null && (
-          <div className="p-3 rounded-lg border border-[#1c6a1e]/25 bg-[#1c6a1e]/5">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-medium text-slate-600 dark:text-slate-300">New stock</span>
-              <span className="text-xl font-bold text-[#1c6a1e] tabular-nums">
-                {formatStockQty(calculatedNewStock, selectedItem.unit_type)}
-              </span>
-            </div>
-            <p className="flex items-center gap-1.5 text-xs text-slate-500 mt-1.5">
-              <ArrowRight className="h-3.5 w-3.5" />
-              {adjustmentType === 'increase' ? '+' : '-'}
-              {quantity || '0'} {selectedItem.unit_type}
-            </p>
-            {willGoNegative && (
-              <p className="text-xs text-red-600 flex items-center gap-1 mt-1.5">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                Cannot go below zero
-              </p>
-            )}
-            {willBeLowStock && !willGoNegative && (
-              <p className="text-xs text-amber-600 flex items-center gap-1 mt-1.5">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                Will be low after change
-              </p>
-            )}
-          </div>
-        )}
-
-        <div className="space-y-1.5">
-          <Label
-            htmlFor="dept-stock-notes"
-            className="text-xs font-semibold uppercase tracking-wide text-slate-500"
-          >
-            Notes
-          </Label>
-          <Textarea
-            id="dept-stock-notes"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Optional details..."
-            rows={2}
-            className="resize-none text-sm"
-          />
-        </div>
-
-        {error && (
-          <div className="p-2.5 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 text-sm flex gap-2">
-            <AlertTriangle className="h-4 w-4 shrink-0" />
-            {error}
-          </div>
-        )}
-      </div>
-
-      <div className="shrink-0 border-t border-slate-200 dark:border-slate-700 p-3 flex flex-col gap-2 bg-white dark:bg-[#1c2e18] safe-area-bottom">
-        <div className="flex gap-2">
-          <Button type="button" variant="outline" onClick={onClose} className="flex-1 h-11">
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            disabled={isSubmitting || willGoNegative}
-            className="flex-1 h-11 bg-[#1c6a1e] hover:bg-[#165a19]"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-                Save
-              </>
-            )}
-          </Button>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onDelete}
-          disabled={isDeleting || isSubmitting}
-          className="w-full h-10 text-red-600 border-red-200 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950/30"
-        >
-          {isDeleting ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Trash2 className="mr-2 h-4 w-4" />
-          )}
-          Delete product
-        </Button>
-      </div>
-    </form>
-  );
-}
-
 export function DepartmentStockScreen() {
   const { assignedTypes, shopType, setShopType } = useDepartmentApp();
 
@@ -658,13 +507,9 @@ export function DepartmentStockScreen() {
   const [editingUnitId, setEditingUnitId] = useState<string | null>(null);
   const [editingUnitValue, setEditingUnitValue] = useState('');
   const [savingUnitId, setSavingUnitId] = useState<string | null>(null);
-  const [adjustmentType, setAdjustmentType] = useState<'increase' | 'decrease'>('decrease');
-  const [quantity, setQuantity] = useState('');
-  const [reason, setReason] = useState<AdjustmentReason>('spoilage');
-  const [notes, setNotes] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTopupSubmitting, setIsTopupSubmitting] = useState(false);
+  const [toppingUpId, setToppingUpId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const fetchItems = useCallback(async (silent = false) => {
     try {
@@ -691,13 +536,70 @@ export function DepartmentStockScreen() {
     void fetchItems();
   }, [fetchItems]);
 
-  const resetForm = useCallback(() => {
-    setQuantity('');
-    setNotes('');
-    setError(null);
-    setAdjustmentType('decrease');
-    setReason('spoilage');
+  const closeSelection = useCallback(() => {
+    setDrawerOpen(false);
+    setSelectedItem(null);
   }, []);
+
+  const applyTopup = useCallback(
+    async (item: Item, qty: number, options?: { closeDrawer?: boolean }) => {
+      if (qty <= 0) {
+        toast.error('Nothing to top up');
+        return;
+      }
+
+      setToppingUpId(item.id);
+      setIsTopupSubmitting(true);
+      try {
+        const result = await apiPost('/api/stock/adjust', {
+          itemId: item.id,
+          adjustmentType: 'increase',
+          quantity: qty,
+          reason: 'restock',
+          notes: null,
+        });
+
+        if (result.success) {
+          const newStock = item.current_stock + qty;
+          toast.success(
+            `Added ${formatStockQty(qty, item.unit_type)} — now ${formatStockQty(newStock, item.unit_type)}`,
+          );
+          setItems((prev) =>
+            prev.map((i) =>
+              i.id === item.id ? { ...i, current_stock: newStock } : i,
+            ),
+          );
+          setSelectedItem((prev) =>
+            prev?.id === item.id ? { ...prev, current_stock: newStock } : prev,
+          );
+          if (options?.closeDrawer) {
+            closeSelection();
+          }
+          void fetchItems(true);
+        } else {
+          toast.error(result.message || 'Failed to update stock');
+        }
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setToppingUpId(null);
+        setIsTopupSubmitting(false);
+      }
+    },
+    [closeSelection, fetchItems],
+  );
+
+  const handleQuickTopup = useCallback(
+    (item: Item, options?: { closeDrawer?: boolean }) => {
+      const qty = computeTopup(
+        item.current_stock,
+        item.min_stock_level,
+        item.expected_stock_level,
+      );
+      void applyTopup(item, qty, options);
+    },
+    [applyTopup],
+  );
 
   const scopedItems = useMemo(() => {
     const list = items.filter((item) => itemMatchesShopType(item, shopType));
@@ -757,37 +659,16 @@ export function DepartmentStockScreen() {
     ) {
       setSelectedItem(null);
       setDrawerOpen(false);
-      resetForm();
     }
-  }, [shopType, stockFilter, selectedItem, resetForm]);
-
-  const calculatedNewStock = useMemo(() => {
-    if (!selectedItem || !quantity) return null;
-    const isDiscrete = isDiscreteUnitType(selectedItem.unit_type);
-    const qty = isDiscrete ? parseInt(quantity, 10) : parseFloat(quantity);
-    if (isNaN(qty) || qty <= 0) return null;
-    return adjustmentType === 'increase'
-      ? selectedItem.current_stock + qty
-      : Math.max(0, selectedItem.current_stock - qty);
-  }, [selectedItem, quantity, adjustmentType]);
-
-  const willGoNegative = calculatedNewStock !== null && calculatedNewStock < 0;
-  const willBeLowStock =
-    calculatedNewStock !== null &&
-    selectedItem != null &&
-    (selectedItem.min_stock_level != null
-      ? calculatedNewStock <= selectedItem.min_stock_level
-      : calculatedNewStock < 10);
-  const isLowStock = selectedItem ? stockStatus(selectedItem) === 'low' : false;
+  }, [shopType, stockFilter, selectedItem]);
 
   const handleShopTypeChange = useCallback(
     (newShopType: string) => {
       setShopType(newShopType);
       setSelectedItem(null);
       setDrawerOpen(false);
-      resetForm();
     },
-    [setShopType, resetForm],
+    [setShopType],
   );
 
   const clearInlineEdits = () => {
@@ -795,6 +676,8 @@ export function DepartmentStockScreen() {
     setEditingStockValue('');
     setEditingMinStockId(null);
     setEditingMinStockValue('');
+    setEditingExpectedStockId(null);
+    setEditingExpectedStockValue('');
     setEditingPriceId(null);
     setEditingPriceValue('');
     setEditingUnitId(null);
@@ -804,19 +687,8 @@ export function DepartmentStockScreen() {
   const openDrawer = useCallback((item: Item) => {
     clearInlineEdits();
     setSelectedItem(item);
-    setQuantity('');
-    setNotes('');
-    setError(null);
-    setAdjustmentType('decrease');
-    setReason('spoilage');
     setDrawerOpen(true);
   }, []);
-
-  const closeSelection = () => {
-    setDrawerOpen(false);
-    setSelectedItem(null);
-    resetForm();
-  };
 
   const startInlineStockEdit = (item: Item) => {
     setEditingMinStockId(null);
@@ -1142,105 +1014,38 @@ export function DepartmentStockScreen() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (!selectedItem) return;
-
-    const isDiscrete = isDiscreteUnitType(selectedItem.unit_type);
-    const qty = isDiscrete ? parseInt(quantity, 10) : parseFloat(quantity);
-    if (!quantity || isNaN(qty) || qty <= 0) {
-      setError('Enter a valid quantity');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const result = await apiPost('/api/stock/adjust', {
-        itemId: selectedItem.id,
-        adjustmentType,
-        quantity: qty,
-        reason,
-        notes: notes.trim() || null,
-      });
-
-      if (result.success) {
-        toast.success('Stock updated');
-        closeSelection();
-        void fetchItems(true);
-      } else {
-        setError(result.message || 'Failed to update stock');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleDelete = async (item?: Item) => {
-    const target = item ?? selectedItem;
-    if (!target) return;
-
+  const handleDelete = async (item: Item) => {
     const confirmed = window.confirm(
-      `Delete "${target.name}"? This removes it from the catalog.`,
+      `Delete "${item.name}"? This removes it from the catalog.`,
     );
     if (!confirmed) return;
 
     setIsDeleting(true);
-    setError(null);
     try {
-      const result = await apiDelete(`/api/items/${target.id}`);
+      const result = await apiDelete(`/api/items/${item.id}`);
       if (result.success) {
         toast.success('Product deleted');
-        if (selectedItem?.id === target.id) {
+        if (selectedItem?.id === item.id) {
           closeSelection();
         }
         void fetchItems(true);
       } else {
-        const message = result.message || 'Failed to delete product';
-        if (selectedItem?.id === target.id) {
-          setError(message);
-        } else {
-          toast.error(message);
-        }
+        toast.error(result.message || 'Failed to delete product');
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'An error occurred';
-      if (selectedItem?.id === target.id) {
-        setError(message);
-      } else {
-        toast.error(message);
-      }
+      toast.error(err instanceof Error ? err.message : 'An error occurred');
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const adjustFormProps = selectedItem
-    ? {
-        selectedItem,
-        adjustmentType,
-        setAdjustmentType,
-        quantity,
-        setQuantity,
-        reason,
-        setReason,
-        notes,
-        setNotes,
-        calculatedNewStock,
-        willGoNegative,
-        willBeLowStock,
-        isLowStock,
-        isSubmitting,
-        isDeleting,
-        error,
-        onSubmit: handleSubmit,
-        onDelete: () => void handleDelete(),
-        onClose: closeSelection,
-      }
-    : null;
+  const selectedTopup = selectedItem
+    ? computeTopup(
+        selectedItem.current_stock,
+        selectedItem.min_stock_level,
+        selectedItem.expected_stock_level,
+      )
+    : 0;
 
   return (
     <div className="flex flex-col h-full min-h-0 w-full max-w-full overflow-hidden bg-white dark:bg-[#132210] text-[#101b0d] dark:text-[#f0fdf4]">
@@ -1503,7 +1308,12 @@ export function DepartmentStockScreen() {
                               />
                             </td>
                             <td className="px-1 py-1.5 text-right min-w-0 align-top">
-                              <TopupCell topup={topup} unitType={item.unit_type} />
+                              <TopupButton
+                                topup={topup}
+                                unitType={item.unit_type}
+                                isLoading={toppingUpId === item.id}
+                                onTopup={() => handleQuickTopup(item)}
+                              />
                             </td>
                             <td className="px-1 py-1.5 align-top">
                               <StockStatusBadge status={status} />
@@ -1553,7 +1363,7 @@ export function DepartmentStockScreen() {
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                  Adjust stock
+                  Stock update
                 </p>
                 <DrawerTitle className="text-base font-bold truncate pr-2">
                   {selectedItem?.name || 'Stock'}
@@ -1566,8 +1376,14 @@ export function DepartmentStockScreen() {
               </DrawerClose>
             </div>
           </DrawerHeader>
-          {selectedItem && adjustFormProps && (
-            <DepartmentStockAdjustForm {...adjustFormProps} />
+          {selectedItem && (
+            <DepartmentStockSimpleForm
+              selectedItem={selectedItem}
+              topup={selectedTopup}
+              isSubmitting={isTopupSubmitting}
+              onTopup={() => handleQuickTopup(selectedItem, { closeDrawer: true })}
+              onClose={closeSelection}
+            />
           )}
         </DrawerContent>
       </Drawer>
