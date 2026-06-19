@@ -180,6 +180,15 @@ export function sortProductsByLatest<T extends { lastUpdatedAt?: number | null }
   );
 }
 
+export function sortProductsAlphabetically<
+  T extends { name: string; variantName?: string | null },
+>(products: T[], displayName?: (p: T) => string): T[] {
+  const label = displayName ?? ((p: T) => p.name);
+  return [...products].sort((a, b) =>
+    label(a).localeCompare(label(b), undefined, { sensitivity: "base" }),
+  );
+}
+
 export type AdminTab = "setup" | "approvals" | "deliveries";
 
 export const ADMIN_TABS: { key: AdminTab; label: string; icon: LucideIcon }[] = [

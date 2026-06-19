@@ -9,6 +9,7 @@ interface SupplyShellProps {
   subtitle?: string;
   backHref?: string;
   backLabel?: string;
+  onBackClick?: () => void;
   action?: ReactNode;
   footer?: ReactNode;
   children: ReactNode;
@@ -19,6 +20,7 @@ export function SupplyShell({
   subtitle,
   backHref = "/department/supply",
   backLabel = "Back",
+  onBackClick,
   action,
   footer,
   children,
@@ -27,13 +29,24 @@ export function SupplyShell({
     <div className="flex flex-col h-full min-h-0 bg-[#f4f7f4] dark:bg-[#0e1810] text-slate-900 dark:text-slate-100">
       <header className="shrink-0 safe-area-top bg-white/95 dark:bg-[#152214]/95 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800/80">
         <div className="flex items-center gap-2 px-3 h-14 max-w-2xl mx-auto w-full">
-          <Link
-            href={backHref}
-            className="pos-icon-btn flex-shrink-0"
-            aria-label={backLabel}
-          >
-            <ArrowLeft className="w-5 h-5 text-slate-500" />
-          </Link>
+          {onBackClick ? (
+            <button
+              type="button"
+              onClick={onBackClick}
+              className="pos-icon-btn flex-shrink-0"
+              aria-label={backLabel}
+            >
+              <ArrowLeft className="w-5 h-5 text-slate-500" />
+            </button>
+          ) : (
+            <Link
+              href={backHref}
+              className="pos-icon-btn flex-shrink-0"
+              aria-label={backLabel}
+            >
+              <ArrowLeft className="w-5 h-5 text-slate-500" />
+            </Link>
+          )}
           <div className="min-w-0 flex-1">
             <h1 className="text-[17px] font-bold truncate leading-tight">
               {title}
