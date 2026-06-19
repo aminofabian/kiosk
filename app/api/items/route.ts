@@ -418,30 +418,47 @@ export async function GET(request: NextRequest) {
       } else if (sellableOnly) {
         // Only sellable items (variants OR standalone items without variants)
         const variantActiveFilter = includeInactive ? "" : " AND v.active = 1";
-        const lastUpdatedSql = `COALESCE(
-             (SELECT MAX(al.created_at) FROM activity_log al
-              WHERE al.business_id = i.business_id AND al.entity_id = i.id),
-             (SELECT MAX(sa.created_at) FROM stock_adjustments sa WHERE sa.item_id = i.id),
-             i.created_at
-           )`;
-        const orderBy =
-          sort === "updated"
-            ? `${lastUpdatedSql} DESC, i.name ASC`
-            : "i.name ASC";
-        items = await query<Item & { parent_name?: string | null; last_updated_at?: number }>(
-          `SELECT i.*, p.name as parent_name, ${lastUpdatedSql} AS last_updated_at
-           FROM items i
-           LEFT JOIN items p ON i.parent_item_id = p.id AND p.business_id = i.business_id
-           WHERE i.business_id = ?${iActiveFilter}${itemTypeFilter.replace(" AND ", " AND i.")}${itemTypeInFilterAlias}${noBarcodeFilterAlias}${noBarcodeExcludeParentsAlias}
+        const sellableWhere = `WHERE i.business_id = ?${iActiveFilter}${itemTypeFilter.replace(" AND ", " AND i.")}${itemTypeInFilterAlias}${noBarcodeFilterAlias}${noBarcodeExcludeParentsAlias}
            AND (
              i.parent_item_id IS NOT NULL
              OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id${variantActiveFilter})
-           )
-           ORDER BY ${orderBy}`,
-          itemTypeList
-            ? [auth.businessId, ...itemTypeList, ...itemTypeParam]
-            : [auth.businessId, ...itemTypeParam],
-        );
+           )`;
+        const sellableParams = itemTypeList
+          ? [auth.businessId, ...itemTypeList, ...itemTypeParam]
+          : [auth.businessId, ...itemTypeParam];
+
+        if (sort === "updated") {
+          items = await query<Item & { parent_name?: string | null; last_updated_at?: number }>(
+            `SELECT i.*, p.name as parent_name,
+              COALESCE(al.last_at, sa.last_at, i.created_at) AS last_updated_at
+             FROM items i
+             LEFT JOIN items p ON i.parent_item_id = p.id AND p.business_id = i.business_id
+             LEFT JOIN (
+               SELECT entity_id, MAX(created_at) AS last_at
+               FROM activity_log
+               WHERE business_id = ?
+               GROUP BY entity_id
+             ) al ON al.entity_id = i.id
+             LEFT JOIN (
+               SELECT item_id, MAX(created_at) AS last_at
+               FROM stock_adjustments
+               WHERE business_id = ?
+               GROUP BY item_id
+             ) sa ON sa.item_id = i.id
+             ${sellableWhere}
+             ORDER BY last_updated_at DESC, i.name ASC`,
+            [auth.businessId, auth.businessId, ...sellableParams],
+          );
+        } else {
+          items = await query<Item & { parent_name?: string | null }>(
+            `SELECT i.*, p.name as parent_name
+             FROM items i
+             LEFT JOIN items p ON i.parent_item_id = p.id AND p.business_id = i.business_id
+             ${sellableWhere}
+             ORDER BY i.name ASC`,
+            sellableParams,
+          );
+        }
       } else {
         if (noBarcode) {
           // noBarcode: only variants + standalone; include parent name for labels

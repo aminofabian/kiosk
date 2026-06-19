@@ -127,8 +127,6 @@ export async function GET(request: NextRequest) {
         auth.businessId,
         auth.businessId,
         auth.businessId,
-        auth.businessId,
-        auth.businessId,
         period.start,
         period.end,
         ...itemTypeParams,
