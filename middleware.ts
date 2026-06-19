@@ -147,6 +147,7 @@ export default withAuth(
           "/register",
           "/forgot-password",
           "/reset-password",
+          "/auth/impersonate",
           "/pos/login",
           "/superadmin/login",
           "/superadmin/setup",

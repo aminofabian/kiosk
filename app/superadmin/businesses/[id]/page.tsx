@@ -30,6 +30,12 @@ import {
   Mail,
   Shield,
   Globe,
+  KeyRound,
+  LogIn,
+  Copy,
+  Eye,
+  EyeOff,
+  RefreshCw,
   Plus,
   Trash2,
   Star,
@@ -49,6 +55,8 @@ interface User {
   name: string;
   email: string;
   role: string;
+  pin: string | null;
+  department: string | null;
   active: number;
   created_at: number;
 }
@@ -157,6 +165,10 @@ export default function BusinessDetailsPage() {
   const [domainError, setDomainError] = useState<string | null>(null);
   const [addingDomain, setAddingDomain] = useState(false);
   const [deletingDomainId, setDeletingDomainId] = useState<string | null>(null);
+  const [revealedPasswords, setRevealedPasswords] = useState<Record<string, string>>({});
+  const [showPasswordFor, setShowPasswordFor] = useState<Record<string, boolean>>({});
+  const [resettingPasswordFor, setResettingPasswordFor] = useState<string | null>(null);
+  const [openingSiteFor, setOpeningSiteFor] = useState<string | null>(null);
 
   const businessId = params.id as string;
   const hasLoadedRef = useRef(false);
@@ -405,9 +417,103 @@ export default function BusinessDetailsPage() {
         return <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20">Admin</Badge>;
       case 'cashier':
         return <Badge className="bg-slate-500/10 text-slate-400 border-slate-500/20">Cashier</Badge>;
+      case 'department_staff':
+        return <Badge className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20">Dept Staff</Badge>;
+      case 'department_stock_manager':
+        return <Badge className="bg-teal-500/10 text-teal-400 border-teal-500/20">Stock Manager</Badge>;
       default:
         return <Badge variant="outline">{role}</Badge>;
     }
+  };
+
+  const primaryDomain = data?.domains?.find((d) => d.is_primary === 1 && d.active === 1)
+    ?? data?.domains?.find((d) => d.active === 1);
+
+  const staffLoginUrl = primaryDomain
+    ? `https://${primaryDomain.domain}/login`
+    : 'https://kiosk.co.ke/login';
+  const posLoginUrl = primaryDomain
+    ? `https://${primaryDomain.domain}/pos/login`
+    : null;
+
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copied`);
+    } catch {
+      toast.error('Failed to copy');
+    }
+  };
+
+  const getUserLoginLabel = (user: User) => {
+    if (user.role === 'cashier') {
+      return user.pin ? 'Email or PIN' : 'Email login (no PIN set)';
+    }
+    if (user.role === 'department_staff' || user.role === 'department_stock_manager') {
+      return 'Email login';
+    }
+    return 'Email login';
+  };
+
+  const handleOpenSite = async (userId?: string) => {
+    setOpeningSiteFor(userId ?? 'owner');
+    try {
+      const response = await fetch(
+        `/api/superadmin/businesses/${businessId}/impersonate`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(userId ? { userId } : {}),
+        },
+      );
+      const result = await response.json();
+      if (result.success && result.data?.loginUrl) {
+        window.open(result.data.loginUrl, '_blank', 'noopener,noreferrer');
+        toast.success(
+          `Opening ${result.data.business.name} as ${result.data.user.name}`,
+        );
+      } else {
+        toast.error(result.message || 'Failed to open site');
+      }
+    } catch {
+      toast.error('Failed to open site');
+    } finally {
+      setOpeningSiteFor(null);
+    }
+  };
+
+  const handleResetPassword = (user: User) => {
+    toast(`Generate a new password for ${user.name}?`, {
+      description: 'The current password cannot be recovered. A new one will be shown once.',
+      action: {
+        label: 'Reset',
+        onClick: async () => {
+          setResettingPasswordFor(user.id);
+          try {
+            const response = await fetch(
+              `/api/superadmin/businesses/${businessId}/users/${user.id}/reset-password`,
+              { method: 'POST' },
+            );
+            const result = await response.json();
+            if (result.success && result.data?.password) {
+              setRevealedPasswords((prev) => ({
+                ...prev,
+                [user.id]: result.data.password,
+              }));
+              setShowPasswordFor((prev) => ({ ...prev, [user.id]: true }));
+              toast.success(`New password set for ${user.email}`);
+            } else {
+              toast.error(result.message || 'Failed to reset password');
+            }
+          } catch {
+            toast.error('Failed to reset password');
+          } finally {
+            setResettingPasswordFor(null);
+          }
+        },
+      },
+      cancel: { label: 'Cancel', onClick: () => {} },
+    });
   };
 
   return (
@@ -457,24 +563,266 @@ export default function BusinessDetailsPage() {
                   </p>
                 </div>
               </div>
-              <Button
-                onClick={handleToggleStatus}
-                disabled={updating}
-                variant={data.business.active === 1 ? 'destructive' : 'default'}
-                className={data.business.active === 1 
-                  ? 'bg-red-600 hover:bg-red-500' 
-                  : 'bg-emerald-600 hover:bg-emerald-500'}
-              >
-                {updating ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : data.business.active === 1 ? (
-                  <XCircle className="w-4 h-4 mr-2" />
-                ) : (
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                )}
-                {data.business.active === 1 ? 'Suspend Kiosk' : 'Activate Kiosk'}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={() => handleOpenSite()}
+                  disabled={openingSiteFor !== null || data.users.length === 0}
+                  className="bg-violet-600 hover:bg-violet-500"
+                >
+                  {openingSiteFor === 'owner' ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                  )}
+                  Open site
+                </Button>
+                <Button
+                  onClick={handleToggleStatus}
+                  disabled={updating}
+                  variant={data.business.active === 1 ? 'destructive' : 'default'}
+                  className={data.business.active === 1 
+                    ? 'bg-red-600 hover:bg-red-500' 
+                    : 'bg-emerald-600 hover:bg-emerald-500'}
+                >
+                  {updating ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : data.business.active === 1 ? (
+                    <XCircle className="w-4 h-4 mr-2" />
+                  ) : (
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                  )}
+                  {data.business.active === 1 ? 'Suspend Kiosk' : 'Activate Kiosk'}
+                </Button>
+              </div>
             </div>
+
+            {/* Login Access */}
+            <Card className="bg-slate-800 border-slate-700 mb-8">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <LogIn className="w-5 h-5 text-violet-400" />
+                  Login Access
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-xl bg-slate-700/50">
+                    <p className="text-slate-400 text-sm mb-1">Staff login URL</p>
+                    <div className="flex items-center gap-2">
+                      <a
+                        href={staffLoginUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-sm text-white hover:text-violet-400 transition-colors flex items-center gap-1 truncate"
+                      >
+                        {staffLoginUrl}
+                        <ExternalLink className="w-3 h-3 shrink-0" />
+                      </a>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copyToClipboard(staffLoginUrl, 'Staff login URL')}
+                        className="shrink-0 border-slate-600 text-slate-300 hover:bg-slate-700"
+                      >
+                        <Copy className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    {!primaryDomain && (
+                      <p className="text-xs text-slate-500 mt-2">
+                        No custom domain — sign in on kiosk.co.ke with email below
+                      </p>
+                    )}
+                  </div>
+                  <div className="p-4 rounded-xl bg-slate-700/50">
+                    <p className="text-slate-400 text-sm mb-1">POS login URL (cashier PIN)</p>
+                    {posLoginUrl ? (
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={posLoginUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-sm text-white hover:text-violet-400 transition-colors flex items-center gap-1 truncate"
+                        >
+                          {posLoginUrl}
+                          <ExternalLink className="w-3 h-3 shrink-0" />
+                        </a>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => copyToClipboard(posLoginUrl, 'POS login URL')}
+                          className="shrink-0 border-slate-600 text-slate-300 hover:bg-slate-700"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <p className="text-amber-400/90 text-sm">
+                        Add a domain to enable PIN login at a kiosk URL
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-slate-300 mb-3">User credentials</p>
+                  {data.users.length === 0 ? (
+                    <p className="text-slate-500 text-sm">No users yet</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {data.users.map((user) => {
+                        const password = revealedPasswords[user.id];
+                        const passwordVisible = showPasswordFor[user.id];
+                        const credentialLine = [
+                          `URL: ${staffLoginUrl}`,
+                          `Email: ${user.email}`,
+                          password ? `Password: ${password}` : null,
+                          user.pin ? `PIN: ${user.pin}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join('\n');
+
+                        return (
+                          <div
+                            key={user.id}
+                            className="p-4 rounded-xl bg-slate-700/50 border border-slate-600/40"
+                          >
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                              <div className="min-w-0 flex-1 space-y-2">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="font-medium text-white">{user.name}</p>
+                                  {getRoleBadge(user.role)}
+                                  {user.active === 0 && (
+                                    <Badge className="bg-red-500/10 text-red-400 border-red-500/20">
+                                      Inactive
+                                    </Badge>
+                                  )}
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-slate-500 shrink-0 w-16">Email</span>
+                                    <span className="text-white font-mono truncate">{user.email}</span>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => copyToClipboard(user.email, 'Email')}
+                                      className="h-7 w-7 p-0 text-slate-400 hover:text-white shrink-0"
+                                    >
+                                      <Copy className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-slate-500 shrink-0 w-16">Password</span>
+                                    {password ? (
+                                      <>
+                                        <span className="text-violet-300 font-mono truncate">
+                                          {passwordVisible ? password : '••••••••'}
+                                        </span>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() =>
+                                            setShowPasswordFor((prev) => ({
+                                              ...prev,
+                                              [user.id]: !prev[user.id],
+                                            }))
+                                          }
+                                          className="h-7 w-7 p-0 text-slate-400 hover:text-white shrink-0"
+                                        >
+                                          {passwordVisible ? (
+                                            <EyeOff className="w-3 h-3" />
+                                          ) : (
+                                            <Eye className="w-3 h-3" />
+                                          )}
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => copyToClipboard(password, 'Password')}
+                                          className="h-7 w-7 p-0 text-slate-400 hover:text-white shrink-0"
+                                        >
+                                          <Copy className="w-3 h-3" />
+                                        </Button>
+                                      </>
+                                    ) : (
+                                      <span className="text-slate-500 text-xs">
+                                        Encrypted — reset to generate a new one
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {user.pin && (
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="text-slate-500 shrink-0 w-16">PIN</span>
+                                      <span className="text-violet-300 font-mono">{user.pin}</span>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => copyToClipboard(user.pin!, 'PIN')}
+                                        className="h-7 w-7 p-0 text-slate-400 hover:text-white shrink-0"
+                                      >
+                                        <Copy className="w-3 h-3" />
+                                      </Button>
+                                    </div>
+                                  )}
+
+                                  <div className="flex items-center gap-2 sm:col-span-2">
+                                    <span className="text-slate-500 shrink-0 w-16">Method</span>
+                                    <span className="text-slate-400 text-xs">{getUserLoginLabel(user)}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap gap-2 shrink-0">
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleOpenSite(user.id)}
+                                  disabled={openingSiteFor !== null || user.active === 0}
+                                  className="bg-violet-600 hover:bg-violet-500 text-white"
+                                >
+                                  {openingSiteFor === user.id ? (
+                                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                  ) : (
+                                    <ExternalLink className="w-3 h-3 mr-1" />
+                                  )}
+                                  Open as user
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleResetPassword(user)}
+                                  disabled={resettingPasswordFor === user.id}
+                                  className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                                >
+                                  {resettingPasswordFor === user.id ? (
+                                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                  ) : (
+                                    <RefreshCw className="w-3 h-3 mr-1" />
+                                  )}
+                                  Reset password
+                                </Button>
+                                {credentialLine && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => copyToClipboard(credentialLine, 'Credentials')}
+                                    className="border-violet-500/30 text-violet-300 hover:bg-violet-500/10"
+                                  >
+                                    <Copy className="w-3 h-3 mr-1" />
+                                    Copy all
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-8">
@@ -838,21 +1186,45 @@ export default function BusinessDetailsPage() {
                           {user.name[0]?.toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-medium text-white truncate">{user.name}</p>
                             {getRoleBadge(user.role)}
+                            {user.department && (
+                              <Badge className="bg-slate-600/50 text-slate-300 border-slate-500/30">
+                                {user.department}
+                              </Badge>
+                            )}
                             {user.active === 0 && (
                               <Badge className="bg-red-500/10 text-red-400 border-red-500/20">
                                 Inactive
                               </Badge>
                             )}
                           </div>
-                          <p className="text-slate-400 text-sm flex items-center gap-1">
-                            <Mail className="w-3 h-3" />
-                            {user.email}
+                          <p className="text-slate-400 text-sm flex items-center gap-1 mt-1">
+                            <Mail className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{user.email}</span>
                           </p>
+                          <div className="flex items-center gap-3 mt-1 flex-wrap">
+                            <p className="text-slate-500 text-xs flex items-center gap-1">
+                              <KeyRound className="w-3 h-3 shrink-0" />
+                              {getUserLoginLabel(user)}
+                            </p>
+                            {user.pin && (
+                              <p className="text-violet-300 text-sm font-mono flex items-center gap-1">
+                                PIN: {user.pin}
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => copyToClipboard(user.pin!, 'PIN')}
+                                  className="h-6 w-6 p-0 text-slate-400 hover:text-white"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </Button>
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-right hidden md:block">
+                        <div className="text-right hidden md:block shrink-0">
                           <p className="text-xs text-slate-500">Joined</p>
                           <p className="text-sm text-slate-300">{formatDate(user.created_at)}</p>
                         </div>

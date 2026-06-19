@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
+  ArrowUpCircle,
   Check,
   CheckCircle2,
   Loader2,
@@ -31,6 +32,12 @@ import { PosDepartmentRail } from '@/components/pos/PosDepartmentRail';
 import { apiDelete, apiPatch, apiPost } from '@/lib/utils/api-client';
 import { itemMatchesShopType } from '@/lib/utils/shop-type';
 import type { Item } from '@/lib/db/types';
+import {
+  displayGroupedItemName,
+  groupItemsByParent,
+  type ItemWithParentName,
+} from '@/lib/utils/group-items-by-parent';
+import { computeTopup, formatTopupDisplay } from '@/lib/utils/inventory-topup';
 import type { AdjustmentReason } from '@/lib/constants';
 import { ADJUSTMENT_REASONS, isDiscreteUnitType, UNIT_TYPES } from '@/lib/constants';
 import { toast } from 'sonner';
@@ -71,6 +78,74 @@ function stockStatus(item: Item): 'out' | 'low' | 'ok' {
 function formatMinStock(item: Item) {
   if (item.min_stock_level == null) return '—';
   return formatStockQty(item.min_stock_level, item.unit_type);
+}
+
+function formatExpectedStock(item: Item) {
+  if (item.expected_stock_level == null) return '—';
+  return formatStockQty(item.expected_stock_level, item.unit_type);
+}
+
+function parseEditableStockValue(
+  raw: string,
+  unitType: Item['unit_type'],
+): number | null {
+  const trimmed = raw.trim();
+  if (trimmed === '') return null;
+  const isDiscrete = isDiscreteUnitType(unitType);
+  const parsed = isDiscrete ? parseInt(trimmed, 10) : parseFloat(trimmed);
+  if (isNaN(parsed) || parsed < 0) return null;
+  return parsed;
+}
+
+function getLiveTopup(
+  item: ItemWithParentName,
+  ctx: {
+    editingStockId: string | null;
+    editingStockValue: string;
+    editingMinStockId: string | null;
+    editingMinStockValue: string;
+    editingExpectedStockId: string | null;
+    editingExpectedStockValue: string;
+  },
+): number {
+  const currentStock =
+    ctx.editingStockId === item.id
+      ? (parseEditableStockValue(ctx.editingStockValue, item.unit_type) ??
+        item.current_stock)
+      : item.current_stock;
+
+  const minStock =
+    ctx.editingMinStockId === item.id
+      ? parseEditableStockValue(ctx.editingMinStockValue, item.unit_type)
+      : item.min_stock_level;
+
+  const expectedStock =
+    ctx.editingExpectedStockId === item.id
+      ? parseEditableStockValue(ctx.editingExpectedStockValue, item.unit_type)
+      : item.expected_stock_level;
+
+  return computeTopup(currentStock, minStock, expectedStock);
+}
+
+function TopupCell({
+  topup,
+  unitType,
+}: {
+  topup: number;
+  unitType: Item['unit_type'];
+}) {
+  if (topup <= 0) {
+    return (
+      <span className="text-slate-400 dark:text-slate-500 tabular-nums text-xs">—</span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center justify-end gap-0.5 w-full text-amber-700 dark:text-amber-300 font-bold tabular-nums text-xs">
+      <ArrowUpCircle className="w-3 h-3 shrink-0" aria-hidden />
+      {formatTopupDisplay(topup, (v) => formatStockQty(v, unitType))}
+    </span>
+  );
 }
 
 function formatPrice(price: number) {
@@ -561,7 +636,7 @@ function DepartmentStockAdjustForm({
 export function DepartmentStockScreen() {
   const { assignedTypes, shopType, setShopType } = useDepartmentApp();
 
-  const [items, setItems] = useState<Item[]>([]);
+  const [items, setItems] = useState<ItemWithParentName[]>([]);
   const [loadingItems, setLoadingItems] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -574,6 +649,9 @@ export function DepartmentStockScreen() {
   const [editingMinStockId, setEditingMinStockId] = useState<string | null>(null);
   const [editingMinStockValue, setEditingMinStockValue] = useState('');
   const [savingMinStockId, setSavingMinStockId] = useState<string | null>(null);
+  const [editingExpectedStockId, setEditingExpectedStockId] = useState<string | null>(null);
+  const [editingExpectedStockValue, setEditingExpectedStockValue] = useState('');
+  const [savingExpectedStockId, setSavingExpectedStockId] = useState<string | null>(null);
   const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
   const [editingPriceValue, setEditingPriceValue] = useState('');
   const [savingPriceId, setSavingPriceId] = useState<string | null>(null);
@@ -647,6 +725,30 @@ export function DepartmentStockScreen() {
     return scopedItems.filter((item) => stockStatus(item) === stockFilter);
   }, [scopedItems, stockFilter]);
 
+  const groupedItems = useMemo(
+    () => groupItemsByParent(filteredItems),
+    [filteredItems],
+  );
+
+  const topupEditCtx = useMemo(
+    () => ({
+      editingStockId,
+      editingStockValue,
+      editingMinStockId,
+      editingMinStockValue,
+      editingExpectedStockId,
+      editingExpectedStockValue,
+    }),
+    [
+      editingStockId,
+      editingStockValue,
+      editingMinStockId,
+      editingMinStockValue,
+      editingExpectedStockId,
+      editingExpectedStockValue,
+    ],
+  );
+
   useEffect(() => {
     if (
       selectedItem &&
@@ -719,6 +821,8 @@ export function DepartmentStockScreen() {
   const startInlineStockEdit = (item: Item) => {
     setEditingMinStockId(null);
     setEditingMinStockValue('');
+    setEditingExpectedStockId(null);
+    setEditingExpectedStockValue('');
     setEditingPriceId(null);
     setEditingPriceValue('');
     setEditingUnitId(null);
@@ -735,6 +839,8 @@ export function DepartmentStockScreen() {
   const startInlineMinStockEdit = (item: Item) => {
     setEditingStockId(null);
     setEditingStockValue('');
+    setEditingExpectedStockId(null);
+    setEditingExpectedStockValue('');
     setEditingPriceId(null);
     setEditingPriceValue('');
     setEditingUnitId(null);
@@ -752,11 +858,35 @@ export function DepartmentStockScreen() {
     setEditingMinStockValue('');
   };
 
+  const startInlineExpectedStockEdit = (item: Item) => {
+    setEditingStockId(null);
+    setEditingStockValue('');
+    setEditingMinStockId(null);
+    setEditingMinStockValue('');
+    setEditingPriceId(null);
+    setEditingPriceValue('');
+    setEditingUnitId(null);
+    setEditingUnitValue('');
+    setEditingExpectedStockId(item.id);
+    setEditingExpectedStockValue(
+      item.expected_stock_level != null
+        ? formatStockQty(item.expected_stock_level, item.unit_type)
+        : '',
+    );
+  };
+
+  const cancelInlineExpectedStockEdit = () => {
+    setEditingExpectedStockId(null);
+    setEditingExpectedStockValue('');
+  };
+
   const startInlinePriceEdit = (item: Item) => {
     setEditingStockId(null);
     setEditingStockValue('');
     setEditingMinStockId(null);
     setEditingMinStockValue('');
+    setEditingExpectedStockId(null);
+    setEditingExpectedStockValue('');
     setEditingUnitId(null);
     setEditingUnitValue('');
     setEditingPriceId(item.id);
@@ -773,6 +903,8 @@ export function DepartmentStockScreen() {
     setEditingStockValue('');
     setEditingMinStockId(null);
     setEditingMinStockValue('');
+    setEditingExpectedStockId(null);
+    setEditingExpectedStockValue('');
     setEditingPriceId(null);
     setEditingPriceValue('');
     setEditingUnitId(item.id);
@@ -813,6 +945,11 @@ export function DepartmentStockScreen() {
 
       if (result.success) {
         toast.success('Stock updated');
+        setItems((prev) =>
+          prev.map((i) =>
+            i.id === item.id ? { ...i, current_stock: target } : i,
+          ),
+        );
         void fetchItems(true);
       } else {
         toast.error(result.message || 'Failed to update stock');
@@ -863,6 +1000,11 @@ export function DepartmentStockScreen() {
 
       if (result.success) {
         toast.success('Minimum stock updated');
+        setItems((prev) =>
+          prev.map((i) =>
+            i.id === item.id ? { ...i, min_stock_level: parsed } : i,
+          ),
+        );
         void fetchItems(true);
       } else {
         toast.error(result.message || 'Failed to update minimum stock');
@@ -874,6 +1016,59 @@ export function DepartmentStockScreen() {
     } finally {
       setSavingMinStockId(null);
       if (!editingMinStockId) setEditingMinStockValue('');
+    }
+  };
+
+  const saveInlineExpectedStock = async (item: Item) => {
+    const trimmed = editingExpectedStockValue.trim();
+    const isDiscrete = isDiscreteUnitType(item.unit_type);
+    const parsed =
+      trimmed === ''
+        ? null
+        : isDiscrete
+          ? parseInt(trimmed, 10)
+          : parseFloat(trimmed);
+
+    if (trimmed !== '' && (parsed == null || isNaN(parsed) || parsed < 0)) {
+      toast.error('Enter a valid expected stock level');
+      return;
+    }
+
+    if (trimmed === '' && item.expected_stock_level == null) {
+      cancelInlineExpectedStockEdit();
+      return;
+    }
+
+    if (parsed !== null && item.expected_stock_level === parsed) {
+      cancelInlineExpectedStockEdit();
+      return;
+    }
+
+    setSavingExpectedStockId(item.id);
+    setEditingExpectedStockId(null);
+    try {
+      const result = await apiPatch(`/api/items/${item.id}/expected-stock`, {
+        expectedStockLevel: parsed,
+      });
+
+      if (result.success) {
+        toast.success('Expected stock updated');
+        setItems((prev) =>
+          prev.map((i) =>
+            i.id === item.id ? { ...i, expected_stock_level: parsed } : i,
+          ),
+        );
+        void fetchItems(true);
+      } else {
+        toast.error(result.message || 'Failed to update expected stock');
+        setEditingExpectedStockId(item.id);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'An error occurred');
+      setEditingExpectedStockId(item.id);
+    } finally {
+      setSavingExpectedStockId(null);
+      if (!editingExpectedStockId) setEditingExpectedStockValue('');
     }
   };
 
@@ -1157,116 +1352,184 @@ export function DepartmentStockScreen() {
               <table className="w-full table-fixed border-collapse text-xs">
                 <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#1a2c17] border-b border-slate-200 dark:border-slate-700">
                   <tr className="text-left text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    <th className="px-1 py-1.5 w-[5%] text-center">#</th>
-                    <th className="px-1 py-1.5 w-[28%]">Product</th>
-                    <th className="px-1 py-1.5 w-[9%]">Unit</th>
-                    <th className="px-1 py-1.5 w-[11%] text-right">Price</th>
-                    <th className="px-1 py-1.5 w-[11%] text-right">Stock</th>
-                    <th className="px-1 py-1.5 w-[11%] text-right">Min</th>
-                    <th className="px-1 py-1.5 w-[8%]">St</th>
-                    <th className="px-1 py-1.5 w-[7%] text-right" aria-label="Actions" />
+                    <th className="px-1 py-1.5 w-[4%] text-center">#</th>
+                    <th className="px-1 py-1.5 w-[22%]">Product</th>
+                    <th className="px-1 py-1.5 w-[7%]">Unit</th>
+                    <th className="px-1 py-1.5 w-[8%] text-right">Price</th>
+                    <th className="px-1 py-1.5 w-[8%] text-right">Stock</th>
+                    <th className="px-1 py-1.5 w-[8%] text-right">Min</th>
+                    <th className="px-1 py-1.5 w-[9%] text-right">Expected</th>
+                    <th className="px-1 py-1.5 w-[8%] text-right">Topup</th>
+                    <th className="px-1 py-1.5 w-[6%]">St</th>
+                    <th className="px-1 py-1.5 w-[6%] text-right" aria-label="Actions" />
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredItems.map((item, index) => {
-                    const status = stockStatus(item);
-                    const selected = selectedItem?.id === item.id;
-                    return (
-                      <tr
-                        key={item.id}
-                        className={`border-b border-slate-100 dark:border-slate-800/80 transition-colors ${
-                          selected
-                            ? 'bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20'
-                            : index % 2 === 0
-                              ? 'bg-white dark:bg-[#132210]'
-                              : 'bg-slate-50/80 dark:bg-[#161f14]'
-                        }`}
-                      >
-                        <td className="px-1 py-1.5 text-center text-[10px] text-slate-400 tabular-nums align-top">
-                          {index + 1}
-                        </td>
-                        <td className="px-1 py-1.5 font-medium text-slate-900 dark:text-white min-w-0 align-top">
-                          <button
-                            type="button"
-                            onClick={() => openDrawer(item)}
-                            className="text-left whitespace-normal break-words text-xs leading-snug hover:text-[#1c6a1e] hover:underline underline-offset-2 w-full"
+                  {(() => {
+                    let rowIndex = 0;
+                    return groupedItems.flatMap((group) => {
+                      const rows: ReactNode[] = [];
+
+                      if (group.isVariantGroup) {
+                        rows.push(
+                          <tr
+                            key={`parent-${group.id}`}
+                            className="bg-slate-200/80 dark:bg-[#1f3420] border-b border-slate-300 dark:border-slate-700"
                           >
-                            {item.name}
-                          </button>
-                        </td>
-                        <td className="px-1 py-1.5 min-w-0 align-top">
-                          <InlineUnitCell
-                            unitType={item.unit_type}
-                            isEditing={editingUnitId === item.id}
-                            value={editingUnitId === item.id ? editingUnitValue : item.unit_type}
-                            isSaving={savingUnitId === item.id}
-                            onStartEdit={() => startInlineUnitEdit(item)}
-                            onChange={setEditingUnitValue}
-                            onSave={() => void saveInlineUnit(item)}
-                            onCancel={cancelInlineUnitEdit}
-                          />
-                        </td>
-                        <td className="px-1 py-1.5 text-right min-w-0 align-top">
-                          <InlineEditableCell
-                            displayValue={formatPrice(item.current_sell_price)}
-                            isEditing={editingPriceId === item.id}
-                            value={editingPriceId === item.id ? editingPriceValue : ''}
-                            isSaving={savingPriceId === item.id}
-                            valueKind="price"
-                            onStartEdit={() => startInlinePriceEdit(item)}
-                            onChange={setEditingPriceValue}
-                            onSave={() => void saveInlinePrice(item)}
-                            onCancel={cancelInlinePriceEdit}
-                          />
-                        </td>
-                        <td className="px-1 py-1.5 text-right min-w-0 align-top">
-                          <InlineEditableCell
-                            displayValue={formatStockQty(item.current_stock, item.unit_type)}
-                            isEditing={editingStockId === item.id}
-                            value={editingStockId === item.id ? editingStockValue : ''}
-                            isSaving={savingStockId === item.id}
-                            unitType={item.unit_type}
-                            onStartEdit={() => startInlineStockEdit(item)}
-                            onChange={setEditingStockValue}
-                            onSave={() => void saveInlineStock(item)}
-                            onCancel={cancelInlineStockEdit}
-                          />
-                        </td>
-                        <td className="px-1 py-1.5 text-right min-w-0 align-top">
-                          <InlineEditableCell
-                            displayValue={formatMinStock(item)}
-                            isEditing={editingMinStockId === item.id}
-                            value={editingMinStockId === item.id ? editingMinStockValue : ''}
-                            isSaving={savingMinStockId === item.id}
-                            unitType={item.unit_type}
-                            allowEmpty
-                            onStartEdit={() => startInlineMinStockEdit(item)}
-                            onChange={setEditingMinStockValue}
-                            onSave={() => void saveInlineMinStock(item)}
-                            onCancel={cancelInlineMinStockEdit}
-                          />
-                        </td>
-                        <td className="px-1 py-1.5 align-top">
-                          <StockStatusBadge status={status} />
-                        </td>
-                        <td className="px-1 py-1.5 text-right align-top">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              void handleDelete(item);
-                            }}
-                            disabled={isDeleting}
-                            className="inline-flex items-center justify-center w-7 h-7 rounded-md text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50"
-                            title="Delete product"
-                            aria-label={`Delete ${item.name}`}
+                            <td
+                              colSpan={10}
+                              className="px-2 py-1.5 text-[10px] sm:text-xs font-bold uppercase tracking-wide text-[#1c6a1e] dark:text-emerald-300"
+                            >
+                              {group.label}
+                              <span className="ml-2 font-semibold normal-case tracking-normal text-slate-500 dark:text-slate-400">
+                                ({group.items.length} variant{group.items.length !== 1 ? 's' : ''})
+                              </span>
+                            </td>
+                          </tr>,
+                        );
+                      }
+
+                      for (const item of group.items) {
+                        rowIndex += 1;
+                        const index = rowIndex;
+                        const status = stockStatus(item);
+                        const selected = selectedItem?.id === item.id;
+                        const isVariantRow = group.isVariantGroup;
+                        const topup = getLiveTopup(item, topupEditCtx);
+                        const needsTopup = topup > 0;
+
+                        rows.push(
+                          <tr
+                            key={item.id}
+                            className={`border-b border-slate-100 dark:border-slate-800/80 transition-colors ${
+                              needsTopup
+                                ? 'bg-amber-50/90 dark:bg-amber-950/25 ring-1 ring-inset ring-amber-300/50 dark:ring-amber-600/40'
+                                : selected
+                                  ? 'bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20'
+                                  : index % 2 === 0
+                                    ? 'bg-white dark:bg-[#132210]'
+                                    : 'bg-slate-50/80 dark:bg-[#161f14]'
+                            }`}
                           >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                            <td className="px-1 py-1.5 text-center text-[10px] text-slate-400 tabular-nums align-top">
+                              {index}
+                            </td>
+                            <td
+                              className={`px-1 py-1.5 font-medium text-slate-900 dark:text-white min-w-0 align-top ${
+                                isVariantRow ? 'pl-3' : ''
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => openDrawer(item)}
+                                className={`text-left whitespace-normal break-words text-xs leading-snug hover:text-[#1c6a1e] hover:underline underline-offset-2 w-full ${
+                                  isVariantRow ? 'text-slate-700 dark:text-slate-200' : ''
+                                }`}
+                              >
+                                {isVariantRow && (
+                                  <span className="text-slate-400 dark:text-slate-500 mr-1">↳</span>
+                                )}
+                                {displayGroupedItemName(item)}
+                              </button>
+                            </td>
+                            <td className="px-1 py-1.5 min-w-0 align-top">
+                              <InlineUnitCell
+                                unitType={item.unit_type}
+                                isEditing={editingUnitId === item.id}
+                                value={editingUnitId === item.id ? editingUnitValue : item.unit_type}
+                                isSaving={savingUnitId === item.id}
+                                onStartEdit={() => startInlineUnitEdit(item)}
+                                onChange={setEditingUnitValue}
+                                onSave={() => void saveInlineUnit(item)}
+                                onCancel={cancelInlineUnitEdit}
+                              />
+                            </td>
+                            <td className="px-1 py-1.5 text-right min-w-0 align-top">
+                              <InlineEditableCell
+                                displayValue={formatPrice(item.current_sell_price)}
+                                isEditing={editingPriceId === item.id}
+                                value={editingPriceId === item.id ? editingPriceValue : ''}
+                                isSaving={savingPriceId === item.id}
+                                valueKind="price"
+                                onStartEdit={() => startInlinePriceEdit(item)}
+                                onChange={setEditingPriceValue}
+                                onSave={() => void saveInlinePrice(item)}
+                                onCancel={cancelInlinePriceEdit}
+                              />
+                            </td>
+                            <td className="px-1 py-1.5 text-right min-w-0 align-top">
+                              <InlineEditableCell
+                                displayValue={formatStockQty(item.current_stock, item.unit_type)}
+                                isEditing={editingStockId === item.id}
+                                value={editingStockId === item.id ? editingStockValue : ''}
+                                isSaving={savingStockId === item.id}
+                                unitType={item.unit_type}
+                                onStartEdit={() => startInlineStockEdit(item)}
+                                onChange={setEditingStockValue}
+                                onSave={() => void saveInlineStock(item)}
+                                onCancel={cancelInlineStockEdit}
+                              />
+                            </td>
+                            <td className="px-1 py-1.5 text-right min-w-0 align-top">
+                              <InlineEditableCell
+                                displayValue={formatMinStock(item)}
+                                isEditing={editingMinStockId === item.id}
+                                value={editingMinStockId === item.id ? editingMinStockValue : ''}
+                                isSaving={savingMinStockId === item.id}
+                                unitType={item.unit_type}
+                                allowEmpty
+                                onStartEdit={() => startInlineMinStockEdit(item)}
+                                onChange={setEditingMinStockValue}
+                                onSave={() => void saveInlineMinStock(item)}
+                                onCancel={cancelInlineMinStockEdit}
+                              />
+                            </td>
+                            <td className="px-1 py-1.5 text-right min-w-0 align-top">
+                              <InlineEditableCell
+                                displayValue={formatExpectedStock(item)}
+                                isEditing={editingExpectedStockId === item.id}
+                                value={
+                                  editingExpectedStockId === item.id
+                                    ? editingExpectedStockValue
+                                    : ''
+                                }
+                                isSaving={savingExpectedStockId === item.id}
+                                unitType={item.unit_type}
+                                allowEmpty
+                                onStartEdit={() => startInlineExpectedStockEdit(item)}
+                                onChange={setEditingExpectedStockValue}
+                                onSave={() => void saveInlineExpectedStock(item)}
+                                onCancel={cancelInlineExpectedStockEdit}
+                              />
+                            </td>
+                            <td className="px-1 py-1.5 text-right min-w-0 align-top">
+                              <TopupCell topup={topup} unitType={item.unit_type} />
+                            </td>
+                            <td className="px-1 py-1.5 align-top">
+                              <StockStatusBadge status={status} />
+                            </td>
+                            <td className="px-1 py-1.5 text-right align-top">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleDelete(item);
+                                }}
+                                disabled={isDeleting}
+                                className="inline-flex items-center justify-center w-7 h-7 rounded-md text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50"
+                                title="Delete product"
+                                aria-label={`Delete ${item.name}`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>,
+                        );
+                      }
+
+                      return rows;
+                    });
+                  })()}
                 </tbody>
               </table>
             </div>

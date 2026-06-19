@@ -104,6 +104,8 @@ export interface Item {
   item_type: ItemType;
   current_stock: number; // REAL in SQLite
   min_stock_level: number | null;
+  /** Par / target level to restock to when below minimum */
+  expected_stock_level: number | null;
   current_sell_price: number;
   image_url: string | null;
   barcode: string | null; // Optional barcode (EAN-13, UPC, etc.)

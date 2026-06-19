@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS items (
   item_type TEXT NOT NULL DEFAULT 'retail',
   current_stock REAL NOT NULL DEFAULT 0, -- denormalized for speed
   min_stock_level REAL, -- nullable
+  expected_stock_level REAL, -- par / target restock level (nullable)
   current_sell_price REAL NOT NULL DEFAULT 0, -- denormalized for speed
   image_url TEXT,
   packaging_unit_name TEXT, -- e.g., "Carton", "Sack", "Crate" (bulk packaging unit name)

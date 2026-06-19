@@ -107,10 +107,16 @@ export async function GET(
     }
 
     const users = await query<Omit<User, 'password_hash'>>(
-      `SELECT id, business_id, name, email, role, pin, active, created_at
+      `SELECT id, business_id, name, email, role, pin, department, active, created_at
        FROM users
        WHERE business_id = ?
-       ORDER BY created_at DESC`,
+       ORDER BY
+         CASE role
+           WHEN 'owner' THEN 0
+           WHEN 'admin' THEN 1
+           ELSE 2
+         END,
+         created_at DESC`,
       [businessId]
     );
 

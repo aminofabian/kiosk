@@ -328,6 +328,13 @@ export async function runMigrations() {
     }
 
     try {
+      const { migrateExpectedStock } = await import("./migrate-expected-stock");
+      await migrateExpectedStock();
+    } catch (error) {
+      console.error("⚠ expected_stock_level migration skipped:", error);
+    }
+
+    try {
       await migrateCreditPaymentApproval();
     } catch (error) {
       console.error("⚠ credit payment approval migration skipped:", error);

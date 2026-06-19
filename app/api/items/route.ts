@@ -417,14 +417,15 @@ export async function GET(request: NextRequest) {
       } else if (sellableOnly) {
         // Only sellable items (variants OR standalone items without variants)
         const variantActiveFilter = includeInactive ? "" : " AND v.active = 1";
-        items = await query<Item>(
-          `SELECT i.* FROM items i
+        items = await query<Item & { parent_name?: string | null }>(
+          `SELECT i.*, p.name as parent_name FROM items i
+           LEFT JOIN items p ON i.parent_item_id = p.id AND p.business_id = i.business_id
            WHERE i.business_id = ?${iActiveFilter}${itemTypeFilter.replace(" AND ", " AND i.")}${itemTypeInFilterAlias}${noBarcodeFilterAlias}${noBarcodeExcludeParentsAlias}
            AND (
-             i.parent_item_id IS NOT NULL  -- variants are sellable
-             OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id${variantActiveFilter})  -- standalone items without variants
+             i.parent_item_id IS NOT NULL
+             OR NOT EXISTS (SELECT 1 FROM items v WHERE v.parent_item_id = i.id${variantActiveFilter})
            )
-           ORDER BY i.name ASC`,
+           ORDER BY COALESCE(p.name, i.name) ASC, COALESCE(i.variant_name, i.name) ASC`,
           itemTypeList
             ? [auth.businessId, ...itemTypeList, ...itemTypeParam]
             : [auth.businessId, ...itemTypeParam],

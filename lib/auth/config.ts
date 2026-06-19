@@ -2,6 +2,7 @@ import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { queryOne } from "@/lib/db";
+import { verifyImpersonationToken } from "@/lib/auth/impersonation-token";
 import type { User, SuperAdmin, Business } from "@/lib/db/types";
 
 declare module "next-auth" {
@@ -190,6 +191,52 @@ export const authOptions: NextAuthOptions = {
 
         if (!user) {
           throw new Error("Invalid PIN");
+        }
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          businessId: user.business_id,
+          businessName: user.business_name,
+          isSuperAdmin: false,
+          department: (user as any).department || null,
+        };
+      },
+    }),
+    CredentialsProvider({
+      id: "impersonate",
+      name: "Impersonate",
+      credentials: {
+        token: { label: "Token", type: "text" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.token) {
+          throw new Error("Access token is required");
+        }
+
+        const payload = verifyImpersonationToken(credentials.token);
+        if (!payload) {
+          throw new Error("Invalid or expired access token");
+        }
+
+        const user = await queryOne<
+          User & { business_name: string; business_active: number }
+        >(
+          `SELECT u.*, b.name as business_name, b.active as business_active
+           FROM users u
+           JOIN businesses b ON u.business_id = b.id
+           WHERE u.id = ? AND u.business_id = ? AND u.active = 1`,
+          [payload.userId, payload.businessId],
+        );
+
+        if (!user) {
+          throw new Error("User not found");
+        }
+
+        if (user.business_active === 0) {
+          throw new Error("This business is suspended");
         }
 
         return {
