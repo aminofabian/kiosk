@@ -8,6 +8,7 @@ import { apiGet } from "@/lib/utils/api-client";
 import { toast } from "sonner";
 import { useDepartmentApp } from "@/components/department/DepartmentAppProvider";
 import { SupplyShell } from "@/components/department/supply/SupplyShell";
+import { ContinueDraftBanner } from "@/components/department/supply/ContinueDraftBanner";
 import {
   POApprovalBadge,
   POFulfillmentBadge,
@@ -114,6 +115,8 @@ export default function DepartmentSupplyPage() {
       }
     >
       <div className="space-y-4">
+        <ContinueDraftBanner />
+
         <button
           type="button"
           onClick={() => setShowGuide((v) => !v)}

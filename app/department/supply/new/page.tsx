@@ -100,6 +100,11 @@ export default function NewPurchaseOrderPage() {
   >({});
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [loadingLastOrder, setLoadingLastOrder] = useState(false);
+  const [lastOrder, setLastOrder] = useState<{
+    createdAt: number;
+    lines: { itemId: string; qtyOrdered: number; unitCostEstimated: number }[];
+  } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
   const [localDraftSaved, setLocalDraftSaved] = useState(false);
@@ -142,6 +147,7 @@ export default function NewPurchaseOrderPage() {
       saveNewPODraft(userId, {
         department,
         supplierId,
+        supplierName: selectedSupplier?.name,
         notes,
         showNotes,
         lineInputs,
@@ -150,7 +156,7 @@ export default function NewPurchaseOrderPage() {
     }, 400);
 
     return () => window.clearTimeout(timer);
-  }, [userId, department, supplierId, notes, showNotes, lineInputs]);
+  }, [userId, department, supplierId, selectedSupplier?.name, notes, showNotes, lineInputs]);
 
   const loadSuppliers = useCallback(async () => {
     setLoadingSuppliers(true);
@@ -162,9 +168,11 @@ export default function NewPurchaseOrderPage() {
       const supRes = await apiGet<Supplier[]>(supUrl);
       if (supRes.success && supRes.data) {
         setSuppliers(supRes.data);
-        setSupplierId((prev) =>
-          supRes.data!.some((s) => s.id === prev) ? prev : "",
-        );
+        setSupplierId((prev) => {
+          if (prev && supRes.data!.some((s) => s.id === prev)) return prev;
+          if (supRes.data!.length === 1) return supRes.data![0].id;
+          return "";
+        });
       }
     } catch {
       toast.error("Failed to load suppliers");
@@ -203,6 +211,41 @@ export default function NewPurchaseOrderPage() {
     }
   }, [supplierId, department]);
 
+  const loadLastOrder = useCallback(async () => {
+    if (!supplierId || !department) {
+      setLastOrder(null);
+      return;
+    }
+
+    setLoadingLastOrder(true);
+    try {
+      const result = await apiGet<{
+        purchaseId: string;
+        createdAt: number;
+        totalAmount: number;
+        lines: { itemId: string; qtyOrdered: number; unitCostEstimated: number }[];
+      } | null>(
+        `/api/department/purchase-orders/last?supplierId=${encodeURIComponent(supplierId)}&department=${encodeURIComponent(department)}`,
+      );
+      if (result.success) {
+        setLastOrder(
+          result.data && result.data.lines.length > 0
+            ? {
+                createdAt: result.data.createdAt,
+                lines: result.data.lines,
+              }
+            : null,
+        );
+      } else {
+        setLastOrder(null);
+      }
+    } catch {
+      setLastOrder(null);
+    } finally {
+      setLoadingLastOrder(false);
+    }
+  }, [supplierId, department]);
+
   useEffect(() => {
     void loadSuppliers();
   }, [loadSuppliers]);
@@ -210,6 +253,10 @@ export default function NewPurchaseOrderPage() {
   useEffect(() => {
     void loadSupplierProducts();
   }, [loadSupplierProducts]);
+
+  useEffect(() => {
+    void loadLastOrder();
+  }, [loadLastOrder]);
 
   useEffect(() => {
     if (assignedTypes.length === 1) {
@@ -252,6 +299,44 @@ export default function NewPurchaseOrderPage() {
     lineTotal > 0;
 
   const hasUnsavedServerDraft = canSave;
+
+  const applyLastOrder = () => {
+    if (!lastOrder) return;
+
+    const productIds = new Set(products.map((p) => p.id));
+    const next = { ...lineInputs };
+    let applied = 0;
+
+    for (const line of lastOrder.lines) {
+      if (!productIds.has(line.itemId)) continue;
+      const product = products.find((p) => p.id === line.itemId);
+      next[line.itemId] = {
+        qty: String(line.qtyOrdered),
+        cost: String(
+          line.unitCostEstimated > 0
+            ? line.unitCostEstimated
+            : product
+              ? defaultCostFor(product)
+              : "",
+        ),
+      };
+      applied += 1;
+    }
+
+    if (applied === 0) {
+      toast.error("Last order items aren't linked to this supplier anymore");
+      return;
+    }
+
+    setLineInputs(next);
+    toast.success(
+      `Loaded ${applied} item${applied !== 1 ? "s" : ""} from last order`,
+    );
+  };
+
+  const lastOrderLabel = lastOrder
+    ? `Use last order (${lastOrder.lines.length})`
+    : undefined;
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -452,6 +537,7 @@ export default function NewPurchaseOrderPage() {
                         setSupplierId(v);
                         setProducts([]);
                         setLineInputs({});
+                        setLastOrder(null);
                       }}
                     >
                       <SelectTrigger className="h-9 text-sm">
@@ -493,6 +579,10 @@ export default function NewPurchaseOrderPage() {
                     onChange={setLineInputs}
                     loading={loadingProducts}
                     emptyMessage="No products linked to this supplier. Ask admin to link products first."
+                    onApplyLastOrder={lastOrder ? applyLastOrder : undefined}
+                    lastOrderAvailable={!!lastOrder}
+                    lastOrderLoading={loadingLastOrder}
+                    lastOrderLabel={lastOrderLabel}
                   />
                 )}
               </div>

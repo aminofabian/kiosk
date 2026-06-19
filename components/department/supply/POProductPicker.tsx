@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Search, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { RotateCcw, Search, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getItemDisplayName } from "@/lib/utils";
 import {
@@ -11,19 +12,25 @@ import {
 import type { POProductLineInput } from "@/lib/department/po-new-draft";
 import type { POProductOption } from "@/components/department/supply/POLineEditor";
 
+export type ProductViewMode = "all" | "in_order";
+
 interface POProductPickerProps {
   products: POProductOption[];
   lineInputs: Record<string, POProductLineInput>;
   onChange: (lineInputs: Record<string, POProductLineInput>) => void;
   loading?: boolean;
   emptyMessage?: string;
+  onApplyLastOrder?: () => void;
+  lastOrderLoading?: boolean;
+  lastOrderAvailable?: boolean;
+  lastOrderLabel?: string;
 }
 
 function displayName(product: POProductOption): string {
   return getItemDisplayName(product.name, product.variantName);
 }
 
-function defaultCostFor(product: POProductOption): string {
+export function defaultCostFor(product: POProductOption): string {
   const price =
     product.defaultCost != null
       ? product.defaultCost
@@ -31,6 +38,13 @@ function defaultCostFor(product: POProductOption): string {
         ? product.lastBuyPrice
         : null;
   return price != null ? String(price) : "";
+}
+
+function isFilledInput(input: POProductLineInput | undefined): boolean {
+  if (!input) return false;
+  const qty = parseFloat(input.qty);
+  const cost = parseFloat(input.cost);
+  return !isNaN(qty) && qty > 0 && !isNaN(cost) && cost > 0;
 }
 
 function ProductPickerSkeleton() {
@@ -65,33 +79,51 @@ export function POProductPicker({
   onChange,
   loading,
   emptyMessage = "No products linked to this supplier. Ask admin to link products first.",
+  onApplyLastOrder,
+  lastOrderLoading,
+  lastOrderAvailable,
+  lastOrderLabel,
 }: POProductPickerProps) {
   const [search, setSearch] = useState("");
+  const [viewMode, setViewMode] = useState<ProductViewMode>("all");
+  const searchRef = useRef<HTMLInputElement>(null);
+  const prevFilledCountRef = useRef(0);
 
   const sortedProducts = useMemo(
     () => sortProductsAlphabetically(products, displayName),
     [products],
   );
 
-  const filteredProducts = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return sortedProducts;
-    return sortedProducts.filter((p) =>
-      displayName(p).toLowerCase().includes(q),
-    );
-  }, [sortedProducts, search]);
-
   const filledCount = useMemo(
-    () =>
-      products.filter((p) => {
-        const input = lineInputs[p.id];
-        if (!input) return false;
-        const qty = parseFloat(input.qty);
-        const cost = parseFloat(input.cost);
-        return !isNaN(qty) && qty > 0 && !isNaN(cost) && cost > 0;
-      }).length,
+    () => products.filter((p) => isFilledInput(lineInputs[p.id])).length,
     [products, lineInputs],
   );
+
+  useEffect(() => {
+    if (!loading && products.length > 0) {
+      searchRef.current?.focus({ preventScroll: true });
+    }
+  }, [loading, products.length]);
+
+  useEffect(() => {
+    if (filledCount > 0 && prevFilledCountRef.current === 0) {
+      setViewMode("in_order");
+    }
+    prevFilledCountRef.current = filledCount;
+  }, [filledCount]);
+
+  const filteredProducts = useMemo(() => {
+    let list =
+      viewMode === "in_order"
+        ? sortedProducts.filter((p) => isFilledInput(lineInputs[p.id]))
+        : sortedProducts;
+
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter((p) => displayName(p).toLowerCase().includes(q));
+    }
+    return list;
+  }, [sortedProducts, lineInputs, viewMode, search]);
 
   const updateLine = (productId: string, patch: Partial<POProductLineInput>) => {
     const current = lineInputs[productId] ?? { qty: "", cost: "" };
@@ -123,6 +155,7 @@ export function POProductPicker({
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
         <Input
+          ref={searchRef}
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -142,27 +175,96 @@ export function POProductPicker({
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-2 px-0.5">
-        <p className="text-[11px] text-slate-500">
-          {search.trim() ? (
-            <>
-              {filteredProducts.length} match{filteredProducts.length !== 1 ? "es" : ""}
-            </>
-          ) : (
-            <>
-              {products.length} product{products.length !== 1 ? "s" : ""} · A–Z
-            </>
-          )}
-          {filledCount > 0 && (
-            <span className="text-[#1c6a1e] font-medium">
-              {" "}
-              · {filledCount} with qty
-            </span>
-          )}
-        </p>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <div
+          className="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 p-0.5 bg-slate-50 dark:bg-slate-800/40"
+          role="tablist"
+          aria-label="Product view"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === "in_order"}
+            onClick={() => setViewMode("in_order")}
+            disabled={filledCount === 0}
+            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${
+              viewMode === "in_order"
+                ? "bg-white dark:bg-slate-900 text-[#1c6a1e] shadow-sm"
+                : filledCount === 0
+                  ? "text-slate-300 cursor-not-allowed"
+                  : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            In order{filledCount > 0 ? ` (${filledCount})` : ""}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === "all"}
+            onClick={() => setViewMode("all")}
+            className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${
+              viewMode === "all"
+                ? "bg-white dark:bg-slate-900 text-[#1c6a1e] shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            All ({products.length})
+          </button>
+        </div>
+
+        {lastOrderAvailable && onApplyLastOrder && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={lastOrderLoading}
+            onClick={onApplyLastOrder}
+            className="h-7 text-[11px] ml-auto"
+          >
+            <RotateCcw className="w-3 h-3 mr-1" />
+            {lastOrderLabel ?? "Use last order"}
+          </Button>
+        )}
       </div>
 
-      {filteredProducts.length === 0 ? (
+      <p className="text-[11px] text-slate-500 px-0.5">
+        {viewMode === "in_order" ? (
+          <>
+            Showing items in your order
+            {search.trim() ? ` · ${filteredProducts.length} match search` : ""}
+          </>
+        ) : search.trim() ? (
+          <>
+            {filteredProducts.length} match{filteredProducts.length !== 1 ? "es" : ""}{" "}
+            · A–Z
+          </>
+        ) : (
+          <>
+            {products.length} product{products.length !== 1 ? "s" : ""} · A–Z
+            {filledCount > 0 && (
+              <span className="text-[#1c6a1e] font-medium">
+                {" "}
+                · {filledCount} in order
+              </span>
+            )}
+          </>
+        )}
+      </p>
+
+      {viewMode === "in_order" && filledCount === 0 ? (
+        <div className="text-center py-8 px-2 space-y-2">
+          <p className="text-sm text-slate-400">No items in your order yet</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setViewMode("all")}
+            className="h-8 text-xs"
+          >
+            Browse all products
+          </Button>
+        </div>
+      ) : filteredProducts.length === 0 ? (
         <p className="text-sm text-slate-400 text-center py-6">
           No products match &ldquo;{search.trim()}&rdquo;
         </p>
@@ -175,10 +277,8 @@ export function POProductPicker({
             };
             const qty = parseFloat(input.qty);
             const cost = parseFloat(input.cost);
-            const isFilled =
-              !isNaN(qty) && qty > 0 && !isNaN(cost) && cost > 0;
-            const subtotal =
-              isFilled ? qty * cost : null;
+            const isFilled = isFilledInput(input);
+            const subtotal = isFilled ? qty * cost : null;
 
             return (
               <div
@@ -241,5 +341,3 @@ export function POProductPicker({
     </div>
   );
 }
-
-export { defaultCostFor };

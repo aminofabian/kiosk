@@ -6,9 +6,19 @@ export interface POProductLineInput {
 export interface NewPODraft {
   department: string;
   supplierId: string;
+  supplierName?: string;
   notes: string;
   showNotes: boolean;
   lineInputs: Record<string, POProductLineInput>;
+  savedAt: number;
+}
+
+export interface NewPODraftSummary {
+  department: string;
+  supplierId: string;
+  supplierName: string;
+  itemCount: number;
+  total: number;
   savedAt: number;
 }
 
@@ -53,4 +63,32 @@ export function draftHasProgress(draft: NewPODraft): boolean {
   return Object.values(draft.lineInputs).some(
     (line) => line.qty.trim() !== "" || line.cost.trim() !== "",
   );
+}
+
+function isFilledLine(line: POProductLineInput): boolean {
+  const qty = parseFloat(line.qty);
+  const cost = parseFloat(line.cost);
+  return !isNaN(qty) && qty > 0 && !isNaN(cost) && cost > 0;
+}
+
+export function summarizeNewPODraft(draft: NewPODraft): NewPODraftSummary {
+  let itemCount = 0;
+  let total = 0;
+
+  for (const line of Object.values(draft.lineInputs)) {
+    if (!isFilledLine(line)) continue;
+    const qty = parseFloat(line.qty);
+    const cost = parseFloat(line.cost);
+    itemCount += 1;
+    total += qty * cost;
+  }
+
+  return {
+    department: draft.department,
+    supplierId: draft.supplierId,
+    supplierName: draft.supplierName ?? "Supplier",
+    itemCount,
+    total,
+    savedAt: draft.savedAt,
+  };
 }
