@@ -43,14 +43,13 @@ describe('validateSaleLines', () => {
     expect(result.errors[0]?.code).toBe('item_inactive');
   });
 
-  it('rejects below-cost sales without manager authorization', async () => {
+  it('allows selling below cost without manager authorization', async () => {
     queryOneMock.mockResolvedValue({
       id: 'item-1',
       name: 'Milk',
       active: 1,
       current_stock: 10,
       current_sell_price: 35,
-      buy_price: 40,
     });
 
     const result = await validateSaleLines({
@@ -59,28 +58,7 @@ describe('validateSaleLines', () => {
       lines: [{ itemId: 'item-1', quantity: 1, price: 35 }],
     });
 
-    expect(result.ok).toBe(false);
-    expect(result.errors[0]?.code).toBe('below_cost');
-  });
-
-  it('allows below-cost when owner has can_override_price', async () => {
-    queryOneMock.mockResolvedValue({
-      id: 'item-1',
-      name: 'Milk',
-      active: 1,
-      current_stock: 10,
-      current_sell_price: 50,
-      buy_price: 40,
-    });
-
-    const result = await validateSaleLines({
-      businessId: 'biz-1',
-      role: 'owner',
-      lines: [{ itemId: 'item-1', quantity: 1, price: 35 }],
-    });
-
     expect(result.ok).toBe(true);
-    expect(result.managerAuthorized).toBe(true);
   });
 
   it('rejects overselling without manager PIN', async () => {

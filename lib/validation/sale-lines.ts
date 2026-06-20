@@ -28,7 +28,6 @@ export interface SaleLineValidationError {
     | 'item_not_found'
     | 'item_inactive'
     | 'insufficient_stock'
-    | 'below_cost'
     | 'expired_batch'
     | 'invalid_quantity'
     | 'invalid_price'
@@ -50,7 +49,6 @@ interface ItemRow {
   active: number;
   current_stock: number;
   current_sell_price: number;
-  buy_price: number;
 }
 
 const ITEM_SELECT = `SELECT
@@ -58,16 +56,7 @@ const ITEM_SELECT = `SELECT
       i.name,
       i.active,
       i.current_stock,
-      i.current_sell_price,
-      COALESCE(
-        (SELECT buy_price_per_unit FROM inventory_batches
-         WHERE item_id = i.id AND business_id = i.business_id
-         ORDER BY received_at DESC LIMIT 1),
-        (SELECT price FROM buying_prices
-         WHERE item_id = i.id
-         ORDER BY effective_from DESC LIMIT 1),
-        0
-      ) AS buy_price
+      i.current_sell_price
      FROM items i`;
 
 async function loadItemsByIds(
@@ -107,8 +96,8 @@ async function loadExpiredBatchIds(
 }
 
 /**
- * Server-side sale line validation: active items, stock, cost floor, expiry.
- * Manager PIN or elevated permissions can authorize oversell / below-cost sales.
+ * Server-side sale line validation: active items, stock, expiry.
+ * Manager PIN or elevated permissions can authorize oversell and price overrides.
  */
 export async function validateSaleLines(
   options: ValidateSaleLinesOptions
@@ -200,16 +189,6 @@ export async function validateSaleLines(
         });
         continue;
       }
-    }
-
-    if (item.buy_price > EPS && line.price + EPS < item.buy_price && !managerAuthorized) {
-      errors.push({
-        itemId: line.itemId,
-        itemName: item.name,
-        code: 'below_cost',
-        message: `Price for "${item.name}" is below cost. Manager approval required.`,
-      });
-      continue;
     }
 
     if (line.quantity > item.current_stock + EPS && !allowNegativeStock) {
