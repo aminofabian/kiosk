@@ -30,8 +30,7 @@ export interface SaleLineValidationError {
     | 'insufficient_stock'
     | 'expired_batch'
     | 'invalid_quantity'
-    | 'invalid_price'
-    | 'stale_price';
+    | 'invalid_price';
   message: string;
 }
 
@@ -48,15 +47,13 @@ interface ItemRow {
   name: string;
   active: number;
   current_stock: number;
-  current_sell_price: number;
 }
 
 const ITEM_SELECT = `SELECT
       i.id,
       i.name,
       i.active,
-      i.current_stock,
-      i.current_sell_price
+      i.current_stock
      FROM items i`;
 
 async function loadItemsByIds(
@@ -97,7 +94,7 @@ async function loadExpiredBatchIds(
 
 /**
  * Server-side sale line validation: active items, stock, expiry.
- * Manager PIN or elevated permissions can authorize oversell and price overrides.
+ * Manager PIN or elevated permissions can authorize oversell.
  */
 export async function validateSaleLines(
   options: ValidateSaleLinesOptions
@@ -162,19 +159,6 @@ export async function validateSaleLines(
         itemName: item.name,
         code: 'item_inactive',
         message: `"${item.name}" is inactive and cannot be sold`,
-      });
-      continue;
-    }
-
-    if (
-      Math.abs(line.price - item.current_sell_price) > EPS &&
-      !managerAuthorized
-    ) {
-      errors.push({
-        itemId: line.itemId,
-        itemName: item.name,
-        code: 'stale_price',
-        message: `Price for "${item.name}" changed to KES ${item.current_sell_price}. Remove and re-add the item, or get manager approval.`,
       });
       continue;
     }

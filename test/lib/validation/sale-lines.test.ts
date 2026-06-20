@@ -128,14 +128,12 @@ describe('validateSaleLines', () => {
     expect(result.allowNegativeStock).toBe(true);
   });
 
-  it('rejects stale cart prices without manager authorization', async () => {
+  it('allows cart prices that differ from the catalog price', async () => {
     queryOneMock.mockResolvedValue({
       id: 'item-1',
       name: 'Milk',
       active: 1,
       current_stock: 10,
-      current_sell_price: 55,
-      buy_price: 30,
     });
 
     const result = await validateSaleLines({
@@ -144,7 +142,6 @@ describe('validateSaleLines', () => {
       lines: [{ itemId: 'item-1', quantity: 1, price: 50 }],
     });
 
-    expect(result.ok).toBe(false);
-    expect(result.errors[0]?.code).toBe('stale_price');
+    expect(result.ok).toBe(true);
   });
 });

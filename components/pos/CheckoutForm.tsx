@@ -1503,7 +1503,7 @@ export function CheckoutForm({
         description={
           paymentMethod === "mpesa"
             ? "An owner or admin PIN is required to mark this sale as paid without M-Pesa verification."
-            : "Enter an owner or admin PIN to approve this sale (oversell or price override)."
+            : "Enter an owner or admin PIN to approve this sale (oversell)."
         }
         onVerified={(pin) => {
           setManagerPin(pin);
