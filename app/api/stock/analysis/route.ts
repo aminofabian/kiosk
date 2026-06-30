@@ -93,6 +93,7 @@ export async function GET(request: NextRequest) {
       [auth.businessId, auth.businessId, auth.businessId]
     );
 
+    const sanePrice = (p: number) => (typeof p === 'number' && p >= 0 && p <= 1e8) ? p : 0;
     const saneQty = (q: number) => (typeof q === 'number' && q >= 0 && q <= 1e6) ? q : 0;
 
     // Calculate overall stock metrics
@@ -107,36 +108,38 @@ export async function GET(request: NextRequest) {
 
     const items = itemAnalysis.map((item) => {
       const initialStock = saneQty(item.initial_stock);
-      const stockChange = item.current_stock - initialStock;
-      const stockChangePercent = initialStock > 0 
-        ? ((item.current_stock - initialStock) / initialStock) * 100
-        : (item.current_stock > 0 ? 100 : null);
-      
-      const initialValue = initialStock * item.current_sell_price;
-      const currentValue = item.current_stock * item.current_sell_price;
+      const currentStock = saneQty(item.current_stock);
+      const currentSellPrice = sanePrice(item.current_sell_price);
+      const stockChange = currentStock - initialStock;
+      const stockChangePercent = initialStock > 0
+        ? ((currentStock - initialStock) / initialStock) * 100
+        : (currentStock > 0 ? 100 : null);
+
+      const initialValue = initialStock * currentSellPrice;
+      const currentValue = currentStock * currentSellPrice;
 
       let trend: 'growing' | 'shrinking' | 'stable' | 'new' = 'new';
-      
+
       if (initialStock > 0) {
         itemsWithInitialData++;
         totalInitialStock += initialStock;
-        totalCurrentStock += item.current_stock;
+        totalCurrentStock += currentStock;
         totalInitialValue += initialValue;
         totalCurrentValue += currentValue;
 
-        if (item.current_stock > initialStock) {
+        if (currentStock > initialStock) {
           trend = 'growing';
           growingItems++;
-        } else if (item.current_stock < initialStock) {
+        } else if (currentStock < initialStock) {
           trend = 'shrinking';
           shrinkingItems++;
         } else {
           trend = 'stable';
           stableItems++;
         }
-      } else if (item.current_stock > 0) {
+      } else if (currentStock > 0) {
         trend = 'new';
-        totalCurrentStock += item.current_stock;
+        totalCurrentStock += currentStock;
         totalCurrentValue += currentValue;
       }
 
@@ -147,7 +150,7 @@ export async function GET(request: NextRequest) {
         unitType: item.unit_type,
         categoryName: item.category_name,
         initialStock,
-        currentStock: item.current_stock,
+        currentStock,
         stockChange,
         stockChangePercent,
         initialValue,

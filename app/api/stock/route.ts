@@ -141,7 +141,7 @@ export async function GET() {
     // Calculate growth data for each item
     const itemsWithGrowth = items.map(item => {
       const initialStock = saneQty(item.initial_stock ?? 0);
-      const currentStock = item.current_stock;
+      const currentStock = saneQty(item.current_stock ?? 0);
       const stockChange = currentStock - initialStock;
       const stockChangePercent = initialStock > 0 
         ? ((currentStock - initialStock) / initialStock) * 100
@@ -186,6 +186,7 @@ export async function GET() {
 
       return {
         ...item,
+        current_stock: currentStock,
         initial_stock: initialStock,
         stock_change: stockChange,
         stock_change_percent: stockChangePercent,
