@@ -9,6 +9,13 @@ import {
   saleLineCreditShareSql,
   saleLineAllocatedRevenueSql,
 } from '@/lib/utils/sales-payment-allocation';
+import {
+  resolvedBuyPriceSql,
+  saleLineCostSql,
+  saleLineProfitSql,
+  isCappedBuyPriceSql,
+  isZeroCostSql,
+} from '@/lib/utils/profit-sql';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -35,33 +42,14 @@ export async function GET(request: NextRequest) {
     const itemTypeFilter = itemType ? ` AND COALESCE(si.item_type_snapshot, 'retail') = ?` : '';
     const itemTypeParams = itemType ? [itemType] : [];
 
-    // Buy price fallback: sale snapshot → batch/purchase at sale time → 85% of sell price.
-    // If resolved buy price > sell price (would show negative profit), treat as bad data and use 85% fallback.
-    const buyPriceRawSummary = `
-      COALESCE(
-        NULLIF(si.buy_price_per_unit, 0),
-        (SELECT ib.buy_price_per_unit 
-         FROM inventory_batches ib 
-         WHERE ib.item_id = si.item_id AND ib.received_at <= s.sale_date
-         ORDER BY ib.received_at DESC 
-         LIMIT 1),
-        (SELECT pb.buy_price_per_unit 
-         FROM purchase_breakdowns pb
-         JOIN purchase_items pi ON pb.purchase_item_id = pi.id
-         JOIN purchases p ON pi.purchase_id = p.id
-         WHERE pb.item_id = si.item_id AND p.business_id = ? AND pb.confirmed_at <= s.sale_date
-         ORDER BY pb.confirmed_at DESC 
-         LIMIT 1),
-        si.sell_price_per_unit * 0.85
-      )`;
-    const buyPriceFallbackSummary = `
-      CASE WHEN ${buyPriceRawSummary} > si.sell_price_per_unit 
-        THEN si.sell_price_per_unit * 0.85 
-        ELSE ${buyPriceRawSummary} 
-      END`;
+    const resolvedBuy = resolvedBuyPriceSql('si');
+    const lineCost = saleLineCostSql('si');
+    const lineProfit = saleLineProfitSql('si');
+    const cappedFlag = isCappedBuyPriceSql('si');
+    const zeroCostFlag = isZeroCostSql('si');
 
-    // Include ALL sale items so total_sales = full revenue and total_cost = full COGS.
-    // Items without a known buy price contribute 0 to cost (COGS) and full sell to revenue.
+    // Core profit/COGS from sale_items. Revenue here is line-item allocated
+    // revenue so that Revenue - COGS = Gross Profit always reconciles.
     const summary = await query<{
       total_profit: number;
       total_sales: number;
@@ -69,22 +57,33 @@ export async function GET(request: NextRequest) {
       total_quantity_sold: number;
       total_transactions: number;
       unique_items_sold: number;
+      capped_lines: number;
+      zero_cost_lines: number;
     }>(
-      `SELECT 
-        COALESCE(SUM(si.quantity_sold * (si.sell_price_per_unit - ${buyPriceFallbackSummary})), 0) as total_profit,
+      `SELECT
+        COALESCE(SUM(${lineProfit}), 0) as total_profit,
         COALESCE(SUM(${saleLineAllocatedRevenueSql()}), 0) as total_sales,
-        COALESCE(SUM(si.quantity_sold * ${buyPriceFallbackSummary}), 0) as total_cost,
+        COALESCE(SUM(${lineCost}), 0) as total_cost,
         COALESCE(SUM(si.quantity_sold), 0) as total_quantity_sold,
         COUNT(DISTINCT s.id) as total_transactions,
-        COUNT(DISTINCT si.item_id) as unique_items_sold
+        COUNT(DISTINCT si.item_id) as unique_items_sold,
+        COALESCE(SUM(${cappedFlag}), 0) as capped_lines,
+        COALESCE(SUM(${zeroCostFlag}), 0) as zero_cost_lines
        FROM sale_items si
        JOIN sales s ON si.sale_id = s.id
-       WHERE s.business_id = ? 
+       WHERE s.business_id = ?
          AND s.status = 'completed'
-         AND s.sale_date >= ? 
+         AND s.sale_date >= ?
          AND s.sale_date <= ?
          ${itemTypeFilter}`,
-      [auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp, ...itemTypeParams]
+      [
+        auth.businessId, auth.businessId, // resolvedBuy in lineProfit
+        auth.businessId, auth.businessId, // resolvedBuy in lineCost
+        auth.businessId, auth.businessId, // resolvedBuy in cappedFlag
+        auth.businessId, // WHERE business_id
+        startTimestamp, endTimestamp,
+        ...itemTypeParams,
+      ]
     );
 
     const summaryData = summary[0] || {
@@ -94,38 +93,57 @@ export async function GET(request: NextRequest) {
       total_quantity_sold: 0,
       total_transactions: 0,
       unique_items_sold: 0,
+      capped_lines: 0,
+      zero_cost_lines: 0,
     };
 
-    // Revenue + paid/credit breakdown from sale totals (matches transactions & sales overview).
-    let totalSales: number;
-    let paidRevenue: number;
-    let creditRevenue: number;
+    // Transaction-level revenue and data-quality metrics. We keep transaction
+    // revenue separate from itemized revenue so admins can see when sales lack
+    // line items or when discounts make the two diverge.
+    let totalSales = summaryData.total_sales;
+    let transactionRevenue = 0;
+    let paidRevenue = 0;
+    let creditRevenue = 0;
+    let salesWithoutItemsCount = 0;
+    let salesWithoutItemsValue = 0;
 
     if (!itemType) {
       const amounts = await queryOne<{
-        total_sales: number;
+        transaction_revenue: number;
         paid_revenue: number;
         credit_revenue: number;
+        sales_without_items_count: number;
+        sales_without_items_value: number;
       }>(
-        `SELECT 
-          COALESCE(SUM(s.total_amount), 0) as total_sales,
-          COALESCE(SUM(${salePaidAmountSql()}), 0) as paid_revenue,
-          COALESCE(SUM(${saleCreditAmountSql()}), 0) as credit_revenue
-         FROM sales s
-         WHERE s.business_id = ? AND s.status = 'completed'
-           AND s.sale_date >= ? AND s.sale_date <= ?`,
+        `WITH sales_in_period AS (
+          SELECT s.* FROM sales s
+          WHERE s.business_id = ? AND s.status = 'completed'
+            AND s.sale_date >= ? AND s.sale_date <= ?
+        )
+        SELECT
+          (SELECT COALESCE(SUM(total_amount), 0) FROM sales_in_period) as transaction_revenue,
+          (SELECT COALESCE(SUM(${salePaidAmountSql()}), 0) FROM sales_in_period) as paid_revenue,
+          (SELECT COALESCE(SUM(${saleCreditAmountSql()}), 0) FROM sales_in_period) as credit_revenue,
+          (SELECT COUNT(*) FROM sales_in_period sip
+           WHERE NOT EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = sip.id)
+          ) as sales_without_items_count,
+          (SELECT COALESCE(SUM(total_amount), 0) FROM sales_in_period sip
+           WHERE NOT EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = sip.id)
+          ) as sales_without_items_value`,
         [auth.businessId, startTimestamp, endTimestamp]
       );
-      totalSales = amounts?.total_sales ?? 0;
+      transactionRevenue = amounts?.transaction_revenue ?? 0;
       paidRevenue = amounts?.paid_revenue ?? 0;
       creditRevenue = amounts?.credit_revenue ?? 0;
+      salesWithoutItemsCount = amounts?.sales_without_items_count ?? 0;
+      salesWithoutItemsValue = amounts?.sales_without_items_value ?? 0;
     } else {
-      totalSales = summaryData.total_sales;
+      // For department-level views, use itemized revenue and derive payment shares.
       const revenueBreakdown = await queryOne<{
         paid_revenue: number;
         credit_revenue: number;
       }>(
-        `SELECT 
+        `SELECT
           COALESCE(SUM(
             si.quantity_sold * si.sell_price_per_unit * (${saleLinePaidShareSql()})
           ), 0) as paid_revenue,
@@ -159,17 +177,17 @@ export async function GET(request: NextRequest) {
 
     // Get unique customers count (credit customers + walk-ins)
     const uniqueCustomers = await queryOne<{ count: number }>(
-      `SELECT COUNT(DISTINCT 
-        CASE 
+      `SELECT COUNT(DISTINCT
+        CASE
           WHEN s_c.customer_name IS NOT NULL THEN s_c.customer_name || COALESCE('|' || s_c.customer_phone, '')
           ELSE 'walk-in-' || s_c.id
         END
       ) as count
        FROM sales s_c
        ${customerItemTypeJoin}
-       WHERE s_c.business_id = ? 
+       WHERE s_c.business_id = ?
          AND s_c.status = 'completed'
-         AND s_c.sale_date >= ? 
+         AND s_c.sale_date >= ?
          AND s_c.sale_date <= ?`,
       [...customerItemTypeParams, auth.businessId, startTimestamp, endTimestamp]
     );
@@ -179,10 +197,10 @@ export async function GET(request: NextRequest) {
       `SELECT COUNT(DISTINCT s_c.customer_name || COALESCE('|' || s_c.customer_phone, '')) as count
        FROM sales s_c
        ${customerItemTypeJoin}
-       WHERE s_c.business_id = ? 
+       WHERE s_c.business_id = ?
          AND s_c.status = 'completed'
          AND s_c.customer_name IS NOT NULL
-         AND s_c.sale_date >= ? 
+         AND s_c.sale_date >= ?
          AND s_c.sale_date <= ?`,
       [...customerItemTypeParams, auth.businessId, startTimestamp, endTimestamp]
     );
@@ -192,10 +210,10 @@ export async function GET(request: NextRequest) {
       `SELECT COUNT(DISTINCT s_c.id) as count
        FROM sales s_c
        ${customerItemTypeJoin}
-       WHERE s_c.business_id = ? 
+       WHERE s_c.business_id = ?
          AND s_c.status = 'completed'
          AND s_c.customer_name IS NULL
-         AND s_c.sale_date >= ? 
+         AND s_c.sale_date >= ?
          AND s_c.sale_date <= ?`,
       [...customerItemTypeParams, auth.businessId, startTimestamp, endTimestamp]
     );
@@ -207,10 +225,10 @@ export async function GET(request: NextRequest) {
          SELECT s_c.customer_name || COALESCE('|' || s_c.customer_phone, '') as customer_key
          FROM sales s_c
          ${customerItemTypeJoin}
-         WHERE s_c.business_id = ? 
+         WHERE s_c.business_id = ?
            AND s_c.status = 'completed'
            AND s_c.customer_name IS NOT NULL
-           AND s_c.sale_date >= ? 
+           AND s_c.sale_date >= ?
            AND s_c.sale_date <= ?
          GROUP BY s_c.customer_name || COALESCE('|' || s_c.customer_phone, '')
          HAVING COUNT(*) > 1
@@ -223,10 +241,10 @@ export async function GET(request: NextRequest) {
       `SELECT COUNT(DISTINCT s1.customer_name || COALESCE('|' || s1.customer_phone, '')) as count
        FROM sales s1
        ${itemType ? `JOIN sale_items si_n ON s1.id = si_n.sale_id AND COALESCE(si_n.item_type_snapshot, 'retail') = ?` : ''}
-       WHERE s1.business_id = ? 
+       WHERE s1.business_id = ?
          AND s1.status = 'completed'
          AND s1.customer_name IS NOT NULL
-         AND s1.sale_date >= ? 
+         AND s1.sale_date >= ?
          AND s1.sale_date <= ?
          AND NOT EXISTS (
            SELECT 1 FROM sales s2
@@ -242,31 +260,8 @@ export async function GET(request: NextRequest) {
     // Check if we should aggregate by parent item
     const groupByParent = searchParams.get('groupByParent') === 'true';
 
-    // Buy price fallback: sale snapshot → batch/purchase at sale time → 85% of sell price.
-    // If resolved buy > sell (would show negative profit), treat as bad data and use 85% fallback.
-    const buyPriceRaw = `
-      COALESCE(
-        NULLIF(si.buy_price_per_unit, 0),
-        (SELECT ib.buy_price_per_unit 
-         FROM inventory_batches ib 
-         WHERE ib.item_id = si.item_id AND ib.received_at <= s.sale_date
-         ORDER BY ib.received_at DESC 
-         LIMIT 1),
-        (SELECT pb.buy_price_per_unit 
-         FROM purchase_breakdowns pb
-         JOIN purchase_items pi ON pb.purchase_item_id = pi.id
-         JOIN purchases p ON pi.purchase_id = p.id
-         WHERE pb.item_id = si.item_id AND p.business_id = ? AND pb.confirmed_at <= s.sale_date
-         ORDER BY pb.confirmed_at DESC 
-         LIMIT 1),
-        si.sell_price_per_unit * 0.85
-      )`;
-    const buyPriceFallback = `
-      CASE WHEN ${buyPriceRaw} > si.sell_price_per_unit 
-        THEN si.sell_price_per_unit * 0.85 
-        ELSE ${buyPriceRaw} 
-      END
-    `;
+    const itemResolvedBuy = resolvedBuyPriceSql('si');
+    const itemCappedFlag = isCappedBuyPriceSql('si');
 
     let itemProfits;
 
@@ -283,39 +278,36 @@ export async function GET(request: NextRequest) {
         quantity_sold: number;
         has_buy_price: number;
       }>(
-        `SELECT 
+        `SELECT
           COALESCE(parent.id, i.id) as item_id,
           COALESCE(parent.name, i.name) as item_name,
           CASE WHEN parent.id IS NOT NULL THEN 1 ELSE 0 END as is_parent,
           COUNT(DISTINCT i.id) as variant_count,
-          COALESCE(SUM(
-            CASE WHEN ${buyPriceFallback} > 0 
-              THEN si.quantity_sold * (si.sell_price_per_unit - ${buyPriceFallback})
-              ELSE 0
-            END
-          ), 0) as total_profit,
+          COALESCE(SUM(si.quantity_sold * (si.sell_price_per_unit - ${itemResolvedBuy})), 0) as total_profit,
           COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_sales,
-          COALESCE(SUM(
-            CASE WHEN ${buyPriceFallback} > 0 
-              THEN si.quantity_sold * ${buyPriceFallback}
-              ELSE 0
-            END
-          ), 0) as total_cost,
+          COALESCE(SUM(si.quantity_sold * ${itemResolvedBuy}), 0) as total_cost,
           COALESCE(SUM(si.quantity_sold), 0) as quantity_sold,
-          CASE WHEN MAX(${buyPriceFallback}) > 0 THEN 1 ELSE 0 END as has_buy_price
+          CASE WHEN MAX(${itemResolvedBuy}) > 0 THEN 1 ELSE 0 END as has_buy_price
          FROM sale_items si
          JOIN sales s ON si.sale_id = s.id
          JOIN items i ON si.item_id = i.id
          LEFT JOIN items parent ON i.parent_item_id = parent.id
-         WHERE s.business_id = ? 
+         WHERE s.business_id = ?
            AND s.status = 'completed'
-           AND s.sale_date >= ? 
+           AND s.sale_date >= ?
            AND s.sale_date <= ?
            ${itemTypeFilter}
          GROUP BY COALESCE(parent.id, i.id), COALESCE(parent.name, i.name)
          HAVING total_profit != 0 OR total_sales != 0
          ORDER BY has_buy_price DESC, total_profit DESC`,
-        [auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp, ...itemTypeParams]
+        [
+          auth.businessId, auth.businessId, // total_profit
+          auth.businessId, auth.businessId, // total_cost
+          auth.businessId, auth.businessId, // has_buy_price
+          auth.businessId, // WHERE
+          startTimestamp, endTimestamp,
+          ...itemTypeParams,
+        ]
       );
     } else {
       // Individual item profits (existing behavior)
@@ -330,96 +322,96 @@ export async function GET(request: NextRequest) {
         quantity_sold: number;
         has_buy_price: number;
       }>(
-        `SELECT 
+        `SELECT
           i.id as item_id,
           i.name as item_name,
           i.variant_name as variant_name,
           parent.name as parent_name,
-          COALESCE(SUM(
-            CASE WHEN ${buyPriceFallback} > 0 
-              THEN si.quantity_sold * (si.sell_price_per_unit - ${buyPriceFallback})
-              ELSE 0
-            END
-          ), 0) as total_profit,
+          COALESCE(SUM(si.quantity_sold * (si.sell_price_per_unit - ${itemResolvedBuy})), 0) as total_profit,
           COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_sales,
-          COALESCE(SUM(
-            CASE WHEN ${buyPriceFallback} > 0 
-              THEN si.quantity_sold * ${buyPriceFallback}
-              ELSE 0
-            END
-          ), 0) as total_cost,
+          COALESCE(SUM(si.quantity_sold * ${itemResolvedBuy}), 0) as total_cost,
           COALESCE(SUM(si.quantity_sold), 0) as quantity_sold,
-          CASE WHEN MAX(${buyPriceFallback}) > 0 THEN 1 ELSE 0 END as has_buy_price
+          CASE WHEN MAX(${itemResolvedBuy}) > 0 THEN 1 ELSE 0 END as has_buy_price
          FROM sale_items si
          JOIN sales s ON si.sale_id = s.id
          JOIN items i ON si.item_id = i.id
          LEFT JOIN items parent ON i.parent_item_id = parent.id
-         WHERE s.business_id = ? 
+         WHERE s.business_id = ?
            AND s.status = 'completed'
-           AND s.sale_date >= ? 
+           AND s.sale_date >= ?
            AND s.sale_date <= ?
            ${itemTypeFilter}
          GROUP BY i.id, i.name, i.variant_name, parent.name
          HAVING total_profit != 0 OR total_sales != 0
          ORDER BY has_buy_price DESC, total_profit DESC`,
-        [auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp, ...itemTypeParams]
+        [
+          auth.businessId, auth.businessId, // total_profit
+          auth.businessId, auth.businessId, // total_cost
+          auth.businessId, auth.businessId, // has_buy_price
+          auth.businessId, // WHERE
+          startTimestamp, endTimestamp,
+          ...itemTypeParams,
+        ]
       );
     }
 
-    // Get stock losses (spoilage, theft, damage, other - NOT restock or counting_error)
-    // These are losses that should reduce profit
-    // Try to get buy price from: 1) inventory_batches, 2) purchase_breakdowns, 3) sale_items (last sold price)
+    // Stock losses (spoilage, theft, damage, other - NOT restock or counting_error).
+    // These reduce profit. We cap the per-adjustment loss to prevent corrupted
+    // system_stock values from exploding the net profit figure.
+    const ADJUSTMENT_QUANTITY_CAP = 1_000_000;
     const stockLosses = await queryOne<{
       total_loss: number;
       loss_count: number;
+      capped_count: number;
       spoilage_loss: number;
       theft_loss: number;
       damage_loss: number;
       other_loss: number;
     }>(
-      `SELECT 
+      `SELECT
         COALESCE(SUM(
           CASE WHEN sa.difference < 0 AND sa.reason IN ('spoilage', 'theft', 'damage', 'other') THEN
-            ABS(sa.difference) * COALESCE(
-              (SELECT ib.buy_price_per_unit 
-               FROM inventory_batches ib 
-               WHERE ib.item_id = sa.item_id 
-               ORDER BY ib.received_at DESC 
+            MIN(ABS(sa.difference), ${ADJUSTMENT_QUANTITY_CAP}) * COALESCE(
+              (SELECT ib.buy_price_per_unit
+               FROM inventory_batches ib
+               WHERE ib.item_id = sa.item_id
+               ORDER BY ib.received_at DESC
                LIMIT 1),
-              (SELECT pb.buy_price_per_unit 
+              (SELECT pb.buy_price_per_unit
                FROM purchase_breakdowns pb
                JOIN purchase_items pi ON pb.purchase_item_id = pi.id
                JOIN purchases p ON pi.purchase_id = p.id
                WHERE pb.item_id = sa.item_id AND p.business_id = ?
-               ORDER BY pb.confirmed_at DESC 
+               ORDER BY pb.confirmed_at DESC
                LIMIT 1),
-              (SELECT si.buy_price_per_unit 
-               FROM sale_items si 
+              (SELECT si.buy_price_per_unit
+               FROM sale_items si
                JOIN sales s ON si.sale_id = s.id
                WHERE si.item_id = sa.item_id AND s.business_id = ? AND si.buy_price_per_unit > 0
-               ORDER BY s.sale_date DESC 
+               ORDER BY s.sale_date DESC
                LIMIT 1),
               0
             )
           ELSE 0 END
         ), 0) as total_loss,
         COUNT(CASE WHEN sa.difference < 0 AND sa.reason IN ('spoilage', 'theft', 'damage', 'other') THEN 1 END) as loss_count,
-        COALESCE(SUM(CASE WHEN sa.reason = 'spoilage' AND sa.difference < 0 THEN ABS(sa.difference) * COALESCE(
+        COUNT(CASE WHEN sa.difference < 0 AND sa.reason IN ('spoilage', 'theft', 'damage', 'other') AND ABS(sa.difference) > ${ADJUSTMENT_QUANTITY_CAP} THEN 1 END) as capped_count,
+        COALESCE(SUM(CASE WHEN sa.reason = 'spoilage' AND sa.difference < 0 THEN MIN(ABS(sa.difference), ${ADJUSTMENT_QUANTITY_CAP}) * COALESCE(
           (SELECT ib.buy_price_per_unit FROM inventory_batches ib WHERE ib.item_id = sa.item_id ORDER BY ib.received_at DESC LIMIT 1),
           (SELECT si.buy_price_per_unit FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.item_id = sa.item_id AND s.business_id = ? AND si.buy_price_per_unit > 0 ORDER BY s.sale_date DESC LIMIT 1),
           0
         ) ELSE 0 END), 0) as spoilage_loss,
-        COALESCE(SUM(CASE WHEN sa.reason = 'theft' AND sa.difference < 0 THEN ABS(sa.difference) * COALESCE(
+        COALESCE(SUM(CASE WHEN sa.reason = 'theft' AND sa.difference < 0 THEN MIN(ABS(sa.difference), ${ADJUSTMENT_QUANTITY_CAP}) * COALESCE(
           (SELECT ib.buy_price_per_unit FROM inventory_batches ib WHERE ib.item_id = sa.item_id ORDER BY ib.received_at DESC LIMIT 1),
           (SELECT si.buy_price_per_unit FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.item_id = sa.item_id AND s.business_id = ? AND si.buy_price_per_unit > 0 ORDER BY s.sale_date DESC LIMIT 1),
           0
         ) ELSE 0 END), 0) as theft_loss,
-        COALESCE(SUM(CASE WHEN sa.reason = 'damage' AND sa.difference < 0 THEN ABS(sa.difference) * COALESCE(
+        COALESCE(SUM(CASE WHEN sa.reason = 'damage' AND sa.difference < 0 THEN MIN(ABS(sa.difference), ${ADJUSTMENT_QUANTITY_CAP}) * COALESCE(
           (SELECT ib.buy_price_per_unit FROM inventory_batches ib WHERE ib.item_id = sa.item_id ORDER BY ib.received_at DESC LIMIT 1),
           (SELECT si.buy_price_per_unit FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.item_id = sa.item_id AND s.business_id = ? AND si.buy_price_per_unit > 0 ORDER BY s.sale_date DESC LIMIT 1),
           0
         ) ELSE 0 END), 0) as damage_loss,
-        COALESCE(SUM(CASE WHEN sa.reason = 'other' AND sa.difference < 0 THEN ABS(sa.difference) * COALESCE(
+        COALESCE(SUM(CASE WHEN sa.reason = 'other' AND sa.difference < 0 THEN MIN(ABS(sa.difference), ${ADJUSTMENT_QUANTITY_CAP}) * COALESCE(
           (SELECT ib.buy_price_per_unit FROM inventory_batches ib WHERE ib.item_id = sa.item_id ORDER BY ib.received_at DESC LIMIT 1),
           (SELECT si.buy_price_per_unit FROM sale_items si JOIN sales s ON si.sale_id = s.id WHERE si.item_id = sa.item_id AND s.business_id = ? AND si.buy_price_per_unit > 0 ORDER BY s.sale_date DESC LIMIT 1),
           0
@@ -429,27 +421,34 @@ export async function GET(request: NextRequest) {
          AND sa.created_at >= ?
          AND sa.created_at <= ?
          AND COALESCE(
-           (SELECT ib.buy_price_per_unit 
-            FROM inventory_batches ib 
-            WHERE ib.item_id = sa.item_id 
-            ORDER BY ib.received_at DESC 
+           (SELECT ib.buy_price_per_unit
+            FROM inventory_batches ib
+            WHERE ib.item_id = sa.item_id
+            ORDER BY ib.received_at DESC
             LIMIT 1),
-           (SELECT pb.buy_price_per_unit 
+           (SELECT pb.buy_price_per_unit
             FROM purchase_breakdowns pb
             JOIN purchase_items pi ON pb.purchase_item_id = pi.id
             JOIN purchases p ON pi.purchase_id = p.id
             WHERE pb.item_id = sa.item_id AND p.business_id = ?
-            ORDER BY pb.confirmed_at DESC 
+            ORDER BY pb.confirmed_at DESC
             LIMIT 1),
-           (SELECT si.buy_price_per_unit 
-            FROM sale_items si 
+           (SELECT si.buy_price_per_unit
+            FROM sale_items si
             JOIN sales s ON si.sale_id = s.id
             WHERE si.item_id = sa.item_id AND s.business_id = ? AND si.buy_price_per_unit > 0
-            ORDER BY s.sale_date DESC 
+            ORDER BY s.sale_date DESC
             LIMIT 1),
            0
          ) > 0`,
-      [auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId, startTimestamp, endTimestamp]
+      [
+        auth.businessId, auth.businessId,
+        auth.businessId, auth.businessId,
+        auth.businessId, auth.businessId,
+        auth.businessId, auth.businessId,
+        auth.businessId, startTimestamp, endTimestamp,
+        auth.businessId, auth.businessId,
+      ]
     );
 
     // Stock losses are business-wide (not filterable by item type).
@@ -457,13 +456,13 @@ export async function GET(request: NextRequest) {
     const totalStockLoss = !itemType ? (stockLosses?.total_loss ?? 0) : 0;
     const adjustedProfit = summaryData.total_profit - totalStockLoss;
 
-    // Gross margin = gross profit / sales (before any stock loss deduction)
+    // Gross margin = gross profit / itemized sales (before any stock loss deduction)
     const grossMargin =
       totalSales > 0
         ? summaryData.total_profit / totalSales
         : 0;
 
-    // Adjusted margin = (gross profit - stock losses) / sales
+    // Adjusted margin = (gross profit - stock losses) / itemized sales
     const profitMargin =
       totalSales > 0
         ? adjustedProfit / totalSales
@@ -474,8 +473,8 @@ export async function GET(request: NextRequest) {
     const walkInCustomersCount = walkInCustomers?.count || 0;
     const repeatCustomersCount = repeatCustomers?.count || 0;
     const newCustomersCount = newCustomers?.count || 0;
-    const averageSalePerCustomer = totalCustomers > 0 
-      ? totalSales / totalCustomers 
+    const averageSalePerCustomer = totalCustomers > 0
+      ? totalSales / totalCustomers
       : 0;
 
     return jsonResponse({
@@ -485,6 +484,7 @@ export async function GET(request: NextRequest) {
         grossProfit: summaryData.total_profit,
         grossMargin,
         totalSales,
+        transactionRevenue,
         paidRevenue,
         creditRevenue,
         totalOutstandingCredit,
@@ -492,6 +492,7 @@ export async function GET(request: NextRequest) {
         stockLosses: !itemType ? {
           total: totalStockLoss,
           count: stockLosses?.loss_count || 0,
+          cappedCount: stockLosses?.capped_count || 0,
           spoilage: stockLosses?.spoilage_loss || 0,
           theft: stockLosses?.theft_loss || 0,
           damage: stockLosses?.damage_loss || 0,
@@ -501,8 +502,8 @@ export async function GET(request: NextRequest) {
         totalQuantitySold: summaryData.total_quantity_sold || 0,
         totalTransactions: summaryData.total_transactions || 0,
         uniqueItemsSold: summaryData.unique_items_sold || 0,
-        averageItemsPerSale: summaryData.total_transactions > 0 
-          ? (summaryData.total_quantity_sold || 0) / summaryData.total_transactions 
+        averageItemsPerSale: summaryData.total_transactions > 0
+          ? (summaryData.total_quantity_sold || 0) / summaryData.total_transactions
           : 0,
         totalCustomers,
         creditCustomers: creditCustomersCount,
@@ -511,6 +512,12 @@ export async function GET(request: NextRequest) {
         newCustomers: newCustomersCount,
         averageSalePerCustomer,
         itemProfits,
+        dataQuality: !itemType ? {
+          salesWithoutItemsCount,
+          salesWithoutItemsValue,
+          cappedLines: summaryData.capped_lines,
+          zeroCostLines: summaryData.zero_cost_lines,
+        } : undefined,
       },
     });
   } catch (error) {
@@ -525,4 +532,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

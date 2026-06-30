@@ -2,6 +2,12 @@ import { NextRequest } from 'next/server';
 import { query } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import {
+  resolvedBuyPriceSql,
+  saleLineCostSql,
+  saleLineProfitSql,
+  saleLineRevenueSql,
+} from '@/lib/utils/profit-sql';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -31,7 +37,13 @@ export async function GET(request: NextRequest) {
 
     // Build filters
     const filters: string[] = [];
-    const params: (string | number)[] = [auth.businessId, startTimestamp, endTimestamp];
+    const params: (string | number)[] = [
+      auth.businessId, auth.businessId, // resolvedBuyPrice in saleLineCostSql
+      auth.businessId, auth.businessId, // resolvedBuyPrice in saleLineProfitSql (total_profit)
+      auth.businessId, auth.businessId, // resolvedBuyPrice in saleLineProfitSql (profit_margin)
+      auth.businessId, // WHERE s2.business_id
+      startTimestamp, endTimestamp,
+    ];
 
     if (itemSearch) {
       filters.push(`(LOWER(i.name) LIKE ? OR LOWER(COALESCE(i.variant_name, '')) LIKE ? OR LOWER(COALESCE(p.name, '')) LIKE ?)`);
@@ -67,13 +79,13 @@ export async function GET(request: NextRequest) {
         p.name as parent_name,
         s.name as supplier_name,
         COALESCE(SUM(si.quantity_sold), 0) as quantity_sold,
-        COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_sales,
-        COALESCE(SUM(si.quantity_sold * si.buy_price_per_unit), 0) as total_cost,
-        COALESCE(SUM(si.profit), 0) as total_profit,
-        CASE 
-          WHEN SUM(si.quantity_sold * si.sell_price_per_unit) > 0 
-          THEN SUM(si.profit) / SUM(si.quantity_sold * si.sell_price_per_unit)
-          ELSE 0 
+        COALESCE(SUM(${saleLineRevenueSql('si')}), 0) as total_sales,
+        COALESCE(SUM(${saleLineCostSql('si')}), 0) as total_cost,
+        COALESCE(SUM(${saleLineProfitSql('si')}), 0) as total_profit,
+        CASE
+          WHEN SUM(${saleLineRevenueSql('si')}) > 0
+          THEN SUM(${saleLineProfitSql('si')}) / SUM(${saleLineRevenueSql('si')})
+          ELSE 0
         END as profit_margin
        FROM sale_items si
        JOIN sales s2 ON si.sale_id = s2.id

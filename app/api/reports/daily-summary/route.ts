@@ -2,6 +2,10 @@ import { NextRequest } from 'next/server';
 import { query } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import {
+  saleLineCostSql,
+  saleLineProfitSql,
+} from '@/lib/utils/profit-sql';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -145,14 +149,14 @@ export async function GET(request: NextRequest) {
         COUNT(DISTINCT s.id) as total_transactions,
         COALESCE(SUM(si.quantity_sold), 0) as total_items_sold,
         COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
-        COALESCE(SUM(si.quantity_sold * si.buy_price_per_unit), 0) as total_cost,
-        COALESCE(SUM(si.profit), 0) as total_profit,
+        COALESCE(SUM(${saleLineCostSql('si')}), 0) as total_cost,
+        COALESCE(SUM(${saleLineProfitSql('si')}), 0) as total_profit,
         COUNT(DISTINCT CASE WHEN s.customer_name IS NOT NULL AND s.customer_name != '' THEN s.customer_name END) as unique_customers
       FROM sales s
       JOIN sale_items si ON s.id = si.sale_id
       WHERE s.business_id = ? AND s.status = 'completed'
         AND s.sale_date >= ? AND s.sale_date <= ?`,
-      [bid, startDate, endDate]
+      [bid, bid, bid, bid, bid, startDate, endDate]
     );
 
     // 2) Previous period summary (for comparison)
@@ -164,14 +168,14 @@ export async function GET(request: NextRequest) {
     }>(
       `SELECT 
         COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
-        COALESCE(SUM(si.profit), 0) as total_profit,
+        COALESCE(SUM(${saleLineProfitSql('si')}), 0) as total_profit,
         COUNT(DISTINCT s.id) as total_transactions,
         COALESCE(SUM(si.quantity_sold), 0) as total_items_sold
       FROM sales s
       JOIN sale_items si ON s.id = si.sale_id
       WHERE s.business_id = ? AND s.status = 'completed'
         AND s.sale_date >= ? AND s.sale_date <= ?`,
-      [bid, prevStartDate, prevEndDate]
+      [bid, bid, bid, prevStartDate, prevEndDate]
     );
 
     // 3) Top selling items by quantity (include parent info for grouping variants)
@@ -198,7 +202,7 @@ export async function GET(request: NextRequest) {
         COALESCE(si.item_type_snapshot, i.item_type) as item_type,
         COALESCE(SUM(si.quantity_sold), 0) as total_quantity,
         COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
-        COALESCE(SUM(si.profit), 0) as total_profit,
+        COALESCE(SUM(${saleLineProfitSql('si')}), 0) as total_profit,
         COUNT(DISTINCT s.id) as transaction_count
       FROM sale_items si
       JOIN sales s ON si.sale_id = s.id
@@ -210,7 +214,7 @@ export async function GET(request: NextRequest) {
       GROUP BY i.id, i.parent_item_id, parent.name, i.name, i.variant_name, c.name, si.item_type_snapshot, i.item_type
       ORDER BY total_quantity DESC
       LIMIT 50`,
-      [bid, startDate, endDate]
+      [bid, bid, bid, startDate, endDate]
     );
 
     // 4) Top selling items by revenue
@@ -236,7 +240,7 @@ export async function GET(request: NextRequest) {
         COALESCE(si.item_type_snapshot, i.item_type) as item_type,
         COALESCE(SUM(si.quantity_sold), 0) as total_quantity,
         COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
-        COALESCE(SUM(si.profit), 0) as total_profit
+        COALESCE(SUM(${saleLineProfitSql('si')}), 0) as total_profit
       FROM sale_items si
       JOIN sales s ON si.sale_id = s.id
       JOIN items i ON si.item_id = i.id
@@ -247,7 +251,7 @@ export async function GET(request: NextRequest) {
       GROUP BY i.id, i.parent_item_id, parent.name, i.name, i.variant_name, c.name, si.item_type_snapshot, i.item_type
       ORDER BY total_revenue DESC
       LIMIT 50`,
-      [bid, startDate, endDate]
+      [bid, bid, bid, startDate, endDate]
     );
 
     // 5) Top items by type — one query, grouped by item_type_snapshot
@@ -273,7 +277,7 @@ export async function GET(request: NextRequest) {
         COALESCE(si.item_type_snapshot, i.item_type) as item_type,
         COALESCE(SUM(si.quantity_sold), 0) as total_quantity,
         COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
-        COALESCE(SUM(si.profit), 0) as total_profit
+        COALESCE(SUM(${saleLineProfitSql('si')}), 0) as total_profit
       FROM sale_items si
       JOIN sales s ON si.sale_id = s.id
       JOIN items i ON si.item_id = i.id
@@ -284,7 +288,7 @@ export async function GET(request: NextRequest) {
       GROUP BY i.id, i.parent_item_id, parent.name, i.name, i.variant_name, c.name, COALESCE(si.item_type_snapshot, i.item_type)
       ORDER BY total_revenue DESC
       LIMIT 100`,
-      [bid, startDate, endDate]
+      [bid, bid, bid, startDate, endDate]
     );
 
     const topGrocery = topItemsByType.filter((i) => i.item_type === 'grocery').slice(0, 30);
@@ -322,8 +326,8 @@ export async function GET(request: NextRequest) {
         COUNT(DISTINCT s.id) as transaction_count,
         COALESCE(SUM(si.quantity_sold), 0) as items_sold,
         COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as revenue,
-        COALESCE(SUM(si.quantity_sold * si.buy_price_per_unit), 0) as cost,
-        COALESCE(SUM(si.profit), 0) as profit
+        COALESCE(SUM(${saleLineCostSql('si')}), 0) as cost,
+        COALESCE(SUM(${saleLineProfitSql('si')}), 0) as profit
       FROM sale_items si
       JOIN sales s ON si.sale_id = s.id
       JOIN items i ON si.item_id = i.id
@@ -331,7 +335,7 @@ export async function GET(request: NextRequest) {
         AND s.sale_date >= ? AND s.sale_date <= ?
       GROUP BY COALESCE(si.item_type_snapshot, i.item_type)
       ORDER BY revenue DESC`,
-      [bid, startDate, endDate]
+      [bid, bid, bid, bid, bid, startDate, endDate]
     );
 
     // 9) Category breakdown
@@ -345,7 +349,7 @@ export async function GET(request: NextRequest) {
       `SELECT 
         COALESCE(c.name, 'Uncategorized') as category_name,
         COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as total_revenue,
-        COALESCE(SUM(si.profit), 0) as total_profit,
+        COALESCE(SUM(${saleLineProfitSql('si')}), 0) as total_profit,
         COALESCE(SUM(si.quantity_sold), 0) as total_items_sold,
         COUNT(DISTINCT s.id) as transaction_count
       FROM sale_items si
@@ -356,7 +360,7 @@ export async function GET(request: NextRequest) {
         AND s.sale_date >= ? AND s.sale_date <= ?
       GROUP BY c.name
       ORDER BY total_revenue DESC`,
-      [bid, startDate, endDate]
+      [bid, bid, bid, startDate, endDate]
     );
 
     // 10) Hourly breakdown (for today/yesterday only, otherwise daily breakdown)
@@ -396,7 +400,7 @@ export async function GET(request: NextRequest) {
           DATE(s.sale_date, 'unixepoch', 'localtime') as date_key,
           strftime('%a %d', s.sale_date, 'unixepoch', 'localtime') as date_label,
           COALESCE(SUM(si.quantity_sold * si.sell_price_per_unit), 0) as revenue,
-          COALESCE(SUM(si.profit), 0) as profit,
+          COALESCE(SUM(${saleLineProfitSql('si')}), 0) as profit,
           COALESCE(SUM(si.quantity_sold), 0) as items_sold,
           COUNT(DISTINCT s.id) as transactions
         FROM sales s
@@ -405,7 +409,7 @@ export async function GET(request: NextRequest) {
           AND s.sale_date >= ? AND s.sale_date <= ?
         GROUP BY date_key
         ORDER BY date_key ASC`,
-        [bid, startDate, endDate]
+        [bid, bid, bid, startDate, endDate]
       );
     }
 

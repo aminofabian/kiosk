@@ -2,6 +2,12 @@ import { NextRequest } from 'next/server';
 import { query } from '@/lib/db';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requirePermission, isAuthResponse } from '@/lib/auth/api-auth';
+import {
+  resolvedBuyPriceSql,
+  saleLineCostSql,
+  saleLineProfitSql,
+} from '@/lib/utils/profit-sql';
+import { saleLineAllocatedRevenueSql } from '@/lib/utils/sales-payment-allocation';
 
 export async function OPTIONS() {
   return optionsResponse();
@@ -16,6 +22,7 @@ interface DailyProfit {
   stockLoss: number;
   expenses: number;
   transactions: number;
+  cappedAdjustments: number;
 }
 
 export async function GET(request: NextRequest) {
@@ -68,34 +75,7 @@ export async function GET(request: NextRequest) {
     const itemTypeFilter = itemType ? ` AND COALESCE(si.item_type_snapshot, 'retail') = ?` : '';
     const itemTypeParams = itemType ? [itemType] : [];
 
-    // Buy price fallback: sale snapshot → batch/purchase at sale time → 85% of sell price.
-    // If resolved buy > sell (would show negative profit), treat as bad data and use 85% fallback.
-    const buyPriceRaw = `
-      COALESCE(
-        NULLIF(si.buy_price_per_unit, 0),
-        (SELECT ib.buy_price_per_unit 
-         FROM inventory_batches ib 
-         WHERE ib.item_id = si.item_id AND ib.received_at <= s.sale_date
-         ORDER BY ib.received_at DESC 
-         LIMIT 1),
-        (SELECT pb.buy_price_per_unit 
-         FROM purchase_breakdowns pb
-         JOIN purchase_items pi ON pb.purchase_item_id = pi.id
-         JOIN purchases p ON pi.purchase_id = p.id
-         WHERE pb.item_id = si.item_id AND p.business_id = ? AND pb.confirmed_at <= s.sale_date
-         ORDER BY pb.confirmed_at DESC 
-         LIMIT 1),
-        si.sell_price_per_unit * 0.85
-      )`;
-    const buyPriceFallback = `
-      CASE WHEN ${buyPriceRaw} > si.sell_price_per_unit 
-        THEN si.sell_price_per_unit * 0.85 
-        ELSE ${buyPriceRaw} 
-      END`;
-
-    // Get daily aggregated profit data
-    // Items without a known buy price are excluded from profit/revenue/cost
-    // to avoid inflating profits (same approach as the main /api/profit endpoint).
+    // Recomputed cost/profit with outlier cap, shared with the main /api/profit endpoint.
     // Adjust for client's timezone by subtracting offset from Unix timestamp before DATE conversion.
     const dailyData = await query<{
       sale_day: string;
@@ -104,41 +84,26 @@ export async function GET(request: NextRequest) {
       total_cost: number;
       transaction_count: number;
     }>(
-      `SELECT 
+      `SELECT
         DATE(s.sale_date - ?, 'unixepoch') as sale_day,
-        COALESCE(SUM(
-          CASE WHEN ${buyPriceFallback} > 0
-            THEN si.quantity_sold * (si.sell_price_per_unit - ${buyPriceFallback})
-            ELSE 0
-          END
-        ), 0) as total_profit,
-        COALESCE(SUM(
-          CASE WHEN ${buyPriceFallback} > 0
-            THEN si.quantity_sold * si.sell_price_per_unit
-            ELSE 0
-          END
-        ), 0) as total_revenue,
-        COALESCE(SUM(
-          CASE WHEN ${buyPriceFallback} > 0
-            THEN si.quantity_sold * ${buyPriceFallback}
-            ELSE 0
-          END
-        ), 0) as total_cost,
+        COALESCE(SUM(${saleLineProfitSql('si')}), 0) as total_profit,
+        COALESCE(SUM(${saleLineAllocatedRevenueSql()}), 0) as total_revenue,
+        COALESCE(SUM(${saleLineCostSql('si')}), 0) as total_cost,
         COUNT(DISTINCT s.id) as transaction_count
        FROM sale_items si
        JOIN sales s ON si.sale_id = s.id
-       WHERE s.business_id = ? 
+       WHERE s.business_id = ?
          AND s.status = 'completed'
-         AND s.sale_date >= ? 
+         AND s.sale_date >= ?
          AND s.sale_date <= ?
          ${itemTypeFilter}
        GROUP BY sale_day
        ORDER BY sale_day ASC`,
       [
         tzOffsetSeconds,
-        // buyPriceFallback: 5 usages × 2 buyPriceRaw = 10 placeholders
-        auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId,
-        auth.businessId, auth.businessId, auth.businessId, auth.businessId, auth.businessId,
+        // saleLineProfitSql, saleLineRevenueSql (none), saleLineCostSql each inject 2 business_ids
+        auth.businessId, auth.businessId,
+        auth.businessId, auth.businessId,
         // WHERE clause
         auth.businessId,
         startTimestamp, endTimestamp,
@@ -148,37 +113,41 @@ export async function GET(request: NextRequest) {
 
     // Get daily stock losses (spoilage, theft, damage, other)
     // Try to get buy price from: 1) inventory_batches, 2) purchase_breakdowns, 3) sale_items
+    // Cap extreme adjustment differences to prevent corrupted system_stock from exploding losses.
+    const ADJUSTMENT_QUANTITY_CAP = 1_000_000;
     const dailyLosses = await query<{
       loss_day: string;
       total_loss: number;
+      capped_count: number;
     }>(
-      `SELECT 
+      `SELECT
         DATE(sa.created_at - ?, 'unixepoch') as loss_day,
         COALESCE(SUM(
           CASE WHEN sa.difference < 0 AND sa.reason IN ('spoilage', 'theft', 'damage', 'other') THEN
-            ABS(sa.difference) * COALESCE(
-              (SELECT ib.buy_price_per_unit 
-               FROM inventory_batches ib 
-               WHERE ib.item_id = sa.item_id 
-               ORDER BY ib.received_at DESC 
+            MIN(ABS(sa.difference), ${ADJUSTMENT_QUANTITY_CAP}) * COALESCE(
+              (SELECT ib.buy_price_per_unit
+               FROM inventory_batches ib
+               WHERE ib.item_id = sa.item_id
+               ORDER BY ib.received_at DESC
                LIMIT 1),
-              (SELECT pb.buy_price_per_unit 
+              (SELECT pb.buy_price_per_unit
                FROM purchase_breakdowns pb
                JOIN purchase_items pi ON pb.purchase_item_id = pi.id
                JOIN purchases p ON pi.purchase_id = p.id
                WHERE pb.item_id = sa.item_id AND p.business_id = ?
-               ORDER BY pb.confirmed_at DESC 
+               ORDER BY pb.confirmed_at DESC
                LIMIT 1),
-              (SELECT si.buy_price_per_unit 
-               FROM sale_items si 
+              (SELECT si.buy_price_per_unit
+               FROM sale_items si
                JOIN sales s ON si.sale_id = s.id
                WHERE si.item_id = sa.item_id AND s.business_id = ? AND si.buy_price_per_unit > 0
-               ORDER BY s.sale_date DESC 
+               ORDER BY s.sale_date DESC
                LIMIT 1),
               0
             )
           ELSE 0 END
-        ), 0) as total_loss
+        ), 0) as total_loss,
+        COUNT(CASE WHEN sa.difference < 0 AND sa.reason IN ('spoilage', 'theft', 'damage', 'other') AND ABS(sa.difference) > ${ADJUSTMENT_QUANTITY_CAP} THEN 1 END) as capped_count
        FROM stock_adjustments sa
        WHERE sa.business_id = ?
          AND sa.created_at >= ?
@@ -217,8 +186,10 @@ export async function GET(request: NextRequest) {
 
     // Map daily stock losses by local date
     const lossByDate: Record<string, number> = {};
+    const cappedByDate: Record<string, number> = {};
     for (const row of dailyLosses) {
       lossByDate[row.loss_day] = row.total_loss;
+      cappedByDate[row.loss_day] = row.capped_count;
     }
 
     // Transform to a map for easy lookup
@@ -258,6 +229,7 @@ export async function GET(request: NextRequest) {
         stockLoss: dayStockLoss,
         expenses: dayExpenses,
         transactions: row.transaction_count,
+        cappedAdjustments: cappedByDate[row.sale_day] || 0,
       };
       
       if (dayProfit > maxProfit) maxProfit = dayProfit;
@@ -283,6 +255,7 @@ export async function GET(request: NextRequest) {
           stockLoss: loss,
           expenses: dayExpenses,
           transactions: 0,
+          cappedAdjustments: cappedByDate[day] || 0,
         };
 
         if (dayProfit > maxProfit) maxProfit = dayProfit;

@@ -64,6 +64,7 @@ interface ProfitData {
   grossProfit?: number;
   grossMargin?: number;
   totalSales: number;
+  transactionRevenue?: number;
   paidRevenue?: number;
   creditRevenue?: number;
   totalOutstandingCredit?: number;
@@ -73,8 +74,14 @@ interface ProfitData {
   totalQuantitySold: number;
   uniqueItemsSold: number;
   totalCustomers: number;
-  stockLosses?: { total: number; count: number; spoilage: number; theft: number; damage: number; other: number };
+  stockLosses?: { total: number; count: number; cappedCount: number; spoilage: number; theft: number; damage: number; other: number };
   itemProfits: ItemProfit[];
+  dataQuality?: {
+    salesWithoutItemsCount: number;
+    salesWithoutItemsValue: number;
+    cappedLines: number;
+    zeroCostLines: number;
+  };
 }
 
 interface ExpenseSummary {
@@ -399,6 +406,39 @@ export default function ProfitHubPage() {
         </div>
 
         <div className="p-3 md:p-4 pb-24 md:pb-6 max-w-5xl mx-auto space-y-4">
+          {/* Data Quality Banner */}
+          {allData?.dataQuality && (
+            (allData.dataQuality.salesWithoutItemsCount > 0 ||
+             allData.dataQuality.cappedLines > 0 ||
+             allData.dataQuality.zeroCostLines > 0 ||
+             (allData.stockLosses?.cappedCount ?? 0) > 0) && (
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-amber-800 dark:text-amber-300">Data quality notice</p>
+                    <ul className="text-[11px] text-amber-700 dark:text-amber-400 space-y-0.5">
+                      {allData.dataQuality.salesWithoutItemsCount > 0 && (
+                        <li>
+                          {allData.dataQuality.salesWithoutItemsCount.toLocaleString()} sale{allData.dataQuality.salesWithoutItemsCount !== 1 ? 's' : ''} ({formatPrice(allData.dataQuality.salesWithoutItemsValue)}) have no item lines and are excluded from profit/COGS.
+                        </li>
+                      )}
+                      {allData.dataQuality.cappedLines > 0 && (
+                        <li>{allData.dataQuality.cappedLines.toLocaleString()} sale line{allData.dataQuality.cappedLines !== 1 ? 's' : ''} had extreme cost prices capped.</li>
+                      )}
+                      {allData.dataQuality.zeroCostLines > 0 && (
+                        <li>{allData.dataQuality.zeroCostLines.toLocaleString()} sale line{allData.dataQuality.zeroCostLines !== 1 ? 's' : ''} had no known cost and were estimated at 85% of sell price.</li>
+                      )}
+                      {(allData.stockLosses?.cappedCount ?? 0) > 0 && (
+                        <li>{allData.stockLosses?.cappedCount.toLocaleString()} stock adjustment{allData.stockLosses?.cappedCount !== 1 ? 's' : ''} had extreme quantities capped.</li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )
+          )}
+
           {/* Compact Stat Cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
             <Card className={`border-0 shadow-md ${isProfitable ? 'bg-gradient-to-br from-green-500 to-green-600' : 'bg-gradient-to-br from-red-500 to-red-600'}`}>
@@ -419,7 +459,12 @@ export default function ProfitHubPage() {
                 </div>
                 <p className="text-blue-100 text-[10px] font-medium">Total Revenue</p>
                 <p className="text-base font-black text-white leading-tight">{formatPrice(allData?.totalSales ?? 0)}</p>
-                {(allData?.creditRevenue ?? 0) > 0 && (
+                {(allData?.dataQuality?.salesWithoutItemsCount ?? 0) > 0 && (
+                  <p className="text-[9px] text-blue-100/90 mt-0.5">
+                    + {formatPrice(allData?.dataQuality?.salesWithoutItemsValue ?? 0)} from {allData?.dataQuality?.salesWithoutItemsCount} un-itemized sale{(allData?.dataQuality?.salesWithoutItemsCount ?? 0) !== 1 ? 's' : ''}
+                  </p>
+                )}
+                {(allData?.creditRevenue ?? 0) > 0 && !allData?.dataQuality?.salesWithoutItemsCount && (
                   <p className="text-[9px] text-blue-100/90 mt-0.5" title={`Revenue for ${dateRange.start}${dateRange.start !== dateRange.end ? ` to ${dateRange.end}` : ''}`}>
                     Paid: {formatPrice(allData?.paidRevenue ?? 0)} · Credit: {formatPrice(allData?.creditRevenue ?? 0)}
                   </p>
@@ -487,6 +532,12 @@ export default function ProfitHubPage() {
                     <div className="flex items-center justify-between pl-4 text-[10px]">
                       <span className="text-slate-500 dark:text-slate-400">Credit</span>
                       <span className="font-semibold text-amber-600 dark:text-amber-500">{formatPrice(allData?.creditRevenue ?? 0)}</span>
+                    </div>
+                  )}
+                  {(allData?.transactionRevenue ?? 0) > 0 && allData?.transactionRevenue !== allData?.totalSales && (
+                    <div className="flex items-center justify-between pl-4 text-[10px]">
+                      <span className="text-slate-500 dark:text-slate-400">Transaction total</span>
+                      <span className="font-semibold text-slate-600 dark:text-slate-300">{formatPrice(allData?.transactionRevenue ?? 0)}</span>
                     </div>
                   )}
                   <div className="relative h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">

@@ -39,12 +39,17 @@ interface SalesSummary {
   totalTransactions: number;
   totalItemsSold: number;
   totalRevenue: number;
+  transactionRevenue: number;
+  salesWithoutItemsCount: number;
+  salesWithoutItemsValue: number;
   totalCost: number;
   totalProfit: number;
   profitMargin: number;
   uniqueProductsSold: number;
   lowStockCount: number;
   outOfStockCount: number;
+  cappedLines: number;
+  zeroCostLines: number;
 }
 
 interface TopSeller {
@@ -231,6 +236,31 @@ export default function SalesHubPage() {
         </div>
 
         <div className="flex-1 min-h-0 p-3 overflow-auto">
+          {/* Data Quality Banner */}
+          {(data.summary.cappedLines > 0 || data.summary.zeroCostLines > 0 || data.summary.salesWithoutItemsCount > 0) && (
+            <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-2.5 mb-3">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                <div className="space-y-0.5">
+                  <p className="text-xs font-bold text-amber-800 dark:text-amber-300">Data quality notice</p>
+                  <ul className="text-[11px] text-amber-700 dark:text-amber-400 space-y-0.5">
+                    {data.summary.salesWithoutItemsCount > 0 && (
+                      <li>
+                        {data.summary.salesWithoutItemsCount.toLocaleString()} sale{data.summary.salesWithoutItemsCount !== 1 ? 's' : ''} ({formatPrice(data.summary.salesWithoutItemsValue)}) have no item lines and are excluded from profit/COGS.
+                      </li>
+                    )}
+                    {data.summary.cappedLines > 0 && (
+                      <li>{data.summary.cappedLines.toLocaleString()} sale line{data.summary.cappedLines !== 1 ? 's' : ''} had extreme cost prices capped.</li>
+                    )}
+                    {data.summary.zeroCostLines > 0 && (
+                      <li>{data.summary.zeroCostLines.toLocaleString()} sale line{data.summary.zeroCostLines !== 1 ? 's' : ''} had no known cost and were estimated at 85% of sell price.</li>
+                    )}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Row 1: Key metrics */}
           <div className="grid grid-cols-2 lg:grid-cols-6 gap-2 mb-3">
             <Card className="bg-gradient-to-br from-blue-500 to-blue-600 border-0 shadow">
@@ -241,6 +271,11 @@ export default function SalesHubPage() {
                 </div>
                 <p className="text-[10px] text-blue-100 font-medium">Revenue</p>
                 <p className="text-sm font-bold text-white">{formatPrice(data.summary.totalRevenue)}</p>
+                {data.summary.salesWithoutItemsCount > 0 && (
+                  <p className="text-[9px] text-blue-100/80 mt-0.5">
+                    + {formatPrice(data.summary.salesWithoutItemsValue)} from {data.summary.salesWithoutItemsCount} un-itemized sale{data.summary.salesWithoutItemsCount !== 1 ? 's' : ''}
+                  </p>
+                )}
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-br from-green-500 to-green-600 border-0 shadow">
@@ -251,6 +286,7 @@ export default function SalesHubPage() {
                 </div>
                 <p className="text-[10px] text-green-100 font-medium">Profit</p>
                 <p className="text-sm font-bold text-white">{formatPrice(data.summary.totalProfit)}</p>
+                <p className="text-[9px] text-green-100/80 mt-0.5">COGS: {formatPrice(data.summary.totalCost)}</p>
               </CardContent>
             </Card>
             <Card className="bg-gradient-to-br from-slate-600 to-slate-700 border-0 shadow">
