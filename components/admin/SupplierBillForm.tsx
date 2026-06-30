@@ -1060,7 +1060,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
       return;
     }
 
-    if (!supplierId) {
+    if (!isEditMode && !supplierId) {
       setError('Select a supplier from the master list before creating a bill');
       return;
     }
@@ -1118,6 +1118,7 @@ export function SupplierBillForm({ onSuccess, onCancel, preSelectedSupplierId, l
         });
 
         if (result.success) {
+          toast.success('Bill updated');
           if (onSuccess) onSuccess();
         } else {
           setError(result.message || 'Failed to update bill');

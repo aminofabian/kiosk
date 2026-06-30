@@ -36,6 +36,7 @@ import {
   Clock,
   CheckCircle,
   CheckCircle2,
+  Check,
   FileText,
   Pencil,
   Banknote,
@@ -57,12 +58,17 @@ import {
   X,
   Trash2,
 } from 'lucide-react';
-import { apiGet, apiPost, apiDelete } from '@/lib/utils/api-client';
+import { apiGet, apiPost, apiPatch, apiDelete } from '@/lib/utils/api-client';
 import { useItemTypes } from '@/lib/hooks/use-item-types';
 import { toast } from 'sonner';
 import { SupplierBillForm, type SupplierBillInitialData } from '@/components/admin/SupplierBillForm';
 import type { SupplierBill } from '@/lib/db/types';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
+import {
+  billDescriptionLineTotal,
+  formatBillItemsDescription,
+  toSupplierBillDateTimeLocal,
+} from '@/lib/utils/supplier-bill-description';
 
 // ── Types ──────────────────────────────────────────────
 
@@ -172,6 +178,7 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
     bill: SupplierBillWithDetails;
     items: Array<{ id: string; description: string; quantity: string; unitPrice: string }>;
   } | null>(null);
+  const [savingPdfEditor, setSavingPdfEditor] = useState(false);
 
   // ── Helpers ──────────────────────────────────────────
 
@@ -440,6 +447,55 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
           total: qty * unit,
         };
       });
+  };
+
+  const handleSavePdfEditorToBill = async () => {
+    if (!pdfEditorState) return;
+    const { bill } = pdfEditorState;
+    if (bill.status !== 'pending' && bill.status !== 'overdue') {
+      toast.error('Only pending or overdue bills can be saved to the database');
+      return;
+    }
+
+    const items = pdfEditorState.items.filter((it) => it.description.trim() && it.quantity);
+    if (items.length === 0) {
+      toast.error('Add at least one item with a description and quantity');
+      return;
+    }
+
+    const billDescription = formatBillItemsDescription(items);
+    const amount = billDescriptionLineTotal(items);
+    if (amount <= 0) {
+      toast.error('Total amount must be greater than 0');
+      return;
+    }
+
+    setSavingPdfEditor(true);
+    try {
+      const result = await apiPatch(`/api/supplier-bills/${bill.id}`, {
+        supplierName: bill.supplier_name,
+        supplierPhone: bill.supplier_phone,
+        billDescription,
+        amount,
+        dueDate: toSupplierBillDateTimeLocal(bill.due_date),
+        notes: bill.notes,
+        preferredPaymentMethod: bill.preferred_payment_method,
+        paymentDetails: bill.payment_details,
+      });
+
+      if (result.success) {
+        toast.success('Bill updated');
+        setPdfEditorState(null);
+        await fetchBills(true);
+      } else {
+        toast.error(result.message || 'Failed to update bill');
+      }
+    } catch (err) {
+      console.error('Error saving bill from editor:', err);
+      toast.error('Failed to update bill');
+    } finally {
+      setSavingPdfEditor(false);
+    }
   };
 
   const getStatusBadge = (bill: SupplierBillWithDetails) => {
@@ -1520,7 +1576,12 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
               </DrawerTitle>
               <DrawerDescription className="text-slate-600 dark:text-slate-400 mt-1">
                 {pdfEditorState && (
-                  <>Adjust items, then download PDF. Changes are for the PDF only.</>
+                  <>
+                    Adjust items, then save to the bill or download a PDF.
+                    {pdfEditorState.bill.status === 'paid' || pdfEditorState.bill.status === 'cancelled'
+                      ? ' Paid and cancelled bills can only be downloaded — not saved.'
+                      : null}
+                  </>
                 )}
               </DrawerDescription>
             </div>
@@ -1607,7 +1668,23 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
                     )}
                   </span>
                 </div>
-                <div className="flex gap-2 pt-4">
+                <div className="flex flex-col gap-2 pt-4">
+                  {pdfEditorState.bill.status !== 'paid' &&
+                    pdfEditorState.bill.status !== 'cancelled' && (
+                      <Button
+                        onClick={() => void handleSavePdfEditorToBill()}
+                        disabled={savingPdfEditor}
+                        className="w-full bg-[#1c6a1e] hover:bg-[#238b26] text-white"
+                      >
+                        {savingPdfEditor ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Check className="w-4 h-4 mr-2" />
+                        )}
+                        Save to bill
+                      </Button>
+                    )}
+                  <div className="flex gap-2">
                   <Button
                     onClick={() => {
                       const items = getPdfEditorItemsForDownload();
@@ -1639,6 +1716,7 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
                     <FilePen className="w-4 h-4 mr-2" />
                     Download blank
                   </Button>
+                  </div>
                 </div>
               </div>
             )}

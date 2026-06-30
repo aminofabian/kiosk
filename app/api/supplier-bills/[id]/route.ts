@@ -130,6 +130,12 @@ export async function PATCH(
     }
 
     const dueDateTimestamp = Math.floor(new Date(dueDate).getTime() / 1000);
+    if (!Number.isFinite(dueDateTimestamp)) {
+      return jsonResponse(
+        { success: false, message: 'Due date is invalid' },
+        400
+      );
+    }
     const now = Math.floor(Date.now() / 1000);
     const status = dueDateTimestamp < now ? 'overdue' : 'pending';
     const invoiceNo =
@@ -154,7 +160,7 @@ export async function PATCH(
       }
     }
 
-    await execute(
+    const { rowsAffected } = await execute(
       `UPDATE supplier_bills SET
         supplier_name = ?,
         supplier_phone = ?,
@@ -182,6 +188,13 @@ export async function PATCH(
         auth.businessId,
       ]
     );
+
+    if (rowsAffected === 0) {
+      return jsonResponse(
+        { success: false, message: 'Bill not found or could not be updated' },
+        404
+      );
+    }
 
     await logActivity({
       businessId: auth.businessId,
