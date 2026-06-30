@@ -201,7 +201,9 @@ export function ProfitView({ itemType }: ProfitViewProps = {}) {
 
   const getNetProfit = () => {
     if (!profitData) return 0;
-    return profitData.totalProfit - getDailyExpense();
+    const gross = profitData.grossProfit ?? profitData.totalProfit;
+    const losses = profitData.stockLosses?.total ?? 0;
+    return gross - losses - getDailyExpense();
   };
 
   const getBreakEvenSales = () => {

@@ -66,7 +66,7 @@ export async function GET(
   }
 }
 
-// PATCH - Update pending/overdue bill (header only; stock not changed)
+// PATCH - Update bill header (items, amount, notes; stock batches not changed)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -108,9 +108,9 @@ export async function PATCH(
       );
     }
 
-    if (bill.status !== 'pending' && bill.status !== 'overdue') {
+    if (bill.status === 'cancelled') {
       return jsonResponse(
-        { success: false, message: 'Only pending or overdue bills can be edited' },
+        { success: false, message: 'Cancelled bills cannot be edited' },
         400
       );
     }
@@ -137,7 +137,12 @@ export async function PATCH(
       );
     }
     const now = Math.floor(Date.now() / 1000);
-    const status = dueDateTimestamp < now ? 'overdue' : 'pending';
+    const status =
+      bill.status === 'paid'
+        ? 'paid'
+        : dueDateTimestamp < now
+          ? 'overdue'
+          : 'pending';
     const invoiceNo =
       supplierInvoiceNo != null ? String(supplierInvoiceNo).trim() || null : undefined;
 

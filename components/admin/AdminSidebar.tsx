@@ -35,6 +35,7 @@ import {
   ScrollText,
   Cloud,
   ClipboardCheck,
+  ClipboardList,
   ShoppingCart,
   type LucideIcon,
 } from "lucide-react";
@@ -134,6 +135,12 @@ const BASE_SECTIONS: NavSection[] = [
         href: "/admin/stock/approvals",
         label: "Approvals",
         icon: Scale,
+        roles: ["admin", "owner"],
+      },
+      {
+        href: "/admin/stock/adjustments",
+        label: "Adjustments",
+        icon: ClipboardList,
         roles: ["admin", "owner"],
       },
       { href: "/admin/out-of-stock-requests", label: "Not sold", icon: PackageX },

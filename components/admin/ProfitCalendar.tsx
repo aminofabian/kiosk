@@ -366,6 +366,12 @@ export function ProfitCalendar({ compact = false, itemType }: ProfitCalendarProp
                   <span className="font-bold text-slate-200">{formatPrice(hoveredDay.grossProfit)}</span>
                 </div>
               )}
+              {isNet && hoveredDay.stockLoss > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-red-400">Stock losses</span>
+                  <span className="font-semibold text-red-400">&minus; {formatPrice(hoveredDay.stockLoss)}</span>
+                </div>
+              )}
               {isNet && hoveredDay.expenses > 0 && (
                 <div className="flex justify-between">
                   <span className="text-slate-400">Daily expenses</span>

@@ -614,6 +614,15 @@
 
 /* Print Styles - Only show receipt when printing */
 @media print {
+  /* Hide POS chrome — print preview shows receipt only */
+  body:has(#receipt-to-print) * {
+    visibility: hidden !important;
+  }
+  body:has(#receipt-to-print) #receipt-to-print,
+  body:has(#receipt-to-print) #receipt-to-print * {
+    visibility: visible !important;
+  }
+
   /* Page settings for thermal receipt - optimized for direct printer output */
   @page {
     size: 72mm auto;

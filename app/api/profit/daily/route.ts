@@ -215,8 +215,11 @@ export async function GET(request: NextRequest) {
     // Stock losses and operating expenses are business-wide and only make sense on the combined view.
     const isFiltered = !!itemType;
 
-    // Stock losses ignored for now
+    // Map daily stock losses by local date
     const lossByDate: Record<string, number> = {};
+    for (const row of dailyLosses) {
+      lossByDate[row.loss_day] = row.total_loss;
+    }
 
     // Transform to a map for easy lookup
     const profitByDate: Record<string, DailyProfit> = {};
@@ -239,9 +242,10 @@ export async function GET(request: NextRequest) {
         dayProfit = row.total_profit;
         dayCost = row.total_cost;
       } else {
-        // Combined view: net profit (gross profit - daily expenses)
+        // Combined view: net profit (gross profit - stock losses - daily expenses)
+        dayStockLoss = lossByDate[row.sale_day] || 0;
         dayExpenses = dailyOperatingCost;
-        dayProfit = row.total_profit - dayExpenses;
+        dayProfit = row.total_profit - dayStockLoss - dayExpenses;
         dayCost = row.total_cost;
       }
 
@@ -263,7 +267,31 @@ export async function GET(request: NextRequest) {
       if (dayProfit < 0) lossDays++;
     }
 
-    // Stock losses ignored for now — no loss-only days to add
+    // Add loss-only days (days with stock losses but no sales)
+    if (!isFiltered) {
+      for (const [day, loss] of Object.entries(lossByDate)) {
+        if (profitByDate[day]) continue;
+        const dayExpenses = dailyOperatingCost;
+        const dayProfit = -loss - dayExpenses;
+
+        profitByDate[day] = {
+          date: day,
+          profit: dayProfit,
+          grossProfit: 0,
+          revenue: 0,
+          cost: 0,
+          stockLoss: loss,
+          expenses: dayExpenses,
+          transactions: 0,
+        };
+
+        if (dayProfit > maxProfit) maxProfit = dayProfit;
+        if (dayProfit < minProfit) minProfit = dayProfit;
+        totalDaysWithActivity++;
+        if (dayProfit > 0) profitableDays++;
+        else if (dayProfit < 0) lossDays++;
+      }
+    }
 
     return jsonResponse({
       success: true,

@@ -452,8 +452,8 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
   const handleSavePdfEditorToBill = async () => {
     if (!pdfEditorState) return;
     const { bill } = pdfEditorState;
-    if (bill.status !== 'pending' && bill.status !== 'overdue') {
-      toast.error('Only pending or overdue bills can be saved to the database');
+    if (bill.status === 'cancelled') {
+      toast.error('Cancelled bills cannot be saved');
       return;
     }
 
@@ -1318,16 +1318,19 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
                                 <Copy className="w-3.5 h-3.5" />
                               </Button>
                             )}
+                            {bill.status !== 'cancelled' && (
+                              <Button
+                                onClick={() => setEditingBill(bill)}
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 px-2 text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400"
+                                title="Edit bill"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                            )}
                             {bill.status !== 'paid' && bill.status !== 'cancelled' && (
                               <>
-                                <Button
-                                  onClick={() => setEditingBill(bill)}
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 px-2 text-xs text-slate-600 hover:text-slate-900 dark:text-slate-400"
-                                >
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </Button>
                                 <Button
                                   onClick={() => handleMarkAsPaid(bill)}
                                   size="sm"
@@ -1524,30 +1527,30 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
                         Replicate order
                       </Button>
                     )}
+                    {viewingBillItems.status !== 'cancelled' && (
+                      <Button
+                        onClick={() => {
+                          setViewingBillItems(null);
+                          setEditingBill(viewingBillItems);
+                        }}
+                        className="flex-1 bg-[#1c6a1e] hover:bg-[#238b26] text-white"
+                      >
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Edit bill
+                      </Button>
+                    )}
                     {viewingBillItems.status !== 'paid' && viewingBillItems.status !== 'cancelled' && (
-                      <>
-                        <Button
-                          onClick={() => {
-                            setViewingBillItems(null);
-                            setEditingBill(viewingBillItems);
-                          }}
-                          className="flex-1 bg-[#1c6a1e] hover:bg-[#238b26] text-white"
-                        >
-                          <Pencil className="w-4 h-4 mr-2" />
-                          Edit bill
-                        </Button>
-                        <Button
-                          onClick={() => {
-                            setViewingBillItems(null);
-                            handleMarkAsPaid(viewingBillItems);
-                          }}
-                          variant="outline"
-                          className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400"
-                        >
-                          <CheckCircle2 className="w-4 h-4 mr-2" />
-                          Mark as paid
-                        </Button>
-                      </>
+                      <Button
+                        onClick={() => {
+                          setViewingBillItems(null);
+                          handleMarkAsPaid(viewingBillItems);
+                        }}
+                        variant="outline"
+                        className="border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400"
+                      >
+                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                        Mark as paid
+                      </Button>
                     )}
                   </div>
                 </div>
@@ -1578,8 +1581,8 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
                 {pdfEditorState && (
                   <>
                     Adjust items, then save to the bill or download a PDF.
-                    {pdfEditorState.bill.status === 'paid' || pdfEditorState.bill.status === 'cancelled'
-                      ? ' Paid and cancelled bills can only be downloaded — not saved.'
+                    {pdfEditorState.bill.status === 'cancelled'
+                      ? ' Cancelled bills can only be downloaded — not saved.'
                       : null}
                   </>
                 )}
@@ -1669,8 +1672,7 @@ export function SupplierBillsList({ onSupplierClick, onAddBill, onReplicateBill 
                   </span>
                 </div>
                 <div className="flex flex-col gap-2 pt-4">
-                  {pdfEditorState.bill.status !== 'paid' &&
-                    pdfEditorState.bill.status !== 'cancelled' && (
+                  {pdfEditorState.bill.status !== 'cancelled' && (
                       <Button
                         onClick={() => void handleSavePdfEditorToBill()}
                         disabled={savingPdfEditor}

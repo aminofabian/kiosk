@@ -114,6 +114,9 @@ import { usePosKeyboardShortcuts } from "@/lib/hooks/use-pos-keyboard-shortcuts"
 import { usePendingSales } from "@/lib/hooks/use-pending-sales";
 import { isDepartmentOrder } from "@/lib/pos/pending-sales";
 import { useDepartmentEvents } from "@/lib/hooks/use-department-events";
+import { PosAutoPrintReceipt } from "@/components/pos/PosAutoPrintReceipt";
+import { fetchReceiptPayload, type ReceiptPayload } from "@/lib/pos/receipt-data";
+import { printReceiptElement } from "@/lib/pos/print-receipt";
 
 export default function POSPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(
@@ -208,7 +211,9 @@ export default function POSPage() {
   const statsMenuRefDesktop = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
-  const printedReceiptIdRef = useRef<string | null>(null);
+  const [autoPrintPayload, setAutoPrintPayload] = useState<ReceiptPayload | null>(
+    null,
+  );
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const desktopSearchContainerRef = useRef<HTMLDivElement>(null);
   const {
@@ -272,6 +277,10 @@ export default function POSPage() {
     },
     [removeSale, clearCartByPendingSaleId, refreshPendingSales, bumpCartRefresh],
   );
+
+  const handleAutoPrintDone = useCallback(() => {
+    setAutoPrintPayload(null);
+  }, []);
 
   const handleDeptQueueUpdate = useCallback(
     (event: { data: Record<string, unknown> }) => {
@@ -825,65 +834,9 @@ export default function POSPage() {
     fetchReceipt();
   }, [receiptSaleId, receiptDrawerOpen]);
 
-  // Direct print function - opens print dialog for printer selection
   const handleDirectPrint = () => {
-    // Find the receipt element
-    const receiptElement = document.getElementById("receipt-to-print");
-
-    if (receiptElement) {
-      // Ensure receipt is visible and accessible for printing
-      receiptElement.style.visibility = "visible";
-      receiptElement.style.display = "block";
-      receiptElement.style.position = "relative";
-
-      // Force all parent containers to be visible during print
-      let parent = receiptElement.parentElement;
-      while (parent && parent !== document.body) {
-        parent.style.visibility = "visible";
-        parent.style.display = "block";
-        parent = parent.parentElement;
-      }
-
-      // Small delay to ensure everything is ready
-      setTimeout(() => {
-        window.print();
-      }, 300);
-    } else {
-      // Fallback if element not found
-      window.print();
-    }
+    printReceiptElement();
   };
-
-  // Auto-print receipt when drawer opens with print flag
-  useEffect(() => {
-    if (receiptDrawerOpen && receiptData && receiptSaleId) {
-      // Check if URL has print=true (from checkout)
-      const urlParams = new URLSearchParams(window.location.search);
-      const shouldPrint = urlParams.get("print") === "true";
-
-      // Only print if we haven't already printed this receipt
-      if (shouldPrint && printedReceiptIdRef.current !== receiptSaleId) {
-        // Small delay to ensure receipt is rendered
-        const printTimer = setTimeout(() => {
-          handleDirectPrint();
-          // Mark this receipt as printed
-          printedReceiptIdRef.current = receiptSaleId;
-          // Remove print param from URL after printing
-          const newUrl =
-            window.location.pathname +
-            window.location.search.replace(/[?&]print=true/, "");
-          window.history.replaceState({}, "", newUrl);
-        }, 1000);
-
-        return () => clearTimeout(printTimer);
-      }
-    }
-
-    // Reset printed receipt when drawer closes
-    if (!receiptDrawerOpen) {
-      printedReceiptIdRef.current = null;
-    }
-  }, [receiptDrawerOpen, receiptData, receiptSaleId]);
 
   const [groupedCategoryItems, setGroupedCategoryItems] = useState<
     GroupedItem[]
@@ -1767,11 +1720,9 @@ export default function POSPage() {
             void refreshPendingSales();
             setCartRefreshTrigger((k) => k + 1);
             setCheckoutDrawerOpen(false);
-            setReceiptSaleId(saleId);
-            setReceiptDrawerOpen(true);
-            const url = new URL(window.location.href);
-            url.searchParams.set("print", "true");
-            window.history.replaceState({}, "", url.toString());
+            void fetchReceiptPayload(saleId).then((payload) => {
+              if (payload) setAutoPrintPayload(payload);
+            });
           }}
           onDirectPrint={handleDirectPrint}
           onContinueShoppingFromReceipt={() => {
@@ -1793,6 +1744,13 @@ export default function POSPage() {
           open={returnsDialogOpen}
           onOpenChange={setReturnsDialogOpen}
         />
+
+        {autoPrintPayload && (
+          <PosAutoPrintReceipt
+            payload={autoPrintPayload}
+            onDone={handleAutoPrintDone}
+          />
+        )}
       </>
     </PosCashierOperationsProvider>
   );

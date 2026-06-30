@@ -454,9 +454,8 @@ export async function GET(request: NextRequest) {
 
     // Stock losses are business-wide (not filterable by item type).
     // Only deduct them on the combined view (no itemType filter).
-    // Stock losses ignored for now
-    const totalStockLoss = 0;
-    const adjustedProfit = summaryData.total_profit;
+    const totalStockLoss = !itemType ? (stockLosses?.total_loss ?? 0) : 0;
+    const adjustedProfit = summaryData.total_profit - totalStockLoss;
 
     // Gross margin = gross profit / sales (before any stock loss deduction)
     const grossMargin =

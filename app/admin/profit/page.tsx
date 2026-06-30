@@ -282,7 +282,8 @@ export default function ProfitHubPage() {
 
   const grossProfit = allData?.grossProfit ?? 0;
   const grossMargin = allData?.grossMargin ?? (allData?.totalSales ? grossProfit / allData.totalSales : 0);
-  const getNetProfit = () => grossProfit - getTotalExpenses();
+  const stockLosses = allData?.stockLosses?.total ?? 0;
+  const getNetProfit = () => grossProfit - stockLosses - getTotalExpenses();
   const hasExpenses = expenseData && expenseData.expenseCount > 0;
   const isProfitable = getNetProfit() >= 0;
   const netProfit = getNetProfit();
@@ -522,6 +523,24 @@ export default function ProfitHubPage() {
                     <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-400 to-green-500" style={{ width: `${(allData?.totalSales ?? 0) > 0 ? (grossProfit / (allData?.totalSales ?? 1)) * 100 : 0}%` }} />
                   </div>
                 </div>
+                {/* Stock Losses */}
+                {stockLosses > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Package className="w-3.5 h-3.5 text-red-500" />
+                        <span className="font-bold text-xs text-slate-700 dark:text-slate-300">Stock Losses</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-black text-xs text-red-600 dark:text-red-400">&minus; {formatPrice(stockLosses)}</span>
+                        <span className="text-[9px] text-slate-400">{allData?.stockLosses?.count ?? 0} adj.</span>
+                      </div>
+                    </div>
+                    <div className="relative h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-red-400 to-rose-500" style={{ width: `${(allData?.totalSales ?? 0) > 0 ? (stockLosses / (allData?.totalSales ?? 1)) * 100 : 0}%` }} />
+                    </div>
+                  </div>
+                )}
                 {/* Operating Expenses */}
                 {hasExpenses && (
                   <div className="space-y-1">
