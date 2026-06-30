@@ -69,8 +69,9 @@ export async function GET(_request: NextRequest) {
     );
 
     const matchedCount = batches.filter((b) => b.status === "matched").length;
-    const escalatedCount = batches.filter(
-      (b) => b.status === "escalated" || b.status === "acknowledged",
+    const escalatedCount = batches.filter((b) => b.status === "escalated").length;
+    const resolvedEscalationCount = batches.filter((b) =>
+      ["acknowledged", "dismissed", "adjusted"].includes(b.status),
     ).length;
 
     return jsonResponse({
@@ -80,6 +81,7 @@ export async function GET(_request: NextRequest) {
         batches,
         matchedCount,
         escalatedCount,
+        resolvedEscalationCount,
       },
     });
   } catch (error) {

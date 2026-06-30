@@ -3,6 +3,7 @@ import { execute, queryOne } from '@/lib/db';
 import { migrateExpectedStock } from '@/lib/db/migrate-expected-stock';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
+import { enforceDepartmentStaffStockEditPolicy } from '@/lib/auth/department-stock-policy';
 import { hasPermission } from '@/lib/auth/permissions';
 import { logActivity } from '@/lib/db/activity-log';
 import type { Item } from '@/lib/db/types';
@@ -29,6 +30,9 @@ export async function PATCH(
     ) {
       return jsonResponse({ success: false, message: 'Forbidden' }, 403);
     }
+
+    const stockPolicyBlock = await enforceDepartmentStaffStockEditPolicy(auth);
+    if (stockPolicyBlock) return stockPolicyBlock;
 
     const { id } = await params;
     const body = await request.json();

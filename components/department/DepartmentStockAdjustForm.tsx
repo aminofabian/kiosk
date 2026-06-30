@@ -32,6 +32,10 @@ const DECREASE_REASONS: { key: AdjustmentReason; label: string }[] = [
   { key: 'other', label: 'Other' },
 ];
 
+const LOSS_WRITE_OFF_REASONS = DECREASE_REASONS.filter(
+  (r) => r.key !== 'counting_error',
+);
+
 function formatStockQty(stock: number, unitType: Item['unit_type']) {
   return isDiscreteUnitType(unitType)
     ? Math.round(stock).toString()
@@ -51,6 +55,8 @@ interface DepartmentStockAdjustFormProps {
     notes: string | null;
   }) => Promise<boolean>;
   onClose: () => void;
+  /** When true, only decrease for spoilage/damage/theft/other (count-first mode). */
+  lossWriteOffOnly?: boolean;
 }
 
 export function DepartmentStockAdjustForm({
@@ -61,20 +67,27 @@ export function DepartmentStockAdjustForm({
   onTopup,
   onAdjust,
   onClose,
+  lossWriteOffOnly = false,
 }: DepartmentStockAdjustFormProps) {
   const [adjustmentType, setAdjustmentType] = useState<'increase' | 'decrease'>('decrease');
   const [quantity, setQuantity] = useState('');
   const [reason, setReason] = useState<AdjustmentReason>('spoilage');
   const [notes, setNotes] = useState('');
 
+  const effectiveType = lossWriteOffOnly ? 'decrease' : adjustmentType;
   const reasonOptions =
-    adjustmentType === 'increase' ? INCREASE_REASONS : DECREASE_REASONS;
+    effectiveType === 'increase' ? INCREASE_REASONS : LOSS_WRITE_OFF_REASONS;
 
   useEffect(() => {
-    setReason(adjustmentType === 'increase' ? 'restock' : 'spoilage');
+    if (lossWriteOffOnly) {
+      setAdjustmentType('decrease');
+      setReason('spoilage');
+    } else {
+      setReason(adjustmentType === 'increase' ? 'restock' : 'spoilage');
+    }
     setQuantity('');
     setNotes('');
-  }, [adjustmentType, selectedItem.id]);
+  }, [adjustmentType, lossWriteOffOnly, selectedItem.id]);
 
   const parsedQty = useMemo(() => {
     const trimmed = quantity.trim();
@@ -87,10 +100,10 @@ export function DepartmentStockAdjustForm({
 
   const newStock = useMemo(() => {
     if (parsedQty == null) return null;
-    return adjustmentType === 'increase'
+    return effectiveType === 'increase'
       ? selectedItem.current_stock + parsedQty
       : selectedItem.current_stock - parsedQty;
-  }, [adjustmentType, parsedQty, selectedItem.current_stock]);
+  }, [effectiveType, parsedQty, selectedItem.current_stock]);
 
   const willGoNegative = newStock != null && newStock < 0;
   const needsTopup = topup > 0;
@@ -104,7 +117,7 @@ export function DepartmentStockAdjustForm({
     if (parsedQty == null) return;
     if (willGoNegative) return;
     await onAdjust({
-      adjustmentType,
+      adjustmentType: effectiveType,
       quantity: parsedQty,
       reason,
       notes: notes.trim() || null,
@@ -144,7 +157,7 @@ export function DepartmentStockAdjustForm({
           </p>
         </div>
 
-        {needsTopup && (
+        {!lossWriteOffOnly && needsTopup && (
           <div className="space-y-2">
             <p className="text-sm text-amber-800 dark:text-amber-200 text-center">
               Below minimum — quick add{' '}
@@ -168,44 +181,48 @@ export function DepartmentStockAdjustForm({
           </div>
         )}
 
-        {!needsTopup && (
+        {(lossWriteOffOnly || !needsTopup) && (
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/50 text-xs text-emerald-800 dark:text-emerald-200">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
-            Stock level OK — use adjust below for spoilage, damage, etc.
+            {lossWriteOffOnly
+              ? 'Record spoilage, damage, or theft below — qty increases need admin or daily count.'
+              : 'Stock level OK — use adjust below for spoilage, damage, etc.'}
           </div>
         )}
 
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-3 pt-1">
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-            Stock adjustment
+            {lossWriteOffOnly ? 'Record loss' : 'Stock adjustment'}
           </p>
 
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setAdjustmentType('increase')}
-              className={`flex items-center justify-center gap-1.5 h-10 rounded-lg border text-xs font-semibold ${
-                adjustmentType === 'increase'
-                  ? 'bg-[#1c6a1e] text-white border-[#1c6a1e]'
-                  : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
-              }`}
-            >
-              <TrendingUp className="w-4 h-4" />
-              Increase
-            </button>
-            <button
-              type="button"
-              onClick={() => setAdjustmentType('decrease')}
-              className={`flex items-center justify-center gap-1.5 h-10 rounded-lg border text-xs font-semibold ${
-                adjustmentType === 'decrease'
-                  ? 'bg-red-600 text-white border-red-600'
-                  : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
-              }`}
-            >
-              <TrendingDown className="w-4 h-4" />
-              Decrease
-            </button>
-          </div>
+          {!lossWriteOffOnly && (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setAdjustmentType('increase')}
+                className={`flex items-center justify-center gap-1.5 h-10 rounded-lg border text-xs font-semibold ${
+                  adjustmentType === 'increase'
+                    ? 'bg-[#1c6a1e] text-white border-[#1c6a1e]'
+                    : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                <TrendingUp className="w-4 h-4" />
+                Increase
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdjustmentType('decrease')}
+                className={`flex items-center justify-center gap-1.5 h-10 rounded-lg border text-xs font-semibold ${
+                  adjustmentType === 'decrease'
+                    ? 'bg-red-600 text-white border-red-600'
+                    : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                }`}
+              >
+                <TrendingDown className="w-4 h-4" />
+                Decrease
+              </button>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold uppercase text-slate-500">
@@ -233,7 +250,7 @@ export function DepartmentStockAdjustForm({
                   onClick={() => setReason(option.key)}
                   className={`px-2.5 py-1 rounded text-xs font-semibold border ${
                     reason === option.key
-                      ? adjustmentType === 'decrease'
+                      ? effectiveType === 'decrease'
                         ? 'bg-red-600 text-white border-red-600'
                         : 'bg-[#1c6a1e] text-white border-[#1c6a1e]'
                       : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
@@ -281,14 +298,14 @@ export function DepartmentStockAdjustForm({
             type="submit"
             disabled={isSubmitting || parsedQty == null || willGoNegative}
             className={`w-full h-11 font-semibold ${
-              adjustmentType === 'decrease'
+              effectiveType === 'decrease'
                 ? 'bg-red-600 hover:bg-red-700'
                 : 'bg-[#1c6a1e] hover:bg-[#165a19]'
             }`}
           >
             {isSubmitting ? (
               <Loader2 className="w-4 h-4 animate-spin" />
-            ) : adjustmentType === 'decrease' ? (
+            ) : effectiveType === 'decrease' ? (
               'Record decrease'
             ) : (
               'Record increase'

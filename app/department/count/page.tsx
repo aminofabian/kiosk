@@ -208,9 +208,7 @@ export default function DepartmentCountPage() {
             res.data.batches.filter((b) => b.status === "matched").length;
           const escalated =
             res.data.escalatedCount ??
-            res.data.batches.filter(
-              (b) => b.status === "escalated" || b.status === "acknowledged",
-            ).length;
+            res.data.batches.filter((b) => b.status === "escalated").length;
           setClosedStats({ matchedCount: matched, escalatedCount: escalated });
         } else {
           setClosedStats(null);
@@ -576,8 +574,8 @@ export default function DepartmentCountPage() {
                 : ""}
               Your count shift for today is finished.
               {summary.escalatedCount > 0
-                ? " Some items were escalated for admin review."
-                : " All items matched."}
+                ? " Some items are awaiting admin review."
+                : " All items matched or resolved."}
             </p>
 
             <div className="grid grid-cols-2 gap-3 mb-6">
@@ -594,7 +592,7 @@ export default function DepartmentCountPage() {
                   {summary.escalatedCount}
                 </p>
                 <p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">
-                  Escalated
+                  Pending review
                 </p>
               </div>
             </div>

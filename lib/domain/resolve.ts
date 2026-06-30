@@ -1,10 +1,13 @@
 import { queryOne } from '@/lib/db';
 import type { Domain, Business } from '@/lib/db/types';
+import { isPublicDomain } from '@/lib/domain/public';
 
 const DEFAULT_DOMAIN = 'kiosk.co.ke';
 const DEFAULT_DOMAIN_URL = 'https://kiosk.co.ke';
 const LOCALHOST_DOMAINS = ['localhost', '127.0.0.1', '0.0.0.0'];
 const PUBLIC_DOMAINS = [DEFAULT_DOMAIN, ...LOCALHOST_DOMAINS];
+
+export { isPublicDomain };
 
 export interface DomainResolutionResult {
   businessId: string;
@@ -37,15 +40,6 @@ function normalizeDomain(hostname: string | null): string {
   }
 
   return lower;
-}
-
-export function isPublicDomain(hostname: string | null): boolean {
-  if (!hostname) {
-    return true;
-  }
-
-  const normalized = normalizeDomain(hostname);
-  return normalized === DEFAULT_DOMAIN || LOCALHOST_DOMAINS.includes(normalized.toLowerCase());
 }
 
 export async function resolveDomainToBusiness(

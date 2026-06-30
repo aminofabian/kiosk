@@ -15,6 +15,8 @@ import {
 import {
   parseAllowSellOutOfStock,
   mergeSettingsAllowSellOutOfStock,
+  parseAllowDepartmentStaffStockEdit,
+  mergeSettingsAllowDepartmentStaffStockEdit,
 } from "@/lib/utils/stock-settings";
 import {
   parseCountSettings,
@@ -48,6 +50,9 @@ export async function GET() {
 
     const productTypes = parseProductTypes(business.settings);
     const allowSellOutOfStock = parseAllowSellOutOfStock(business.settings);
+    const allowDepartmentStaffStockEdit = parseAllowDepartmentStaffStockEdit(
+      business.settings,
+    );
     const countSettings = parseCountSettings(business.settings);
 
     return jsonResponse({
@@ -56,6 +61,7 @@ export async function GET() {
         productTypes,
         loyaltyPointsPerKes: Number(business.loyalty_points_per_kes ?? 0),
         allowSellOutOfStock,
+        allowDepartmentStaffStockEdit,
         countSettings,
       },
     });
@@ -95,11 +101,13 @@ export async function PATCH(request: NextRequest) {
       productTypes,
       loyaltyPointsPerKes,
       allowSellOutOfStock,
+      allowDepartmentStaffStockEdit,
       countSettings,
     } = body as {
       productTypes?: ProductTypeConfig[];
       loyaltyPointsPerKes?: unknown;
       allowSellOutOfStock?: unknown;
+      allowDepartmentStaffStockEdit?: unknown;
       countSettings?: CountSettings;
     };
 
@@ -189,6 +197,27 @@ export async function PATCH(request: NextRequest) {
       didUpdate = true;
     }
 
+    if (allowDepartmentStaffStockEdit !== undefined) {
+      if (typeof allowDepartmentStaffStockEdit !== "boolean") {
+        return jsonResponse(
+          {
+            success: false,
+            message: "allowDepartmentStaffStockEdit must be a boolean",
+          },
+          400,
+        );
+      }
+      const updated = mergeSettingsAllowDepartmentStaffStockEdit(
+        business.settings,
+        allowDepartmentStaffStockEdit,
+      );
+      await execute(`UPDATE businesses SET settings = ? WHERE id = ?`, [
+        updated,
+        auth.businessId,
+      ]);
+      didUpdate = true;
+    }
+
     if (countSettings !== undefined) {
       if (
         countSettings.tolerancePercent !== undefined &&
@@ -230,7 +259,7 @@ export async function PATCH(request: NextRequest) {
         {
           success: false,
           message:
-            "Provide productTypes, loyaltyPointsPerKes, allowSellOutOfStock, and/or countSettings to update",
+            "Provide productTypes, loyaltyPointsPerKes, allowSellOutOfStock, allowDepartmentStaffStockEdit, and/or countSettings to update",
         },
         400,
       );
@@ -248,6 +277,9 @@ export async function PATCH(request: NextRequest) {
     const allowSellOutOfStockOut = parseAllowSellOutOfStock(
       updatedBusiness?.settings ?? null,
     );
+    const allowDepartmentStaffStockEditOut = parseAllowDepartmentStaffStockEdit(
+      updatedBusiness?.settings ?? null,
+    );
     const countSettingsOut = parseCountSettings(
       updatedBusiness?.settings ?? null,
     );
@@ -261,6 +293,7 @@ export async function PATCH(request: NextRequest) {
           updatedBusiness?.loyalty_points_per_kes ?? 0,
         ),
         allowSellOutOfStock: allowSellOutOfStockOut,
+        allowDepartmentStaffStockEdit: allowDepartmentStaffStockEditOut,
         countSettings: countSettingsOut,
       },
     });

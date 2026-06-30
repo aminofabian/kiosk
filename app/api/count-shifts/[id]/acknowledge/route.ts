@@ -1,14 +1,15 @@
 import { NextRequest } from "next/server";
-import { execute, queryOne } from "@/lib/db";
+import { query, queryOne } from "@/lib/db";
+import { migrateCountShifts } from "@/lib/db/migrate-count-shifts";
 import { jsonResponse, optionsResponse } from "@/lib/utils/api-response";
 import { requireAuth, isAuthResponse } from "@/lib/auth/api-auth";
 import { logActivity } from "@/lib/db/activity-log";
+import { dismissEscalatedBatch } from "@/lib/department/count-batch-resolution";
 
 /**
  * POST /api/count-shifts/[id]/acknowledge
- * Acknowledge escalated batches in a count shift.
- * Body: { batchIds?: string[] } — if omitted, acknowledges ALL escalated batches in the shift.
- * Only admin/owner can acknowledge.
+ * Dismiss escalated batches in a count shift (legacy bulk endpoint).
+ * Body: { batchIds?: string[], notes?: string }
  */
 export async function OPTIONS() {
   return optionsResponse();
@@ -19,6 +20,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    await migrateCountShifts();
+
     const auth = await requireAuth();
     if (isAuthResponse(auth)) return auth;
 
@@ -28,9 +31,11 @@ export async function POST(
 
     const { id: shiftId } = await params;
     const body = await request.json().catch(() => ({}));
-    const { batchIds } = body as { batchIds?: string[] };
+    const { batchIds, notes } = body as {
+      batchIds?: string[];
+      notes?: string;
+    };
 
-    // Verify shift exists and is closed
     const shift = await queryOne<{ id: string; status: string }>(
       "SELECT id, status FROM count_shifts WHERE id = ? AND business_id = ?",
       [shiftId, auth.businessId],
@@ -45,51 +50,72 @@ export async function POST(
 
     if (shift.status !== "closed") {
       return jsonResponse(
-        { success: false, message: "Shift must be closed before acknowledging" },
+        {
+          success: false,
+          message: "Shift must be closed before resolving escalations",
+        },
         400,
       );
     }
 
-    const now = Math.floor(Date.now() / 1000);
-
-    if (batchIds && batchIds.length > 0) {
-      // Acknowledge specific batches
-      await execute(
-        `UPDATE count_batches
-         SET status = 'acknowledged'
-         WHERE count_shift_id = ? AND status = 'escalated' AND id IN (${batchIds.map(() => "?").join(",")})`,
-        [shiftId, ...batchIds],
-      );
-    } else {
-      // Acknowledge all escalated
-      await execute(
-        `UPDATE count_batches
-         SET status = 'acknowledged'
+    let targetBatchIds = batchIds;
+    if (!targetBatchIds || targetBatchIds.length === 0) {
+      const rows = await query<{ id: string }>(
+        `SELECT id FROM count_batches
          WHERE count_shift_id = ? AND status = 'escalated'`,
         [shiftId],
       );
+      targetBatchIds = rows.map((row) => row.id);
     }
 
+    if (targetBatchIds.length === 0) {
+      return jsonResponse({
+        success: true,
+        message: "No escalated batches to dismiss",
+      });
+    }
+
+    for (const batchId of targetBatchIds) {
+      const result = await dismissEscalatedBatch({
+        batchId,
+        shiftId,
+        businessId: auth.businessId,
+        userId: auth.userId,
+        notes,
+      });
+      if (!result.success && result.status !== 400) {
+        return jsonResponse(
+          { success: false, message: result.message },
+          result.status,
+        );
+      }
+    }
+
+    const now = Math.floor(Date.now() / 1000);
     logActivity({
       businessId: auth.businessId,
       action: "update",
       entityType: "count_batch",
       entityId: shiftId,
-      entityNameSnapshot: `Escalations acknowledged for count shift`,
-      details: { shiftId, batchIds: batchIds ?? "all", acknowledgedAt: now },
+      entityNameSnapshot: "Escalations dismissed for count shift",
+      details: {
+        shiftId,
+        batchIds: targetBatchIds,
+        dismissedAt: now,
+      },
       performedBy: auth.userId,
     }).catch(() => {});
 
     return jsonResponse({
       success: true,
-      message: "Escalations acknowledged",
+      message: "Escalations dismissed",
     });
   } catch (error) {
-    console.error("Error acknowledging escalations:", error);
+    console.error("Error dismissing escalations:", error);
     return jsonResponse(
       {
         success: false,
-        message: "Failed to acknowledge escalations",
+        message: "Failed to dismiss escalations",
         error: error instanceof Error ? error.message : "Unknown error",
       },
       500,

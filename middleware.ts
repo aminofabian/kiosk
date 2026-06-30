@@ -1,6 +1,6 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
-import { isPublicDomain } from "@/lib/domain/resolve";
+import { isPublicDomain } from "@/lib/domain/public";
 import { canSell } from "@/lib/auth/permissions";
 
 export default withAuth(

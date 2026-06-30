@@ -14,7 +14,7 @@ import {
 import { signOut } from "next-auth/react";
 import { useCartStore } from "@/lib/stores/cart-store";
 import { useDepartmentTypes } from "@/lib/hooks/use-department-types";
-import { apiPost } from "@/lib/utils/api-client";
+import { apiPost, apiGet } from "@/lib/utils/api-client";
 import {
   resolveDepartmentShopType,
   SHOP_TYPE_ALL,
@@ -39,6 +39,9 @@ interface DepartmentAppContextValue {
   userId?: string;
   requestsRefreshKey: number;
   supplyRefreshKey: number;
+  /** False for department_staff when admin enabled count-first mode */
+  canEditFloorStock: boolean;
+  floorStockPolicyLoading: boolean;
 }
 
 const DepartmentAppContext = createContext<DepartmentAppContextValue | null>(
@@ -142,6 +145,34 @@ export function DepartmentAppProvider({ children }: { children: ReactNode }) {
 
   const [requestsRefreshKey, setRequestsRefreshKey] = useState(0);
   const [supplyRefreshKey, setSupplyRefreshKey] = useState(0);
+  const [floorStockEditEnabled, setFloorStockEditEnabled] = useState(true);
+  const [floorStockPolicyLoading, setFloorStockPolicyLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await apiGet<{ allowDepartmentStaffStockEdit?: boolean }>(
+          "/api/settings",
+        );
+        if (!cancelled && res.success && res.data) {
+          setFloorStockEditEnabled(
+            res.data.allowDepartmentStaffStockEdit !== false,
+          );
+        }
+      } catch {
+        // default true
+      } finally {
+        if (!cancelled) setFloorStockPolicyLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const canEditFloorStock =
+    user?.role !== "department_staff" || floorStockEditEnabled;
 
   // SSE connection for real-time events
   useDepartmentEvents({
@@ -179,6 +210,8 @@ export function DepartmentAppProvider({ children }: { children: ReactNode }) {
       userId: user?.id,
       requestsRefreshKey,
       supplyRefreshKey,
+      canEditFloorStock,
+      floorStockPolicyLoading,
     }),
     [
       assignedTypes,
@@ -192,8 +225,11 @@ export function DepartmentAppProvider({ children }: { children: ReactNode }) {
       user?.businessName,
       user?.name,
       user?.id,
+      user?.role,
       requestsRefreshKey,
       supplyRefreshKey,
+      canEditFloorStock,
+      floorStockPolicyLoading,
     ],
   );
 
@@ -208,6 +244,7 @@ export function DepartmentAppProvider({ children }: { children: ReactNode }) {
         deptTypes={assignedTypes}
         onShopTypeChange={setShopType}
         onLogout={() => signOut({ callbackUrl: "/login" })}
+        canEditFloorStock={canEditFloorStock}
       />
     </DepartmentAppContext.Provider>
   );

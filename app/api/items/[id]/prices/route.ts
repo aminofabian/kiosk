@@ -4,6 +4,7 @@ import { generateUUID } from '@/lib/utils/uuid';
 import { generateBatchNumber } from '@/lib/utils/batch-number';
 import { jsonResponse, optionsResponse } from '@/lib/utils/api-response';
 import { requireAuth, isAuthResponse } from '@/lib/auth/api-auth';
+import { enforceDepartmentStaffStockEditPolicy } from '@/lib/auth/department-stock-policy';
 import { hasPermission } from '@/lib/auth/permissions';
 import { logActivity } from '@/lib/db/activity-log';
 import { recordBuyingPrice } from '@/lib/db/buying-prices';
@@ -30,6 +31,9 @@ export async function PATCH(
     if (!canManageItems && !canAdjustStock) {
       return jsonResponse({ success: false, message: 'Forbidden' }, 403);
     }
+
+    const stockPolicyBlock = await enforceDepartmentStaffStockEditPolicy(auth);
+    if (stockPolicyBlock) return stockPolicyBlock;
 
     const { id: itemId } = await params;
     const body = await request.json();

@@ -18,6 +18,9 @@ import {
   Gift,
   Package,
   ClipboardCheck,
+  PencilLine,
+  Lock,
+  Eye,
   X,
 } from "lucide-react";
 import type { ProductTypeConfig } from "@/lib/types/product-types";
@@ -67,6 +70,8 @@ export default function AdminSettingsPage() {
   const [loyaltyPointsPerKesInput, setLoyaltyPointsPerKesInput] = useState("0");
   const [loyaltySaving, setLoyaltySaving] = useState(false);
   const [allowSellOutOfStock, setAllowSellOutOfStock] = useState(false);
+  const [allowDepartmentStaffStockEdit, setAllowDepartmentStaffStockEdit] =
+    useState(true);
   const [stockSaving, setStockSaving] = useState(false);
   const [tolerancePercent, setTolerancePercent] = useState("5");
   const [toleranceAbsolute, setToleranceAbsolute] = useState("2");
@@ -79,6 +84,7 @@ export default function AdminSettingsPage() {
         productTypes: ProductType[];
         loyaltyPointsPerKes?: number;
         allowSellOutOfStock?: boolean;
+        allowDepartmentStaffStockEdit?: boolean;
         countSettings?: {
           tolerancePercent?: number;
           toleranceAbsolute?: number;
@@ -90,6 +96,9 @@ export default function AdminSettingsPage() {
           setLoyaltyPointsPerKesInput(String(res.data.loyaltyPointsPerKes));
         }
         setAllowSellOutOfStock(res.data.allowSellOutOfStock === true);
+        setAllowDepartmentStaffStockEdit(
+          res.data.allowDepartmentStaffStockEdit !== false,
+        );
         if (res.data.countSettings?.tolerancePercent !== undefined) {
           setTolerancePercent(String(res.data.countSettings.tolerancePercent));
         }
@@ -213,10 +222,10 @@ export default function AdminSettingsPage() {
   const handleSaveStockSetting = async (nextAllowSellOutOfStock: boolean) => {
     setStockSaving(true);
     try {
-      const res = await apiPatch<{ allowSellOutOfStock: boolean }>(
-        "/api/settings",
-        { allowSellOutOfStock: nextAllowSellOutOfStock },
-      );
+      const res = await apiPatch<{
+        allowSellOutOfStock: boolean;
+        allowDepartmentStaffStockEdit: boolean;
+      }>("/api/settings", { allowSellOutOfStock: nextAllowSellOutOfStock });
       if (res.success && res.data) {
         setAllowSellOutOfStock(res.data.allowSellOutOfStock === true);
         toast.success(
@@ -230,6 +239,32 @@ export default function AdminSettingsPage() {
     } catch (e) {
       console.error(e);
       toast.error("Failed to save stock setting");
+    } finally {
+      setStockSaving(false);
+    }
+  };
+
+  const handleSaveDepartmentStockMode = async (allowEdit: boolean) => {
+    setStockSaving(true);
+    try {
+      const res = await apiPatch<{
+        allowDepartmentStaffStockEdit: boolean;
+      }>("/api/settings", { allowDepartmentStaffStockEdit: allowEdit });
+      if (res.success && res.data) {
+        setAllowDepartmentStaffStockEdit(
+          res.data.allowDepartmentStaffStockEdit !== false,
+        );
+        toast.success(
+          allowEdit
+            ? "Department staff can edit stock on the floor"
+            : "Department stock is view-only — use cycle counts",
+        );
+      } else {
+        toast.error(res.message || "Failed to save department stock setting");
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to save department stock setting");
     } finally {
       setStockSaving(false);
     }
@@ -403,6 +438,86 @@ export default function AdminSettingsPage() {
                         }
                       />
                     </label>
+
+                    <div className="space-y-2 pt-1 border-t border-slate-200 dark:border-slate-800">
+                      <div>
+                        <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                          Department floor stock
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                          Controls grocery &amp; department staff on{" "}
+                          <span className="font-mono text-[10px]">
+                            /department/stock
+                          </span>{" "}
+                          and{" "}
+                          <span className="font-mono text-[10px]">
+                            /department/records
+                          </span>{" "}
+                          (losses). Count-first blocks direct qty edits; staff
+                          can still log spoilage and damage.
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          disabled={stockSaving}
+                          onClick={() => void handleSaveDepartmentStockMode(true)}
+                          className={`text-left rounded-xl border p-3 transition-all ${
+                            allowDepartmentStaffStockEdit
+                              ? "border-[#1c6a1e] bg-[#1c6a1e]/5 ring-2 ring-[#1c6a1e]/20"
+                              : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
+                              <PencilLine className="w-4 h-4" />
+                            </span>
+                            <span className="text-xs font-bold text-slate-900 dark:text-white">
+                              Floor editors
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                            Staff can edit stock levels, top up, and set par
+                            levels. Losses are recorded separately under
+                            Records.
+                          </p>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={stockSaving}
+                          onClick={() =>
+                            void handleSaveDepartmentStockMode(false)
+                          }
+                          className={`text-left rounded-xl border p-3 transition-all ${
+                            !allowDepartmentStaffStockEdit
+                              ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30 ring-2 ring-indigo-500/20"
+                              : "border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-1.5">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400">
+                              <Lock className="w-4 h-4" />
+                            </span>
+                            <span className="text-xs font-bold text-slate-900 dark:text-white">
+                              Count-first
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                            Stock screen is view-only for qty edits. Staff can
+                            still record spoilage, damage &amp; theft in
+                            Records → Losses; cycle counts handle audits.
+                          </p>
+                        </button>
+                      </div>
+                      {!allowDepartmentStaffStockEdit && (
+                        <p className="flex items-start gap-1.5 text-[11px] text-indigo-700 dark:text-indigo-300 bg-indigo-50/80 dark:bg-indigo-950/20 rounded-lg px-2.5 py-2">
+                          <Eye className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                          Staff still see stock levels, run daily counts, and
+                          record losses — they just can&apos;t change qty
+                          directly on the stock screen.
+                        </p>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
 

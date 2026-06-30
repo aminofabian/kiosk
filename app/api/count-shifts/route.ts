@@ -36,7 +36,9 @@ export async function GET(_request: NextRequest) {
 
     let sql = `
       SELECT cs.*, u.name as user_name,
-        (SELECT COUNT(*) FROM count_batches cb WHERE cb.count_shift_id = cs.id) AS batch_count
+        (SELECT COUNT(*) FROM count_batches cb WHERE cb.count_shift_id = cs.id) AS batch_count,
+        (SELECT COUNT(*) FROM count_batches cb
+         WHERE cb.count_shift_id = cs.id AND cb.status = 'escalated') AS pending_escalation_count
       FROM count_shifts cs
       LEFT JOIN users u ON cs.user_id = u.id
       WHERE cs.business_id = ?
@@ -49,7 +51,10 @@ export async function GET(_request: NextRequest) {
     }
 
     const validStatuses = ["open", "counting", "morning_complete", "closed"];
-    if (status && validStatuses.includes(status)) {
+    if (status === "needs_review") {
+      sql +=
+        " AND cs.status = 'closed' AND EXISTS (SELECT 1 FROM count_batches cb WHERE cb.count_shift_id = cs.id AND cb.status = 'escalated')";
+    } else if (status && validStatuses.includes(status)) {
       sql += " AND cs.status = ?";
       params.push(status);
     }
@@ -57,10 +62,13 @@ export async function GET(_request: NextRequest) {
     sql += " ORDER BY cs.opened_at DESC LIMIT ?";
     params.push(limit);
 
-    const shifts = await query<CountShift & { user_name: string; batch_count: number }>(
-      sql,
-      params,
-    );
+    const shifts = await query<
+      CountShift & {
+        user_name: string;
+        batch_count: number;
+        pending_escalation_count: number;
+      }
+    >(sql, params);
 
     return jsonResponse({ success: true, data: shifts });
   } catch (error) {

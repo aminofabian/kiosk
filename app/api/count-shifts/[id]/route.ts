@@ -54,13 +54,15 @@ export async function GET(
         item_name: string;
         barcode: string | null;
         unit_type: string;
+        current_stock: number;
         sell_price: number;
       }
     >(
-      `SELECT cb.*,
+       `SELECT cb.*,
               i.name as item_name,
               i.barcode,
               i.unit_type,
+              i.current_stock,
               i.current_sell_price as sell_price
        FROM count_batches cb
        JOIN items i ON cb.item_id = i.id

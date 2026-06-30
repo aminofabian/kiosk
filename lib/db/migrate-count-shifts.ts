@@ -58,12 +58,14 @@ export async function migrateCountShifts(): Promise<void> {
         variance_morning REAL,
         variance_evening REAL,
         variance_intraday REAL,
-        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'matched', 'escalated', 'acknowledged')),
+        status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'matched', 'escalated', 'acknowledged', 'dismissed', 'adjusted')),
         escalation_notes TEXT,
         selection_source TEXT,
+        stock_adjustment_id TEXT,
         created_at INTEGER NOT NULL DEFAULT (unixepoch()),
         FOREIGN KEY (count_shift_id) REFERENCES count_shifts(id) ON DELETE CASCADE,
-        FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE
+        FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
+        FOREIGN KEY (stock_adjustment_id) REFERENCES stock_adjustments(id) ON DELETE SET NULL
       )
     `);
     await execute(`CREATE INDEX IF NOT EXISTS idx_count_batches_shift ON count_batches(count_shift_id)`);
@@ -73,7 +75,10 @@ export async function migrateCountShifts(): Promise<void> {
   } else {
     console.log('✓ count_batches table already exists');
     await upgradeCountBatchesSelectionSource();
+    await upgradeCountBatchesResolution();
   }
+
+  await ensureCountBatchEscalationActionsTable();
 
   // 3. Create count_item_pool table
   if (!existingNames.has('count_item_pool')) {
@@ -167,4 +172,102 @@ async function upgradeCountBatchesSelectionSource(): Promise<void> {
     }
     throw error;
   }
+}
+
+/** Add dismissed/adjusted statuses and stock_adjustment_id for escalation resolution. */
+async function upgradeCountBatchesResolution(): Promise<void> {
+  const tableSql = await query<{ sql: string }>(
+    `SELECT sql FROM sqlite_master WHERE type='table' AND name='count_batches'`,
+  );
+  const sql = tableSql[0]?.sql ?? '';
+  if (sql.includes("'dismissed'") && sql.includes('stock_adjustment_id')) {
+    return;
+  }
+
+  console.log('🔄 Upgrading count_batches for escalation resolution...');
+  await execute(`
+    CREATE TABLE count_batches_new (
+      id TEXT PRIMARY KEY,
+      count_shift_id TEXT NOT NULL,
+      item_id TEXT NOT NULL,
+      morning_count REAL,
+      morning_count_status TEXT NOT NULL DEFAULT 'pending' CHECK (morning_count_status IN ('pending', 'counted', 'not_located')),
+      morning_counted_at INTEGER,
+      system_stock_morning REAL NOT NULL DEFAULT 0,
+      evening_count REAL,
+      evening_count_status TEXT NOT NULL DEFAULT 'pending' CHECK (evening_count_status IN ('pending', 'counted', 'not_located')),
+      evening_counted_at INTEGER,
+      system_stock_evening REAL,
+      variance_morning REAL,
+      variance_evening REAL,
+      variance_intraday REAL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'matched', 'escalated', 'acknowledged', 'dismissed', 'adjusted')),
+      escalation_notes TEXT,
+      selection_source TEXT,
+      stock_adjustment_id TEXT,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      FOREIGN KEY (count_shift_id) REFERENCES count_shifts(id) ON DELETE CASCADE,
+      FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
+      FOREIGN KEY (stock_adjustment_id) REFERENCES stock_adjustments(id) ON DELETE SET NULL
+    )
+  `);
+  await execute(`
+    INSERT INTO count_batches_new (
+      id, count_shift_id, item_id,
+      morning_count, morning_count_status, morning_counted_at, system_stock_morning,
+      evening_count, evening_count_status, evening_counted_at, system_stock_evening,
+      variance_morning, variance_evening, variance_intraday,
+      status, escalation_notes, selection_source, stock_adjustment_id, created_at
+    )
+    SELECT
+      id, count_shift_id, item_id,
+      morning_count, morning_count_status, morning_counted_at, system_stock_morning,
+      evening_count, evening_count_status, evening_counted_at, system_stock_evening,
+      variance_morning, variance_evening, variance_intraday,
+      status, escalation_notes, selection_source, NULL, created_at
+    FROM count_batches
+  `);
+  await execute(`DROP TABLE count_batches`);
+  await execute(`ALTER TABLE count_batches_new RENAME TO count_batches`);
+  await execute(
+    `CREATE INDEX IF NOT EXISTS idx_count_batches_shift ON count_batches(count_shift_id)`,
+  );
+  await execute(
+    `CREATE INDEX IF NOT EXISTS idx_count_batches_item ON count_batches(item_id)`,
+  );
+  await execute(
+    `CREATE INDEX IF NOT EXISTS idx_count_batches_status ON count_batches(status)`,
+  );
+  console.log('✅ count_batches escalation resolution columns upgraded');
+}
+
+async function ensureCountBatchEscalationActionsTable(): Promise<void> {
+  const existing = await query<{ name: string }>(
+    `SELECT name FROM sqlite_master WHERE type='table' AND name='count_batch_escalation_actions'`,
+  );
+  if (existing.length > 0) {
+    return;
+  }
+
+  console.log('Creating count_batch_escalation_actions table...');
+  await execute(`
+    CREATE TABLE count_batch_escalation_actions (
+      id TEXT PRIMARY KEY,
+      count_batch_id TEXT NOT NULL,
+      business_id TEXT NOT NULL,
+      action TEXT NOT NULL CHECK (action IN ('dismiss', 'approve_adjustment')),
+      reviewed_by TEXT NOT NULL,
+      reviewed_at INTEGER NOT NULL,
+      notes TEXT,
+      stock_adjustment_id TEXT,
+      FOREIGN KEY (count_batch_id) REFERENCES count_batches(id) ON DELETE CASCADE,
+      FOREIGN KEY (stock_adjustment_id) REFERENCES stock_adjustments(id) ON DELETE SET NULL,
+      FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE RESTRICT,
+      FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
+    )
+  `);
+  await execute(
+    `CREATE INDEX IF NOT EXISTS idx_count_batch_escalation_actions_batch ON count_batch_escalation_actions(count_batch_id)`,
+  );
+  console.log('✅ count_batch_escalation_actions table created');
 }

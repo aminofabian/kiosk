@@ -10,9 +10,15 @@ interface PosDepartmentRailProps {
   onShopTypeChange?: (shopType: string) => void;
   /** When set, only these product type keys are shown (e.g. department staff scope). */
   allowedTypes?: string[];
+  /** Vertical sidebar (POS) or horizontal chip row (department stock). */
+  layout?: 'rail' | 'chips';
 }
 
-export function PosDepartmentRail({ onShopTypeChange, allowedTypes }: PosDepartmentRailProps) {
+export function PosDepartmentRail({
+  onShopTypeChange,
+  allowedTypes,
+  layout = 'rail',
+}: PosDepartmentRailProps) {
   const { productTypes, itemTypeKeys } = useItemTypes();
 
   const visibleTypes = resolveVisibleProductTypes(productTypes, allowedTypes);
@@ -55,6 +61,41 @@ export function PosDepartmentRail({ onShopTypeChange, allowedTypes }: PosDepartm
     ...(showAll ? [{ key: SHOP_TYPE_ALL, label: 'All' }] : []),
     ...visibleTypes.map((t) => ({ key: t.key, label: t.label, emoji: t.emoji })),
   ];
+
+  if (layout === 'chips') {
+    return (
+      <div
+        className="flex gap-1.5 overflow-x-auto no-scrollbar py-0.5 -mx-0.5 px-0.5"
+        aria-label="Departments"
+      >
+        {items.map((item) => {
+          const active = currentShopType === item.key;
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => handleChange(item.key)}
+              className={`inline-flex shrink-0 items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all touch-manipulation ${
+                active
+                  ? 'bg-[#1c6a1e] text-white shadow-sm shadow-[#1c6a1e]/20'
+                  : 'bg-white dark:bg-[#1c2e18] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+              }`}
+              aria-pressed={active}
+            >
+              <span className="text-sm leading-none" aria-hidden>
+                {item.key === SHOP_TYPE_ALL ? (
+                  <LayoutGrid className={`w-3.5 h-3.5 ${active ? 'text-white' : 'text-slate-500'}`} />
+                ) : (
+                  item.emoji
+                )}
+              </span>
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <aside

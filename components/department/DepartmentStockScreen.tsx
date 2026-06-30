@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowUpCircle,
   Check,
+  FileDown,
   Loader2,
   Package,
   RefreshCw,
@@ -22,6 +23,7 @@ import {
   DrawerTitle,
 } from '@/components/ui/drawer';
 import { useDepartmentApp } from '@/components/department/DepartmentAppProvider';
+import { DepartmentFloorStockLockNotice } from '@/components/department/DepartmentFloorStockLockNotice';
 import { PosDepartmentRail } from '@/components/pos/PosDepartmentRail';
 import { apiDelete, apiPatch, apiPost } from '@/lib/utils/api-client';
 import { itemMatchesShopType } from '@/lib/utils/shop-type';
@@ -37,13 +39,16 @@ import {
 import type { AdjustmentReason } from '@/lib/constants';
 import { isDiscreteUnitType, UNIT_TYPES } from '@/lib/constants';
 import { toast } from 'sonner';
+import { downloadStockReorderListPdf } from '@/lib/pdf/stock-reorder-list';
+import type { StockReorderListRow } from '@/lib/department/stock-reorder-list';
 
 type StockListItem = Item & { parent_name?: string | null; last_updated_at?: number };
 
-function sortByLastUpdated(items: StockListItem[]): StockListItem[] {
-  return [...items].sort(
-    (a, b) =>
-      (b.last_updated_at ?? b.created_at) - (a.last_updated_at ?? a.created_at),
+function sortByDisplayName(items: StockListItem[]): StockListItem[] {
+  return [...items].sort((a, b) =>
+    displayItemName(a).localeCompare(displayItemName(b), undefined, {
+      sensitivity: 'base',
+    }),
   );
 }
 
@@ -99,7 +104,7 @@ function bumpItemUpdated(
   patch: Partial<StockListItem>,
 ): StockListItem[] {
   const now = Math.floor(Date.now() / 1000);
-  return sortByLastUpdated(
+  return sortByDisplayName(
     items.map((i) =>
       i.id === itemId ? { ...i, ...patch, last_updated_at: now } : i,
     ),
@@ -136,50 +141,40 @@ function getLiveTopup(
   return computeTopup(currentStock, minStock, expectedStock);
 }
 
-interface TopupButtonProps {
-  topup: number;
-  unitType: Item['unit_type'];
-  isLoading?: boolean;
-  onTopup: () => void;
-}
+type StockFilterKey = 'all' | 'recent' | 'out' | 'low' | 'ok';
 
-function TopupButton({
-  topup,
-  unitType,
-  isLoading,
-  onTopup,
-}: TopupButtonProps) {
-  if (topup <= 0) {
-    return (
-      <span className="text-slate-400 dark:text-slate-500 tabular-nums text-xs">—</span>
-    );
-  }
-
-  const label = formatTopupDisplay(topup, (v) => formatStockQty(v, unitType));
-
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onTopup();
-      }}
-      disabled={isLoading}
-      className="inline-flex items-center justify-end gap-0.5 w-full min-h-7 px-1 rounded-md text-amber-800 dark:text-amber-200 font-bold tabular-nums text-[10px] sm:text-xs bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/50 dark:hover:bg-amber-900/70 border border-amber-300/60 dark:border-amber-600/50 disabled:opacity-60"
-      title={`Top up ${label}`}
-    >
-      {isLoading ? (
-        <Loader2 className="w-3 h-3 animate-spin shrink-0" />
-      ) : (
-        <ArrowUpCircle className="w-3 h-3 shrink-0" />
-      )}
-      +{label}
-    </button>
-  );
-}
+const STOCK_FILTER_TABS: { key: StockFilterKey; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'out', label: 'Out' },
+  { key: 'low', label: 'Low' },
+  { key: 'ok', label: 'OK' },
+  { key: 'recent', label: 'Recent' },
+];
 
 function formatPrice(price: number) {
   return price.toFixed(0);
+}
+
+function StockStatusBadge({ status }: { status: 'out' | 'low' | 'ok' }) {
+  if (status === 'out') {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300">
+        Out
+      </span>
+    );
+  }
+  if (status === 'low') {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+        Low
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+      OK
+    </span>
+  );
 }
 
 function InlineEditActions({
@@ -211,35 +206,52 @@ function InlineEditActions({
   );
 }
 
-type StockFilterKey = 'all' | 'recent' | 'out' | 'low' | 'ok';
+interface TopupButtonProps {
+  topup: number;
+  unitType: Item['unit_type'];
+  isLoading?: boolean;
+  readOnly?: boolean;
+  onTopup: () => void;
+}
 
-const STOCK_FILTER_TABS: { key: StockFilterKey; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'recent', label: '< 1 wk' },
-  { key: 'out', label: 'Out' },
-  { key: 'low', label: 'Low' },
-  { key: 'ok', label: 'OK' },
-];
+function TopupButton({
+  topup,
+  unitType,
+  isLoading,
+  readOnly,
+  onTopup,
+}: TopupButtonProps) {
+  if (topup <= 0) {
+    return <span className="text-slate-400 tabular-nums text-xs">—</span>;
+  }
 
-function StockStatusBadge({ status }: { status: 'out' | 'low' | 'ok' }) {
-  if (status === 'out') {
+  const label = formatTopupDisplay(topup, (v) => formatStockQty(v, unitType));
+
+  if (readOnly) {
     return (
-      <span className="inline-flex items-center px-1 py-px rounded text-[8px] font-bold uppercase bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-300">
-        Out
+      <span className="text-amber-700/80 dark:text-amber-300/80 tabular-nums text-[10px] font-semibold">
+        +{label}
       </span>
     );
   }
-  if (status === 'low') {
-    return (
-      <span className="inline-flex items-center px-1 py-px rounded text-[8px] font-bold uppercase bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
-        Low
-      </span>
-    );
-  }
+
   return (
-    <span className="inline-flex items-center px-1 py-px rounded text-[8px] font-bold uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
-      OK
-    </span>
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onTopup();
+      }}
+      disabled={isLoading}
+      className="inline-flex items-center justify-end gap-0.5 w-full min-h-7 px-1 rounded-md text-amber-800 dark:text-amber-200 font-bold tabular-nums text-[10px] bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/50 dark:hover:bg-amber-900/70 border border-amber-300/60 disabled:opacity-60"
+    >
+      {isLoading ? (
+        <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+      ) : (
+        <ArrowUpCircle className="w-3 h-3 shrink-0" />
+      )}
+      +{label}
+    </button>
   );
 }
 
@@ -255,6 +267,7 @@ interface InlineEditableCellProps {
   unitType?: Item['unit_type'];
   valueKind?: 'quantity' | 'price';
   allowEmpty?: boolean;
+  readOnly?: boolean;
 }
 
 function InlineEditableCell({
@@ -269,6 +282,7 @@ function InlineEditableCell({
   unitType = 'piece',
   valueKind = 'quantity',
   allowEmpty = false,
+  readOnly = false,
 }: InlineEditableCellProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -280,19 +294,26 @@ function InlineEditableCell({
   }, [isEditing]);
 
   if (isSaving) {
+    return <Loader2 className="w-4 h-4 animate-spin text-[#1c6a1e] ml-auto" />;
+  }
+
+  if (readOnly) {
     return (
-      <span className="inline-flex justify-end w-full">
-        <Loader2 className="w-4 h-4 animate-spin text-[#1c6a1e]" />
+      <span
+        className={`block w-full text-right text-xs font-semibold tabular-nums ${
+          displayValue === '—'
+            ? 'text-slate-400'
+            : 'text-slate-900 dark:text-white'
+        }`}
+      >
+        {displayValue}
       </span>
     );
   }
 
   if (isEditing) {
     return (
-      <div
-        className="flex flex-col gap-1 min-w-0 w-full max-w-full"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="flex flex-col gap-1 min-w-[4rem]" onClick={(e) => e.stopPropagation()}>
         <Input
           ref={inputRef}
           type="number"
@@ -302,9 +323,7 @@ function InlineEditableCell({
           onChange={(e) => {
             const next = e.target.value;
             if (valueKind === 'price') {
-              if (next === '' || /^\d*\.?\d*$/.test(next)) {
-                onChange(next);
-              }
+              if (next === '' || /^\d*\.?\d*$/.test(next)) onChange(next);
               return;
             }
             if (allowEmpty && next === '') {
@@ -330,7 +349,7 @@ function InlineEditableCell({
               onCancel();
             }
           }}
-          className="h-7 w-full min-w-0 text-right text-xs font-semibold tabular-nums px-1.5"
+          className="h-7 w-full text-right text-xs font-semibold tabular-nums px-1.5"
         />
         <InlineEditActions onSave={onSave} onCancel={onCancel} />
       </div>
@@ -344,9 +363,9 @@ function InlineEditableCell({
         e.stopPropagation();
         onStartEdit();
       }}
-      className={`w-full min-w-0 text-right text-xs font-semibold tabular-nums hover:text-[#1c6a1e] hover:underline underline-offset-2 ${
+      className={`w-full text-right text-xs font-semibold tabular-nums hover:text-[#1c6a1e] hover:underline ${
         displayValue === '—'
-          ? 'text-slate-400 dark:text-slate-500'
+          ? 'text-slate-400'
           : 'text-slate-900 dark:text-white'
       }`}
     >
@@ -364,6 +383,7 @@ interface InlineUnitCellProps {
   onChange: (value: string) => void;
   onSave: () => void;
   onCancel: () => void;
+  readOnly?: boolean;
 }
 
 function InlineUnitCell({
@@ -375,25 +395,27 @@ function InlineUnitCell({
   onChange,
   onSave,
   onCancel,
+  readOnly = false,
 }: InlineUnitCellProps) {
   if (isSaving) {
+    return <Loader2 className="w-4 h-4 animate-spin text-[#1c6a1e]" />;
+  }
+
+  if (readOnly) {
     return (
-      <span className="inline-flex">
-        <Loader2 className="w-4 h-4 animate-spin text-[#1c6a1e]" />
+      <span className="text-[10px] font-semibold uppercase text-slate-500">
+        {unitType}
       </span>
     );
   }
 
   if (isEditing) {
     return (
-      <div
-        className="flex flex-col gap-1 min-w-0 w-full max-w-full"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="flex flex-col gap-1 min-w-[4.5rem]" onClick={(e) => e.stopPropagation()}>
         <select
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-7 w-full min-w-0 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1c2e18] text-[10px] font-semibold uppercase px-1"
+          className="h-7 w-full rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1c2e18] text-[10px] font-semibold uppercase px-1"
           autoFocus
         >
           {UNIT_TYPES.map((unit) => (
@@ -414,7 +436,7 @@ function InlineUnitCell({
         e.stopPropagation();
         onStartEdit();
       }}
-      className="w-full min-w-0 text-left text-[10px] font-semibold uppercase text-slate-500 dark:text-slate-400 hover:text-[#1c6a1e] hover:underline underline-offset-2"
+      className="text-[10px] font-semibold uppercase text-slate-500 hover:text-[#1c6a1e] hover:underline"
     >
       {unitType}
     </button>
@@ -422,7 +444,8 @@ function InlineUnitCell({
 }
 
 export function DepartmentStockScreen() {
-  const { assignedTypes, shopType, setShopType } = useDepartmentApp();
+  const { assignedTypes, shopType, setShopType, canEditFloorStock, businessName } =
+    useDepartmentApp();
 
   const [items, setItems] = useState<StockListItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(true);
@@ -450,6 +473,9 @@ export function DepartmentStockScreen() {
   const [isAdjustSubmitting, setIsAdjustSubmitting] = useState(false);
   const [toppingUpId, setToppingUpId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [reorderPdfLoading, setReorderPdfLoading] = useState(false);
+
+  const canEditStock = canEditFloorStock;
 
   const fetchItems = useCallback(async (silent = false) => {
     try {
@@ -458,7 +484,6 @@ export function DepartmentStockScreen() {
       const params = new URLSearchParams({
         all: 'true',
         sellableOnly: 'true',
-        sort: 'updated',
       });
       if (assignedTypes.length > 0) {
         params.set('itemTypes', assignedTypes.join(','));
@@ -466,7 +491,7 @@ export function DepartmentStockScreen() {
       const res = await fetch(`/api/items?${params}`);
       const result = await res.json();
       if (result.success) {
-        setItems(sortByLastUpdated(result.data));
+        setItems(sortByDisplayName(result.data));
       }
     } catch {
       toast.error('Failed to load items');
@@ -590,16 +615,18 @@ export function DepartmentStockScreen() {
 
   const scopedItems = useMemo(() => {
     const list = items.filter((item) => itemMatchesShopType(item, shopType));
-    if (!searchQuery.trim()) return list;
-    const q = searchQuery.toLowerCase();
-    return list.filter(
-      (item) =>
-        item.name.toLowerCase().includes(q) ||
-        (item.variant_name?.toLowerCase().includes(q) ?? false) ||
-        (item.parent_name?.toLowerCase().includes(q) ?? false) ||
-        displayItemName(item).toLowerCase().includes(q) ||
-        item.unit_type.toLowerCase().includes(q),
-    );
+    const q = searchQuery.trim().toLowerCase();
+    const filtered = q
+      ? list.filter(
+          (item) =>
+            item.name.toLowerCase().includes(q) ||
+            (item.variant_name?.toLowerCase().includes(q) ?? false) ||
+            (item.parent_name?.toLowerCase().includes(q) ?? false) ||
+            displayItemName(item).toLowerCase().includes(q) ||
+            item.unit_type.toLowerCase().includes(q),
+        )
+      : list;
+    return sortByDisplayName(filtered);
   }, [items, searchQuery, shopType]);
 
   const statusCounts = useMemo(
@@ -1040,42 +1067,133 @@ export function DepartmentStockScreen() {
       )
     : 0;
 
+  const handleDownloadReorderPdf = useCallback(async () => {
+    setReorderPdfLoading(true);
+    try {
+      const params = new URLSearchParams({ shopType });
+      if (assignedTypes.length > 0) {
+        params.set('itemTypes', assignedTypes.join(','));
+      }
+      const res = await fetch(`/api/department/stock/reorder-list?${params}`);
+      const result = await res.json();
+      if (!result.success) {
+        toast.error(result.message || 'Failed to build order list');
+        return;
+      }
+
+      const data = result.data as {
+        rows: StockReorderListRow[];
+        periodLabel: string;
+        businessName?: string;
+      };
+
+      if (data.rows.length === 0) {
+        toast.info('No low/out products sold in the past week for this filter');
+      }
+
+      const datePart = new Date().toISOString().slice(0, 10);
+      await downloadStockReorderListPdf({
+        rows: data.rows,
+        periodLabel: data.periodLabel,
+        businessName: data.businessName ?? businessName,
+        departmentLabel: shopType !== 'all' ? shopType : undefined,
+        saveFileName: `stock-reorder-${datePart}.pdf`,
+      });
+      toast.success('Order list PDF downloaded');
+    } catch {
+      toast.error('Could not create order list PDF');
+    } finally {
+      setReorderPdfLoading(false);
+    }
+  }, [assignedTypes, shopType, businessName]);
+
   return (
-    <div className="flex flex-col h-full min-h-0 w-full max-w-full overflow-hidden bg-white dark:bg-[#132210] text-[#101b0d] dark:text-[#f0fdf4]">
-      <header className="shrink-0 safe-area-top border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#1a2c17]">
-        <div className="flex items-center justify-between gap-2 px-2 sm:px-3 h-10 border-b border-slate-200/80 dark:border-slate-800/80 min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <Package className="w-4 h-4 text-[#1c6a1e] shrink-0" />
-            <h1 className="text-xs sm:text-sm font-bold uppercase tracking-wide text-slate-800 dark:text-white truncate">
-              Stock
-            </h1>
-            {!loadingItems && (
-              <span className="text-xs text-slate-500 tabular-nums">
-                ({filteredItems.length})
-              </span>
-            )}
+    <div className="flex flex-col h-full min-h-0 w-full max-w-full overflow-hidden bg-[#f6f8f6] dark:bg-[#0f1a0d] text-[#101b0d] dark:text-[#f0fdf4]">
+      <header className="shrink-0 safe-area-top border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#1a2c17] shadow-sm">
+        <div className="flex items-center justify-between gap-3 px-3 pt-2 pb-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#1c6a1e]/10 text-[#1c6a1e]">
+              <Package className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-base font-bold text-slate-900 dark:text-white leading-tight">
+                Stock
+              </h1>
+              {!loadingItems && (
+                <p className="text-xs text-slate-500 tabular-nums">
+                  {filteredItems.length} product{filteredItems.length === 1 ? '' : 's'}
+                  {statusCounts.out > 0 && (
+                    <span className="text-red-600 dark:text-red-400 font-semibold">
+                      {' '}
+                      · {statusCounts.out} out
+                    </span>
+                  )}
+                  {statusCounts.low > 0 && (
+                    <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                      {' '}
+                      · {statusCounts.low} low
+                    </span>
+                  )}
+                </p>
+              )}
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => void fetchItems(true)}
-            disabled={refreshing}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300 rounded-md hover:bg-slate-200/60 dark:hover:bg-slate-800"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => void handleDownloadReorderPdf()}
+              disabled={reorderPdfLoading || loadingItems}
+              className="flex h-9 items-center gap-1.5 px-2.5 rounded-xl text-xs font-semibold text-[#1c6a1e] bg-[#1c6a1e]/10 hover:bg-[#1c6a1e]/15 disabled:opacity-50"
+              title="Download PDF order list for low/out items sold this week"
+            >
+              {reorderPdfLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <FileDown className="w-4 h-4" />
+              )}
+              <span className="hidden sm:inline">Order PDF</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => void fetchItems(true)}
+              disabled={refreshing}
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50"
+              aria-label="Refresh stock"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
         </div>
-        <div className="px-2 sm:px-3 py-1.5 space-y-1.5 min-w-0">
+
+        <div className="px-3 pb-2 space-y-2">
           <div className="relative w-full min-w-0">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter..."
-              className="pl-7 h-8 text-xs w-full min-w-0 bg-white dark:bg-[#1c2e18] border-slate-200 dark:border-slate-700 rounded-md"
+              placeholder="Search products..."
+              aria-label="Search products"
+              className="pl-9 pr-9 h-10 text-sm w-full min-w-0 bg-slate-50 dark:bg-[#132210] border-slate-200 dark:border-slate-700 rounded-xl"
             />
+            {searchQuery.trim() && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 dark:hover:bg-slate-800"
+                aria-label="Clear search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
-          <div className="flex gap-1 flex-wrap">
+
+          <PosDepartmentRail
+            layout="chips"
+            allowedTypes={assignedTypes}
+            onShopTypeChange={handleShopTypeChange}
+          />
+
+          <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-900/60 rounded-xl overflow-x-auto no-scrollbar">
             {STOCK_FILTER_TABS.map((tab) => {
               const active = stockFilter === tab.key;
               const count = statusCounts[tab.key];
@@ -1084,24 +1202,26 @@ export function DepartmentStockScreen() {
                   key={tab.key}
                   type="button"
                   onClick={() => setStockFilter(tab.key)}
-                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] sm:text-xs font-semibold border transition-colors ${
+                  className={`flex-1 min-w-[3.25rem] inline-flex flex-col items-center justify-center gap-0.5 py-1.5 px-1 rounded-lg text-[10px] sm:text-xs font-semibold transition-colors touch-manipulation ${
                     active
                       ? tab.key === 'out'
-                        ? 'bg-red-600 text-white border-red-600'
+                        ? 'bg-red-600 text-white shadow-sm'
                         : tab.key === 'low'
-                          ? 'bg-amber-500 text-white border-amber-500'
+                          ? 'bg-amber-500 text-white shadow-sm'
                           : tab.key === 'ok'
-                            ? 'bg-[#1c6a1e] text-white border-[#1c6a1e]'
+                            ? 'bg-[#1c6a1e] text-white shadow-sm'
                             : tab.key === 'recent'
-                              ? 'bg-sky-600 text-white border-sky-600'
-                              : 'bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900'
-                      : 'bg-white dark:bg-[#1c2e18] text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300'
+                              ? 'bg-sky-600 text-white shadow-sm'
+                              : 'bg-white dark:bg-[#1c2e18] text-slate-900 dark:text-white shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400'
                   }`}
                 >
-                  {tab.label}
+                  <span>{tab.label}</span>
                   <span
-                    className={`tabular-nums text-[10px] px-1 py-px rounded ${
-                      active ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                    className={`tabular-nums text-[10px] px-1.5 py-px rounded-full ${
+                      active
+                        ? 'bg-white/20'
+                        : 'bg-white/80 dark:bg-slate-800 text-slate-500'
                     }`}
                   >
                     {count}
@@ -1114,225 +1234,250 @@ export function DepartmentStockScreen() {
       </header>
 
       {assignedTypes.length === 0 && (
-        <div className="shrink-0 mx-3 mt-2 rounded border border-amber-200 bg-amber-50 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+        <div className="shrink-0 mx-3 mt-2 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 text-xs text-amber-800 dark:text-amber-200">
           No product types assigned. Ask an admin to set your departments.
         </div>
       )}
 
-      <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
-        <PosDepartmentRail
-          allowedTypes={assignedTypes}
-          onShopTypeChange={handleShopTypeChange}
+      {!canEditStock && (
+        <DepartmentFloorStockLockNotice
+          variant="stock"
+          className="shrink-0 mx-3 mt-2"
         />
+      )}
 
-        <div className="flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden">
-          {loadingItems ? (
-            <div className="flex flex-1 items-center justify-center gap-2 text-sm text-slate-500">
-              <Loader2 className="w-5 h-5 animate-spin text-[#1c6a1e]" />
-              Loading inventory...
+      <div className="flex-1 min-h-0 min-w-0 overflow-hidden flex flex-col">
+        {loadingItems ? (
+          <div className="flex flex-1 items-center justify-center gap-2 text-sm text-slate-500">
+            <Loader2 className="w-5 h-5 animate-spin text-[#1c6a1e]" />
+            Loading inventory...
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <div className="flex flex-1 flex-col items-center justify-center text-center px-6">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800 mb-3">
+              <Package className="w-7 h-7 text-slate-300" />
             </div>
-          ) : filteredItems.length === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center text-center px-6">
-              <Package className="w-10 h-10 text-slate-300 mb-2" />
-              <p className="font-semibold text-slate-600 dark:text-slate-300">
-                {scopedItems.length === 0
-                  ? 'No items found'
-                  : stockFilter === 'recent'
-                    ? 'No products updated in the last week'
+            <p className="font-semibold text-slate-600 dark:text-slate-300">
+              {scopedItems.length === 0
+                ? searchQuery.trim()
+                  ? `No products match "${searchQuery.trim()}"`
+                  : 'No items found'
+                : stockFilter === 'recent'
+                  ? 'No products updated in the last week'
+                  : searchQuery.trim()
+                    ? `No products match "${searchQuery.trim()}" with this filter`
                     : 'No items match this filter'}
-              </p>
-              {stockFilter !== 'all' && scopedItems.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setStockFilter('all')}
-                  className="mt-2 text-xs font-semibold text-[#1c6a1e] hover:underline"
-                >
-                  Show all ({scopedItems.length})
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="flex-1 min-h-0 min-w-0 overflow-y-auto overflow-x-hidden">
-              <table className="w-full table-fixed border-collapse text-xs">
-                <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#1a2c17] border-b border-slate-200 dark:border-slate-700">
-                  <tr className="text-left text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                    <th className="px-1 py-1.5 w-[3%] text-center">#</th>
-                    <th className="px-1 py-1.5 w-[26%]">Product</th>
-                    <th className="px-1 py-1.5 w-[6%]">Unit</th>
-                    <th className="px-1 py-1.5 w-[7%] text-right">Price</th>
-                    <th className="px-1 py-1.5 w-[7%] text-right">Stock</th>
-                    <th className="px-1 py-1.5 w-[7%] text-right">Min</th>
-                    <th className="px-1 py-1.5 w-[8%] text-right">Expected</th>
-                    <th className="px-1 py-1.5 w-[7%] text-right">Topup</th>
-                    <th className="px-1 py-1.5 w-[5%]">St</th>
-                    <th className="px-1 py-1.5 w-[8%] text-right" aria-label="Actions" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredItems.map((item, index) => {
-                    const status = stockStatus(item);
-                    const selected = selectedItem?.id === item.id;
-                    const topup = getLiveTopup(item, topupEditCtx);
-                    const needsTopup = topup > 0;
-                    const lastUpdated = getLastUpdatedAt(item);
+            </p>
+            {searchQuery.trim() && scopedItems.length === 0 && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="mt-3 text-sm font-semibold text-[#1c6a1e] hover:underline"
+              >
+                Clear search
+              </button>
+            )}
+            {!searchQuery.trim() && stockFilter !== 'all' && scopedItems.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setStockFilter('all')}
+                className="mt-3 text-sm font-semibold text-[#1c6a1e] hover:underline"
+              >
+                Show all ({scopedItems.length})
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="flex-1 min-h-0 overflow-auto">
+            <table className="w-full min-w-[720px] border-collapse text-xs">
+              <thead className="sticky top-0 z-10 bg-slate-100 dark:bg-[#1a2c17] border-b border-slate-200 dark:border-slate-700 shadow-sm">
+                <tr className="text-left text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                  <th className="px-2 py-2 w-8 text-center">#</th>
+                  <th className="px-2 py-2 min-w-[140px]">Product</th>
+                  <th className="px-2 py-2 w-14">Unit</th>
+                  <th className="px-2 py-2 w-16 text-right">Price</th>
+                  <th className="px-2 py-2 w-16 text-right">Stock</th>
+                  <th className="px-2 py-2 w-14 text-right">Min</th>
+                  <th className="px-2 py-2 w-16 text-right">Expected</th>
+                  <th className="px-2 py-2 w-20 text-right">Top up</th>
+                  <th className="px-2 py-2 w-12">Status</th>
+                  <th className="px-2 py-2 w-16 text-right" aria-label="Actions" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredItems.map((item, index) => {
+                  const status = stockStatus(item);
+                  const selected = selectedItem?.id === item.id;
+                  const topup = getLiveTopup(item, topupEditCtx);
+                  const needsTopup = topup > 0;
+                  const lastUpdated = getLastUpdatedAt(item);
 
-                    return (
-                      <tr
-                        key={item.id}
-                        className={`border-b border-slate-100 dark:border-slate-800/80 transition-colors ${
-                          needsTopup
-                            ? 'bg-amber-50/90 dark:bg-amber-950/25 ring-1 ring-inset ring-amber-300/50 dark:ring-amber-600/40'
-                            : selected
-                              ? 'bg-[#1c6a1e]/10 dark:bg-[#1c6a1e]/20'
-                              : index % 2 === 0
-                                ? 'bg-white dark:bg-[#132210]'
-                                : 'bg-slate-50/80 dark:bg-[#161f14]'
-                        }`}
-                      >
-                        <td className="px-1 py-1.5 text-center text-[10px] text-slate-400 tabular-nums align-top">
-                          {index + 1}
-                        </td>
-                        <td className="px-1 py-1.5 font-medium text-slate-900 dark:text-white min-w-0 align-top">
+                  return (
+                    <tr
+                      key={item.id}
+                      className={`transition-colors ${
+                        needsTopup
+                          ? 'bg-amber-50/80 dark:bg-amber-950/20'
+                          : selected
+                            ? 'bg-[#1c6a1e]/8 dark:bg-[#1c6a1e]/15'
+                            : index % 2 === 0
+                              ? 'bg-white dark:bg-[#132210]'
+                              : 'bg-slate-50/60 dark:bg-[#161f14]'
+                      }`}
+                    >
+                      <td className="px-2 py-2 text-center text-slate-400 tabular-nums align-top">
+                        {index + 1}
+                      </td>
+                      <td className="px-2 py-2 font-medium min-w-0 align-top">
+                        <button
+                          type="button"
+                          onClick={() => openDrawer(item)}
+                          className="text-left w-full hover:text-[#1c6a1e]"
+                        >
+                          <span className="block text-xs leading-snug">
+                            {displayItemName(item)}
+                          </span>
+                          <span
+                            className="block mt-0.5 text-[10px] font-normal text-slate-400 tabular-nums"
+                            title={formatDateTime(lastUpdated)}
+                          >
+                            {formatShortDateTime(lastUpdated)}
+                          </span>
+                        </button>
+                      </td>
+                      <td className="px-2 py-2 align-top">
+                        <InlineUnitCell
+                          unitType={item.unit_type}
+                          isEditing={editingUnitId === item.id}
+                          value={editingUnitId === item.id ? editingUnitValue : item.unit_type}
+                          isSaving={savingUnitId === item.id}
+                          readOnly={!canEditStock}
+                          onStartEdit={() => startInlineUnitEdit(item)}
+                          onChange={setEditingUnitValue}
+                          onSave={() => void saveInlineUnit(item)}
+                          onCancel={cancelInlineUnitEdit}
+                        />
+                      </td>
+                      <td className="px-2 py-2 text-right align-top">
+                        <InlineEditableCell
+                          displayValue={formatPrice(item.current_sell_price)}
+                          isEditing={editingPriceId === item.id}
+                          value={editingPriceId === item.id ? editingPriceValue : ''}
+                          isSaving={savingPriceId === item.id}
+                          valueKind="price"
+                          readOnly={!canEditStock}
+                          onStartEdit={() => startInlinePriceEdit(item)}
+                          onChange={setEditingPriceValue}
+                          onSave={() => void saveInlinePrice(item)}
+                          onCancel={cancelInlinePriceEdit}
+                        />
+                      </td>
+                      <td className="px-2 py-2 text-right align-top">
+                        <InlineEditableCell
+                          displayValue={formatStockQty(item.current_stock, item.unit_type)}
+                          isEditing={editingStockId === item.id}
+                          value={editingStockId === item.id ? editingStockValue : ''}
+                          isSaving={savingStockId === item.id}
+                          unitType={item.unit_type}
+                          readOnly={!canEditStock}
+                          onStartEdit={() => startInlineStockEdit(item)}
+                          onChange={setEditingStockValue}
+                          onSave={() => void saveInlineStock(item)}
+                          onCancel={cancelInlineStockEdit}
+                        />
+                      </td>
+                      <td className="px-2 py-2 text-right align-top">
+                        <InlineEditableCell
+                          displayValue={formatMinStock(item)}
+                          isEditing={editingMinStockId === item.id}
+                          value={editingMinStockId === item.id ? editingMinStockValue : ''}
+                          isSaving={savingMinStockId === item.id}
+                          unitType={item.unit_type}
+                          allowEmpty
+                          readOnly={!canEditStock}
+                          onStartEdit={() => startInlineMinStockEdit(item)}
+                          onChange={setEditingMinStockValue}
+                          onSave={() => void saveInlineMinStock(item)}
+                          onCancel={cancelInlineMinStockEdit}
+                        />
+                      </td>
+                      <td className="px-2 py-2 text-right align-top">
+                        <InlineEditableCell
+                          displayValue={formatExpectedStock(item)}
+                          isEditing={editingExpectedStockId === item.id}
+                          value={
+                            editingExpectedStockId === item.id
+                              ? editingExpectedStockValue
+                              : ''
+                          }
+                          isSaving={savingExpectedStockId === item.id}
+                          unitType={item.unit_type}
+                          allowEmpty
+                          readOnly={!canEditStock}
+                          onStartEdit={() => startInlineExpectedStockEdit(item)}
+                          onChange={setEditingExpectedStockValue}
+                          onSave={() => void saveInlineExpectedStock(item)}
+                          onCancel={cancelInlineExpectedStockEdit}
+                        />
+                      </td>
+                      <td className="px-2 py-2 text-right align-top">
+                        <TopupButton
+                          topup={topup}
+                          unitType={item.unit_type}
+                          isLoading={toppingUpId === item.id}
+                          readOnly={!canEditStock}
+                          onTopup={() => handleQuickTopup(item)}
+                        />
+                      </td>
+                      <td className="px-2 py-2 align-top">
+                        <StockStatusBadge status={status} />
+                      </td>
+                      <td className="px-2 py-2 text-right align-top">
+                        <div className="flex items-center justify-end gap-0.5">
                           <button
                             type="button"
-                            onClick={() => openDrawer(item)}
-                            className="text-left whitespace-normal break-words text-xs leading-snug hover:text-[#1c6a1e] w-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDrawer(item);
+                            }}
+                            className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${
+                              canEditStock
+                                ? 'text-[#1c6a1e] hover:bg-[#1c6a1e]/10'
+                                : 'text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30'
+                            }`}
+                            title={canEditStock ? 'Adjust stock' : 'Record loss'}
+                            aria-label={
+                              canEditStock
+                                ? `Adjust stock for ${displayItemName(item)}`
+                                : `Record loss for ${displayItemName(item)}`
+                            }
                           >
-                            <span className="block hover:underline underline-offset-2">
-                              {displayItemName(item)}
-                            </span>
-                            <span
-                              className="block mt-0.5 text-[10px] font-normal text-slate-400 dark:text-slate-500 tabular-nums"
-                              title={formatDateTime(lastUpdated)}
-                            >
-                              {formatShortDateTime(lastUpdated)}
-                            </span>
+                            <SlidersHorizontal className="w-4 h-4" />
                           </button>
-                        </td>
-                            <td className="px-1 py-1.5 min-w-0 align-top">
-                              <InlineUnitCell
-                                unitType={item.unit_type}
-                                isEditing={editingUnitId === item.id}
-                                value={editingUnitId === item.id ? editingUnitValue : item.unit_type}
-                                isSaving={savingUnitId === item.id}
-                                onStartEdit={() => startInlineUnitEdit(item)}
-                                onChange={setEditingUnitValue}
-                                onSave={() => void saveInlineUnit(item)}
-                                onCancel={cancelInlineUnitEdit}
-                              />
-                            </td>
-                            <td className="px-1 py-1.5 text-right min-w-0 align-top">
-                              <InlineEditableCell
-                                displayValue={formatPrice(item.current_sell_price)}
-                                isEditing={editingPriceId === item.id}
-                                value={editingPriceId === item.id ? editingPriceValue : ''}
-                                isSaving={savingPriceId === item.id}
-                                valueKind="price"
-                                onStartEdit={() => startInlinePriceEdit(item)}
-                                onChange={setEditingPriceValue}
-                                onSave={() => void saveInlinePrice(item)}
-                                onCancel={cancelInlinePriceEdit}
-                              />
-                            </td>
-                            <td className="px-1 py-1.5 text-right min-w-0 align-top">
-                              <InlineEditableCell
-                                displayValue={formatStockQty(item.current_stock, item.unit_type)}
-                                isEditing={editingStockId === item.id}
-                                value={editingStockId === item.id ? editingStockValue : ''}
-                                isSaving={savingStockId === item.id}
-                                unitType={item.unit_type}
-                                onStartEdit={() => startInlineStockEdit(item)}
-                                onChange={setEditingStockValue}
-                                onSave={() => void saveInlineStock(item)}
-                                onCancel={cancelInlineStockEdit}
-                              />
-                            </td>
-                            <td className="px-1 py-1.5 text-right min-w-0 align-top">
-                              <InlineEditableCell
-                                displayValue={formatMinStock(item)}
-                                isEditing={editingMinStockId === item.id}
-                                value={editingMinStockId === item.id ? editingMinStockValue : ''}
-                                isSaving={savingMinStockId === item.id}
-                                unitType={item.unit_type}
-                                allowEmpty
-                                onStartEdit={() => startInlineMinStockEdit(item)}
-                                onChange={setEditingMinStockValue}
-                                onSave={() => void saveInlineMinStock(item)}
-                                onCancel={cancelInlineMinStockEdit}
-                              />
-                            </td>
-                            <td className="px-1 py-1.5 text-right min-w-0 align-top">
-                              <InlineEditableCell
-                                displayValue={formatExpectedStock(item)}
-                                isEditing={editingExpectedStockId === item.id}
-                                value={
-                                  editingExpectedStockId === item.id
-                                    ? editingExpectedStockValue
-                                    : ''
-                                }
-                                isSaving={savingExpectedStockId === item.id}
-                                unitType={item.unit_type}
-                                allowEmpty
-                                onStartEdit={() => startInlineExpectedStockEdit(item)}
-                                onChange={setEditingExpectedStockValue}
-                                onSave={() => void saveInlineExpectedStock(item)}
-                                onCancel={cancelInlineExpectedStockEdit}
-                              />
-                            </td>
-                            <td className="px-1 py-1.5 text-right min-w-0 align-top">
-                              <TopupButton
-                                topup={topup}
-                                unitType={item.unit_type}
-                                isLoading={toppingUpId === item.id}
-                                onTopup={() => handleQuickTopup(item)}
-                              />
-                            </td>
-                            <td className="px-1 py-1.5 align-top">
-                              <StockStatusBadge status={status} />
-                            </td>
-                            <td className="px-1 py-1.5 text-right align-top">
-                              <div className="flex items-center justify-end gap-0.5">
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openDrawer(item);
-                                  }}
-                                  className="inline-flex items-center justify-center w-7 h-7 rounded-md text-[#1c6a1e] hover:bg-[#1c6a1e]/10 dark:hover:bg-[#1c6a1e]/20"
-                                  title="Adjust stock"
-                                  aria-label={`Adjust stock for ${displayItemName(item)}`}
-                                >
-                                  <SlidersHorizontal className="w-4 h-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    void handleDelete(item);
-                                  }}
-                                  disabled={isDeleting}
-                                  className="inline-flex items-center justify-center w-7 h-7 rounded-md text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50"
-                                  title="Delete product"
-                                  aria-label={`Delete ${displayItemName(item)}`}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </div>
-                            </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {!loadingItems && filteredItems.length > 0 && (
-            <div className="shrink-0 px-2 py-1 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#1a2c17] text-[9px] font-medium uppercase tracking-wide text-slate-500">
-              <span>{filteredItems.length} rows</span>
-            </div>
-          )}
-        </div>
+                          {canEditStock && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleDelete(item);
+                              }}
+                              disabled={isDeleting}
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-50"
+                              title="Delete product"
+                              aria-label={`Delete ${displayItemName(item)}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <Drawer
@@ -1345,7 +1490,7 @@ export function DepartmentStockScreen() {
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                  Stock adjust
+                  {canEditStock ? 'Stock adjust' : 'Record loss'}
                 </p>
                 <DrawerTitle className="text-base font-bold truncate pr-2">
                   {selectedItem ? displayItemName(selectedItem) : 'Stock'}
@@ -1364,6 +1509,7 @@ export function DepartmentStockScreen() {
               topup={selectedTopup}
               lastUpdatedAt={getLastUpdatedAt(selectedItem)}
               isSubmitting={isTopupSubmitting || isAdjustSubmitting}
+              lossWriteOffOnly={!canEditStock}
               onTopup={() => handleQuickTopup(selectedItem, { closeDrawer: true })}
               onAdjust={(params) => handleStockAdjust(selectedItem, params)}
               onClose={closeSelection}

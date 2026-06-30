@@ -3,6 +3,7 @@ import { execute, queryOne, transaction } from "@/lib/db";
 import { generateUUID } from "@/lib/utils/uuid";
 import { jsonResponse, optionsResponse } from "@/lib/utils/api-response";
 import { requirePermission, isAuthResponse } from "@/lib/auth/api-auth";
+import { enforceDepartmentStaffStockEditPolicy } from "@/lib/auth/department-stock-policy";
 import { logActivity } from "@/lib/db/activity-log";
 import { applyStockAdjustmentToBatches } from "@/lib/db/batch-stock-sync";
 
@@ -51,6 +52,12 @@ export async function POST(request: NextRequest) {
       notes: rawNotes,
     } = body;
     const { reason, notes } = normalizeAdjustmentReason(rawReason, rawNotes);
+
+    const stockPolicyBlock = await enforceDepartmentStaffStockEditPolicy(auth, {
+      adjustmentType,
+      reason,
+    });
+    if (stockPolicyBlock) return stockPolicyBlock;
 
     if (!itemId || !adjustmentType || !quantity || !rawReason) {
       return jsonResponse(

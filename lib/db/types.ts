@@ -501,7 +501,9 @@ export type CountBatchStatus =
   | "pending"
   | "matched"
   | "escalated"
-  | "acknowledged";
+  | "acknowledged"
+  | "dismissed"
+  | "adjusted";
 
 export interface CountShift {
   id: string;
@@ -537,7 +539,23 @@ export interface CountBatch {
   status: CountBatchStatus;
   escalation_notes: string | null;
   selection_source: string | null;
+  stock_adjustment_id: string | null;
   created_at: number;
+}
+
+export type CountBatchEscalationActionType =
+  | "dismiss"
+  | "approve_adjustment";
+
+export interface CountBatchEscalationAction {
+  id: string;
+  count_batch_id: string;
+  business_id: string;
+  action: CountBatchEscalationActionType;
+  reviewed_by: string;
+  reviewed_at: number;
+  notes: string | null;
+  stock_adjustment_id: string | null;
 }
 
 export interface CountItemPool {

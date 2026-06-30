@@ -3,18 +3,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { apiGet } from '@/lib/utils/api-client';
+import { parseDeptTypes } from '@/lib/department/parse-dept-types';
 
-export function parseDeptTypes(raw: string | null | undefined): string[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed)
-      ? parsed.filter((t): t is string => typeof t === 'string' && t.length > 0)
-      : [];
-  } catch {
-    return [];
-  }
-}
+export { parseDeptTypes } from '@/lib/department/parse-dept-types';
 
 export function useDepartmentTypes() {
   const { user } = useCurrentUser();

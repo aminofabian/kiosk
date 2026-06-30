@@ -25,6 +25,7 @@ interface DepartmentMobileMoreSheetProps {
   deptTypes?: string[];
   onShopTypeChange?: (shopType: string) => void;
   onLogout: () => void;
+  canEditFloorStock?: boolean;
 }
 
 function ActionRow({
@@ -93,6 +94,7 @@ export function DepartmentMobileMoreSheet({
   deptTypes = [],
   onShopTypeChange,
   onLogout,
+  canEditFloorStock = true,
 }: DepartmentMobileMoreSheetProps) {
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
@@ -131,7 +133,11 @@ export function DepartmentMobileMoreSheet({
           <ActionRow
             icon={<PackageMinus className="w-5 h-5 text-[#1c6a1e]" />}
             label="Stock ledger"
-            description="Edit stock, prices, and counts"
+            description={
+              canEditFloorStock
+                ? "Edit stock, prices, and counts"
+                : "View stock — record losses in Records"
+            }
             href="/department/stock"
             onClick={() => onOpenChange(false)}
           />
