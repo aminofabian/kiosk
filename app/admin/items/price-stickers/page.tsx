@@ -67,6 +67,24 @@ const LABEL_LAYOUTS = [
 
 type LabelLayout = (typeof LABEL_LAYOUTS)[number];
 
+type PrintFormat = 'a4' | 'thermal';
+
+/** 43×43 mm die-cut thermal roll — 2 across, 2 mm gaps, 1 mm side margins (90 mm roll). */
+const THERMAL_STICKER_LAYOUT = {
+  cols: 2,
+  rows: 1,
+  count: 2,
+  label: 'Thermal roll · 43×43 mm (2 per row)',
+  stickerMm: 43,
+  colGapMm: 2,
+  rowGapMm: 2,
+  marginLeftRightMm: 1,
+  rollWidthMm: 90,
+  rowHeightMm: 43,
+} as const;
+
+type ActiveLayout = LabelLayout | typeof THERMAL_STICKER_LAYOUT;
+
 /** Tighter row gaps, shorter cell padding, and slightly smaller type as layouts get denser. */
 function getLabelSheetMetrics(layout: LabelLayout) {
   const huge = layout.count <= 2;
@@ -108,6 +126,63 @@ function getLabelSheetMetrics(layout: LabelLayout) {
   };
 }
 
+/** Compact type for 43 mm thermal stickers (two per 90 mm row). */
+function getThermalSheetMetrics() {
+  return {
+    colGap: '2mm',
+    rowGap: '2mm',
+    pagePadding: '0 1mm',
+    cellPadding: '1.25mm 1.5mm',
+    alignTop: true,
+    logoMaxHeightMm: 14,
+    titlePt: 7,
+    titleLineHeight: 1.12,
+    pricePt: 10,
+    metaPt: 5.5,
+    batchPt: 4.5,
+    barcodePt: 5,
+    stackGapPt: 0.65,
+    emptyPt: 7,
+    preview: {
+      cellPad: 2,
+      stackGapPx: 1.5,
+      logoMaxPx: 48,
+      title: 4.5,
+      price: 6,
+      meta: 3,
+      batch: 2.5,
+      barcode: 3,
+      titleLh: 1.12,
+    },
+  };
+}
+
+type SheetMetrics = ReturnType<typeof getLabelSheetMetrics>;
+
+function getStickerGridStyle(
+  layout: ActiveLayout,
+  metrics: SheetMetrics,
+  options: { thermal: boolean; mode: 'preview' | 'print' },
+) {
+  const stickerMm = 'stickerMm' in layout ? layout.stickerMm : undefined;
+  const rowHeightMm = 'rowHeightMm' in layout ? layout.rowHeightMm : undefined;
+  const colTrack =
+    options.thermal && options.mode === 'print' && stickerMm != null
+      ? `${stickerMm}mm`
+      : 'minmax(0, 1fr)';
+  const rowTrack =
+    options.thermal && options.mode === 'print' && rowHeightMm != null
+      ? `${rowHeightMm}mm`
+      : 'minmax(0, 1fr)';
+  return {
+    gridTemplateColumns: `repeat(${layout.cols}, ${colTrack})`,
+    gridTemplateRows: `repeat(${layout.rows}, ${rowTrack})`,
+    columnGap: metrics.colGap,
+    rowGap: metrics.rowGap,
+    boxSizing: 'border-box' as const,
+  };
+}
+
 /** Urban Basket Mini Mart — shared asset + on-brand sticker styling */
 const UB_LOGO = '/images/ub.png' as const;
 const WEBSITE_DISPLAY = 'urbanbasket.co.ke' as const;
@@ -133,7 +208,7 @@ function LabelSheetCell({
 }: {
   round: boolean;
   mode: 'preview' | 'print';
-  sheetMetrics: ReturnType<typeof getLabelSheetMetrics>;
+  sheetMetrics: SheetMetrics;
   children: ReactNode;
 }) {
   const pv = sheetMetrics.preview;
@@ -218,7 +293,7 @@ function StickerPriceCallout({
   round = false,
 }: {
   price: number | null | undefined;
-  sm: ReturnType<typeof getLabelSheetMetrics>;
+  sm: SheetMetrics;
   mode: 'preview' | 'print';
   marginTopPreviewPx: number;
   marginTopPrintPt: number;
@@ -401,7 +476,7 @@ function StickerContactFooter({
   showPhoneNumber,
   round,
 }: {
-  sm: ReturnType<typeof getLabelSheetMetrics>;
+  sm: SheetMetrics;
   mode: 'preview' | 'print';
   showWebsiteLink: boolean;
   showPhoneNumber: boolean;
@@ -592,7 +667,7 @@ function StickerLabelBlock({
   round = false,
 }: {
   item: ItemWithCategory;
-  sm: ReturnType<typeof getLabelSheetMetrics>;
+  sm: SheetMetrics;
   mode: 'preview' | 'print';
   showBarcode: boolean;
   showBatchNumber: boolean;
@@ -835,6 +910,10 @@ const PAGE_LANDSCAPE_MM = { width: 297, height: 210 } as const;
 /** ~96dpi px for scaling the expanded preview to the viewport */
 const PAGE_PORTRAIT_PX = { width: 794, height: 1123 } as const;
 const PAGE_LANDSCAPE_PX = { width: 1123, height: 794 } as const;
+const THERMAL_PAGE_PX = {
+  width: Math.round((THERMAL_STICKER_LAYOUT.rollWidthMm / 25.4) * 96),
+  height: Math.round((THERMAL_STICKER_LAYOUT.rowHeightMm / 25.4) * 96),
+} as const;
 
 export default function PriceStickersPage() {
   const { productTypes, itemTypeKeys } = useItemTypes();
@@ -847,6 +926,7 @@ export default function PriceStickersPage() {
   const [itemTypeFilter, setItemTypeFilter] = useState<string>('retail');
   const [aisleFilter, setAisleFilter] = useState<string>('all');
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [printFormat, setPrintFormat] = useState<PrintFormat>('a4');
   const [labelLayout, setLabelLayout] = useState<LabelLayout>(LABEL_LAYOUTS[0]);
   const [showBarcode, setShowBarcode] = useState(false);
   const [showBatchNumber, setShowBatchNumber] = useState(false);
@@ -858,9 +938,24 @@ export default function PriceStickersPage() {
   const a4ContainerRef = useRef<HTMLDivElement>(null);
   const [pageOrientation, setPageOrientation] = useState<'portrait' | 'landscape'>('portrait');
 
-  const sheetMetrics = useMemo(() => getLabelSheetMetrics(labelLayout), [labelLayout]);
+  const isThermal = printFormat === 'thermal';
+  const activeLayout: ActiveLayout = isThermal ? THERMAL_STICKER_LAYOUT : labelLayout;
+
+  const sheetMetrics = useMemo(
+    () => (isThermal ? getThermalSheetMetrics() : getLabelSheetMetrics(labelLayout)),
+    [isThermal, labelLayout],
+  );
 
   const pageSize = useMemo(() => {
+    if (isThermal) {
+      return {
+        width: THERMAL_STICKER_LAYOUT.rollWidthMm,
+        height: THERMAL_STICKER_LAYOUT.rowHeightMm,
+        aspectRatio: `${THERMAL_STICKER_LAYOUT.rollWidthMm}/${THERMAL_STICKER_LAYOUT.rowHeightMm}` as const,
+        px: THERMAL_PAGE_PX,
+        pageSizeCss: `${THERMAL_STICKER_LAYOUT.rollWidthMm}mm ${THERMAL_STICKER_LAYOUT.rowHeightMm}mm` as const,
+      };
+    }
     if (pageOrientation === 'landscape') {
       return {
         ...PAGE_LANDSCAPE_MM,
@@ -875,7 +970,17 @@ export default function PriceStickersPage() {
       px: PAGE_PORTRAIT_PX,
       pageSizeCss: 'A4 portrait' as const,
     };
-  }, [pageOrientation]);
+  }, [isThermal, pageOrientation]);
+
+  const previewGridStyle = useMemo(
+    () => getStickerGridStyle(activeLayout, sheetMetrics, { thermal: isThermal, mode: 'preview' }),
+    [activeLayout, sheetMetrics, isThermal],
+  );
+
+  const printGridStyle = useMemo(
+    () => getStickerGridStyle(activeLayout, sheetMetrics, { thermal: isThermal, mode: 'print' }),
+    [activeLayout, sheetMetrics, isThermal],
+  );
 
   const fetchData = async () => {
     try {
@@ -994,7 +1099,7 @@ export default function PriceStickersPage() {
     setQuantities((prev) => {
       const next = { ...prev };
       filteredItems.forEach((i) => {
-        if ((prev[i.id] ?? 0) > 0) next[i.id] = labelLayout.count;
+        if ((prev[i.id] ?? 0) > 0) next[i.id] = activeLayout.count;
       });
       return next;
     });
@@ -1038,7 +1143,9 @@ export default function PriceStickersPage() {
                     Price stickers
                   </h1>
                   <p className="mt-0.5 text-sm font-medium text-primary">
-                    Urban Basket · A4 label sheets · Cut and stick
+                    {isThermal
+                      ? 'Urban Basket · Thermal roll · 43×43 mm · 2 per row'
+                      : 'Urban Basket · A4 label sheets · Cut and stick'}
                   </p>
                 </div>
               </div>
@@ -1130,40 +1237,61 @@ export default function PriceStickersPage() {
                   </Select>
                 )}
                 <Select
-                  value={labelLayout.label}
-                  onValueChange={(v) => {
-                    const layout = LABEL_LAYOUTS.find((l) => l.label === v);
-                    if (layout) setLabelLayout(layout);
-                  }}
+                  value={printFormat}
+                  onValueChange={(v) => setPrintFormat(v as PrintFormat)}
                 >
-                  <SelectTrigger className="w-[160px] h-9 rounded-lg border-slate-200/80 dark:border-slate-700/80">
+                  <SelectTrigger className="w-[min(100%,14rem)] h-9 rounded-lg border-slate-200/80 dark:border-slate-700/80">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {LABEL_LAYOUTS.map((l) => (
-                      <SelectItem key={l.label} value={l.label}>
-                        {l.label}
-                      </SelectItem>
-                    ))}
+                    <SelectItem value="a4">A4 label sheets</SelectItem>
+                    <SelectItem value="thermal">Thermal roll (43×43 mm)</SelectItem>
                   </SelectContent>
                 </Select>
-                <Select
-                  value={pageOrientation}
-                  onValueChange={(v) => setPageOrientation(v as 'portrait' | 'landscape')}
-                >
-                  <SelectTrigger className="w-[158px] h-9 rounded-lg border-slate-200/80 dark:border-slate-700/80">
-                    {pageOrientation === 'landscape' ? (
-                      <RectangleHorizontal className="w-4 h-4 mr-2 text-slate-500 shrink-0" />
-                    ) : (
-                      <RectangleVertical className="w-4 h-4 mr-2 text-slate-500 shrink-0" />
-                    )}
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="portrait">Portrait (210×297 mm)</SelectItem>
-                    <SelectItem value="landscape">Landscape (297×210 mm)</SelectItem>
-                  </SelectContent>
-                </Select>
+                {!isThermal && (
+                  <Select
+                    value={labelLayout.label}
+                    onValueChange={(v) => {
+                      const layout = LABEL_LAYOUTS.find((l) => l.label === v);
+                      if (layout) setLabelLayout(layout);
+                    }}
+                  >
+                    <SelectTrigger className="w-[160px] h-9 rounded-lg border-slate-200/80 dark:border-slate-700/80">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LABEL_LAYOUTS.map((l) => (
+                        <SelectItem key={l.label} value={l.label}>
+                          {l.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {!isThermal && (
+                  <Select
+                    value={pageOrientation}
+                    onValueChange={(v) => setPageOrientation(v as 'portrait' | 'landscape')}
+                  >
+                    <SelectTrigger className="w-[158px] h-9 rounded-lg border-slate-200/80 dark:border-slate-700/80">
+                      {pageOrientation === 'landscape' ? (
+                        <RectangleHorizontal className="w-4 h-4 mr-2 text-slate-500 shrink-0" />
+                      ) : (
+                        <RectangleVertical className="w-4 h-4 mr-2 text-slate-500 shrink-0" />
+                      )}
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="portrait">Portrait (210×297 mm)</SelectItem>
+                      <SelectItem value="landscape">Landscape (297×210 mm)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                {isThermal && (
+                  <span className="text-xs font-medium text-slate-500 bg-slate-100 dark:bg-slate-800/50 px-2.5 py-1.5 rounded-lg">
+                    90 mm roll · 2 mm gaps · 1 mm side margins
+                  </span>
+                )}
                 <label className="flex items-center gap-2.5 text-sm cursor-pointer text-slate-600 dark:text-slate-400">
                   <input
                     type="checkbox"
@@ -1182,16 +1310,18 @@ export default function PriceStickersPage() {
                   />
                   Show batch
                 </label>
-                <label className="flex items-center gap-2.5 text-sm cursor-pointer text-slate-600 dark:text-slate-400">
-                  <input
-                    type="checkbox"
-                    checked={roundStickers}
-                    onChange={(e) => setRoundStickers(e.target.checked)}
-                    className="rounded border-slate-300 text-slate-800 focus:ring-slate-500"
-                  />
-                  <Circle className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.2} aria-hidden />
-                  Round labels
-                </label>
+                {!isThermal && (
+                  <label className="flex items-center gap-2.5 text-sm cursor-pointer text-slate-600 dark:text-slate-400">
+                    <input
+                      type="checkbox"
+                      checked={roundStickers}
+                      onChange={(e) => setRoundStickers(e.target.checked)}
+                      className="rounded border-slate-300 text-slate-800 focus:ring-slate-500"
+                    />
+                    <Circle className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.2} aria-hidden />
+                    Round labels
+                  </label>
+                )}
                 <div
                   className="w-full min-w-0 sm:w-auto sm:max-w-[min(100%,24rem)] rounded-xl border border-primary/20 bg-primary/[0.04] p-3 shadow-sm dark:border-primary/30 dark:bg-primary/[0.08]"
                   role="group"
@@ -1334,7 +1464,7 @@ export default function PriceStickersPage() {
                             <QuantityStepper
                               value={qty}
                               onChange={(n) => setQuantity(item.id, n)}
-                              maxPerPage={labelLayout.count}
+                              maxPerPage={activeLayout.count}
                             />
                             <div className="flex-1 min-w-0">
                               <p className="whitespace-normal break-words text-pretty font-medium text-slate-900 dark:text-white">
@@ -1364,12 +1494,16 @@ export default function PriceStickersPage() {
                   </h3>
                   <div className="flex items-center gap-2 flex-wrap justify-end">
                     <span className="text-xs font-medium text-slate-500 bg-slate-100 dark:bg-slate-800/50 px-2.5 py-1 rounded-lg">
-                      {pageOrientation === 'landscape' ? 'Landscape' : 'Portrait'}
+                      {isThermal
+                        ? '90×43 mm row'
+                        : pageOrientation === 'landscape'
+                          ? 'Landscape'
+                          : 'Portrait'}
                     </span>
                     <span className="text-xs font-medium text-slate-500 bg-slate-100 dark:bg-slate-800/50 px-2.5 py-1 rounded-lg">
-                      {labelLayout.count} per page
+                      {activeLayout.count} per {isThermal ? 'row' : 'page'}
                     </span>
-                    {roundStickers && (
+                    {!isThermal && roundStickers && (
                       <span className="inline-flex items-center gap-1 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary">
                         <Circle className="h-3 w-3" strokeWidth={2.2} aria-hidden />
                         Round
@@ -1382,7 +1516,7 @@ export default function PriceStickersPage() {
                       className="h-9 rounded-lg border-slate-200 dark:border-slate-700"
                     >
                       <Maximize2 className="w-4 h-4 mr-1.5" />
-                      Expand to A4
+                      {isThermal ? 'Expand preview' : 'Expand to A4'}
                     </Button>
                   </div>
                 </div>
@@ -1390,25 +1524,20 @@ export default function PriceStickersPage() {
                   className="border-2 border-dashed border-slate-200 dark:border-slate-700/80 p-4 bg-slate-50/50 dark:bg-slate-900/20"
                   style={{
                     aspectRatio: pageSize.aspectRatio,
-                    maxHeight: pageOrientation === 'landscape' ? '320px' : '420px',
+                    maxHeight: isThermal ? '220px' : pageOrientation === 'landscape' ? '320px' : '420px',
                   }}
                 >
                   <div
                     className="grid h-full w-full overflow-hidden"
-                    style={{
-                      gridTemplateColumns: `repeat(${labelLayout.cols}, 1fr)`,
-                      gridTemplateRows: `repeat(${labelLayout.rows}, 1fr)`,
-                      columnGap: sheetMetrics.colGap,
-                      rowGap: sheetMetrics.rowGap,
-                    }}
+                    style={previewGridStyle}
                   >
-                    {Array.from({ length: labelLayout.count }).map((_, i) => {
+                    {Array.from({ length: activeLayout.count }).map((_, i) => {
                       const item = selectedItems[i];
                       const pv = sheetMetrics.preview;
                       return (
                         <LabelSheetCell
                           key={i}
-                          round={roundStickers}
+                          round={!isThermal && roundStickers}
                           mode="preview"
                           sheetMetrics={sheetMetrics}
                         >
@@ -1421,9 +1550,9 @@ export default function PriceStickersPage() {
                               showBatchNumber={showBatchNumber}
                               showWebsiteLink={showWebsiteLink}
                               showPhoneNumber={showPhoneNumber}
-                              round={roundStickers}
+                              round={!isThermal && roundStickers}
                             />
-                          ) : roundStickers ? (
+                          ) : !isThermal && roundStickers ? (
                             <div className="flex h-full min-h-0 w-full items-center justify-center">
                               <span
                                 className="text-slate-300 dark:text-slate-600"
@@ -1453,7 +1582,7 @@ export default function PriceStickersPage() {
         {/* Printable area - hidden on screen, shown when printing */}
         <div id="price-stickers-print" className="hidden print:block">
           {Array.from({
-            length: Math.ceil(selectedItems.length / labelLayout.count) || 1,
+            length: Math.ceil(selectedItems.length / activeLayout.count) || 1,
           }).map((_, pageIndex) => (
             <div
               key={pageIndex}
@@ -1467,21 +1596,13 @@ export default function PriceStickersPage() {
                 overflow: 'hidden',
               }}
             >
-              <div
-                className="grid w-full h-full overflow-hidden"
-                style={{
-                  gridTemplateColumns: `repeat(${labelLayout.cols}, minmax(0, 1fr))`,
-                  gridTemplateRows: `repeat(${labelLayout.rows}, minmax(0, 1fr))`,
-                  columnGap: sheetMetrics.colGap,
-                  rowGap: sheetMetrics.rowGap,
-                  boxSizing: 'border-box',
-                }}
-              >
-                {Array.from({ length: labelLayout.count }).map((_, i) => {
-                  const item = selectedItems[pageIndex * labelLayout.count + i];
+              <div className="grid w-full h-full overflow-hidden" style={printGridStyle}>
+                {Array.from({ length: activeLayout.count }).map((_, i) => {
+                  const item = selectedItems[pageIndex * activeLayout.count + i];
                   const sm = sheetMetrics;
+                  const round = !isThermal && roundStickers;
                   return (
-                    <LabelSheetCell key={i} round={roundStickers} mode="print" sheetMetrics={sm}>
+                    <LabelSheetCell key={i} round={round} mode="print" sheetMetrics={sm}>
                       {item ? (
                         <StickerLabelBlock
                           item={item}
@@ -1491,9 +1612,9 @@ export default function PriceStickersPage() {
                           showBatchNumber={showBatchNumber}
                           showWebsiteLink={showWebsiteLink}
                           showPhoneNumber={showPhoneNumber}
-                          round={roundStickers}
+                          round={round}
                         />
-                      ) : roundStickers ? (
+                      ) : round ? (
                         <div className="flex h-full min-h-0 w-full items-center justify-center">
                           <span className="text-slate-300" style={{ fontSize: `${sm.emptyPt}pt` }}>
                             —
@@ -1524,7 +1645,9 @@ export default function PriceStickersPage() {
               </Button>
             </DrawerClose>
             <DrawerTitle className="text-foreground">
-              Full A4 preview · Urban Basket · {pageOrientation === 'landscape' ? 'Landscape' : 'Portrait'}
+              {isThermal
+                ? 'Thermal roll preview · 43×43 mm · 2 per row'
+                : `Full A4 preview · Urban Basket · ${pageOrientation === 'landscape' ? 'Landscape' : 'Portrait'}`}
             </DrawerTitle>
           </DrawerHeader>
           <div
@@ -1543,19 +1666,14 @@ export default function PriceStickersPage() {
             >
               <div
                 className="grid w-full h-full overflow-hidden"
-                style={{
-                  gridTemplateColumns: `repeat(${labelLayout.cols}, minmax(0, 1fr))`,
-                  gridTemplateRows: `repeat(${labelLayout.rows}, minmax(0, 1fr))`,
-                  columnGap: sheetMetrics.colGap,
-                  rowGap: sheetMetrics.rowGap,
-                  boxSizing: 'border-box',
-                }}
+                style={printGridStyle}
               >
-                {Array.from({ length: labelLayout.count }).map((_, i) => {
+                {Array.from({ length: activeLayout.count }).map((_, i) => {
                   const item = selectedItems[i];
                   const sm = sheetMetrics;
+                  const round = !isThermal && roundStickers;
                   return (
-                    <LabelSheetCell key={i} round={roundStickers} mode="print" sheetMetrics={sm}>
+                    <LabelSheetCell key={i} round={round} mode="print" sheetMetrics={sm}>
                       {item ? (
                         <StickerLabelBlock
                           item={item}
@@ -1565,9 +1683,9 @@ export default function PriceStickersPage() {
                           showBatchNumber={showBatchNumber}
                           showWebsiteLink={showWebsiteLink}
                           showPhoneNumber={showPhoneNumber}
-                          round={roundStickers}
+                          round={round}
                         />
-                      ) : roundStickers ? (
+                      ) : round ? (
                         <div className="flex h-full min-h-0 w-full items-center justify-center">
                           <span className="text-slate-300" style={{ fontSize: `${sm.emptyPt}pt` }}>
                             —
