@@ -61,6 +61,7 @@ const LABEL_LAYOUTS = [
   { cols: 4, rows: 6, count: 24, label: '24 labels (4×6)' },
   { cols: 6, rows: 6, count: 36, label: '36 labels (6×6)' },
   { cols: 6, rows: 8, count: 48, label: '48 labels (6×8)' },
+  { cols: 8, rows: 12, count: 96, label: '96 labels (8×12)' },
   { cols: 3, rows: 7, count: 21, label: '21 labels (3×7)' },
   { cols: 3, rows: 4, count: 12, label: '12 labels (3×4)' },
 ] as const;
@@ -83,20 +84,66 @@ const THERMAL_STICKER_LAYOUT = {
   rowHeightMm: 43,
 } as const;
 
-type ActiveLayout = LabelLayout | typeof THERMAL_STICKER_LAYOUT;
+type ActiveLayout =
+  | { cols: number; rows: number; count: number; label: string }
+  | typeof THERMAL_STICKER_LAYOUT;
+
+/**
+ * Keep sticker cells roughly square by matching grid aspect to page orientation.
+ * Layouts are authored for portrait; landscape swaps cols ↔ rows.
+ */
+function orientLabelLayout(
+  layout: LabelLayout,
+  orientation: 'portrait' | 'landscape',
+): { cols: number; rows: number; count: number; label: string } {
+  const { cols, rows, count, label } = layout;
+  if (cols === rows) return { cols, rows, count, label };
+  if (orientation === 'landscape' && rows > cols) {
+    return { cols: rows, rows: cols, count, label };
+  }
+  if (orientation === 'portrait' && cols > rows) {
+    return { cols: rows, rows: cols, count, label };
+  }
+  return { cols, rows, count, label };
+}
 
 /** Tighter row gaps, shorter cell padding, and slightly smaller type as layouts get denser. */
-function getLabelSheetMetrics(layout: LabelLayout) {
+function getLabelSheetMetrics(layout: { cols: number; rows: number; count: number }) {
   const huge = layout.count <= 2;
+  const ultraTight = layout.count >= 96;
   const veryTight = layout.count >= 48;
   const tight = layout.rows >= 7 || layout.count >= 36;
-  const colGap = '4mm';
-  const rowGap = huge ? '5mm' : veryTight ? '2mm' : tight ? '2.5mm' : '3mm';
-  const pagePadding = huge ? '7mm 8mm' : veryTight ? '4mm 5mm' : tight ? '4.5mm 5mm' : '5mm';
-  const cellPadding = huge ? '3mm 4mm' : veryTight ? '1mm 1.5mm' : tight ? '1.25mm 2mm' : '1.75mm 2.25mm';
-  const titleLineHeight = huge ? 1.18 : veryTight ? 1.12 : tight ? 1.15 : 1.2;
+  const colGap = ultraTight ? '1.5mm' : '4mm';
+  const rowGap = huge
+    ? '5mm'
+    : ultraTight
+      ? '1.25mm'
+      : veryTight
+        ? '2mm'
+        : tight
+          ? '2.5mm'
+          : '3mm';
+  const pagePadding = huge
+    ? '7mm 8mm'
+    : ultraTight
+      ? '3mm 3.5mm'
+      : veryTight
+        ? '4mm 5mm'
+        : tight
+          ? '4.5mm 5mm'
+          : '5mm';
+  const cellPadding = huge
+    ? '3mm 4mm'
+    : ultraTight
+      ? '0.6mm 0.8mm'
+      : veryTight
+        ? '1mm 1.5mm'
+        : tight
+          ? '1.25mm 2mm'
+          : '1.75mm 2.25mm';
+  const titleLineHeight = huge ? 1.18 : ultraTight ? 1.1 : veryTight ? 1.12 : tight ? 1.15 : 1.2;
   /** Cap logo height; width is 100% of cell — sized for at-a-glance readability on real labels. */
-  const logoMaxHeightMm = huge ? 42 : veryTight ? 18 : tight ? 22.5 : 27;
+  const logoMaxHeightMm = huge ? 42 : ultraTight ? 11 : veryTight ? 18 : tight ? 22.5 : 27;
   return {
     colGap,
     rowGap,
@@ -104,23 +151,23 @@ function getLabelSheetMetrics(layout: LabelLayout) {
     cellPadding,
     alignTop: tight && !huge,
     logoMaxHeightMm,
-    titlePt: huge ? 16 : veryTight ? 7.5 : tight ? 8.5 : 10,
+    titlePt: huge ? 16 : ultraTight ? 5.5 : veryTight ? 7.5 : tight ? 8.5 : 10,
     titleLineHeight,
-    pricePt: huge ? 24 : veryTight ? 11 : tight ? 12.5 : 14,
-    metaPt: huge ? 11 : veryTight ? 6.5 : tight ? 7.5 : 8,
-    batchPt: huge ? 8 : veryTight ? 5 : tight ? 5.5 : 6,
-    barcodePt: huge ? 10 : veryTight ? 6 : tight ? 7 : 8,
-    stackGapPt: huge ? 2.8 : veryTight ? 0.75 : tight ? 1.25 : 2,
-    emptyPt: huge ? 16 : veryTight ? 8 : 10,
+    pricePt: huge ? 24 : ultraTight ? 8 : veryTight ? 11 : tight ? 12.5 : 14,
+    metaPt: huge ? 11 : ultraTight ? 4.5 : veryTight ? 6.5 : tight ? 7.5 : 8,
+    batchPt: huge ? 8 : ultraTight ? 3.5 : veryTight ? 5 : tight ? 5.5 : 6,
+    barcodePt: huge ? 10 : ultraTight ? 4 : veryTight ? 6 : tight ? 7 : 8,
+    stackGapPt: huge ? 2.8 : ultraTight ? 0.4 : veryTight ? 0.75 : tight ? 1.25 : 2,
+    emptyPt: huge ? 16 : ultraTight ? 5 : veryTight ? 8 : 10,
     preview: {
-      cellPad: huge ? 10 : veryTight ? 2 : tight ? 3 : 4,
-      stackGapPx: huge ? 8 : veryTight ? 1.5 : tight ? 2 : 3,
-      logoMaxPx: huge ? 180 : veryTight ? 66 : tight ? 84 : 102,
-      title: huge ? 12 : veryTight ? 4.5 : tight ? 5 : 6,
-      price: huge ? 16 : veryTight ? 6 : tight ? 7 : 8,
-      meta: huge ? 8.5 : veryTight ? 3.5 : tight ? 4 : 5,
-      batch: huge ? 7 : veryTight ? 3 : tight ? 3.5 : 4,
-      barcode: huge ? 8 : veryTight ? 3.5 : tight ? 4 : 5,
+      cellPad: huge ? 10 : ultraTight ? 1 : veryTight ? 2 : tight ? 3 : 4,
+      stackGapPx: huge ? 8 : ultraTight ? 1 : veryTight ? 1.5 : tight ? 2 : 3,
+      logoMaxPx: huge ? 180 : ultraTight ? 40 : veryTight ? 66 : tight ? 84 : 102,
+      title: huge ? 12 : ultraTight ? 3 : veryTight ? 4.5 : tight ? 5 : 6,
+      price: huge ? 16 : ultraTight ? 4 : veryTight ? 6 : tight ? 7 : 8,
+      meta: huge ? 8.5 : ultraTight ? 2.5 : veryTight ? 3.5 : tight ? 4 : 5,
+      batch: huge ? 7 : ultraTight ? 2 : veryTight ? 3 : tight ? 3.5 : 4,
+      barcode: huge ? 8 : ultraTight ? 2.5 : veryTight ? 3.5 : tight ? 4 : 5,
       titleLh: titleLineHeight,
     },
   };
@@ -183,18 +230,19 @@ function getStickerGridStyle(
   };
 }
 
-/** Urban Basket Mini Mart — shared asset + on-brand sticker styling */
-const UB_LOGO = '/images/ub.png' as const;
+/** Sticker brand asset + contact lines */
+const UB_LOGO = '/images/logo.png' as const;
 const WEBSITE_DISPLAY = 'urbanbasket.co.ke' as const;
 const WEBSITE_HREF = 'https://urbanbasket.co.ke' as const;
 /** Local format on sticker; tel: uses Kenya country code (drop leading 0). */
 const PHONE_DISPLAY = '0113277767' as const;
 const PHONE_DISPLAY_SPACED = '0113 277 767' as const;
 const PHONE_HREF = 'tel:+254113277767' as const;
+/** Clean label face — white field, dashed cut guides, sharp corners. */
 const UB_STICKER_SCREEN =
-  'border-2 border-primary/12 dark:border-primary/20 bg-gradient-to-b from-primary/[0.04] via-card to-card dark:from-primary/10 dark:via-card dark:to-card shadow-sm';
+  'border border-dashed border-slate-400/80 bg-white dark:border-slate-500 dark:bg-card';
 const UB_STICKER_PRINT =
-  'border border-primary/30 bg-gradient-to-b from-primary/[0.05] to-card';
+  'border border-dashed border-neutral-500 bg-white print:border-neutral-600';
 
 /**
  * Renders a label cell: rectangle (default) or a true circle (inscribed in the grid cell).
@@ -217,8 +265,10 @@ function LabelSheetCell({
       <div className="grid h-full w-full min-h-0 min-w-0 [container-type:size] place-items-center p-0.5">
         <div
           className={cn(
-            'flex min-h-0 w-full min-w-0 flex-col justify-start overflow-hidden rounded-full',
-            mode === 'preview' ? UB_STICKER_SCREEN : UB_STICKER_PRINT
+            'flex min-h-0 w-full min-w-0 flex-col justify-start overflow-hidden rounded-full border border-dashed',
+            mode === 'preview'
+              ? 'border-slate-400/80 bg-white dark:border-slate-500 dark:bg-card'
+              : 'border-neutral-500 bg-white print:border-neutral-600'
           )}
           style={
             mode === 'preview'
@@ -249,7 +299,7 @@ function LabelSheetCell({
   return (
     <div
       className={cn(
-        'flex h-full min-h-0 w-full min-w-0 flex-col justify-start overflow-hidden rounded-sm',
+        'flex h-full min-h-0 w-full min-w-0 flex-col justify-start overflow-hidden rounded-none',
         mode === 'preview' ? UB_STICKER_SCREEN : UB_STICKER_PRINT
       )}
       style={
@@ -279,379 +329,165 @@ function formatKesAmount(p: number) {
   }).format(Math.round(v));
 }
 
-function stackPad(t: number) {
-  return Math.max(0.35, t * 0.45);
-}
-
-/** Grocery “shelf buster” price — scannable, print-friendly, on-brand */
+/** Clean price line — currency + amount only, no promo boxes. */
 function StickerPriceCallout({
   price,
   sm,
   mode,
   marginTopPreviewPx,
   marginTopPrintPt,
-  round = false,
 }: {
   price: number | null | undefined;
   sm: SheetMetrics;
   mode: 'preview' | 'print';
   marginTopPreviewPx: number;
   marginTopPrintPt: number;
-  round?: boolean;
 }) {
   const n = Number(price);
   const safePrice = Number.isFinite(n) ? n : 0;
   const amount = formatKesAmount(safePrice);
-  const label = 'Each';
   const fullLabel = formatKes(safePrice);
 
   if (mode === 'preview') {
     const p = sm.preview;
-    if (round) {
-      const eachSize = Math.max(6, p.price * 0.32);
-      const kesSize = Math.max(7, p.price * 0.45);
-      const numSize = Math.max(10, p.price * 1.2);
-      return (
-        <div
-          className="w-full max-w-full shrink-0"
-          style={{ marginTop: marginTopPreviewPx }}
-          aria-label={fullLabel}
-          role="group"
-        >
-          <div className="border border-primary/25 bg-gradient-to-b from-primary/[0.08] to-primary/[0.02] px-2 py-1.5 shadow-[inset_0_1px_0_0_hsl(0_0%_100%_/_0.5)] [box-shadow:0_1px_3px_hsl(0_0%_0%_/_0.06)] dark:border-primary/30 dark:from-primary/15 dark:to-primary/5 [border-radius:9999px]">
-            <p
-              className="text-center font-extrabold uppercase leading-tight text-primary"
-              style={{ fontSize: `${eachSize}px`, letterSpacing: '0.12em' }}
-            >
-              {label}
-            </p>
-            <div className="mt-0.5 flex flex-wrap items-baseline justify-center gap-1">
-              <span className="shrink-0 font-bold text-primary" style={{ fontSize: `${kesSize}px` }}>
-                KES
-              </span>
-              <span
-                className="shrink-0 font-black tabular-nums leading-none text-primary"
-                style={{ fontSize: `${numSize}px` }}
-              >
-                {amount}
-              </span>
-            </div>
-          </div>
-        </div>
-      );
-    }
+    const kesSize = Math.max(7, p.price * 0.48);
+    const numSize = Math.max(12, p.price * 1.35);
     return (
       <div
-        className="w-full shrink-0 overflow-hidden rounded-md border border-primary/25 bg-card/90 shadow-sm dark:bg-card/80"
+        className="flex w-full shrink-0 flex-wrap items-baseline justify-center gap-x-1 border-t border-slate-200/90 pt-1 dark:border-slate-700"
         style={{ marginTop: marginTopPreviewPx }}
         aria-label={fullLabel}
         role="group"
       >
-        <div
-          className="bg-primary py-[3px] text-center font-extrabold uppercase tracking-[0.22em] text-primary-foreground"
-          style={{ fontSize: `${Math.max(7, p.price * 0.38)}px` }}
-        >
-          {label}
-        </div>
-        <div className="flex flex-wrap items-baseline justify-center gap-0.5 bg-primary/[0.04] px-1 py-1 dark:bg-primary/10">
-          <span
-            className="shrink-0 font-bold text-primary"
-            style={{ fontSize: `${Math.max(8, p.price * 0.5)}px` }}
-          >
-            KES
-          </span>
-          <span
-            className="shrink-0 font-black tabular-nums leading-none tracking-tight text-primary drop-shadow-[0_1px_0_hsl(0_0%_100%_/_0.15)]"
-            style={{ fontSize: `${Math.max(11, p.price * 1.38)}px` }}
-          >
-            {amount}
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  const ribbonPt = sm.pricePt * 0.4;
-  const kesPt = sm.pricePt * 0.55;
-  const numPt = sm.pricePt * 1.4;
-  const padY = sm.stackGapPt * 0.5;
-  const eachSmallPt = sm.pricePt * 0.32;
-
-  if (round) {
-    return (
-      <div
-        className="w-full max-w-full shrink-0 [border-radius:9999px] border border-primary/30 bg-gradient-to-b from-primary/10 to-primary/[0.04] print:border-primary/35 print:from-primary/12 print:to-primary/5"
-        style={{
-          marginTop: marginTopPrintPt,
-          boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,0.5), 0 1px 2px rgba(0,0,0,0.05)',
-          paddingTop: `${stackPad(sm.stackGapPt) * 1.1}pt`,
-          paddingBottom: `${stackPad(sm.stackGapPt) * 1.1}pt`,
-          paddingLeft: '2.5pt',
-          paddingRight: '2.5pt',
-        }}
-        aria-label={fullLabel}
-        role="group"
-      >
-        <p
-          className="text-center font-extrabold uppercase leading-tight [letter-spacing:0.15em] text-primary print:text-primary"
-          style={{ fontSize: `${eachSmallPt}pt` }}
-        >
-          {label}
-        </p>
-        <div
-          className="mt-0.5 flex flex-wrap items-baseline justify-center"
-          style={{ gap: `${sm.stackGapPt * 0.9}pt` }}
-        >
-          <span
-            className="shrink-0 font-bold text-primary print:text-primary"
-            style={{ fontSize: `${kesPt}pt` }}
-          >
-            KES
-          </span>
-          <span
-            className="shrink-0 font-black tabular-nums text-primary print:text-primary"
-            style={{ fontSize: `${numPt * 0.95}pt` }}
-          >
-            {amount}
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className="w-full shrink-0 overflow-hidden rounded-sm border-2 border-primary print:rounded-sm print:border-primary"
-      style={{ marginTop: marginTopPrintPt }}
-      aria-label={fullLabel}
-      role="group"
-    >
-      <div
-        className="border-b-2 border-primary bg-primary text-center font-extrabold uppercase [letter-spacing:0.18em] text-primary-foreground print:border-primary print:bg-white print:text-primary"
-        style={{
-          fontSize: `${ribbonPt}pt`,
-          paddingTop: `${padY}pt`,
-          paddingBottom: `${padY}pt`,
-        }}
-      >
-        {label}
-      </div>
-      <div
-        className="flex flex-wrap items-baseline justify-center bg-primary/[0.04] print:bg-white"
-        style={{
-          paddingLeft: '1.5pt',
-          paddingRight: '1.5pt',
-          paddingTop: `${stackPad(sm.stackGapPt)}pt`,
-          paddingBottom: `${stackPad(sm.stackGapPt)}pt`,
-          columnGap: `${sm.stackGapPt}pt`,
-          rowGap: '0.25pt',
-        }}
-      >
         <span
-          className="shrink-0 font-bold text-primary print:text-primary"
-          style={{ fontSize: `${kesPt}pt` }}
+          className="shrink-0 font-semibold tracking-wide text-slate-500 dark:text-slate-400"
+          style={{ fontSize: `${kesSize}px` }}
         >
           KES
         </span>
         <span
-          className="shrink-0 font-black tabular-nums leading-none text-primary print:text-primary"
-          style={{ fontSize: `${numPt}pt` }}
+          className="shrink-0 font-bold tabular-nums leading-none tracking-tight text-slate-900 dark:text-white"
+          style={{ fontSize: `${numSize}px` }}
         >
           {amount}
         </span>
       </div>
+    );
+  }
+
+  const kesPt = sm.pricePt * 0.5;
+  const numPt = sm.pricePt * 1.35;
+  return (
+    <div
+      className="flex w-full shrink-0 flex-wrap items-baseline justify-center border-t border-neutral-300 print:border-neutral-400"
+      style={{
+        marginTop: marginTopPrintPt,
+        paddingTop: `${Math.max(1.5, sm.stackGapPt)}pt`,
+        columnGap: `${sm.stackGapPt}pt`,
+      }}
+      aria-label={fullLabel}
+      role="group"
+    >
+      <span
+        className="shrink-0 font-semibold tracking-wide text-neutral-600 print:text-neutral-700"
+        style={{ fontSize: `${kesPt}pt` }}
+      >
+        KES
+      </span>
+      <span
+        className="shrink-0 font-bold tabular-nums leading-none tracking-tight text-black print:text-black"
+        style={{ fontSize: `${numPt}pt` }}
+      >
+        {amount}
+      </span>
     </div>
   );
 }
 
-/**
- * Urban Basket contact card: icon chip + value rows with a subtle branded
- * flourish. Designed to read cleanly on both rectangular and round stickers,
- * in screen preview and on the printed sheet.
- */
+/** Minimal contact lines under the price. */
 function StickerContactFooter({
   sm,
   mode,
   showWebsiteLink,
   showPhoneNumber,
-  round,
 }: {
   sm: SheetMetrics;
   mode: 'preview' | 'print';
   showWebsiteLink: boolean;
   showPhoneNumber: boolean;
-  round: boolean;
 }) {
   if (!showWebsiteLink && !showPhoneNumber) return null;
-  const bothShown = showWebsiteLink && showPhoneNumber;
 
   if (mode === 'preview') {
     const pv = sm.preview;
-    const scale = round ? 0.82 : 1;
-    const valuePx = Math.max(8, pv.meta * 0.95 * scale);
-    const chipPx = Math.max(11, Math.round(valuePx * 1.55));
-    const iconInnerPx = Math.max(5, Math.round(chipPx * 0.58));
-    const gapPx = Math.max(3, Math.round(valuePx * 0.42));
-    const padYPx = Math.max(4, Math.round(pv.stackGapPx * (round ? 0.5 : 0.62)));
-    const padXPx = round
-      ? Math.max(10, Math.round(pv.stackGapPx * 1.6))
-      : Math.max(6, Math.round(pv.stackGapPx * 0.8));
-    const rowGapPx = Math.max(2, Math.round(pv.stackGapPx * 0.5));
-    const radiusClass = round ? 'rounded-full' : 'rounded-[7px]';
-
-    const row = (kind: 'web' | 'phone') => {
-      const Icon = kind === 'web' ? Globe : Phone;
-      const href = kind === 'web' ? WEBSITE_HREF : PHONE_HREF;
-      const value = kind === 'web' ? WEBSITE_DISPLAY : PHONE_DISPLAY_SPACED;
-      const valueCls =
-        kind === 'web'
-          ? 'min-w-0 truncate font-extrabold tracking-tight text-primary [overflow-wrap:anywhere] underline-offset-2 hover:underline'
-          : 'min-w-0 font-extrabold tabular-nums tracking-tight text-primary';
-      return (
-        <div
-          className="flex min-w-0 max-w-full items-center justify-center"
-          style={{ gap: `${gapPx}px` }}
-        >
-          <span
-            aria-hidden
-            className="inline-flex shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground ring-1 ring-inset ring-white/25 [box-shadow:0_1px_0_0_hsl(0_0%_100%_/_0.35)_inset,0_1px_1.5px_0_hsl(var(--primary)/0.25)]"
-            style={{ width: `${chipPx}px`, height: `${chipPx}px` }}
-          >
-            <Icon
-              style={{ width: `${iconInnerPx}px`, height: `${iconInnerPx}px` }}
-              strokeWidth={2.6}
-            />
-          </span>
-          <a
-            href={href}
-            {...(kind === 'web' ? { target: '_blank', rel: 'noopener noreferrer' } : null)}
-            className={valueCls}
-            style={{ fontSize: `${valuePx}px`, lineHeight: 1.2 }}
-          >
-            {value}
-          </a>
-        </div>
-      );
-    };
-
+    const valuePx = Math.max(7, pv.meta * 0.9);
     return (
       <div
-        className={cn(
-          'relative w-full min-w-0 shrink-0 overflow-hidden border border-primary/30 text-primary',
-          'bg-gradient-to-b from-primary/[0.11] via-primary/[0.06] to-primary/[0.09] dark:border-primary/40 dark:from-primary/20 dark:via-primary/10 dark:to-primary/15',
-          '[box-shadow:inset_0_0.5px_0_0_hsl(0_0%_100%_/_0.55),0_1px_0_0_hsl(var(--primary)/0.15)]',
-          radiusClass,
-        )}
+        className="flex w-full min-w-0 shrink-0 flex-col items-center text-center text-slate-500 dark:text-slate-400"
         style={{
-          marginTop: `${Math.max(pv.stackGapPx, 4)}px`,
-          padding: `${padYPx}px ${padXPx}px`,
+          marginTop: `${Math.max(pv.stackGapPx, 3)}px`,
+          gap: `${Math.max(1, Math.round(pv.stackGapPx * 0.4))}px`,
         }}
         role="group"
         aria-label="Store contact details"
       >
-        {!round && (
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 top-0 mx-auto block h-[2px] w-6 max-w-full rounded-b-full bg-primary/45"
-          />
+        {showWebsiteLink && (
+          <a
+            href={WEBSITE_HREF}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="min-w-0 max-w-full truncate font-medium tracking-tight hover:text-slate-700 dark:hover:text-slate-300"
+            style={{ fontSize: `${valuePx}px`, lineHeight: 1.25 }}
+          >
+            {WEBSITE_DISPLAY}
+          </a>
         )}
-        <div
-          className="flex min-w-0 flex-col items-center"
-          style={{ gap: `${rowGapPx}px` }}
-        >
-          {showWebsiteLink && row('web')}
-          {bothShown && (
-            <span
-              aria-hidden
-              className="h-px w-10 max-w-[70%] bg-gradient-to-r from-transparent via-primary/45 to-transparent"
-            />
-          )}
-          {showPhoneNumber && row('phone')}
-        </div>
+        {showPhoneNumber && (
+          <a
+            href={PHONE_HREF}
+            className="min-w-0 font-medium tabular-nums tracking-tight hover:text-slate-700 dark:hover:text-slate-300"
+            style={{ fontSize: `${valuePx}px`, lineHeight: 1.25 }}
+          >
+            {PHONE_DISPLAY_SPACED}
+          </a>
+        )}
       </div>
     );
   }
 
-  const scale = round ? 0.82 : 1;
-  const valuePt = Math.max(5.5, sm.batchPt * 1.0 * scale);
-  const chipPt = Math.max(7, valuePt * 1.5);
-  const iconInnerPt = chipPt * 0.58;
-  const gapPt = valuePt * 0.38;
-  const padYPt = sm.stackGapPt * (round ? 0.5 : 0.65);
-  const padXPt = sm.stackGapPt * (round ? 1.5 : 0.95);
-  const rowGapPt = sm.stackGapPt * 0.5;
-  const radiusClass = round ? 'rounded-[9999px]' : 'rounded-[3pt]';
-
-  const rowPrint = (kind: 'web' | 'phone') => {
-    const Icon = kind === 'web' ? Globe : Phone;
-    const href = kind === 'web' ? WEBSITE_HREF : PHONE_HREF;
-    const value = kind === 'web' ? WEBSITE_DISPLAY : PHONE_DISPLAY_SPACED;
-    const valueCls =
-      kind === 'web'
-        ? 'min-w-0 font-extrabold tracking-tight text-primary [overflow-wrap:anywhere] print:text-primary'
-        : 'min-w-0 font-extrabold tabular-nums tracking-tight text-primary print:text-primary';
-    return (
-      <div
-        className="flex min-w-0 max-w-full items-center justify-center"
-        style={{ gap: `${gapPt}pt` }}
-      >
-        <span
-          aria-hidden
-          className="inline-flex shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground print:bg-primary print:text-primary-foreground"
-          style={{ width: `${chipPt}pt`, height: `${chipPt}pt` }}
-        >
-          <Icon
-            style={{ width: `${iconInnerPt}pt`, height: `${iconInnerPt}pt` }}
-            strokeWidth={2.8}
-          />
-        </span>
-        <a
-          href={href}
-          className={valueCls}
-          style={{
-            fontSize: `${valuePt}pt`,
-            lineHeight: 1.15,
-            ...(kind === 'web' ? { wordBreak: 'break-all' as const } : null),
-          }}
-        >
-          {value}
-        </a>
-      </div>
-    );
-  };
-
+  const valuePt = Math.max(5, sm.batchPt * 0.95);
   return (
     <div
-      className={cn(
-        'relative w-full min-w-0 shrink-0 overflow-hidden border border-primary/35 bg-primary/[0.08] text-primary print:border-primary/40 print:bg-primary/[0.1]',
-        radiusClass,
-      )}
+      className="flex w-full min-w-0 shrink-0 flex-col items-center text-center text-neutral-600 print:text-neutral-700"
       style={{
         marginTop: `${sm.stackGapPt}pt`,
-        padding: `${padYPt}pt ${padXPt}pt`,
+        gap: `${sm.stackGapPt * 0.35}pt`,
       }}
       role="group"
       aria-label="Store contact details"
     >
-      {!round && (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 mx-auto block h-[0.8pt] w-[14pt] max-w-full bg-primary/50 print:bg-primary/50"
-        />
+      {showWebsiteLink && (
+        <a
+          href={WEBSITE_HREF}
+          className="min-w-0 max-w-full font-medium tracking-tight [overflow-wrap:anywhere] print:text-neutral-700"
+          style={{
+            fontSize: `${valuePt}pt`,
+            lineHeight: 1.2,
+            wordBreak: 'break-all',
+          }}
+        >
+          {WEBSITE_DISPLAY}
+        </a>
       )}
-      <div
-        className="flex min-w-0 flex-col items-center"
-        style={{ gap: `${rowGapPt}pt` }}
-      >
-        {showWebsiteLink && rowPrint('web')}
-        {bothShown && (
-          <span
-            aria-hidden
-            className="h-[0.5pt] w-[28pt] max-w-[75%] bg-primary/45 print:bg-primary/45"
-          />
-        )}
-        {showPhoneNumber && rowPrint('phone')}
-      </div>
+      {showPhoneNumber && (
+        <a
+          href={PHONE_HREF}
+          className="min-w-0 font-medium tabular-nums tracking-tight print:text-neutral-700"
+          style={{ fontSize: `${valuePt}pt`, lineHeight: 1.2 }}
+        >
+          {PHONE_DISPLAY_SPACED}
+        </a>
+      )}
     </div>
   );
 }
@@ -679,7 +515,7 @@ function StickerLabelBlock({
 
   const priceVal = item.current_sell_price;
   const compactLayout = sm.preview.title <= 5 || sm.titlePt <= 8.5;
-  const logoBand = round ? '28%' : compactLayout ? '30%' : '33%';
+  const logoBand = round ? '26%' : compactLayout ? '28%' : '30%';
 
   if (mode === 'preview') {
     const pv = sm.preview;
@@ -687,7 +523,6 @@ function StickerLabelBlock({
     const nameMaxPx = nameLines * pv.title * pv.titleLh;
     return (
       <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden">
-        {/* Logo — fixed proportion band */}
         <div
           className="flex w-full shrink-0 items-center justify-center"
           style={{
@@ -699,18 +534,17 @@ function StickerLabelBlock({
         >
           <img
             src={UB_LOGO}
-            alt="Urban Basket"
+            alt="palmart"
             className="pointer-events-none block h-full max-h-full w-full max-w-full select-none object-contain object-center"
             draggable={false}
           />
         </div>
-        {/* Name — hard height cap so it can never push price out of view */}
         <div
           className="w-full shrink-0 overflow-hidden"
           style={{ maxHeight: `${nameMaxPx}px` }}
         >
           <p
-            className="w-full min-w-0 break-words font-semibold text-foreground"
+            className="w-full min-w-0 break-words text-center font-medium text-slate-800 dark:text-slate-100"
             style={{
               fontSize: `${pv.title}px`,
               lineHeight: pv.titleLh,
@@ -723,7 +557,6 @@ function StickerLabelBlock({
             {displayName}
           </p>
         </div>
-        {/* Price, meta, contact — always rendered after name, clipped at sticker edge */}
         <div className="flex w-full min-w-0 shrink-0 flex-col">
           <StickerPriceCallout
             price={priceVal}
@@ -731,19 +564,18 @@ function StickerLabelBlock({
             mode="preview"
             marginTopPreviewPx={pv.stackGapPx}
             marginTopPrintPt={0}
-            round={round}
           />
           {showBatchNumber && (item as ItemWithCategory).batch_number && (
             <p
-              className="w-full min-w-0 break-words font-normal text-muted-foreground"
+              className="w-full min-w-0 break-words text-center font-normal text-slate-500 dark:text-slate-400"
               style={{ fontSize: `${pv.batch}px`, marginTop: `${pv.stackGapPx}px` }}
             >
-              Batch number {(item as ItemWithCategory).batch_number}
+              Batch {(item as ItemWithCategory).batch_number}
             </p>
           )}
           {showBarcode && item.barcode && (
             <p
-              className="w-full min-w-0 break-all font-mono text-muted-foreground"
+              className="w-full min-w-0 break-all text-center font-mono text-slate-500 dark:text-slate-400"
               style={{ fontSize: `${pv.barcode}px`, marginTop: `${pv.stackGapPx}px` }}
             >
               {item.barcode}
@@ -754,7 +586,6 @@ function StickerLabelBlock({
             mode="preview"
             showWebsiteLink={showWebsiteLink}
             showPhoneNumber={showPhoneNumber}
-            round={round}
           />
         </div>
       </div>
@@ -765,7 +596,6 @@ function StickerLabelBlock({
   const nameMaxPt = nameLinesPrint * sm.titlePt * sm.titleLineHeight;
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden">
-      {/* Logo */}
       <div
         className="flex w-full shrink-0 items-center justify-center"
         style={{
@@ -777,17 +607,16 @@ function StickerLabelBlock({
       >
         <img
           src={UB_LOGO}
-          alt="Urban Basket"
+          alt="palmart"
           className="block h-full max-h-full w-full max-w-full object-contain object-center"
         />
       </div>
-      {/* Name — explicitly capped so price is never pushed out */}
       <div
         className="w-full shrink-0 overflow-hidden"
         style={{ maxHeight: `${nameMaxPt}pt` }}
       >
         <p
-          className="w-full min-w-0 break-words font-semibold text-foreground [overflow-wrap:anywhere]"
+          className="w-full min-w-0 break-words text-center font-medium text-black [overflow-wrap:anywhere] print:text-black"
           style={{
             fontSize: `${sm.titlePt}pt`,
             lineHeight: sm.titleLineHeight,
@@ -802,7 +631,6 @@ function StickerLabelBlock({
           {displayName}
         </p>
       </div>
-      {/* Price, meta, contact */}
       <div className="flex w-full min-w-0 shrink-0 flex-col">
         <StickerPriceCallout
           price={priceVal}
@@ -810,19 +638,18 @@ function StickerLabelBlock({
           mode="print"
           marginTopPreviewPx={0}
           marginTopPrintPt={sm.stackGapPt}
-          round={round}
         />
         {showBatchNumber && (item as ItemWithCategory).batch_number && (
           <p
-            className="w-full min-w-0 break-words text-muted-foreground"
+            className="w-full min-w-0 break-words text-center text-neutral-600 print:text-neutral-700"
             style={{ fontSize: `${sm.batchPt}pt`, marginTop: `${sm.stackGapPt}pt` }}
           >
-            Batch number {(item as ItemWithCategory).batch_number}
+            Batch {(item as ItemWithCategory).batch_number}
           </p>
         )}
         {showBarcode && item.barcode && (
           <p
-            className="w-full min-w-0 break-all font-mono text-muted-foreground"
+            className="w-full min-w-0 break-all text-center font-mono text-neutral-600 print:text-neutral-700"
             style={{
               fontSize: `${sm.barcodePt}pt`,
               marginTop: `${sm.stackGapPt}pt`,
@@ -838,7 +665,6 @@ function StickerLabelBlock({
           mode="print"
           showWebsiteLink={showWebsiteLink}
           showPhoneNumber={showPhoneNumber}
-          round={round}
         />
       </div>
     </div>
@@ -939,11 +765,14 @@ export default function PriceStickersPage() {
   const [pageOrientation, setPageOrientation] = useState<'portrait' | 'landscape'>('portrait');
 
   const isThermal = printFormat === 'thermal';
-  const activeLayout: ActiveLayout = isThermal ? THERMAL_STICKER_LAYOUT : labelLayout;
+  const activeLayout: ActiveLayout = useMemo(() => {
+    if (isThermal) return THERMAL_STICKER_LAYOUT;
+    return orientLabelLayout(labelLayout, pageOrientation);
+  }, [isThermal, labelLayout, pageOrientation]);
 
   const sheetMetrics = useMemo(
-    () => (isThermal ? getThermalSheetMetrics() : getLabelSheetMetrics(labelLayout)),
-    [isThermal, labelLayout],
+    () => (isThermal ? getThermalSheetMetrics() : getLabelSheetMetrics(activeLayout)),
+    [isThermal, activeLayout],
   );
 
   const pageSize = useMemo(() => {
@@ -1130,7 +959,7 @@ export default function PriceStickersPage() {
                 <div className="relative h-16 w-16 md:h-[4.5rem] md:w-[4.5rem] shrink-0 rounded-2xl overflow-hidden bg-card ring-2 ring-primary/30 shadow-md">
                   <Image
                     src={UB_LOGO}
-                    alt="Urban Basket Mini Mart"
+                    alt="palmart"
                     fill
                     className="object-contain p-1.5"
                     sizes="(max-width: 768px) 64px, 72px"
@@ -1142,10 +971,10 @@ export default function PriceStickersPage() {
                   <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
                     Price stickers
                   </h1>
-                  <p className="mt-0.5 text-sm font-medium text-primary">
+                  <p className="mt-0.5 text-sm font-medium text-muted-foreground">
                     {isThermal
-                      ? 'Urban Basket · Thermal roll · 43×43 mm · 2 per row'
-                      : 'Urban Basket · A4 label sheets · Cut and stick'}
+                      ? 'Thermal roll · 43×43 mm · 2 per row'
+                      : 'A4 label sheets · Cut and stick'}
                   </p>
                 </div>
               </div>
@@ -1323,38 +1152,38 @@ export default function PriceStickersPage() {
                   </label>
                 )}
                 <div
-                  className="w-full min-w-0 sm:w-auto sm:max-w-[min(100%,24rem)] rounded-xl border border-primary/20 bg-primary/[0.04] p-3 shadow-sm dark:border-primary/30 dark:bg-primary/[0.08]"
+                  className="w-full min-w-0 sm:w-auto sm:max-w-[min(100%,24rem)] rounded-lg border border-slate-200/90 bg-white p-3 dark:border-slate-700 dark:bg-card"
                   role="group"
                   aria-label="Contact details to show on price stickers"
                 >
-                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-primary/80 dark:text-primary/70">
+                  <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Contact on labels
                   </p>
                   <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-3">
                     <label
                       className={cn(
-                        'flex cursor-pointer items-start gap-3 rounded-lg border border-transparent p-1.5 -m-1.5 transition-colors',
-                        'hover:border-border hover:bg-background/80 dark:hover:bg-background/20',
-                        'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/30 has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-background',
+                        'flex cursor-pointer items-start gap-3 rounded-md p-1.5 -m-1.5 transition-colors',
+                        'hover:bg-slate-50 dark:hover:bg-slate-900/40',
+                        'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-slate-300 has-[:focus-visible]:ring-offset-2',
                       )}
                     >
                       <input
                         type="checkbox"
                         checked={showWebsiteLink}
                         onChange={(e) => setShowWebsiteLink(e.target.checked)}
-                        className="mt-1 h-4 w-4 shrink-0 rounded border-2 border-input text-primary shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        className="mt-1 h-4 w-4 shrink-0 rounded border border-slate-300 text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                        <span className="flex items-center gap-2 text-sm font-medium text-foreground">
                           <Globe
-                            className="h-4 w-4 shrink-0 text-primary"
-                            strokeWidth={2.2}
+                            className="h-4 w-4 shrink-0 text-slate-500"
+                            strokeWidth={2}
                             aria-hidden
                           />
                           Website
                         </span>
                         <span
-                          className="mt-0.5 block pl-6 text-xs font-medium text-primary tabular-nums"
+                          className="mt-0.5 block pl-6 text-xs text-slate-500 tabular-nums"
                           title={WEBSITE_HREF}
                         >
                           {WEBSITE_DISPLAY}
@@ -1363,28 +1192,28 @@ export default function PriceStickersPage() {
                     </label>
                     <label
                       className={cn(
-                        'flex cursor-pointer items-start gap-3 rounded-lg border border-transparent p-1.5 -m-1.5 transition-colors',
-                        'hover:border-border hover:bg-background/80 dark:hover:bg-background/20',
-                        'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/30 has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-background',
+                        'flex cursor-pointer items-start gap-3 rounded-md p-1.5 -m-1.5 transition-colors',
+                        'hover:bg-slate-50 dark:hover:bg-slate-900/40',
+                        'has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-slate-300 has-[:focus-visible]:ring-offset-2',
                       )}
                     >
                       <input
                         type="checkbox"
                         checked={showPhoneNumber}
                         onChange={(e) => setShowPhoneNumber(e.target.checked)}
-                        className="mt-1 h-4 w-4 shrink-0 rounded border-2 border-input text-primary shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        className="mt-1 h-4 w-4 shrink-0 rounded border border-slate-300 text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
                       />
                       <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                        <span className="flex items-center gap-2 text-sm font-medium text-foreground">
                           <Phone
-                            className="h-4 w-4 shrink-0 text-primary"
-                            strokeWidth={2.2}
+                            className="h-4 w-4 shrink-0 text-slate-500"
+                            strokeWidth={2}
                             aria-hidden
                           />
                           Phone
                         </span>
                         <span
-                          className="mt-0.5 block pl-6 text-xs font-medium text-primary tabular-nums"
+                          className="mt-0.5 block pl-6 text-xs text-slate-500 tabular-nums"
                           title={PHONE_HREF}
                         >
                           {PHONE_DISPLAY}
@@ -1502,6 +1331,12 @@ export default function PriceStickersPage() {
                     </span>
                     <span className="text-xs font-medium text-slate-500 bg-slate-100 dark:bg-slate-800/50 px-2.5 py-1 rounded-lg">
                       {activeLayout.count} per {isThermal ? 'row' : 'page'}
+                      {!isThermal && (
+                        <span className="text-slate-400">
+                          {' '}
+                          · {activeLayout.cols}×{activeLayout.rows}
+                        </span>
+                      )}
                     </span>
                     {!isThermal && roundStickers && (
                       <span className="inline-flex items-center gap-1 rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary">
@@ -1647,7 +1482,7 @@ export default function PriceStickersPage() {
             <DrawerTitle className="text-foreground">
               {isThermal
                 ? 'Thermal roll preview · 43×43 mm · 2 per row'
-                : `Full A4 preview · Urban Basket · ${pageOrientation === 'landscape' ? 'Landscape' : 'Portrait'}`}
+                : `Full A4 preview · ${pageOrientation === 'landscape' ? 'Landscape' : 'Portrait'}`}
             </DrawerTitle>
           </DrawerHeader>
           <div
