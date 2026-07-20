@@ -21,11 +21,33 @@ interface UseDepartmentEventsOptions {
   onPurchaseApproved?: (event: DeptEvent) => void;
   onPurchaseRejected?: (event: DeptEvent) => void;
   onPurchaseSubmitted?: (event: DeptEvent) => void;
+  /** Poll interval when realtime SSE/WS is unavailable (Vercel). Default 8s. */
+  pollIntervalMs?: number;
+}
+
+const POLL_EVENT: DeptEvent = {
+  type: "poll",
+  data: {},
+  timestamp: 0,
+};
+
+/** Vercel injects this; SSE/WebSocket upgrades are not viable on serverless. */
+function shouldPreferPolling(): boolean {
+  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_VERCEL_ENV) {
+    return true;
+  }
+  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_REALTIME_TRANSPORT === "poll") {
+    return true;
+  }
+  return false;
 }
 
 /**
- * Connect via WebSocket to receive real-time department/cashier events.
- * Sends auth handshake on connect: { type: 'auth', userId, businessId, role }
+ * Real-time department/cashier events.
+ *
+ * - Self-hosted Node: WebSocket, then SSE fallback (in-memory event bus).
+ * - Vercel / poll mode: short interval that re-invokes refresh callbacks only
+ *   (no toasts), avoiding the SSE reconnect → function-timeout → 5xx storm.
  */
 export function useDepartmentEvents(options: UseDepartmentEventsOptions) {
   const {
@@ -39,6 +61,7 @@ export function useDepartmentEvents(options: UseDepartmentEventsOptions) {
     onPurchaseApproved,
     onPurchaseRejected,
     onPurchaseSubmitted,
+    pollIntervalMs = 8000,
   } = options;
 
   const onForwardedRef = useRef(onForwarded);
@@ -59,9 +82,34 @@ export function useDepartmentEvents(options: UseDepartmentEventsOptions) {
     onPurchaseSubmittedRef.current = onPurchaseSubmitted;
   });
 
+  const runPollRefresh = useCallback(() => {
+    const event: DeptEvent = { ...POLL_EVENT, timestamp: Date.now() };
+    // Refresh only — never go through handleEvent (avoids toast spam).
+    // Pick one order callback so POS does not triple-fetch pending sales.
+    if (onQueueUpdateRef.current) {
+      onQueueUpdateRef.current(event);
+    } else if (onForwardedRef.current) {
+      onForwardedRef.current(event);
+    } else if (onLoadedRef.current) {
+      onLoadedRef.current(event);
+    } else {
+      onCompletedRef.current?.(event);
+    }
+
+    if (onPurchaseSubmittedRef.current) {
+      onPurchaseSubmittedRef.current(event);
+    } else if (onPurchaseApprovedRef.current) {
+      onPurchaseApprovedRef.current(event);
+    } else {
+      onPurchaseRejectedRef.current?.(event);
+    }
+  }, []);
+
   const handleEvent = useCallback(
     (event: DeptEvent) => {
-      if (event.type === "connected") return;
+      if (event.type === "connected" || event.type === "transport" || event.type === "poll") {
+        return;
+      }
 
       if (event.type === "order:forwarded") {
         if (role === "cashier" || role === "admin" || role === "owner") {
@@ -153,9 +201,36 @@ export function useDepartmentEvents(options: UseDepartmentEventsOptions) {
     if (!role || role === "superadmin") return;
 
     let cleanup: (() => void) | null = null;
+    let cancelled = false;
+
+    function startPolling(): () => void {
+      runPollRefresh();
+      const id = window.setInterval(() => {
+        if (!cancelled) runPollRefresh();
+      }, pollIntervalMs);
+      return () => window.clearInterval(id);
+    }
+
+    // Vercel / explicit poll: never open EventSource (reconnect storm → 5xx).
+    if (shouldPreferPolling()) {
+      cleanup = startPolling();
+      return () => {
+        cancelled = true;
+        cleanup?.();
+      };
+    }
+
     let tryWs = true;
+    let fallbackSSE = false;
+    let pollFallback: (() => void) | null = null;
+
+    function switchToPolling() {
+      if (pollFallback) return;
+      pollFallback = startPolling();
+    }
 
     function connect() {
+      if (cancelled) return;
       if (tryWs) {
         tryWs = false;
         tryWebSocket();
@@ -177,7 +252,6 @@ export function useDepartmentEvents(options: UseDepartmentEventsOptions) {
           if (!settled) {
             settled = true;
             ws.close();
-            // Fall back to SSE
             cleanup = connectSSE();
           }
         }, 2000);
@@ -197,7 +271,24 @@ export function useDepartmentEvents(options: UseDepartmentEventsOptions) {
 
         ws.onmessage = (e) => {
           try {
-            handleEvent(JSON.parse(e.data) as DeptEvent);
+            const event = JSON.parse(e.data) as DeptEvent;
+            if (
+              event.type === "transport" &&
+              event.data?.mode === "poll"
+            ) {
+              ws.close();
+              switchToPolling();
+              return;
+            }
+            if (
+              event.type === "connected" &&
+              event.data?.transport === "poll"
+            ) {
+              ws.close();
+              switchToPolling();
+              return;
+            }
+            handleEvent(event);
           } catch {
             /* ignore */
           }
@@ -205,8 +296,7 @@ export function useDepartmentEvents(options: UseDepartmentEventsOptions) {
 
         ws.onclose = () => {
           clearTimeout(failTimer);
-          if (settled && !fallbackSSE) {
-            // Reconnect via WebSocket after delay
+          if (settled && !fallbackSSE && !pollFallback) {
             setTimeout(() => {
               tryWs = true;
               connect();
@@ -233,21 +323,48 @@ export function useDepartmentEvents(options: UseDepartmentEventsOptions) {
       }
     }
 
-    let fallbackSSE = false;
     function connectSSE(): () => void {
       fallbackSSE = true;
+      let reconnectAttempts = 0;
+      const MAX_RECONNECTS = 3;
+
       const es = new EventSource("/api/department/events");
       es.onmessage = (e) => {
         try {
-          handleEvent(JSON.parse(e.data) as DeptEvent);
+          const event = JSON.parse(e.data) as DeptEvent;
+          if (
+            event.type === "transport" &&
+            event.data?.mode === "poll"
+          ) {
+            es.close();
+            switchToPolling();
+            return;
+          }
+          if (
+            event.type === "connected" &&
+            event.data?.transport === "poll"
+          ) {
+            es.close();
+            switchToPolling();
+            return;
+          }
+          reconnectAttempts = 0;
+          handleEvent(event);
         } catch {
           /* ignore */
         }
       };
       es.onerror = () => {
         es.close();
+        reconnectAttempts += 1;
+        if (reconnectAttempts > MAX_RECONNECTS) {
+          switchToPolling();
+          return;
+        }
         setTimeout(() => {
-          cleanup = connectSSE();
+          if (!cancelled && !pollFallback) {
+            cleanup = connectSSE();
+          }
         }, 3000);
       };
       return () => es.close();
@@ -256,7 +373,9 @@ export function useDepartmentEvents(options: UseDepartmentEventsOptions) {
     connect();
 
     return () => {
+      cancelled = true;
       cleanup?.();
+      pollFallback?.();
     };
-  }, [role, userId, businessId, handleEvent]);
+  }, [role, userId, businessId, handleEvent, runPollRefresh, pollIntervalMs]);
 }
