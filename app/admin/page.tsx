@@ -13,6 +13,7 @@ import { useDashboardActions } from "@/lib/hooks/use-dashboard-actions";
 import { getShopType } from "@/lib/utils/shop-type";
 
 import { DashboardHeader } from "@/components/admin/dashboard/DashboardHeader";
+import { MigrationNotice } from "@/components/admin/dashboard/MigrationNotice";
 import { ExpiryWarnings } from "@/components/admin/dashboard/ExpiryWarnings";
 import { NotificationPrompt } from "@/components/admin/dashboard/NotificationPrompt";
 import { OpenPosCard } from "@/components/admin/dashboard/OpenPosCard";
@@ -90,6 +91,8 @@ export default function AdminDashboardPage() {
             shopType={shopType}
             onShopTypeChange={handleShopTypeChange}
           />
+
+          <MigrationNotice />
 
           <OpenPosCard />
 
