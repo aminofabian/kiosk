@@ -46,6 +46,9 @@ export async function GET(request: NextRequest) {
     const kind = (request.nextUrl.searchParams.get("kind") || "items").trim() as Kind;
     const branchName =
       request.nextUrl.searchParams.get("branchName")?.trim() || "Main";
+    // Default false: Palmart businesses that adopted the global catalog already own many barcodes.
+    const includeBarcodes =
+      request.nextUrl.searchParams.get("includeBarcodes") === "true";
 
     if (kind !== "items" && kind !== "suppliers" && kind !== "opening-stock") {
       return jsonResponse(
@@ -87,7 +90,9 @@ export async function GET(request: NextRequest) {
       ).map((r) => r.parent_item_id),
     );
 
-    const { csv: itemsCsv, skuByItemId } = buildItemsCsv(items, parentIdsWithChildren);
+    const { csv: itemsCsv, skuByItemId } = buildItemsCsv(items, parentIdsWithChildren, {
+      includeBarcodes,
+    });
 
     if (kind === "items") {
       return csvResponse("palmart-items.csv", itemsCsv);

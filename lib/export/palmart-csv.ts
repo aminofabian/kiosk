@@ -88,16 +88,20 @@ export function mapItemTypeKey(itemType: string | null | undefined): string {
 }
 
 /**
- * Stable unique SKU for Palmart. Prefer product_code, then barcode, then IMP-{id}
- * (Palmart legacy buying-price matching understands IMP-<uuid>).
+ * Stable unique SKU for Palmart.
+ * Always use IMP-{id} so:
+ * - sku is never blank
+ * - we never put a barcode in the sku column (barcode stays in barcode)
+ * - Palmart legacy buying-price matching understands IMP-<uuid>
+ * Prefer a non-empty product_code only when it is longer than 5 chars (short codes collide).
  */
 export function resolveSku(
   item: Pick<KioskItemRow, "id" | "product_code" | "barcode">,
   used: Set<string>,
 ): string {
+  const productCode = (item.product_code ?? "").trim();
   const candidates = [
-    (item.product_code ?? "").trim(),
-    (item.barcode ?? "").trim(),
+    productCode.length > 5 ? productCode : "",
     `IMP-${item.id}`,
   ].filter(Boolean);
 
@@ -130,8 +134,9 @@ export function rowsToCsv(headers: readonly string[], rows: Array<Array<string |
     headers.join(","),
     ...rows.map((row) => row.map(escapeCsvCell).join(",")),
   ];
-  // UTF-8 BOM helps Excel keep leading zeros / encoding
-  return `\uFEFF${lines.join("\n")}\n`;
+  // No UTF-8 BOM: Palmart's CSV reader does not strip U+FEFF, so a BOM turns the
+  // first header into "\uFEFFsku" and every row fails with "sku is required".
+  return `${lines.join("\n")}\n`;
 }
 
 function plainNumber(n: number, maxDecimals = 4): string {
@@ -144,7 +149,9 @@ function plainNumber(n: number, maxDecimals = 4): string {
 export function buildItemsCsv(
   items: KioskItemRow[],
   parentIdsWithChildren: Set<string>,
+  opts?: { includeBarcodes?: boolean },
 ): { csv: string; skuByItemId: Map<string, string>; rowCount: number } {
+  const includeBarcodes = opts?.includeBarcodes === true;
   const usedSkus = new Set<string>();
   const skuByItemId = new Map<string, string>();
   const rows: Array<Array<string | number | boolean | null | undefined>> = [];
@@ -170,7 +177,7 @@ export function buildItemsCsv(
       sku,
       name,
       mapItemTypeKey(item.item_type),
-      (item.barcode ?? "").trim(),
+      includeBarcodes ? (item.barcode ?? "").trim() : "",
       (item.unit_type || "piece").trim(),
       "true",
       "true",

@@ -8,10 +8,16 @@ import { toast } from "sonner";
 
 type ExportKind = "items" | "suppliers" | "opening-stock";
 
-async function downloadPalmartCsv(kind: ExportKind, branchName?: string) {
+async function downloadPalmartCsv(
+  kind: ExportKind,
+  opts: { branchName?: string; includeBarcodes?: boolean },
+) {
   const params = new URLSearchParams({ kind });
-  if (kind === "opening-stock" && branchName?.trim()) {
-    params.set("branchName", branchName.trim());
+  if (kind === "opening-stock" && opts.branchName?.trim()) {
+    params.set("branchName", opts.branchName.trim());
+  }
+  if (opts.includeBarcodes) {
+    params.set("includeBarcodes", "true");
   }
   const res = await fetch(`/api/export/palmart?${params.toString()}`, {
     cache: "no-store",
@@ -48,11 +54,13 @@ async function downloadPalmartCsv(kind: ExportKind, branchName?: string) {
 export function PalmartExportButtons({ compact = false }: { compact?: boolean }) {
   const [busy, setBusy] = useState<ExportKind | null>(null);
   const [branchName, setBranchName] = useState("Main");
+  // Off by default — if Palmart already has catalog products, barcodes collide.
+  const [includeBarcodes, setIncludeBarcodes] = useState(false);
 
   const run = async (kind: ExportKind) => {
     setBusy(kind);
     try {
-      await downloadPalmartCsv(kind, branchName);
+      await downloadPalmartCsv(kind, { branchName, includeBarcodes });
       toast.success(
         kind === "items"
           ? "Items CSV downloaded — upload it in Palmart Data Import"
@@ -101,23 +109,40 @@ export function PalmartExportButtons({ compact = false }: { compact?: boolean })
           </p>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
             CSVs match Data Import templates. Import order: Items → Suppliers → Opening stock.
-            Use the same branch name that exists in Palmart.
+            Re-download after this fix — older files had a BOM that made every sku look blank.
           </p>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[11px] text-slate-500 dark:text-slate-400 shrink-0">
-          Branch name
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <label className="text-[11px] text-slate-500 dark:text-slate-400 shrink-0">
+            Branch name
+          </label>
+          <Input
+            value={branchName}
+            onChange={(e) => setBranchName(e.target.value)}
+            className="h-7 w-36 text-[11px]"
+            placeholder="Main"
+            aria-label="Palmart branch name for opening stock"
+          />
+        </div>
+        <label className="inline-flex items-center gap-1.5 text-[11px] text-slate-600 dark:text-slate-300 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            className="rounded border-slate-300"
+            checked={includeBarcodes}
+            onChange={(e) => setIncludeBarcodes(e.target.checked)}
+          />
+          Include barcodes
         </label>
-        <Input
-          value={branchName}
-          onChange={(e) => setBranchName(e.target.value)}
-          className="h-7 w-36 text-[11px]"
-          placeholder="Main"
-          aria-label="Palmart branch name for opening stock"
-        />
       </div>
+      {!includeBarcodes ? (
+        <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-relaxed">
+          Barcodes are omitted by default so imports succeed when Palmart already has catalog
+          products (e.g. PETROL-10001-50G). Turn on only for an empty Palmart catalog.
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap gap-1.5">
         {(

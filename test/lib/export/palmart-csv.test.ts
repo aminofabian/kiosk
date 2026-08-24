@@ -8,7 +8,7 @@ import {
 } from "../../../lib/export/palmart-csv";
 
 describe("palmart-csv", () => {
-  it("items CSV header matches Palmart template", () => {
+  it("items CSV header matches Palmart template (no BOM)", () => {
     const { csv, rowCount } = buildItemsCsv(
       [
         {
@@ -29,15 +29,41 @@ describe("palmart-csv", () => {
       new Set(),
     );
 
-    const header = csv.replace(/^\uFEFF/, "").split("\n")[0];
+    expect(csv.startsWith("\uFEFF")).toBe(false);
+    const header = csv.split("\n")[0];
     expect(header).toBe(PALMART_ITEM_HEADERS.join(","));
     expect(header).toBe(
       "sku,name,item_type_key,barcode,unit_type,is_stocked,is_sellable,selling_price,reorder_level",
     );
     expect(rowCount).toBe(1);
-    expect(csv).toContain("161109724090");
+    expect(csv).toContain("IMP-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    expect(csv).not.toContain("161109724090"); // barcodes omitted by default
     expect(csv).toContain("goods");
     expect(csv).toContain("true,true,200,5");
+  });
+
+  it("includes barcodes when opted in", () => {
+    const { csv } = buildItemsCsv(
+      [
+        {
+          id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          name: "Soap",
+          variant_name: null,
+          parent_item_id: null,
+          product_code: null,
+          barcode: "6201100033736",
+          unit_type: "piece",
+          item_type: "retail",
+          current_stock: 1,
+          min_stock_level: null,
+          current_sell_price: 50,
+          active: 1,
+        },
+      ],
+      new Set(),
+      { includeBarcodes: true },
+    );
+    expect(csv).toContain("6201100033736");
   });
 
   it("skips parent group shells", () => {
@@ -96,14 +122,15 @@ describe("palmart-csv", () => {
         active: 1,
       },
     ]);
-    expect(suppliers.csv.replace(/^\uFEFF/, "").split("\n")[0]).toBe(
+    expect(suppliers.csv.split("\n")[0]).toBe(
       "name,code,supplier_type,vat_pin,status,notes",
     );
 
+    const itemId = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
     const items = buildItemsCsv(
       [
         {
-          id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          id: itemId,
           name: "Milk",
           variant_name: null,
           parent_item_id: null,
@@ -119,12 +146,14 @@ describe("palmart-csv", () => {
       ],
       new Set(),
     );
+    // Short product codes are not used as SKU (collide easily) → IMP-{id}
+    expect(items.skuByItemId.get(itemId)).toBe(`IMP-${itemId}`);
     const opening = buildOpeningStockCsv("Main", items.skuByItemId, [
-      { itemId: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", quantity: 10, unitCost: 60, sellPrice: 80 },
+      { itemId, quantity: 10, unitCost: 60, sellPrice: 80 },
     ]);
-    expect(opening.csv.replace(/^\uFEFF/, "").split("\n")[0]).toBe(
+    expect(opening.csv.split("\n")[0]).toBe(
       "branch_name,sku,quantity,unit_cost,notes",
     );
-    expect(opening.csv).toContain("Main,MLK,10,60,");
+    expect(opening.csv).toContain(`Main,IMP-${itemId},10,60,`);
   });
 });
