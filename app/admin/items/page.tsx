@@ -25,6 +25,7 @@ import { Label } from '@/components/ui/label';
 import { ItemForm } from '@/components/admin/ItemForm';
 import { CategoryForm } from '@/components/admin/CategoryForm';
 import { InlineEditableCell } from '@/components/admin/InlineEditableCell';
+import { PalmartExportButtons } from '@/components/admin/PalmartExportButtons';
 import type { Item, Category } from '@/lib/db/types';
 import type { UnitType, AdjustmentReason, ItemType } from '@/lib/constants';
 import { ADJUSTMENT_REASONS, isDiscreteUnitType } from '@/lib/constants';
@@ -806,6 +807,11 @@ export function ItemsManager() {
 
         {/* Content */}
         <div className="p-2 md:p-3 pb-16 md:pb-4 h-[calc(100dvh-3.25rem)]">
+          {!loading && !error ? (
+            <div className="mb-2">
+              <PalmartExportButtons />
+            </div>
+          ) : null}
           {loading ? (
             <div className="flex items-center justify-center h-48">
               <div className="text-center space-y-2">
