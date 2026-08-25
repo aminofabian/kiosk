@@ -70,12 +70,14 @@ export async function GET(request: NextRequest) {
     }
 
     const items = await query<KioskItemRow>(
-      `SELECT id, name, variant_name, parent_item_id, product_code, barcode,
-              unit_type, item_type, current_stock, min_stock_level,
-              current_sell_price, active
-       FROM items
-       WHERE business_id = ? AND active = 1
-       ORDER BY name ASC, variant_name ASC`,
+      `SELECT i.id, i.name, i.variant_name, i.parent_item_id, i.product_code, i.barcode,
+              i.unit_type, i.item_type, i.current_stock, i.min_stock_level,
+              i.expected_stock_level, i.current_sell_price, i.active,
+              c.name AS category_name
+       FROM items i
+       LEFT JOIN categories c ON c.id = i.category_id
+       WHERE i.business_id = ? AND i.active = 1
+       ORDER BY i.name ASC, i.variant_name ASC`,
       [auth.businessId],
     );
 
@@ -90,15 +92,7 @@ export async function GET(request: NextRequest) {
       ).map((r) => r.parent_item_id),
     );
 
-    const { csv: itemsCsv, skuByItemId } = buildItemsCsv(items, parentIdsWithChildren, {
-      includeBarcodes,
-    });
-
-    if (kind === "items") {
-      return csvResponse("palmart-items.csv", itemsCsv);
-    }
-
-    // opening-stock: latest buy price per item from inventory batches
+    // Latest buy price per item (used for items.buying_price and opening-stock.unit_cost)
     const costRows = await query<{ item_id: string; buy_price_per_unit: number }>(
       `SELECT ib.item_id, ib.buy_price_per_unit
        FROM inventory_batches ib
@@ -111,9 +105,18 @@ export async function GET(request: NextRequest) {
        WHERE ib.business_id = ?`,
       [auth.businessId, auth.businessId],
     );
-    const costByItem = new Map(
+    const buyingPriceByItemId = new Map(
       costRows.map((r) => [r.item_id, r.buy_price_per_unit] as const),
     );
+
+    const { csv: itemsCsv, skuByItemId } = buildItemsCsv(items, parentIdsWithChildren, {
+      includeBarcodes,
+      buyingPriceByItemId,
+    });
+
+    if (kind === "items") {
+      return csvResponse("palmart-items.csv", itemsCsv);
+    }
 
     const stockSource = items
       .filter((i) => i.active === 1 && i.current_stock > 0)
@@ -121,7 +124,7 @@ export async function GET(request: NextRequest) {
       .map((i) => ({
         itemId: i.id,
         quantity: i.current_stock,
-        unitCost: costByItem.get(i.id) ?? null,
+        unitCost: buyingPriceByItemId.get(i.id) ?? null,
         sellPrice: i.current_sell_price,
       }));
 

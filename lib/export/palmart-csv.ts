@@ -1,6 +1,8 @@
 /**
  * Build CSVs that match Palmart (kiosk.ke) Data Import templates:
- *   items → sku,name,item_type_key,barcode,unit_type,is_stocked,is_sellable,selling_price,reorder_level
+ *   items → sku,name,item_type_key,barcode,unit_type,is_stocked,is_sellable,
+ *           category_name,brand,size,buying_price,selling_price,on_hand,
+ *           min_stock_level,reorder_level
  *   suppliers → name,code,supplier_type,vat_pin,status,notes
  *   opening-stock → branch_name,sku,quantity,unit_cost,notes
  */
@@ -15,7 +17,13 @@ export const PALMART_ITEM_HEADERS = [
   "unit_type",
   "is_stocked",
   "is_sellable",
+  "category_name",
+  "brand",
+  "size",
+  "buying_price",
   "selling_price",
+  "on_hand",
+  "min_stock_level",
   "reorder_level",
 ] as const;
 
@@ -66,7 +74,10 @@ export type KioskItemRow = {
   item_type: string;
   current_stock: number;
   min_stock_level: number | null;
+  /** Par / target restock level → Palmart reorder_level */
+  expected_stock_level?: number | null;
   current_sell_price: number;
+  category_name?: string | null;
   active: number;
 };
 
@@ -145,13 +156,23 @@ function plainNumber(n: number, maxDecimals = 4): string {
   return String(rounded);
 }
 
+function optionalQty(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n) || n < 0) return "";
+  return plainNumber(n, 4);
+}
+
 /** Sellable catalog rows only (variants + standalones; skip parent group shells). */
 export function buildItemsCsv(
   items: KioskItemRow[],
   parentIdsWithChildren: Set<string>,
-  opts?: { includeBarcodes?: boolean },
+  opts?: {
+    includeBarcodes?: boolean;
+    /** Latest buy/cost price by item id (from inventory batches). */
+    buyingPriceByItemId?: Map<string, number>;
+  },
 ): { csv: string; skuByItemId: Map<string, string>; rowCount: number } {
   const includeBarcodes = opts?.includeBarcodes === true;
+  const buyingPriceByItemId = opts?.buyingPriceByItemId;
   const usedSkus = new Set<string>();
   const skuByItemId = new Map<string, string>();
   const rows: Array<Array<string | number | boolean | null | undefined>> = [];
@@ -167,11 +188,20 @@ export function buildItemsCsv(
     const sku = resolveSku(item, usedSkus);
     skuByItemId.set(item.id, sku);
     const name = getItemDisplayName(item.name, item.variant_name);
-    const sell = item.current_sell_price > 0 ? plainNumber(item.current_sell_price, 2) : "";
+    const sell =
+      item.current_sell_price > 0 ? plainNumber(item.current_sell_price, 2) : "";
+    const buyRaw = buyingPriceByItemId?.get(item.id);
+    const buy =
+      buyRaw != null && buyRaw > 0 ? plainNumber(buyRaw, 2) : "";
+    const minStock = optionalQty(item.min_stock_level);
+    // Palmart reorder_level ≈ kiosk expected (par) level; fall back to min
     const reorder =
-      item.min_stock_level != null && item.min_stock_level >= 0
-        ? plainNumber(item.min_stock_level, 4)
+      optionalQty(item.expected_stock_level) || minStock;
+    const onHand =
+      Number.isFinite(item.current_stock) && item.current_stock >= 0
+        ? plainNumber(item.current_stock, 4)
         : "";
+    const size = (item.variant_name ?? "").trim();
 
     rows.push([
       sku,
@@ -181,7 +211,13 @@ export function buildItemsCsv(
       (item.unit_type || "piece").trim(),
       "true",
       "true",
+      (item.category_name ?? "").trim(),
+      "", // brand — not tracked in kiosk
+      size,
+      buy,
       sell,
+      onHand,
+      minStock,
       reorder,
     ]);
   }

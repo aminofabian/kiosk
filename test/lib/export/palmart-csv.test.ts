@@ -20,26 +20,36 @@ describe("palmart-csv", () => {
           barcode: "161109724090",
           unit_type: "piece",
           item_type: "retail",
-          current_stock: 1,
+          current_stock: 12,
           min_stock_level: 5,
+          expected_stock_level: 20,
           current_sell_price: 200,
+          category_name: "Cleaning",
           active: 1,
         },
       ],
       new Set(),
+      {
+        buyingPriceByItemId: new Map([
+          ["aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", 150],
+        ]),
+      },
     );
 
     expect(csv.startsWith("\uFEFF")).toBe(false);
     const header = csv.split("\n")[0];
     expect(header).toBe(PALMART_ITEM_HEADERS.join(","));
     expect(header).toBe(
-      "sku,name,item_type_key,barcode,unit_type,is_stocked,is_sellable,selling_price,reorder_level",
+      "sku,name,item_type_key,barcode,unit_type,is_stocked,is_sellable,category_name,brand,size,buying_price,selling_price,on_hand,min_stock_level,reorder_level",
     );
     expect(rowCount).toBe(1);
     expect(csv).toContain("IMP-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     expect(csv).not.toContain("161109724090"); // barcodes omitted by default
     expect(csv).toContain("goods");
-    expect(csv).toContain("true,true,200,5");
+    expect(csv).toContain("Cleaning");
+    expect(csv).toContain("500gm");
+    // buying, selling, on_hand, min, reorder
+    expect(csv).toContain("true,true,Cleaning,,500gm,150,200,12,5,20");
   });
 
   it("includes barcodes when opted in", () => {
@@ -110,6 +120,31 @@ describe("palmart-csv", () => {
     expect(mapItemTypeKey("retail")).toBe("goods");
     expect(mapItemTypeKey("grocery")).toBe("goods");
     expect(mapItemTypeKey("")).toBe("goods");
+  });
+
+  it("falls back reorder_level to min_stock_level when expected is unset", () => {
+    const { csv } = buildItemsCsv(
+      [
+        {
+          id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+          name: "Rice",
+          variant_name: null,
+          parent_item_id: null,
+          product_code: null,
+          barcode: null,
+          unit_type: "kg",
+          item_type: "grocery",
+          current_stock: 0,
+          min_stock_level: 8,
+          expected_stock_level: null,
+          current_sell_price: 120,
+          active: 1,
+        },
+      ],
+      new Set(),
+    );
+    // …,selling,on_hand,min,reorder → 120,0,8,8
+    expect(csv).toContain(",120,0,8,8");
   });
 
   it("suppliers and opening stock headers match templates", () => {

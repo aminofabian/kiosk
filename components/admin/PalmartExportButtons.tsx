@@ -108,8 +108,9 @@ export function PalmartExportButtons({ compact = false }: { compact?: boolean })
             Export for Palmart (kiosk.ke)
           </p>
           <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
-            CSVs match Data Import templates. Import order: Items → Suppliers → Opening stock.
-            Re-download after this fix — older files had a BOM that made every sku look blank.
+            CSVs match Data Import templates (prices, on-hand, min/reorder included).
+            Import order: Items → Suppliers → Opening stock (optional if on_hand is already in Items).
+            Re-download after this update so the new columns are present.
           </p>
         </div>
       </div>
