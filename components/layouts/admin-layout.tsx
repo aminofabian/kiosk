@@ -7,6 +7,7 @@ import { useCurrentUser } from '@/lib/hooks/use-current-user';
 import { signOut } from 'next-auth/react';
 import { LogOut } from 'lucide-react';
 import { InstallApp } from '@/components/InstallApp';
+import { SupportChat } from '@/components/support/SupportChatDrawer';
 import { storeUserRole, clearUserRole } from '@/lib/utils/user-role-storage';
 import Link from 'next/link';
 
@@ -95,6 +96,9 @@ export function AdminLayout({ children, sidebar }: AdminLayoutProps) {
       
       {/* Install App Popup */}
       <InstallApp />
+
+      {/* Support chat — left drawer */}
+      <SupportChat />
     </div>
   );
 }

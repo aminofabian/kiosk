@@ -24,7 +24,6 @@ import { ShiftActionsBar } from "@/components/admin/dashboard/ShiftActionsBar";
 import { ShiftApprovalsCard } from "@/components/admin/dashboard/ShiftApprovalsCard";
 import { HelpFooter } from "@/components/admin/dashboard/HelpFooter";
 import { MobileActionFAB } from "@/components/admin/dashboard/MobileActionFAB";
-import { GuideDrawer } from "@/components/admin/dashboard/GuideDrawer";
 
 import { CategoryDrawer } from "@/components/admin/dashboard/drawers/CategoryDrawer";
 import { ItemDrawer } from "@/components/admin/dashboard/drawers/ItemDrawer";
@@ -63,7 +62,6 @@ export default function AdminDashboardPage() {
     useState(false);
   const [withdrawalDrawerOpen, setWithdrawalDrawerOpen] = useState(false);
   const [itemsDrawerOpen, setItemsDrawerOpen] = useState(false);
-  const [guideDrawerOpen, setGuideDrawerOpen] = useState(false);
 
   const { stats, salesByItemType, loading: statsLoading, refetch } =
     useDashboardStats(user?.role);
@@ -129,10 +127,7 @@ export default function AdminDashboardPage() {
 
           <QuickActionsPanel groups={buttonsBySection} />
 
-          <HelpFooter
-            isCashier={user?.role === "cashier"}
-            onOpenGuide={() => setGuideDrawerOpen(true)}
-          />
+          <HelpFooter isCashier={user?.role === "cashier"} />
         </div>
       </div>
 
@@ -182,8 +177,6 @@ export default function AdminDashboardPage() {
         onOpenChange={setItemsDrawerOpen}
         isMobile={isMobile}
       />
-      <GuideDrawer open={guideDrawerOpen} onOpenChange={setGuideDrawerOpen} />
-
       <MobileActionFAB
         isMobile={isMobile}
         setStockAdjustDrawerOpen={setStockAdjustDrawerOpen}
